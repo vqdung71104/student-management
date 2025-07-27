@@ -1,0 +1,63 @@
+services: 
+  mysql:
+    image: mysql:8.0
+    restart: always
+    container_name: mysql
+    hostname: mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: student_management
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: password
+    depends_on:
+      - mysql
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    hostname: minio
+    ports:
+      - "9000:9000" #For API request
+      - "9001:9001" #For Web UI    
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - file_base:/data        
+    command: server /data --console-address ":9001"
+
+  backend:
+    build: .
+    container_name: backend
+    hostname: backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=mysql://root:password@mysql:3306/student_management
+      - SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=50
+    depends_on:
+      - mysql
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  mysql_data:
+  file_base:
