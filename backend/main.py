@@ -1,14 +1,17 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from app.db.database import engine
+from app.db import database
+from app.routes import student_routes
+from app.routes import department_routes
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
-app = FastAPI(title="Student Management API", version="1.0.0")
+database.Base.metadata.create_all(bind=engine)
 
-# CORS middleware
+app = FastAPI(title="University API")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,14 +20,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(student_routes.router)
+app.include_router(department_routes.router)
+
 @app.get("/")
 def read_root():
-    return {"message": "Student Management API", "version": "1.0.0"}
-
-@app.get("/health")
-def health_check():
-    return {"status": "healthy", "database": "MySQL"}
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: str = None):
-    return {"item_id": item_id, "q": q}
+    return {"message": "Welcome to the Student Management API"}
