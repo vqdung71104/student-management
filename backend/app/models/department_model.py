@@ -5,8 +5,8 @@ from app.db.database import Base
 class Department(Base):
     __tablename__ = "departments"
 
-    id = Column(String, primary_key=True)
-    name = Column(String)
+    id = Column(String(50), primary_key=True)  # Added length
+    name = Column(String(255))  # Added length
 
     students = relationship("Student", back_populates="department")
     subjects = relationship("Subject", back_populates="department")
