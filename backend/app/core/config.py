@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from urllib.parse import quote_plus
 
 load_dotenv()
 
@@ -9,16 +10,18 @@ class Settings:
 
     # Lấy thông tin từ .env
     MYSQL_USER: str = os.getenv("MYSQL_USER", "root")
-    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "123456")
-    MYSQL_HOST: str = os.getenv("MYSQL_HOST", "localhost")
+    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "Cuong@21092004")
+    MYSQL_HOST: str = os.getenv("MYSQL_HOST", "127.0.0.1")
     MYSQL_PORT: str = os.getenv("MYSQL_PORT", "3306")
-    MYSQL_DB: str = os.getenv("MYSQL_DB", "studentmanagemant")
+    MYSQL_DB: str = os.getenv("MYSQL_DB", "student_management")
 
     # Tạo DATABASE_URL động
     @property
     def DATABASE_URL(self) -> str:
+        # URL encode the password to handle special characters
+        encoded_password = quote_plus(self.MYSQL_PASSWORD)
         return (
-            f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}"
+            f"mysql+pymysql://{self.MYSQL_USER}:{encoded_password}"
             f"@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DB}"
         )
 

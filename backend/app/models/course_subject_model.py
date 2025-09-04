@@ -5,10 +5,10 @@ from app.db.database import Base
 class CourseSubject(Base):
     __tablename__ = "course_subjects"
 
-    id = Column(String, primary_key=True)
-    subject_id = Column(String, ForeignKey("subjects.id"))
-    course_id = Column(String, ForeignKey("courses.id"))
-    subject_name = Column(String)
+    id = Column(String(50), primary_key=True)
+    subject_id = Column(String(50), ForeignKey("subjects.id"))
+    course_id = Column(String(50), ForeignKey("courses.id"))
+    subject_name = Column(String(255))
 
     subject = relationship("Subject", back_populates="course_subjects")
     course = relationship("Course", back_populates="course_subjects")

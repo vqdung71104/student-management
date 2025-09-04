@@ -5,11 +5,11 @@ from app.db.database import Base
 class SubjectRegister(Base):
     __tablename__ = "subject_registers"
 
-    id = Column(String, primary_key=True)
-    student_id = Column(String, ForeignKey("students.id"))
-    subject_name = Column(String)
+    id = Column(String(50), primary_key=True)
+    student_id = Column(String(50), ForeignKey("students.id"))
+    subject_name = Column(String(255))
     credits = Column(Integer)
-    subject_id = Column(String, ForeignKey("subjects.id"))
+    subject_id = Column(String(50), ForeignKey("subjects.id"))
 
     student = relationship("Student", back_populates="subject_registers")
     subject = relationship("Subject", back_populates="subject_registers")
