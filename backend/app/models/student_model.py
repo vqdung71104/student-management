@@ -1,11 +1,12 @@
 from sqlalchemy import Column, String, Integer, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.database import Base
+from app.models.associations import student_course_table
 
 class Student(Base):
     __tablename__ = "students"
 
-    id = Column(String(50), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String(50), unique=True)
     student_name = Column(String(255))
     enrolled_year = Column(Integer)
@@ -17,7 +18,7 @@ class Student(Base):
     email = Column(String(255), unique=True)
     newest_semester = Column(String(20))
     cpa = Column(Float)
-    failed_course_number = Column(Integer)
+    failed_courses_number = Column(Integer)
     courses_number = Column(Integer)
     year_level = Column(String(20))
     warning_level = Column(String(50))
@@ -26,6 +27,7 @@ class Student(Base):
 
     department = relationship("Department", back_populates="students")
     learned_subjects = relationship("LearnedSubject", back_populates="student")
-    semester_gpas = relationship("SemesterGPA", back_populates="student")
+    semester_gpa = relationship("SemesterGPA", back_populates="student")
     class_registers = relationship("ClassRegister", back_populates="student")
     subject_registers = relationship("SubjectRegister", back_populates="student")
+    enrolled_courses = relationship("Course", secondary=student_course_table, back_populates="enrolled_students")
