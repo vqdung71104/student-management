@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.__init__ import Student, LearnedSubject, SemesterGPA
+from app.models.__init__ import Student, LearnedSubject, SemesterGPA, Course
 from app.schemas.student_schemas import StudentCreate, StudentUpdate, StudentResponse
 
 router = APIRouter(prefix="/students", tags=["Students"])
@@ -9,10 +9,17 @@ router = APIRouter(prefix="/students", tags=["Students"])
 # ✅ Create student
 @router.post("/", response_model=StudentResponse)
 def create_student(student: StudentCreate, db: Session = Depends(get_db)):
-    db_student = Student(**student.dict(exclude={"learned_subjects", "semester_gpa"}))
+    db_student = Student(**student.dict(exclude={"learned_subjects", "semester_gpa", "enrolled_courses"}))
     db.add(db_student)
     db.commit()
     db.refresh(db_student)
+
+    # Add enrolled_courses
+    if student.enrolled_courses:
+        for course_id in student.enrolled_courses:
+            course = db.query(Course).filter(Course.id == course_id).first()
+            if course:
+                db_student.enrolled_courses.append(course)
 
     # Add learned_subjects
     if student.learned_subjects:
