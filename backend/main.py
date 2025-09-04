@@ -4,6 +4,14 @@ from app.db.database import engine
 from app.db import database
 from app.routes import student_routes
 from app.routes import department_routes
+from app.routes import class_routes
+from app.routes import class_register_routes
+from app.routes import course_routes
+from app.routes import course_subject_routes
+from app.routes import learned_subject_routes
+from app.routes import semester_gpa_routes
+from app.routes import subject_routes
+from app.routes import subject_register_routes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,6 +30,14 @@ app.add_middleware(
 
 app.include_router(student_routes.router)
 app.include_router(department_routes.router)
+app.include_router(class_routes.router)
+app.include_router(class_register_routes.router)
+app.include_router(course_routes.router)
+app.include_router(course_subject_routes.router)
+app.include_router(learned_subject_routes.router)
+app.include_router(semester_gpa_routes.router)
+app.include_router(subject_routes.router)
+app.include_router(subject_register_routes.router)
 
 @app.get("/")
 def read_root():

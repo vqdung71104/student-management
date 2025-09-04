@@ -1,12 +1,12 @@
 # backend/app/models/associations.py
-from sqlalchemy import Table, Column, ForeignKey
+from sqlalchemy import Table, Column, Integer, String, ForeignKey
 from app.db.database import Base
 
 student_course_table = Table(
     "student_course",
     Base.metadata,
-    Column("student_id", ForeignKey("students.student_id"), primary_key=True),
-    Column("course_id", ForeignKey("courses.course_id"), primary_key=True)
+    Column("student_id", Integer, ForeignKey("students.id"), primary_key=True),
+    Column("course_id", String(50), ForeignKey("courses.id"), primary_key=True)
 )
 
 subject_condition_table = Table(

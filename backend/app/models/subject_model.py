@@ -5,15 +5,15 @@ from app.db.database import Base
 class Subject(Base):
     __tablename__ = "subjects"
 
-    id = Column(String(50), primary_key=True)
+    subject_id = Column(String(50), primary_key=True)
     department_id = Column(String(50), ForeignKey("departments.id"))
-    subject_id = Column(String(50), unique=True)
     subject_name = Column(String(255))
     duration = Column(Integer)
     credits = Column(Integer)
     tuition_fee = Column(Float)
     english_subject_name = Column(String(255))
     weight = Column(Float)
+    conditional_subjects = Column(String(255), nullable=True)
 
     department = relationship("Department", back_populates="subjects")
     classes = relationship("Class", back_populates="subject")

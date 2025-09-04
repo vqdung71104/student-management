@@ -65,6 +65,7 @@ class StudentUpdate(BaseModel):
     semester_gpa: Optional[List[SemesterGPASchema]] = None
 
 class StudentResponse(StudentBase):
+    id: int
     enrolled_courses: List[CourseResponse]
     department: DepartmentResponse
     learned_subjects: List[LearnedSubjectSchema]
