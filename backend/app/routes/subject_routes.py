@@ -15,6 +15,8 @@ def create_subject(subject_data: SubjectCreate, db: Session = Depends(get_db)):
     if existing_subject:
         raise HTTPException(status_code=400, detail="Subject ID already exists")
     
+    
+    
     db_subject = Subject(**subject_data.dict())
     db.add(db_subject)
     db.commit()
