@@ -18,11 +18,9 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
     else:
         class_dict["linked_class_ids"] = ""
     
-    # Convert study_week list to comma-separated string
-    if class_dict["study_week"]:
-        class_dict["study_week"] = ",".join(map(str, class_dict["study_week"]))
-    else:
-        class_dict["study_week"] = ""
+    # ❌ XÓA DÒNG NÀY - không cần convert enum nữa
+    # if class_dict["class_type"]:
+    #     class_dict["class_type"] = class_dict["class_type"].value
     
     db_class = Class(**class_dict)
     db.add(db_class)
@@ -57,9 +55,9 @@ def update_class(class_id: str, class_update: ClassUpdate, db: Session = Depends
         if key == "linked_class_ids" and value is not None:
             if isinstance(value, list):
                 value = ",".join(value) if value else ""
-        elif key == "study_week" and value is not None:
-            if isinstance(value, list):
-                value = ",".join(map(str, value)) if value else ""
+        # ❌ XÓA PHẦN NÀY - không cần convert enum nữa
+        # elif key == "class_type" and value is not None:
+        #     value = value.value
         
         setattr(class_obj, key, value)
 
