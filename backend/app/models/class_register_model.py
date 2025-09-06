@@ -10,7 +10,7 @@ class ClassRegister(Base):
     register_type = Column(String(255))
     register_status = Column(String(255))
     student_id = Column(Integer, ForeignKey("students.id"))
-    class_id = Column(String(50), ForeignKey("classes.id"))
+    class_id = Column(Integer, ForeignKey("classes.id"))
 
     student = relationship("Student", back_populates="class_registers")
     class_info_rel = relationship("Class", back_populates="class_registers")

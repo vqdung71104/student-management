@@ -26,10 +26,8 @@ class SubjectUpdate(BaseModel):
     department_id: Optional[str] = Field(None, max_length=50)
 
 class SubjectResponse(SubjectBase):
+    id: int
     department: DepartmentResponse
-
-    class Config:
-        from_attributes = True
 
     class Config:
         from_attributes = True

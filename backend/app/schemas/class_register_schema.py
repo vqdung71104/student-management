@@ -9,7 +9,7 @@ class ClassRegisterBase(BaseModel):
 
 class ClassRegisterCreate(ClassRegisterBase):
     student_id: int
-    class_id: str
+    class_id: int
 
 class ClassRegisterUpdate(BaseModel):
     class_info: Optional[str] = None
@@ -19,7 +19,7 @@ class ClassRegisterUpdate(BaseModel):
 class ClassRegisterResponse(ClassRegisterBase):
     id: int
     student_id: int
-    class_id: str
+    class_id: int
 
     class Config:
         from_attributes = True

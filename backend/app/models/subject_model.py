@@ -4,8 +4,9 @@ from app.db.database import Base
 
 class Subject(Base):
     __tablename__ = "subjects"
-
-    subject_id = Column(String(50), primary_key=True)
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    subject_id = Column(String(50), unique=True, nullable=False)
     department_id = Column(String(50), ForeignKey("departments.id"))
     subject_name = Column(String(255))
     duration = Column(Integer)

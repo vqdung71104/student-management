@@ -6,33 +6,21 @@ from app.schemas.student_schemas import StudentCreate, StudentUpdate, StudentRes
 
 router = APIRouter(prefix="/students", tags=["Students"])
 
+
 # ✅ Create student
 @router.post("/", response_model=StudentResponse)
 def create_student(student: StudentCreate, db: Session = Depends(get_db)):
-    db_student = Student(**student.dict(exclude={"learned_subjects", "semester_gpa", "enrolled_courses"}))
+    # Check trùng student_id
+    if db.query(Student).filter(Student.student_id == student.student_id).first():
+        raise HTTPException(status_code=400, detail="student_id đã tồn tại")
+
+    # Auto-generate email
+    email = student.generate_email()
+    if db.query(Student).filter(Student.email == email).first():
+        raise HTTPException(status_code=400, detail="Email đã tồn tại")
+
+    db_student = Student(**student.dict(), email=email)
     db.add(db_student)
-    db.commit()
-    db.refresh(db_student)
-
-    # Add enrolled_courses
-    if student.enrolled_courses:
-        for course_id in student.enrolled_courses:
-            course = db.query(Course).filter(Course.id == course_id).first()
-            if course:
-                db_student.enrolled_courses.append(course)
-
-    # Add learned_subjects
-    if student.learned_subjects:
-        for subj in student.learned_subjects:
-            db_subj = LearnedSubject(**subj.dict(), student_id=db_student.id)
-            db.add(db_subj)
-
-    # Add semester_gpa
-    if student.semester_gpa:
-        for gpa in student.semester_gpa:
-            db_gpa = SemesterGPA(**gpa.dict(), student_id=db_student.id)
-            db.add(db_gpa)
-
     db.commit()
     db.refresh(db_student)
     return db_student
@@ -44,50 +32,44 @@ def get_students(db: Session = Depends(get_db)):
     return db.query(Student).all()
 
 
-# ✅ Get student by ID
+# ✅ Get student by id
 @router.get("/{student_id}", response_model=StudentResponse)
-def get_student(student_id: int, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.id == student_id).first()
+def get_student(student_id: str, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.student_id == student_id).first()
     if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
     return student
 
 
 # ✅ Update student
 @router.put("/{student_id}", response_model=StudentResponse)
-def update_student(student_id: int, student_update: StudentUpdate, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
+def update_student(student_id: str, student_update: StudentUpdate, db: Session = Depends(get_db)):
+    db_student = db.query(Student).filter(Student.student_id == student_id).first()
+    if not db_student:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
 
-    for key, value in student_update.dict(exclude_unset=True, exclude={"learned_subjects", "semester_gpa"}).items():
-        setattr(student, key, value)
+    update_data = student_update.dict(exclude_unset=True)
 
-    # Update learned_subjects if provided
-    if student_update.learned_subjects is not None:
-        db.query(LearnedSubject).filter(LearnedSubject.student_id == student.id).delete()
-        for subj in student_update.learned_subjects:
-            db_subj = LearnedSubject(**subj.dict(), student_id=student.id)
-            db.add(db_subj)
+    # Nếu có thay đổi student_name hoặc student_id -> regenerate email
+    if "student_name" in update_data or "student_id" in update_data:
+        tmp_student = StudentCreate(**{**db_student.__dict__, **update_data})
+        update_data["email"] = tmp_student.generate_email()
 
-    # Update semester_gpa if provided
-    if student_update.semester_gpa is not None:
-        db.query(SemesterGPA).filter(SemesterGPA.student_id == student.id).delete()
-        for gpa in student_update.semester_gpa:
-            db_gpa = SemesterGPA(**gpa.dict(), student_id=student.id)
-            db.add(db_gpa)
+    for key, value in update_data.items():
+        setattr(db_student, key, value)
 
     db.commit()
-    db.refresh(student)
-    return student
+    db.refresh(db_student)
+    return db_student
 
 
 # ✅ Delete student
 @router.delete("/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.id == student_id).first()
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    db.delete(student)
+def delete_student(student_id: str, db: Session = Depends(get_db)):
+    db_student = db.query(Student).filter(Student.student_id == student_id).first()
+    if not db_student:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
+
+    db.delete(db_student)
     db.commit()
-    return {"message": "Student deleted successfully"}
+    return {"detail": "Xóa sinh viên thành công"}

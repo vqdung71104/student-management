@@ -2,19 +2,22 @@ from typing import Optional
 from pydantic import BaseModel
 
 class CourseSubjectBase(BaseModel):
-    subject_name: str
+    pass
 
 class CourseSubjectCreate(CourseSubjectBase):
-    subject_id: str
-    course_id: str
+    subject_id: int  # Integer ID từ database
+    course_id: int
 
 class CourseSubjectUpdate(BaseModel):
-    subject_name: Optional[str] = None
+    subject_id: Optional[int] = None
+    course_id: Optional[int] = None
 
 class CourseSubjectResponse(CourseSubjectBase):
-    id: str
-    subject_id: str
-    course_id: str
+    id: int
+    course_id: int
+    subject_id: int
+    
+   
 
     class Config:
         from_attributes = True
