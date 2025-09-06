@@ -37,7 +37,7 @@ def get_students(db: Session = Depends(get_db)):
 def get_student(student_id: str, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.student_id == student_id).first()
     if not student:
-        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên") #không thấy sinh viên
     return student
 
 
