@@ -2,14 +2,12 @@ from pydantic import BaseModel, field_validator
 from typing import Optional
 from datetime import time, datetime
 from typing import List
-from sqlalchemy import Column, String, Integer, Time, ForeignKey
-
+from app.schemas.subject_schema import SubjectResponse
 
 class ClassBase(BaseModel):
-    id: str
+    class_id: str
     class_name: str
-    subject_id: str = None
-    linked_class_ids: Optional[list[str]] = None
+    linked_class_ids: Optional[List[str]] = None
     class_type: Optional[str] = None
     classroom: Optional[str] = None
     study_date: Optional[str] = None  # ví dụ: "Monday,Tuesday"
@@ -79,16 +77,25 @@ class ClassBase(BaseModel):
 
 
 class ClassCreate(ClassBase):
-    pass
+    subject_id: int  # ID của subject để tạo relationship
 
-
-class ClassUpdate(ClassBase):
-    pass
-
+class ClassUpdate(BaseModel):
+    class_id: Optional[str] = None
+    class_name: Optional[str] = None
+    linked_class_ids: Optional[List[str]] = None
+    class_type: Optional[str] = None
+    classroom: Optional[str] = None
+    study_date: Optional[str] = None
+    study_time_start: Optional[time] = None
+    study_time_end: Optional[time] = None
+    max_student_number: Optional[int] = None
+    teacher_name: Optional[str] = None
+    study_week: Optional[List[int]] = None
+    subject_id: Optional[int] = None
 
 class ClassResponse(ClassBase):
-    id: str
-    subject_id: Optional[str]
+    id: int
+    subject: SubjectResponse
 
     model_config = {
         "from_attributes": True  # tương đương orm_mode=True ở Pydantic v1

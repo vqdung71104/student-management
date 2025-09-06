@@ -15,7 +15,7 @@ class LearnedSubject(Base):
     letter_grade = Column(String(255))
     semester = Column(String(255))
     student_id = Column(Integer, ForeignKey("students.id"))
-    subject_id = Column(String(50), ForeignKey("subjects.subject_id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
 
     student = relationship("Student", back_populates="learned_subjects")
     subject = relationship("Subject", back_populates="learned_subjects")

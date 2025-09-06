@@ -30,16 +30,16 @@ def get_subjects(db: Session = Depends(get_db)):
 
 # ✅ Get subject by ID
 @router.get("/{subject_id}", response_model=SubjectResponse)
-def get_subject(subject_id: str, db: Session = Depends(get_db)):
-    subject = db.query(Subject).filter(Subject.subject_id == subject_id).first()
+def get_subject(subject_id: int, db: Session = Depends(get_db)):
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     return subject
 
 # ✅ Update subject
 @router.put("/{subject_id}", response_model=SubjectResponse)
-def update_subject(subject_id: str, subject_update: SubjectUpdate, db: Session = Depends(get_db)):
-    subject = db.query(Subject).filter(Subject.subject_id == subject_id).first()
+def update_subject(subject_id: int, subject_update: SubjectUpdate, db: Session = Depends(get_db)):
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
 
@@ -59,8 +59,8 @@ def update_subject(subject_id: str, subject_update: SubjectUpdate, db: Session =
 
 # ✅ Delete subject
 @router.delete("/{subject_id}")
-def delete_subject(subject_id: str, db: Session = Depends(get_db)):
-    subject = db.query(Subject).filter(Subject.subject_id == subject_id).first()
+def delete_subject(subject_id: int, db: Session = Depends(get_db)):
+    subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     db.delete(subject)

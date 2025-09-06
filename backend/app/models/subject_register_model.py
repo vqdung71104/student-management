@@ -9,7 +9,7 @@ class SubjectRegister(Base):
     student_id = Column(Integer, ForeignKey("students.id"))
     subject_name = Column(String(255))
     credits = Column(Integer)
-    subject_id = Column(String(50), ForeignKey("subjects.subject_id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
 
     student = relationship("Student", back_populates="subject_registers")
     subject = relationship("Subject", back_populates="subject_registers")

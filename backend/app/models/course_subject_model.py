@@ -1,13 +1,13 @@
-from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 
 class CourseSubject(Base):
     __tablename__ = "course_subjects"
 
-    id = Column(String(50), primary_key=True)
-    subject_id = Column(String(50), ForeignKey("subjects.subject_id"))
-    course_id = Column(String(50), ForeignKey("courses.id"))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+    course_id = Column(Integer, ForeignKey("courses.id"))
     subject_name = Column(String(255))
 
     subject = relationship("Subject", back_populates="course_subjects")
