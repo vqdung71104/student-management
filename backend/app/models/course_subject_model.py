@@ -8,7 +8,6 @@ class CourseSubject(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"))
     course_id = Column(Integer, ForeignKey("courses.id"))
-    subject_name = Column(String(255))
 
     subject = relationship("Subject", back_populates="course_subjects")
     course = relationship("Course", back_populates="course_subjects")

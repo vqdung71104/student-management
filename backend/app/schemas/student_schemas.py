@@ -1,13 +1,15 @@
 from pydantic import BaseModel, validator, EmailStr
 from typing import Optional
 import re
+import unicodedata
 
 
 class StudentBase(BaseModel):
-    student_id: str
+    
     student_name: str
-    course_id: str
     enrolled_year: int
+    student_id: str
+    course_id: int    
     training_level: str
     learning_status: str
     gender: str
@@ -37,7 +39,7 @@ class StudentBase(BaseModel):
 
     @validator("learning_status")
     def validate_learning_status(cls, v):
-        allowed = ["Đang học", "Thôi học", "Buộc thôi học"]
+        allowed = ["Đang học", "Bảo lưu", "Thôi học", "Buộc thôi học"]
         if v not in allowed:
             raise ValueError(f"learning_status chỉ được chọn {allowed}")
         return v
@@ -49,13 +51,34 @@ class StudentBase(BaseModel):
             raise ValueError(f"gender chỉ được chọn {allowed}")
         return v
 
+    @validator("year_level")
+    def validate_year_level(cls, v):
+        allowed = ["Trình độ năm 1", "Trình độ năm 2", "Trình độ năm 3", "Trình độ năm 4"]
+        if v not in allowed:
+            raise ValueError(f"year_level chỉ được chọn {allowed}")
+        return v
+    
+    @validator("warning_level")
+    def validate_warning_level(cls, v):
+        allowed = ["Cảnh cáo mức 0", "Cảnh cáo mức 1", "Cảnh cáo mức 2", "Cảnh cáo mức 3"]
+        if v not in allowed:
+            raise ValueError(f"warning_level chỉ được chọn {allowed}")
+        return v
+    
     @validator("student_name")
     def strip_spaces(cls, v):
         return " ".join(v.split())
+    
+    def remove_accents(self, text: str) -> str:
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', text)
+            if unicodedata.category(c) != 'Mn'
+        )
 
     def generate_email(self) -> str:
         """Tạo email từ tên + MSSV"""
-        name_parts = self.student_name.strip().split()
+        unaccented_name = self.remove_accents(self.student_name.strip())
+        name_parts = unaccented_name.split()
         last_name = name_parts[-1].lower()
         initials = "".join([w[0].lower() for w in name_parts[:-1]])
         mssv_suffix = self.student_id[2:]  # bỏ 2 số đầu
