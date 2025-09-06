@@ -35,7 +35,7 @@ def get_classes(db: Session = Depends(get_db)):
 
 # ✅ Get class by ID
 @router.get("/{class_id}", response_model=ClassResponse)
-def get_class(class_id: str, db: Session = Depends(get_db)):
+def get_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
         raise HTTPException(status_code=404, detail="Class not found")
@@ -43,7 +43,7 @@ def get_class(class_id: str, db: Session = Depends(get_db)):
 
 # ✅ Update class
 @router.put("/{class_id}", response_model=ClassResponse)
-def update_class(class_id: str, class_update: ClassUpdate, db: Session = Depends(get_db)):
+def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
         raise HTTPException(status_code=404, detail="Class not found")
@@ -67,7 +67,7 @@ def update_class(class_id: str, class_update: ClassUpdate, db: Session = Depends
 
 # ✅ Delete class
 @router.delete("/{class_id}")
-def delete_class(class_id: str, db: Session = Depends(get_db)):
+def delete_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
         raise HTTPException(status_code=404, detail="Class not found")

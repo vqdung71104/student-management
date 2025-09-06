@@ -1,6 +1,7 @@
 from typing import List, Optional
 from pydantic import BaseModel
 
+# Schema cho input/output đều dùng subject_id (string)
 class CourseSubjectSchema(BaseModel):
     subject_id: str
     subject_name: str
@@ -17,7 +18,8 @@ class CourseUpdate(BaseModel):
     subjects: Optional[List[CourseSubjectSchema]] = None
 
 class CourseResponse(CourseBase):
-    subjects: List[CourseSubjectSchema]
+    id: int
+    course_subjects: List[CourseSubjectSchema]
 
     class Config:
         from_attributes = True

@@ -9,8 +9,8 @@ from sqlalchemy.types import JSON
 class Class(Base):
     __tablename__ = "classes"
 
-    id = Column(String(50), primary_key=True)
-    subject_id = Column(String(50), ForeignKey("subjects.subject_id"))
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
     class_id = Column(String(255), unique=True)
     class_name = Column(String(255))
     linked_class_ids = Column(String(255))
