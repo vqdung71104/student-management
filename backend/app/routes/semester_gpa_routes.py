@@ -36,7 +36,7 @@ def update_semester_gpa(semester_gpa_id: int, semester_gpa_update: SemesterGPAUp
         raise HTTPException(status_code=404, detail="Semester GPA not found")
 
     for key, value in semester_gpa_update.dict(exclude_unset=True).items():
-        setattr(semester_gpa, key, value)
+        setattr(semester_gpa, key, value)  # Update the attribute
 
     db.commit()
     db.refresh(semester_gpa)
