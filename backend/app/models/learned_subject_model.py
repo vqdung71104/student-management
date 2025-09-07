@@ -10,7 +10,7 @@ class LearnedSubject(Base):
     credits = Column(Integer)
     final_score = Column(Float)
     midterm_score = Column(Float)
-    weight = Column(Float)
+    weight = Column(Float)  # Trọng số điểm cuối kỳ
     total_score = Column(Float)
     letter_grade = Column(String(255))
     semester = Column(String(255))

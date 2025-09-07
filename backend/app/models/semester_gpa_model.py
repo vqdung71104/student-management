@@ -8,6 +8,6 @@ class SemesterGPA(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     semester = Column(String(255))
     gpa = Column(Float)
-    student_id = Column(Integer, ForeignKey("students.id"))
+    student_id = Column(Integer, ForeignKey("students.id"))  # Foreign key to Student
 
     student = relationship("Student", back_populates="semester_gpa")
