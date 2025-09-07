@@ -18,7 +18,7 @@ def create_class_register(register_data: ClassRegisterCreate, db: Session = Depe
 # ✅ Get all class registers
 @router.get("/", response_model=list[ClassRegisterResponse])
 def get_class_registers(db: Session = Depends(get_db)):
-    return db.query(ClassRegister).all()
+    return db.query(ClassRegister).all() # Return all class registers
 
 # ✅ Get class register by ID
 @router.get("/{register_id}", response_model=ClassRegisterResponse)

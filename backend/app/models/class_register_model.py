@@ -1,3 +1,4 @@
+from typing import Optional
 from sqlalchemy import Column, String, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db.database import Base
@@ -7,6 +8,7 @@ class ClassRegister(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     class_info = Column(String(255))
+    requirement = Column(String(255), nullable=True)
     register_type = Column(String(255))
     register_status = Column(String(255))
     student_id = Column(Integer, ForeignKey("students.id"))
