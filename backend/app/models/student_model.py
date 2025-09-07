@@ -21,7 +21,9 @@ class Student(Base):
     cpa = Column(Float, default=0.0)
     failed_subjects_number = Column(Integer, default=0)
     study_subjects_number = Column(Integer, default=0)
-    year_level = Column(String(20),default="Trình độ năm 1")  #enum-like
+    total_learned_credits = Column(Integer, default=0)
+    total_failed_credits = Column(Integer, default=0)
+    year_level = Column(String(20), default="Trình độ năm 1")  #enum-like
     warning_level = Column(String(50), default="Cảnh cáo mức 0")  #enum-like
     level_3_warning_number = Column(Integer, default=0)
     department_id = Column(String(50), ForeignKey("departments.id"))

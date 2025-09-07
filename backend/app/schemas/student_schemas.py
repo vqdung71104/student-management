@@ -5,7 +5,7 @@ import unicodedata
 
 
 class StudentBase(BaseModel):
-    
+    """Base fields that can be manually set"""
     student_name: str
     enrolled_year: int
     student_id: str
@@ -15,12 +15,6 @@ class StudentBase(BaseModel):
     gender: str
     classes: Optional[str] = None
     newest_semester: Optional[str] = None
-    cpa: Optional[float] = 0.0
-    failed_subjects_number: Optional[int] = 0
-    study_subjects_number: Optional[int] = 0
-    year_level: Optional[str] = None
-    warning_level: Optional[str] = None
-    level_3_warning_number: Optional[int] = 0
     department_id: Optional[str] = None
 
     @validator("student_id")
@@ -50,20 +44,6 @@ class StudentBase(BaseModel):
         if v not in allowed:
             raise ValueError(f"gender chỉ được chọn {allowed}")
         return v
-
-    @validator("year_level")
-    def validate_year_level(cls, v):
-        allowed = ["Trình độ năm 1", "Trình độ năm 2", "Trình độ năm 3", "Trình độ năm 4"]
-        if v not in allowed:
-            raise ValueError(f"year_level chỉ được chọn {allowed}")
-        return v
-    
-    @validator("warning_level")
-    def validate_warning_level(cls, v):
-        allowed = ["Cảnh cáo mức 0", "Cảnh cáo mức 1", "Cảnh cáo mức 2", "Cảnh cáo mức 3"]
-        if v not in allowed:
-            raise ValueError(f"warning_level chỉ được chọn {allowed}")
-        return v
     
     @validator("student_name")
     def strip_spaces(cls, v):
@@ -86,20 +66,67 @@ class StudentBase(BaseModel):
 
 
 class StudentCreate(StudentBase):
+    """Schema for creating students - no auto-calculated fields"""
     pass
 
 
-class StudentUpdate(StudentBase):
-    student_id: Optional[str] = None
+class StudentUpdate(BaseModel):
+    """Schema for updating students - only manually editable fields"""
+    student_name: Optional[str] = None
     enrolled_year: Optional[int] = None
     training_level: Optional[str] = None
     learning_status: Optional[str] = None
     gender: Optional[str] = None
+    classes: Optional[str] = None
+    newest_semester: Optional[str] = None
+    department_id: Optional[str] = None
+    course_id: Optional[int] = None
+
+    @validator("training_level")
+    def validate_training_level(cls, v):
+        if v is not None:
+            allowed = ["Cử nhân", "Kỹ sư", "Thạc sỹ", "Tiến sỹ"]
+            if v not in allowed:
+                raise ValueError(f"training_level chỉ được chọn {allowed}")
+        return v
+
+    @validator("learning_status")
+    def validate_learning_status(cls, v):
+        if v is not None:
+            allowed = ["Đang học", "Bảo lưu", "Thôi học", "Buộc thôi học"]
+            if v not in allowed:
+                raise ValueError(f"learning_status chỉ được chọn {allowed}")
+        return v
+
+    @validator("gender")
+    def validate_gender(cls, v):
+        if v is not None:
+            allowed = ["Nam", "Nữ"]
+            if v not in allowed:
+                raise ValueError(f"gender chỉ được chọn {allowed}")
+        return v
+
+    @validator("student_name")
+    def strip_spaces(cls, v):
+        if v is not None:
+            return " ".join(v.split())
+        return v
 
 
 class StudentResponse(StudentBase):
+    """Schema for response - includes all fields including auto-calculated ones"""
     id: int
     email: EmailStr
+    
+    # Auto-calculated fields - shown in response but not editable
+    cpa: float = 0.0
+    failed_subjects_number: int = 0
+    study_subjects_number: int = 0
+    total_failed_credits: int = 0
+    total_learned_credits: int = 0
+    year_level: str = "Trình độ năm 1"
+    warning_level: str = "Cảnh cáo mức 0"
+    level_3_warning_number: int = 0
 
     class Config:
-        orm_mode = True
+        from_attributes = True
