@@ -31,7 +31,6 @@ def create_course(course_data: CourseCreate, db: Session = Depends(get_db)):
             db_course_subject = CourseSubject(
                 course_id=db_course.id,
                 subject_id=subject.id,  # Sử dụng id (integer) của Subject
-                subject_name=subject_data.subject_name
             )
             db.add(db_course_subject)
     db.commit()
@@ -48,7 +47,6 @@ def create_course(course_data: CourseCreate, db: Session = Depends(get_db)):
     for cs in db_course.course_subjects:
         response_data["course_subjects"].append({
             "subject_id": cs.subject.subject_id,  # String subject_id từ Subject
-            "subject_name": cs.subject_name
         })
     
     return response_data
@@ -70,8 +68,7 @@ def get_courses(db: Session = Depends(get_db)):
         
         for cs in course.course_subjects:
             course_data["course_subjects"].append({
-                "subject_id": cs.subject.subject_id,
-                "subject_name": cs.subject_name
+                "subject_id": cs.subject.subject_id
             })
         
         response_data.append(course_data)
@@ -95,8 +92,7 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
     
     for cs in course.course_subjects:
         course_data["course_subjects"].append({
-            "subject_id": cs.subject.subject_id,
-            "subject_name": cs.subject_name
+            "subject_id": cs.subject.subject_id
         })
     
     return course_data
@@ -123,8 +119,7 @@ def update_course(course_id: int, course_update: CourseUpdate, db: Session = Dep
             
             db_course_subject = CourseSubject(
                 course_id=course.id,
-                subject_id=subject.id,  # Sử dụng id (integer) của Subject
-                subject_name=subject_data.subject_name
+                subject_id=subject.id  # Sử dụng id (integer) của Subject
             )
             db.add(db_course_subject)
 
@@ -141,8 +136,7 @@ def update_course(course_id: int, course_update: CourseUpdate, db: Session = Dep
     
     for cs in course.course_subjects:
         course_data["course_subjects"].append({
-            "subject_id": cs.subject.subject_id,
-            "subject_name": cs.subject_name
+            "subject_id": cs.subject.subject_id
         })
     
     return course_data

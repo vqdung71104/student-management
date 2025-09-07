@@ -6,7 +6,7 @@ class SubjectRegister(Base):
     __tablename__ = "subject_registers"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    student_id = Column(Integer, ForeignKey("students.id"))
+    student_id = Column(Integer, ForeignKey("students.id")) # Foreign key to Student
     subject_name = Column(String(255))
     credits = Column(Integer)
     subject_id = Column(Integer, ForeignKey("subjects.id"))

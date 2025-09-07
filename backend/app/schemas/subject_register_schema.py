@@ -1,22 +1,26 @@
-from typing import List, Optional
+from typing import Optional
 from pydantic import BaseModel
 
+# Base model chỉ chứa subject_name và credits (được lấy tự động)
 class SubjectRegisterBase(BaseModel):
     subject_name: str
     credits: int
 
-class SubjectRegisterCreate(SubjectRegisterBase):
+# Khi tạo: chỉ cần student_id và subject_id
+class SubjectRegisterCreate(BaseModel):
     student_id: int
-    subject_id: str
+    subject_id: int
 
+# Khi update: chỉ cho phép update student_id hoặc subject_id (subject_name, credits tự động)
 class SubjectRegisterUpdate(BaseModel):
-    subject_name: Optional[str] = None
-    credits: Optional[int] = None
+    student_id: Optional[int] = None
+    subject_id: Optional[int] = None
 
+# Response: hiển thị đủ 5 trường
 class SubjectRegisterResponse(SubjectRegisterBase):
     id: int
     student_id: int
-    subject_id: str
+    subject_id: int
 
     class Config:
         from_attributes = True

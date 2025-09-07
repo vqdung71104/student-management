@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.__init__ import SubjectRegister
+from app.models.__init__ import SubjectRegister, Subject
 from app.schemas.subject_register_schema import SubjectRegisterCreate, SubjectRegisterUpdate, SubjectRegisterResponse
 
 router = APIRouter(prefix="/subject-registers", tags=["Subject Registers"])
@@ -9,7 +9,19 @@ router = APIRouter(prefix="/subject-registers", tags=["Subject Registers"])
 # ✅ Create subject register
 @router.post("/", response_model=SubjectRegisterResponse)
 def create_subject_register(subject_register_data: SubjectRegisterCreate, db: Session = Depends(get_db)):
-    db_subject_register = SubjectRegister(**subject_register_data.dict())
+    # Lấy subject từ subject_id
+    subject = db.query(Subject).filter(Subject.id == subject_register_data.subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+
+    # Tạo bản ghi mới, tự động thêm subject_name và credits
+    db_subject_register = SubjectRegister(
+        student_id=subject_register_data.student_id,
+        subject_id=subject_register_data.subject_id,
+        subject_name=subject.subject_name,
+        credits=subject.credits
+    )
+
     db.add(db_subject_register)
     db.commit()
     db.refresh(db_subject_register)
@@ -28,15 +40,23 @@ def get_subject_register(subject_register_id: int, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Subject register not found")
     return subject_register
 
-# ✅ Update subject register
+# ✅ Update subject register (chỉ được đổi student_id hoặc subject_id, còn subject_name và credits sẽ cập nhật lại theo subject mới)
 @router.put("/{subject_register_id}", response_model=SubjectRegisterResponse)
 def update_subject_register(subject_register_id: int, subject_register_update: SubjectRegisterUpdate, db: Session = Depends(get_db)):
     subject_register = db.query(SubjectRegister).filter(SubjectRegister.id == subject_register_id).first()
     if not subject_register:
         raise HTTPException(status_code=404, detail="Subject register not found")
 
-    for key, value in subject_register_update.dict(exclude_unset=True).items():
-        setattr(subject_register, key, value)
+    if subject_register_update.student_id is not None:
+        subject_register.student_id = subject_register_update.student_id
+
+    if subject_register_update.subject_id is not None:
+        subject = db.query(Subject).filter(Subject.id == subject_register_update.subject_id).first()
+        if not subject:
+            raise HTTPException(status_code=404, detail="Subject not found")
+        subject_register.subject_id = subject_register_update.subject_id
+        subject_register.subject_name = subject.subject_name
+        subject_register.credits = subject.credits
 
     db.commit()
     db.refresh(subject_register)
