@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.__init__ import Student, LearnedSubject, SemesterGPA, Course
 from app.schemas.student_schemas import StudentCreate, StudentUpdate, StudentResponse
+from app.utils.grade_calculator import letter_grade_to_score
 
 router = APIRouter(prefix="/students", tags=["Students"])
 
@@ -19,7 +20,21 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     if db.query(Student).filter(Student.email == email).first():
         raise HTTPException(status_code=400, detail="Email đã tồn tại")
 
-    db_student = Student(**student.dict(), email=email)
+    # Create student with manual fields + auto-calculated defaults
+    student_data = student.dict()
+    student_data.update({
+        'email': email,
+        'cpa': 0.0,
+        'failed_subjects_number': 0,
+        'study_subjects_number': 0,
+        'total_failed_credits': 0,
+        'total_learned_credits': 0,
+        'year_level': "Trình độ năm 1",
+        'warning_level': "Cảnh cáo mức 0",
+        'level_3_warning_number': 0
+    })
+
+    db_student = Student(**student_data)
     db.add(db_student)
     db.commit()
     db.refresh(db_student)
@@ -73,3 +88,37 @@ def delete_student(student_id: str, db: Session = Depends(get_db)):
     db.delete(db_student)
     db.commit()
     return {"detail": "Xóa sinh viên thành công"}
+
+
+# ✅ Get student with detailed academic information
+@router.get("/{student_id}/academic-details")
+def get_student_academic_details(student_id: str, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.student_id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
+    
+    # Get all semester GPAs
+    semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student_id).all()
+    
+    # Get all learned subjects
+    learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == student_id).all()
+    
+    # Calculate overall GPA
+    total_credits = sum([ls.credits for ls in learned_subjects])
+    total_grade_points = sum([
+        ls.credits * letter_grade_to_score(ls.letter_grade) 
+        for ls in learned_subjects
+    ])
+    overall_gpa = total_grade_points / total_credits if total_credits > 0 else 0.0
+    
+    return {
+        "student": student,
+        "semester_gpas": semester_gpas,
+        "learned_subjects": learned_subjects,
+        "overall_gpa": round(overall_gpa, 2),
+        "total_credits": total_credits,
+        "total_learned_credits": student.total_learned_credits,
+        "total_failed_credits": student.total_failed_credits,
+        "warning_level": student.warning_level,
+        "year_level": student.year_level
+    }
