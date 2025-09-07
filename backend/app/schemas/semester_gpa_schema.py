@@ -2,7 +2,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 class SemesterGPABase(BaseModel):
-    semester: str
+    semester: str  # 20231
     gpa: float
 
 class SemesterGPACreate(SemesterGPABase):
