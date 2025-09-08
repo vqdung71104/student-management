@@ -12,6 +12,7 @@ from app.routes import learned_subject_routes
 from app.routes import semester_gpa_routes
 from app.routes import subject_routes
 from app.routes import subject_register_routes
+from app.routes import auth_routes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -38,6 +39,7 @@ app.include_router(learned_subject_routes.router)
 app.include_router(semester_gpa_routes.router)
 app.include_router(subject_routes.router)
 app.include_router(subject_register_routes.router)
+app.include_router(auth_routes.router)
 
 @app.get("/")
 def read_root():
