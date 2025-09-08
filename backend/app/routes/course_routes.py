@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.__init__ import Course, CourseSubject, Subject
+from app.models.__init__ import Course, CourseSubject, Subject, Student, LearnedSubject
 from app.schemas.course_schema import CourseCreate, CourseUpdate, CourseResponse
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
@@ -152,5 +152,49 @@ def delete_course(course_id: int, db: Session = Depends(get_db)):
     db.delete(course)
     db.commit()
     return {"message": "Course deleted successfully"}
+
+
+# ✅ Get student curriculum - course and subjects with learned status
+@router.get("/{student_id}/curriculum")
+def get_student_curriculum(student_id: str, db: Session = Depends(get_db)):
+    # Find student by student_id (string)
+    student = db.query(Student).filter(Student.student_id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Get student's course
+    course = db.query(Course).filter(Course.id == student.course_id).first()
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found for this student")
+    
+    # Get all subjects in the course
+    course_subjects = db.query(CourseSubject).filter(CourseSubject.course_id == course.id).all()
+    
+    # Get student's learned subjects 
+    learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == student.id).all()
+    learned_subjects_dict = {ls.subject_id: ls for ls in learned_subjects}
+    
+    # Build curriculum data
+    curriculum_subjects = []
+    for cs in course_subjects:
+        subject = db.query(Subject).filter(Subject.id == cs.subject_id).first()
+        if subject:
+            learned_data = learned_subjects_dict.get(subject.id)
+            curriculum_subjects.append({
+                "subject_id": subject.subject_id,
+                "subject_name": subject.subject_name,
+                "credits": subject.credits,
+                "letter_grade": learned_data.letter_grade if learned_data else None,
+                "semester": learned_data.semester if learned_data else None,
+                "is_completed": learned_data is not None
+            })
+    
+    return {
+        "course_id": course.course_id,
+        "course_name": course.course_name,
+        "subjects": curriculum_subjects,
+        "total_subjects": len(curriculum_subjects),
+        "completed_subjects": len([s for s in curriculum_subjects if s["is_completed"]])
+    }
 
 
