@@ -17,6 +17,7 @@ class Student(Base):
     gender = Column(String(10), nullable=False)  # enum-like
     classes = Column(String(500))  #ví dụ: Việt Nhật 01
     email = Column(String(255), unique=True, nullable=False)  # auto-generate
+    login_password = Column(String(255), nullable=False, default="e10adc3949ba59abbe56e057f20f883e")  # MD5 của "123456"
     newest_semester = Column(String(20))
     cpa = Column(Float, default=0.0)
     failed_subjects_number = Column(Integer, default=0)
