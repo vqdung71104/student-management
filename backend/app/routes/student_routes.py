@@ -4,6 +4,7 @@ from app.db.database import get_db
 from app.models.__init__ import Student, LearnedSubject, SemesterGPA, Course
 from app.schemas.student_schemas import StudentCreate, StudentUpdate, StudentResponse
 from app.utils.grade_calculator import letter_grade_to_score
+import hashlib
 
 router = APIRouter(prefix="/students", tags=["Students"])
 
@@ -31,7 +32,9 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
         'total_learned_credits': 0,
         'year_level': "Trình độ năm 1",
         'warning_level': "Cảnh cáo mức 0",
-        'level_3_warning_number': 0
+        'level_3_warning_number': 0,
+        # Thêm thông tin đăng nhập với mật khẩu mặc định
+        'login_password': hashlib.md5("123456".encode()).hexdigest()  # Hash mật khẩu mặc định
     })
 
     db_student = Student(**student_data)
@@ -97,11 +100,11 @@ def get_student_academic_details(student_id: str, db: Session = Depends(get_db))
     if not student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
     
-    # Get all semester GPAs
-    semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student_id).all()
+    # Get all semester GPAs using student.id (not student_id)
+    semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student.id).all()
     
-    # Get all learned subjects
-    learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == student_id).all()
+    # Get all learned subjects using student.id (not student_id)
+    learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == student.id).all()
     
     # Calculate overall GPA
     total_credits = sum([ls.credits for ls in learned_subjects])
