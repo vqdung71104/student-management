@@ -34,6 +34,12 @@ def get_class_registers_by_student(student_id: str, db: Session = Depends(get_db
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_id).all()
     return registers
 
+# ✅ Get class registers by student internal ID (integer)
+@router.get("/student-by-id/{student_internal_id}", response_model=list[ClassRegisterResponse])
+def get_class_registers_by_student_id(student_internal_id: int, db: Session = Depends(get_db)):
+    registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_internal_id).all()
+    return registers
+
 # ✅ Update class register
 @router.put("/{register_id}", response_model=ClassRegisterResponse)
 def update_class_register(register_id: int, register_update: ClassRegisterUpdate, db: Session = Depends(get_db)):
