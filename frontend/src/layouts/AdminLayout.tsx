@@ -11,7 +11,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { logout } = useAuth()
-  const [studentMenuOpen, setStudentMenuOpen] = useState(false)
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [language, setLanguage] = useState<'vi' | 'en'>('vi')
@@ -21,7 +20,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     vi: {
       dashboard: 'Bảng điều khiển',
       studentManagement: 'Quản lý sinh viên',
-      subjectManagement: 'Quản lý môn học',
+      subjectManagement: 'Quản lý học phần',
       settings: 'Cài đặt',
       chatbotSupport: 'Chatbot hỗ trợ',
       create: 'Tạo mới',
@@ -56,7 +55,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   const navigateTo = (path: string) => {
     navigate(path)
-    setStudentMenuOpen(false)
     setSubjectMenuOpen(false)
     setSettingsMenuOpen(false)
   }
@@ -97,38 +95,17 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 📊 {t.dashboard}
               </button>
 
-              {/* Student Management Dropdown */}
-              <div className="relative">
-                <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    isActive('/admin/students')
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  onClick={() => setStudentMenuOpen(!studentMenuOpen)}
-                >
-                  <span>👥 {t.studentManagement}</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {studentMenuOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
-                    <button onClick={() => navigateTo('/admin/students/create')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ➕ {t.create}
-                    </button>
-                    <button onClick={() => navigateTo('/admin/students/update')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ✏️ {t.update}
-                    </button>
-                    <button onClick={() => navigateTo('/admin/students/delete')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🗑️ {t.delete}
-                    </button>
-                    <button onClick={() => navigateTo('/admin/students')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📋 {t.get}
-                    </button>
-                  </div>
-                )}
-              </div>
+              {/* Student Management Button */}
+              <button 
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  isActive('/admin/students')
+                    ? 'bg-blue-600 text-white shadow-lg' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+                onClick={() => navigateTo('/admin/students')}
+              >
+                👥 {t.studentManagement}
+              </button>
 
               {/* Subject Management Dropdown */}
               <div className="relative">

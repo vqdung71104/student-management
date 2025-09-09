@@ -4,14 +4,37 @@ interface Student {
   id: number
   student_id: string
   student_name: string
+  enrolled_year: number
+  course_id: number
+  training_level: string
+  learning_status: string
+  gender: string
+  classes?: string
+  newest_semester?: string
+  department_id?: string
   email: string
-  phone?: string
-  department_id?: number
-  course_id?: number
+  // Auto-calculated fields
   cpa: number
+  failed_subjects_number: number
+  study_subjects_number: number
+  total_failed_credits: number
+  total_learned_credits: number
   year_level: string
   warning_level: string
-  status?: 'active' | 'inactive'
+  level_3_warning_number: number
+}
+
+interface StudentFormData {
+  student_id: string
+  student_name: string
+  enrolled_year: number
+  course_id: number
+  training_level: string
+  learning_status: string
+  gender: string
+  classes?: string
+  newest_semester?: string
+  department_id?: string
 }
 
 const StudentsManagement = () => {
@@ -19,6 +42,22 @@ const StudentsManagement = () => {
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState('all')
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+  const [formData, setFormData] = useState<StudentFormData>({
+    student_id: '',
+    student_name: '',
+    enrolled_year: new Date().getFullYear(),
+    course_id: 1,
+    training_level: 'Cử nhân',
+    learning_status: 'Đang học',
+    gender: 'Nam',
+    classes: '',
+    newest_semester: '',
+    department_id: '',
+  })
 
   useEffect(() => {
     fetchStudents()
@@ -42,13 +81,125 @@ const StudentsManagement = () => {
     setLoading(false)
   }
 
+  const handleCreateStudent = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/students/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+      
+      if (response.ok) {
+        setShowCreateModal(false)
+        fetchStudents()
+        resetForm()
+        alert('Tạo sinh viên thành công!')
+      } else {
+        alert('Có lỗi khi tạo sinh viên')
+      }
+    } catch (error) {
+      console.error('Error creating student:', error)
+      alert('Có lỗi khi tạo sinh viên')
+    }
+  }
+
+  const handleUpdateStudent = async () => {
+    if (!selectedStudent) return
+    
+    try {
+      const response = await fetch(`http://localhost:8000/students/${selectedStudent.student_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+      
+      if (response.ok) {
+        setShowEditModal(false)
+        fetchStudents()
+        resetForm()
+        alert('Cập nhật sinh viên thành công!')
+      } else {
+        alert('Có lỗi khi cập nhật sinh viên')
+      }
+    } catch (error) {
+      console.error('Error updating student:', error)
+      alert('Có lỗi khi cập nhật sinh viên')
+    }
+  }
+
+  const handleDeleteStudent = async (studentId: String) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa sinh viên này?')) return
+    
+    try {
+      const response = await fetch(`http://localhost:8000/students/${studentId}`, {
+        method: 'DELETE',
+      })
+      
+      if (response.ok) {
+        fetchStudents()
+        alert('Xóa sinh viên thành công!')
+      } else {
+        alert('Có lỗi khi xóa sinh viên')
+      }
+    } catch (error) {
+      console.error('Error deleting student:', error)
+      alert('Có lỗi khi xóa sinh viên')
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      student_id: '',
+      student_name: '',
+      enrolled_year: new Date().getFullYear(),
+      course_id: 1,
+      training_level: 'Cử nhân',
+      learning_status: 'Đang học',
+      gender: 'Nam',
+      classes: '',
+      newest_semester: '',
+      department_id: '',
+    })
+  }
+
+  const openCreateModal = () => {
+    resetForm()
+    setShowCreateModal(true)
+  }
+
+  const openEditModal = (student: Student) => {
+    setSelectedStudent(student)
+    setFormData({
+      student_id: student.student_id,
+      student_name: student.student_name,
+      enrolled_year: student.enrolled_year,
+      course_id: student.course_id,
+      training_level: student.training_level,
+      learning_status: student.learning_status,
+      gender: student.gender,
+      classes: student.classes || '',
+      newest_semester: student.newest_semester || '',
+      department_id: student.department_id || '',
+    })
+    setShowEditModal(true)
+  }
+
+  const openViewModal = (student: Student) => {
+    setSelectedStudent(student)
+    setShowViewModal(true)
+  }
+
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          student.student_id.includes(searchTerm) ||
                          student.email.toLowerCase().includes(searchTerm.toLowerCase())
     
     if (filter === 'all') return matchesSearch
-    return matchesSearch && student.status === filter
+    return matchesSearch && student.learning_status === filter
   })
 
   if (loading) {
@@ -63,7 +214,10 @@ const StudentsManagement = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Quản lý sinh viên</h1>
-        <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+        <button 
+          onClick={openCreateModal}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
           ➕ Thêm sinh viên
         </button>
       </div>
@@ -86,8 +240,10 @@ const StudentsManagement = () => {
             onChange={(e) => setFilter(e.target.value)}
           >
             <option value="all">Tất cả trạng thái</option>
-            <option value="active">Đang học</option>
-            <option value="inactive">Đã nghỉ</option>
+            <option value="Đang học">Đang học</option>
+            <option value="Bảo lưu">Bảo lưu</option>
+            <option value="Thôi học">Thôi học</option>
+            <option value="Buộc thôi học">Buộc thôi học</option>
           </select>
         </div>
       </div>
@@ -108,7 +264,7 @@ const StudentsManagement = () => {
                   Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Khoa
+                  Trường/Viện
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Khoá
@@ -134,24 +290,39 @@ const StudentsManagement = () => {
                     {student.email}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {student.department_id || 'Chưa phân khoa'}
+                    {student.department_id || 'Chưa phân Trường/Viện'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {student.course_id || 'Chưa phân khóa'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      (student.status === 'active' || !student.status)
+                      student.learning_status === 'Đang học'
                         ? 'bg-green-100 text-green-800' 
                         : 'bg-red-100 text-red-800'
                     }`}>
-                      {(student.status === 'active' || !student.status) ? 'Đang học' : 'Đã nghỉ'}
+                      {student.learning_status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button className="text-blue-600 hover:text-blue-900">👁️ Xem</button>
-                    <button className="text-yellow-600 hover:text-yellow-900">✏️ Sửa</button>
-                    <button className="text-red-600 hover:text-red-900">🗑️ Xóa</button>
+                    <button 
+                      onClick={() => openViewModal(student)}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      👁️ Xem
+                    </button>
+                    <button 
+                      onClick={() => openEditModal(student)}
+                      className="text-yellow-600 hover:text-yellow-900"
+                    >
+                      ✏️ Sửa
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteStudent(student.student_id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      🗑️ Xóa
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -165,6 +336,242 @@ const StudentsManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Thêm sinh viên mới</h2>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Mã sinh viên"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.student_id}
+                onChange={(e) => setFormData({...formData, student_id: e.target.value})}
+              />
+              <input
+                type="text"
+                placeholder="Họ tên"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.student_name}
+                onChange={(e) => setFormData({...formData, student_name: e.target.value})}
+              />
+              <input
+                type="number"
+                placeholder="Năm nhập học"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.enrolled_year}
+                onChange={(e) => setFormData({...formData, enrolled_year: parseInt(e.target.value)})}
+              />
+              <input
+                type="number"
+                placeholder="Mã khóa học"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.course_id}
+                onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}
+              />
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.training_level}
+                onChange={(e) => setFormData({...formData, training_level: e.target.value})}
+              >
+                <option value="Cử nhân">Cử nhân</option>
+                <option value="Kỹ sư">Kỹ sư</option>
+                <option value="Thạc sỹ">Thạc sỹ</option>
+                <option value="Tiến sỹ">Tiến sỹ</option>
+              </select>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.learning_status}
+                onChange={(e) => setFormData({...formData, learning_status: e.target.value})}
+              >
+                <option value="Đang học">Đang học</option>
+                <option value="Bảo lưu">Bảo lưu</option>
+                <option value="Thôi học">Thôi học</option>
+                <option value="Buộc thôi học">Buộc thôi học</option>
+              </select>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.gender}
+                onChange={(e) => setFormData({...formData, gender: e.target.value})}
+              >
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Lớp (tùy chọn)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.classes}
+                onChange={(e) => setFormData({...formData, classes: e.target.value})}
+              />
+              <input
+                type="text"
+                placeholder="Học kỳ mới nhất (tùy chọn)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.newest_semester}
+                onChange={(e) => setFormData({...formData, newest_semester: e.target.value})}
+              />
+              <input
+                type="text"
+                placeholder="Mã Trường/Viện (tùy chọn)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.department_id}
+                onChange={(e) => setFormData({...formData, department_id: e.target.value})}
+              />
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleCreateStudent}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Tạo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Sửa thông tin sinh viên</h2>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Mã sinh viên"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.student_id}
+                onChange={(e) => setFormData({...formData, student_id: e.target.value})}
+              />
+              <input
+                type="text"
+                placeholder="Họ tên"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.student_name}
+                onChange={(e) => setFormData({...formData, student_name: e.target.value})}
+              />
+              <input
+                type="number"
+                placeholder="Năm nhập học"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.enrolled_year}
+                onChange={(e) => setFormData({...formData, enrolled_year: parseInt(e.target.value)})}
+              />
+              <input
+                type="number"
+                placeholder="Mã khóa học"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.course_id}
+                onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}
+              />
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.training_level}
+                onChange={(e) => setFormData({...formData, training_level: e.target.value})}
+              >
+                <option value="Cử nhân">Cử nhân</option>
+                <option value="Kỹ sư">Kỹ sư</option>
+                <option value="Thạc sỹ">Thạc sỹ</option>
+                <option value="Tiến sỹ">Tiến sỹ</option>
+              </select>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.learning_status}
+                onChange={(e) => setFormData({...formData, learning_status: e.target.value})}
+              >
+                <option value="Đang học">Đang học</option>
+                <option value="Bảo lưu">Bảo lưu</option>
+                <option value="Thôi học">Thôi học</option>
+                <option value="Buộc thôi học">Buộc thôi học</option>
+              </select>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.gender}
+                onChange={(e) => setFormData({...formData, gender: e.target.value})}
+              >
+                <option value="Nam">Nam</option>
+                <option value="Nữ">Nữ</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Lớp (tùy chọn)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.classes}
+                onChange={(e) => setFormData({...formData, classes: e.target.value})}
+              />
+              <input
+                type="text"
+                placeholder="Học kỳ mới nhất (tùy chọn)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.newest_semester}
+                onChange={(e) => setFormData({...formData, newest_semester: e.target.value})}
+              />
+              <input
+                type="text"
+                placeholder="Mã Trường/Viện (tùy chọn)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.department_id}
+                onChange={(e) => setFormData({...formData, department_id: e.target.value})}
+              />
+            </div>
+            <div className="flex justify-end space-x-2 mt-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleUpdateStudent}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Cập nhật
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Modal */}
+      {showViewModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Thông tin sinh viên</h2>
+            <div className="space-y-3">
+              <div><strong>Mã sinh viên:</strong> {selectedStudent.student_id}</div>
+              <div><strong>Họ tên:</strong> {selectedStudent.student_name}</div>
+              <div><strong>Email:</strong> {selectedStudent.email}</div>
+              <div><strong>Năm nhập học:</strong> {selectedStudent.enrolled_year}</div>
+              <div><strong>Trường/Viện:</strong> {selectedStudent.department_id || 'Chưa phân Trường/Viện'}</div>
+              <div><strong>Khóa:</strong> {selectedStudent.course_id}</div>
+              <div><strong>Bậc đào tạo:</strong> {selectedStudent.training_level}</div>
+              <div><strong>Trạng thái học tập:</strong> {selectedStudent.learning_status}</div>
+              <div><strong>Giới tính:</strong> {selectedStudent.gender}</div>
+              <div><strong>Lớp:</strong> {selectedStudent.classes || 'Chưa có'}</div>
+              <div><strong>CPA:</strong> {selectedStudent.cpa}</div>
+              <div><strong>Năm học:</strong> {selectedStudent.year_level}</div>
+              <div><strong>Mức cảnh báo:</strong> {selectedStudent.warning_level}</div>
+            </div>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
