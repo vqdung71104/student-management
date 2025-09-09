@@ -31,13 +31,15 @@ def create_course_with_subjects(request_data: dict, db: Session = Depends(get_db
     created_course_subjects = []
     for subj in subjects:
         subj_id_str = subj.get("subject_id")
+        learning_semester = subj.get("learning_semester", 1)  # Default semester 1
         subject = db.query(Subject).filter(Subject.subject_id == subj_id_str).first()
         if not subject:
             raise HTTPException(status_code=404, detail=f"Subject with subject_id '{subj_id_str}' not found")
 
         db_course_subject = CourseSubject(
             course_id=db_course.id,   # int PK
-            subject_id=subject.id     # int PK
+            subject_id=subject.id,    # int PK
+            learning_semester=learning_semester  # Thêm learning_semester
         )
         db.add(db_course_subject)
         db.commit()
