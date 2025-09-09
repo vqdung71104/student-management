@@ -35,9 +35,6 @@ function AppRoutes() {
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route index element={<AdminDashboard />} />
         <Route path="students" element={<StudentsManagement />} />
-        <Route path="students/create" element={<StudentsManagement />} />
-        <Route path="students/update" element={<StudentsManagement />} />
-        <Route path="students/delete" element={<StudentsManagement />} />
         <Route path="schedule" element={<ClassesManagement />} />
         <Route path="subjects" element={<SubjectsManagement />} />
         <Route path="settings" element={<AdminDashboard />} />
