@@ -7,6 +7,7 @@ class CourseSubject(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"))
+    learning_semester = Column(Integer)
     course_id = Column(Integer, ForeignKey("courses.id"))
 
     subject = relationship("Subject", back_populates="course_subjects")

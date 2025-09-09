@@ -4,6 +4,7 @@ from pydantic import BaseModel
 # Schema cho input/output đều dùng subject_id (string)
 class CourseSubjectSchema(BaseModel):
     subject_id: str
+    learning_semester: int
 
 class CourseBase(BaseModel):
     course_id: str
