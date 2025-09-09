@@ -7,16 +7,48 @@ const Dashboard = () => {
     totalCourses: 0,
     totalClasses: 0
   })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Giả lập dữ liệu thống kê
-    setStats({
-      totalStudents: 1250,
-      totalSubjects: 89,
-      totalCourses: 45,
-      totalClasses: 156
-    })
+    fetchStats()
   }, [])
+
+  const fetchStats = async () => {
+    setLoading(true)
+    try {
+      // Lấy dữ liệu từ các API endpoint
+      const [studentsRes, subjectsRes, coursesRes, classesRes] = await Promise.all([
+        fetch('http://localhost:8000/students/'),
+        fetch('http://localhost:8000/subjects/'),
+        fetch('http://localhost:8000/courses/'),
+        fetch('http://localhost:8000/classes/')
+      ])
+
+      const [students, subjects, courses, classes] = await Promise.all([
+        studentsRes.json(),
+        subjectsRes.json(),
+        coursesRes.json(),
+        classesRes.json()
+      ])
+
+      setStats({
+        totalStudents: students.length || 0,
+        totalSubjects: subjects.length || 0,
+        totalCourses: courses.length || 0,
+        totalClasses: classes.length || 0
+      })
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+      // Fallback data if API fails
+      setStats({
+        totalStudents: 0,
+        totalSubjects: 0,
+        totalCourses: 0,
+        totalClasses: 0
+      })
+    }
+    setLoading(false)
+  }
 
   return (
     <div className="space-y-6">
@@ -38,7 +70,9 @@ const Dashboard = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm text-gray-600">Tổng sinh viên</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalStudents.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? '...' : stats.totalStudents.toLocaleString()}
+              </p>
             </div>
           </div>
         </div>
@@ -51,8 +85,10 @@ const Dashboard = () => {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Tổng môn học</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalSubjects}</p>
+              <p className="text-sm text-gray-600">Tổng học phần</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? '...' : stats.totalSubjects}
+              </p>
             </div>
           </div>
         </div>
@@ -65,8 +101,10 @@ const Dashboard = () => {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Tổng khoá học</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalCourses}</p>
+              <p className="text-sm text-gray-600">Tổng mã ngành</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? '...' : stats.totalCourses}
+              </p>
             </div>
           </div>
         </div>
@@ -80,7 +118,9 @@ const Dashboard = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm text-gray-600">Tổng lớp học</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalClasses}</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {loading ? '...' : stats.totalClasses}
+              </p>
             </div>
           </div>
         </div>
