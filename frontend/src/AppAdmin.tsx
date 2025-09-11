@@ -65,7 +65,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
     }
   }
 
-  const t = texts[language]
+  const t = texts[language as 'vi' | 'en']
 
   const showAdminPage = (page: string) => {
     setCurrentPage(page)
@@ -369,7 +369,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MSSV</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Họ tên</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Khoa</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trường/Viện</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trạng thái</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
                   </tr>
@@ -540,7 +540,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mã khóa</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tên khóa học</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Khoa</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trường/Viện</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Năm bắt đầu</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thao tác</th>
                   </tr>
@@ -802,7 +802,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
               <h3 className="text-lg font-semibold mb-4">{language === 'vi' ? 'Bộ lọc' : 'Filters'}</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                 <select className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="">{language === 'vi' ? 'Tất cả khoa' : 'All Departments'}</option>
+                  <option value="">{language === 'vi' ? 'Tất cả Trường/Viện' : 'All Departments'}</option>
                   <option>Công nghệ thông tin</option>
                   <option>Kỹ thuật điện</option>
                   <option>Cơ khí</option>
