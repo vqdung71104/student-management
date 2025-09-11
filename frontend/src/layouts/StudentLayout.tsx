@@ -78,7 +78,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   onMouseEnter={() => setStudyMenuOpen(true)}
-                  onMouseLeave={() => setStudyMenuOpen(false)}
+                  onMouseLeave={() => setStudyMenuOpen(true)}
                 >
                   <span>📚 Học tập</span>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -113,7 +113,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   onMouseEnter={() => setProjectMenuOpen(true)}
-                  onMouseLeave={() => setProjectMenuOpen(false)}
+                  onMouseLeave={() => setProjectMenuOpen(true)}
                 >
                   <span>💼 Đồ án</span>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +166,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   onMouseEnter={() => setScholarshipMenuOpen(true)}
-                  onMouseLeave={() => setScholarshipMenuOpen(false)}
+                  onMouseLeave={() => setScholarshipMenuOpen(true)}
                 >
                   <span>💰 Học bổng</span>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +198,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   onMouseEnter={() => setIntegratedStudyMenuOpen(true)}
-                  onMouseLeave={() => setIntegratedStudyMenuOpen(false)}
+                  onMouseLeave={() => setIntegratedStudyMenuOpen(true)}
                 >
                   <span>🎓 Học tích hợp</span>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,8 +206,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   </svg>
                 </button>
                 {integratedStudyMenuOpen && (
-                  <div 
-                    className="absolute top-full left-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
                     onMouseEnter={() => setIntegratedStudyMenuOpen(true)}
                     onMouseLeave={() => setIntegratedStudyMenuOpen(false)}
                   >
@@ -254,7 +253,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   onMouseEnter={() => setSupportMenuOpen(true)}
-                  onMouseLeave={() => setSupportMenuOpen(false)}
+                  onMouseLeave={() => setSupportMenuOpen(true)}
                 >
                   <span>❓ Hỗ trợ</span>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
