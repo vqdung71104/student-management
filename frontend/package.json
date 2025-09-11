@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.0.1",
     "@types/react-router-dom": "^5.3.3",
+    "antd": "^5.27.3",
     "chart.js": "^4.5.0",
     "lucide-react": "^0.526.0",
     "react": "^19.1.0",

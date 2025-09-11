@@ -211,7 +211,7 @@ const SubjectsManagement = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <input
           type="text"
-          placeholder="Tìm kiếm theo tên học phần, mã học phần, khoa..."
+          placeholder="Tìm kiếm theo tên học phần, mã học phần, Trường/Viện..."
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -241,7 +241,7 @@ const SubjectsManagement = () => {
                     <span className="font-medium">Học phí:</span> {subject.tuition_fee.toLocaleString()} VNĐ
                   </p>
                   <p className="text-sm text-gray-600">
-                    <span className="font-medium">Khoa:</span> {subject.department.name}
+                    <span className="font-medium">Trường/Viện:</span> {subject.department.name}
                   </p>
                   {subject.conditional_subjects && (
                     <p className="text-sm text-gray-600">
@@ -343,7 +343,7 @@ const SubjectsManagement = () => {
               />
               <input
                 type="text"
-                placeholder="Mã khoa"
+                placeholder="Mã Trường/Viện"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.department_id}
                 onChange={(e) => setFormData({...formData, department_id: e.target.value})}
@@ -432,7 +432,7 @@ const SubjectsManagement = () => {
               />
               <input
                 type="text"
-                placeholder="Mã khoa"
+                placeholder="Mã Trường/Viện"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.department_id}
                 onChange={(e) => setFormData({...formData, department_id: e.target.value})}
@@ -476,7 +476,7 @@ const SubjectsManagement = () => {
               <div><strong>Thời lượng:</strong> {selectedSubject.duration} tuần</div>
               <div><strong>Học phí:</strong> {selectedSubject.tuition_fee.toLocaleString()} VNĐ</div>
               <div><strong>Hệ số:</strong> {selectedSubject.weight}</div>
-              <div><strong>Khoa:</strong> {selectedSubject.department.name}</div>
+              <div><strong>Trường/Viện:</strong> {selectedSubject.department.name}</div>
               <div><strong>Học phần tiên quyết:</strong> {selectedSubject.conditional_subjects || 'Không có'}</div>
             </div>
             <div className="flex justify-end mt-6">

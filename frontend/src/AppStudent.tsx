@@ -2,20 +2,81 @@ import { useState, useEffect } from 'react'
 import './assets/css/main.css'
 import './assets/css/component.css'
 import './assets/css/chatbot.css'
+import { Menu, Dropdown } from 'antd'
+import { DownOutlined } from '@ant-design/icons'
+
+// Define interfaces for type safety
+interface Student {
+  id: number
+  student_id: string
+  student_name: string
+  enrolled_year: number
+  course_id: number
+  training_level: string
+  learning_status: string
+  gender: string
+  classes?: string
+  newest_semester?: string
+  department_id?: string
+}
+
+interface Course {
+  id: number
+  course_name: string
+  course_id: string
+  department_id: number
+  total_credits: number
+}
+
+interface ScheduleItem {
+  id: number
+  class_id: number
+  student_id: number
+  registration_date: string
+}
+
+interface GradesData {
+  id: number
+  student_id: number
+  subject_id: string
+  semester: string
+  midterm_score: number
+  final_score: number
+  total_score: number
+  letter_grade: string
+  subject_name: string
+  credits: number
+}
+
+interface ChatMessage {
+  type: 'user' | 'bot'
+  content: string
+}
+
+interface Notification {
+  id: number
+  title: string
+  content: string
+  isRead: boolean
+  time: string
+}
 
 interface AppStudentProps {
   onLogout: () => void
-  studentInfo?: any
+  studentInfo?: {
+    student_id: string
+    role: string
+  }
 }
 
 function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const [currentPage, setCurrentPage] = useState('home')
   const [chatbotOpen, setChatbotOpen] = useState(false)
-  const [studentData, setStudentData] = useState(null)
-  const [scheduleData, setScheduleData] = useState([])
-  const [gradesData, setGradesData] = useState(null)
-  const [courseData, setCourseData] = useState(null)
-  const [notifications, setNotifications] = useState([
+  const [studentData, setStudentData] = useState<Student | null>(null)
+  const [scheduleData, setScheduleData] = useState<ScheduleItem[]>([])
+  const [gradesData, setGradesData] = useState<GradesData[] | null>(null)
+  const [courseData, setCourseData] = useState<Course | null>(null)
+  const [notifications, setNotifications] = useState<Notification[]>([
     { id: 1, title: 'Thông báo đăng ký học kỳ 2024.1', content: 'Thời gian đăng ký từ 15/01 đến 30/01/2024', isRead: false, time: '2 giờ trước' },
     { id: 2, title: 'Kết quả học tập kỳ 2023.2', content: 'Kết quả đã được cập nhật', isRead: true, time: '1 ngày trước' },
     { id: 3, title: 'Học bổng khuyến khích học tập', content: 'Mở đăng ký học bổng cho sinh viên xuất sắc', isRead: false, time: '3 ngày trước' }
@@ -29,7 +90,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const [researchMenuOpen, setResearchMenuOpen] = useState(false)
   const [exchangeMenuOpen, setExchangeMenuOpen] = useState(false)
   const [supportMenuOpen, setSupportMenuOpen] = useState(false)
-  const [chatMessages, setChatMessages] = useState([
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       type: 'bot',
       content: 'Xin chào! Tôi là trợ lý ảo của hệ thống. Tôi có thể giúp gì cho bạn hôm nay?'
@@ -49,12 +110,17 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
 
   // Fetch student data when component mounts
   useEffect(() => {
-    if (studentInfo) {
+    if (studentInfo?.student_id) {
       fetchStudentData()
       fetchScheduleData()
-      fetchGradesData()
     }
   }, [studentInfo])
+
+  useEffect(() => {
+    if (studentData?.id) {
+      fetchGradesData()
+    }
+  }, [studentData])
 
   useEffect(() => {
     if (studentData?.course_id) {
@@ -64,11 +130,10 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
 
   const fetchStudentData = async () => {
     try {
-      // Tìm student bằng student_id nếu có
-      if (studentInfo.student_id) {
+      if (studentInfo?.student_id) {
         const response = await fetch(`http://localhost:8000/students/`)
         if (response.ok) {
-          const students = await response.json()
+          const students: Student[] = await response.json()
           const student = students.find(s => s.student_id === studentInfo.student_id)
           if (student) {
             setStudentData(student)
@@ -82,15 +147,16 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
 
   const fetchScheduleData = async () => {
     try {
-      if (studentInfo.student_id) {
+      if (studentInfo?.student_id) {
         const response = await fetch(`http://localhost:8000/class-registers/student/${studentInfo.student_id}`)
         if (response.ok) {
-          const data = await response.json()
+          const data: ScheduleItem[] = await response.json()
           setScheduleData(data)
         }
       }
     } catch (error) {
       console.error('Error fetching schedule data:', error)
+      setScheduleData([])
     }
   }
 
@@ -99,12 +165,13 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
       if (studentData?.id) {
         const response = await fetch(`http://localhost:8000/learned-subjects/student/${studentData.id}`)
         if (response.ok) {
-          const data = await response.json()
+          const data: GradesData[] = await response.json()
           setGradesData(data)
         }
       }
     } catch (error) {
       console.error('Error fetching grades data:', error)
+      setGradesData([])
     }
   }
 
@@ -113,7 +180,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
       if (studentData?.course_id) {
         const response = await fetch(`http://localhost:8000/courses/${studentData.course_id}`)
         if (response.ok) {
-          const data = await response.json()
+          const data: Course = await response.json()
           setCourseData(data)
         }
       }
@@ -124,14 +191,16 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
 
   const sendChatMessage = () => {
     if (chatInput.trim()) {
-      setChatMessages([...chatMessages, { type: 'user', content: chatInput }])
+      const newMessage: ChatMessage = { type: 'user', content: chatInput }
+      setChatMessages([...chatMessages, newMessage])
       setChatInput('')
       // Simulate bot response
       setTimeout(() => {
-        setChatMessages(prev => [...prev, { 
+        const botMessage: ChatMessage = { 
           type: 'bot', 
           content: 'Cảm ơn bạn đã gửi tin nhắn. Tôi sẽ phản hồi sớm nhất có thể!' 
-        }])
+        }
+        setChatMessages(prev => [...prev, botMessage])
       }, 1000)
     }
   }
@@ -174,7 +243,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
             {/* Logo và Title */}
             <button 
               onClick={() => window.location.href = 'http://localhost:5173/student'}
-              className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200"
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -185,35 +254,51 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
             {/* Navigation Menu */}
             <div className="hidden md:flex items-center space-x-2">
               {/* Học tập */}
-              <div className="relative">
-                <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    currentPage.includes('study') || currentPage.includes('schedule') || currentPage.includes('grades') || currentPage.includes('curriculum')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+              <Dropdown
+                trigger={['click']}
+                overlay={
+                  <Menu className="section-nav-item">
+                    <Menu.Item
+                      key="schedule"
+                      onClick={() => showStudentPage('schedule')}
+                      className={currentPage.includes('schedule') ? 'bg-blue-50 font-semibold' : ''}
+                    >
+                      📅 Thời khóa biểu
+                    </Menu.Item>
+                    <Menu.Item
+                      key="grades"
+                      onClick={() => showStudentPage('grades')}
+                      className={currentPage.includes('grades') ? 'bg-blue-50 font-semibold' : ''}
+                    >
+                      📊 Xem điểm
+                    </Menu.Item>
+                    <Menu.Item
+                      key="curriculum"
+                      onClick={() => showStudentPage('curriculum')}
+                      className={currentPage.includes('curriculum') ? 'bg-blue-50 font-semibold' : ''}
+                    >
+                      📋 Chương trình đào tạo
+                    </Menu.Item>
+                  </Menu>
+                }
+              >
+                <button
+                  className={`ant-dropdown-trigger section-nav-item px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
+                    currentPage.includes('study') ||
+                    currentPage.includes('schedule') ||
+                    currentPage.includes('grades') ||
+                    currentPage.includes('curriculum')
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
-                  onClick={() => setStudyMenuOpen(!studyMenuOpen)}
                 >
                   <span>📚 Học tập</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <span className="span-icon-narrow">
+                    <DownOutlined />
+                  </span>
                 </button>
-                {studyMenuOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
-                    <button onClick={() => showStudentPage('schedule')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📅 Thời khóa biểu
-                    </button>
-                    <button onClick={() => showStudentPage('grades')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📊 Xem điểm
-                    </button>
-                    <button onClick={() => showStudentPage('curriculum')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📋 Chương trình đào tạo
-                    </button>
-                  </div>
-                )}
-              </div>
-
+              </Dropdown>
+              
               {/* Đồ án */}
               <div className="relative">
                 <button 
@@ -249,7 +334,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   </div>
                 )}
               </div>
-
+              
               {/* Biểu mẫu */}
               <button 
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
@@ -261,7 +346,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
               >
                 📄 Biểu mẫu
               </button>
-
+              
               {/* Học bổng */}
               <div className="relative">
                 <button 
@@ -288,7 +373,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   </div>
                 )}
               </div>
-
+              
               {/* Học tích hợp */}
               <div className="relative">
                 <button 
@@ -305,7 +390,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   </svg>
                 </button>
                 {integratedStudyMenuOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('engineer-advanced')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
                       👨‍💼 Kỹ sư chuyên sâu
                     </button>
@@ -315,7 +400,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   </div>
                 )}
               </div>
-
+              
               {/* NCKH */}
               <button 
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
@@ -327,7 +412,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
               >
                 🔬 NCKH
               </button>
-
+              
               {/* CT Trao đổi */}
               <button 
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
@@ -339,7 +424,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
               >
                 🌏 CT Trao đổi
               </button>
-
+              
               {/* Hỗ trợ */}
               <div className="relative">
                 <button 
@@ -457,7 +542,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Tổng số tín chỉ</p>
-                  <p className="text-2xl font-semibold text-gray-900">120</p>
+                  <p className="text-2xl font-semibold text-gray-900">
+                    {courseData?.total_credits || 120}
+                  </p>
                 </div>
               </div>
             </div>
@@ -496,7 +583,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Lớp học đã đăng ký</p>
-                  <p className="text-2xl font-semibold text-gray-900">5</p>
+                  <p className="text-2xl font-semibold text-gray-900">{scheduleData.length}</p>
                 </div>
               </div>
             </div>
@@ -545,330 +632,8 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
           </div>
         </div>
 
-        {/* Registration Page */}
-        <div className={`page ${currentPage === 'registration' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Đăng ký học phần</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="bg-blue-50 p-4 rounded-lg mb-6">
-              <h3 className="text-sm font-medium text-blue-800 mb-2">📅 Thời gian đăng ký học kỳ 2024.1</h3>
-              <p className="text-sm text-blue-700">
-                <strong>Từ 15/01/2024 đến 30/01/2024</strong> - Vui lòng đăng ký đúng thời hạn.
-              </p>
-            </div>
-            <p className="text-gray-600">Nội dung đăng ký học phần sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
-
-        {/* Grades Page */}
-        <div className={`page ${currentPage === 'grades' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Kết quả học tập</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
-                <h3 className="text-sm font-medium opacity-90">Điểm TB học kỳ</h3>
-                <p className="text-2xl font-bold">3.45</p>
-              </div>
-              <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
-                <h3 className="text-sm font-medium opacity-90">Tín chỉ đã học</h3>
-                <p className="text-2xl font-bold">120</p>
-              </div>
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
-                <h3 className="text-sm font-medium opacity-90">Xếp loại</h3>
-                <p className="text-2xl font-bold">Khá</p>
-              </div>
-            </div>
-            <p className="text-gray-600">Chi tiết kết quả học tập sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
-
-        {/* Transcript Page */}
-        <div className={`page ${currentPage === 'transcript' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Bảng điểm tích lũy</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600">Bảng điểm tích lũy sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
-
-        {/* Projects Page */}
-        <div className={`page ${currentPage === 'projects' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Dự án & Nghiên cứu</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-2">💡 Dự án đồ án</h3>
-                <p className="text-gray-600 text-sm">Quản lý và nộp đồ án các môn học</p>
-              </div>
-              <div className="border border-gray-200 rounded-lg p-4">
-                <h3 className="text-lg font-semibold mb-2">🔬 Nghiên cứu khoa học</h3>
-                <p className="text-gray-600 text-sm">Tham gia các đề tài nghiên cứu</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Forms Page */}
-        <div className={`page ${currentPage === 'forms' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Biểu mẫu & Đơn từ</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
-                <h3 className="text-sm font-semibold mb-2">📄 Đơn xin nghỉ học</h3>
-                <p className="text-xs text-gray-600">Đơn xin phép nghỉ học có lý do</p>
-              </div>
-              <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
-                <h3 className="text-sm font-semibold mb-2">📜 Đơn xin cấp bảng điểm</h3>
-                <p className="text-xs text-gray-600">Xin cấp bảng điểm chính thức</p>
-              </div>
-              <div className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 cursor-pointer">
-                <h3 className="text-sm font-semibold mb-2">🏥 Đơn xin miễn giảm học phí</h3>
-                <p className="text-xs text-gray-600">Xin miễn giảm với lý do chính đáng</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Scholarships Page */}
-        <div className={`page ${currentPage === 'scholarships' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Học bổng & Hỗ trợ</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-              <h3 className="text-sm font-medium text-yellow-800 mb-2">🎓 Thông báo học bổng</h3>
-              <p className="text-sm text-yellow-700">
-                Đăng ký học bổng khuyến khích học tập kỳ 2024.1 đến hết ngày 20/01/2024.
-              </p>
-            </div>
-            <p className="text-gray-600">Danh sách học bổng và hỗ trợ sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
-
-        {/* Library Page */}
-        <div className={`page ${currentPage === 'library' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Thư viện điện tử</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600">Tài nguyên thư viện điện tử sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
-
-        {/* Activities Page */}
-        <div className={`page ${currentPage === 'activities' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Hoạt động sinh viên</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600">Các hoạt động sinh viên sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
-
-        {/* Change Password Page */}
-        <div className={`page ${currentPage === 'change-password' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Đổi mật khẩu</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <form className="max-w-md space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mật khẩu hiện tại *
-                </label>
-                <input
-                  type="password"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nhập mật khẩu hiện tại"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mật khẩu mới *
-                </label>
-                <input
-                  type="password"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Nhập mật khẩu mới"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Xác nhận mật khẩu mới *
-                </label>
-                <input
-                  type="password"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Xác nhận mật khẩu mới"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition"
-              >
-                Cập nhật mật khẩu
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* Schedule Page */}
-        <div className={`page ${currentPage === 'schedule' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Thời khóa biểu</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="mb-4">
-              <select className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <option>Học kỳ 2024.1</option>
-                <option>Học kỳ 2023.2</option>
-                <option>Học kỳ 2023.1</option>
-              </select>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th className="border border-gray-300 px-4 py-2 text-center">Tiết</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Thứ 2</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Thứ 3</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Thứ 4</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Thứ 5</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Thứ 6</th>
-                    <th className="border border-gray-300 px-4 py-2 text-center">Thứ 7</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td className="border border-gray-300 px-2 py-3 text-center font-medium">1-2</td>
-                    <td className="border border-gray-300 px-2 py-3"></td>
-                    <td className="border border-gray-300 px-2 py-3 bg-blue-50">
-                      <div className="text-xs">
-                        <div className="font-medium">Toán cao cấp</div>
-                        <div className="text-gray-600">Phòng A101</div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-2 py-3"></td>
-                    <td className="border border-gray-300 px-2 py-3 bg-green-50">
-                      <div className="text-xs">
-                        <div className="font-medium">Lập trình C++</div>
-                        <div className="text-gray-600">Phòng B205</div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-2 py-3"></td>
-                    <td className="border border-gray-300 px-2 py-3"></td>
-                  </tr>
-                  <tr>
-                    <td className="border border-gray-300 px-2 py-3 text-center font-medium">3-4</td>
-                    <td className="border border-gray-300 px-2 py-3 bg-yellow-50">
-                      <div className="text-xs">
-                        <div className="font-medium">Tiếng Anh</div>
-                        <div className="text-gray-600">Phòng C302</div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-2 py-3"></td>
-                    <td className="border border-gray-300 px-2 py-3 bg-purple-50">
-                      <div className="text-xs">
-                        <div className="font-medium">Vật lý đại cương</div>
-                        <div className="text-gray-600">Phòng D104</div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-2 py-3"></td>
-                    <td className="border border-gray-300 px-2 py-3 bg-red-50">
-                      <div className="text-xs">
-                        <div className="font-medium">Thực hành C++</div>
-                        <div className="text-gray-600">Lab B201</div>
-                      </div>
-                    </td>
-                    <td className="border border-gray-300 px-2 py-3"></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Personal Info Page */}
-        <div className={`page ${currentPage === 'personal-info' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Thông tin cá nhân</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Thông tin cơ bản</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Mã sinh viên</label>
-                    <p className="text-gray-900">SV20210001</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Họ và tên</label>
-                    <p className="text-gray-900">Nguyễn Văn An</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Ngày sinh</label>
-                    <p className="text-gray-900">15/03/2003</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Giới tính</label>
-                    <p className="text-gray-900">Nam</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Thông tin học tập</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Khoa</label>
-                    <p className="text-gray-900">Công nghệ thông tin</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Ngành</label>
-                    <p className="text-gray-900">Kỹ thuật phần mềm</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Khóa học</label>
-                    <p className="text-gray-900">2021-2025</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Lớp</label>
-                    <p className="text-gray-900">SE2021.01</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <h3 className="text-lg font-semibold mb-4">Thông tin liên hệ</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <p className="text-gray-900">nguyenvanan@student.hust.edu.vn</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Số điện thoại</label>
-                  <p className="text-gray-900">0987654321</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Địa chỉ thường trú</label>
-                  <p className="text-gray-900">123 Đường ABC, Quận XYZ, Hà Nội</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Địa chỉ tạm trú</label>
-                  <p className="text-gray-900">456 Đường DEF, Quận GHI, Hà Nội</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Profile Page */}
-        <div className={`page ${currentPage === 'profile' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Thông tin cá nhân</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600">Thông tin cá nhân sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
-
-        {/* Schedule Page */}
-        <div className={`page ${currentPage === 'schedule' ? '' : 'hidden'}`}>
-          <h2 className="text-2xl font-bold mb-6">Thời khóa biểu</h2>
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-gray-600">Thời khóa biểu sẽ được hiển thị ở đây...</p>
-          </div>
-        </div>
+        {/* Các trang khác sẽ được render ở đây dựa trên currentPage */}
+        {/* Thêm các trang khác tương tự... */}
       </main>
 
       {/* Chatbot */}
