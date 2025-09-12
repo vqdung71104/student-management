@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import ExcelUpload from '../../components/ExcelUpload'
 
 const ScheduleManagement = () => {
@@ -9,10 +9,30 @@ const ScheduleManagement = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [editingClass, setEditingClass] = useState<any>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  
+  // Refs for scroll synchronization
+  const topScrollRef = useRef<HTMLDivElement>(null)
+  const mainScrollRef = useRef<HTMLDivElement>(null)
+  const bottomScrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchClasses()
   }, [])
+
+  // Synchronize scroll bars
+  const handleScroll = (source: 'top' | 'main' | 'bottom') => (e: React.UIEvent<HTMLDivElement>) => {
+    const scrollLeft = e.currentTarget.scrollLeft
+    
+    if (source !== 'top' && topScrollRef.current) {
+      topScrollRef.current.scrollLeft = scrollLeft
+    }
+    if (source !== 'main' && mainScrollRef.current) {
+      mainScrollRef.current.scrollLeft = scrollLeft
+    }
+    if (source !== 'bottom' && bottomScrollRef.current) {
+      bottomScrollRef.current.scrollLeft = scrollLeft
+    }
+  }
 
   const fetchClasses = async () => {
     try {
@@ -97,10 +117,20 @@ const ScheduleManagement = () => {
       })
 
       if (response.ok) {
+        const updatedClassFromAPI = await response.json()
+        
+        // Update the class in the current state immediately
+        setClasses(prevClasses => 
+          prevClasses.map(classItem => 
+            classItem.id === updatedClassFromAPI.id 
+              ? { ...updatedClassFromAPI, current_students: classItem.current_students } 
+              : classItem
+          )
+        )
+        
         alert('Cập nhật lớp học thành công!')
         setShowEditModal(false)
         setEditingClass(null)
-        fetchClasses() // Refresh the list
       } else {
         alert('Có lỗi khi cập nhật lớp học')
       }
@@ -369,9 +399,27 @@ const ScheduleManagement = () => {
           </h3>
         </div>
         
-        <div className="overflow-x-auto" style={{ overflowX: 'scroll' }}>
+        {/* Top Scroll Bar */}
+        <div 
+          ref={topScrollRef}
+          className="overflow-x-auto border-b border-gray-100" 
+          style={{ overflowX: 'scroll' }}
+          onScroll={handleScroll('top')}
+        >
+          <div style={{ minWidth: '2200px', height: '20px' }}>
+            <div className="w-full h-px bg-gray-200"></div>
+          </div>
+        </div>
+        
+        {/* Main Table Container */}
+        <div 
+          ref={mainScrollRef}
+          className="overflow-x-auto overflow-y-auto" 
+          style={{ overflowX: 'scroll', maxHeight: '60vh' }}
+          onScroll={handleScroll('main')}
+        >
           <table className="min-w-full divide-y divide-gray-200" style={{ minWidth: '1200px' }}>
-            <thead className="bg-gray-50 sticky top-0">
+            <thead className="bg-gray-50 sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                   Mã lớp
@@ -447,6 +495,18 @@ const ScheduleManagement = () => {
               ))}
             </tbody>
           </table>
+        </div>
+        
+        {/* Bottom Scroll Bar */}
+        <div 
+          ref={bottomScrollRef}
+          className="overflow-x-auto border-t border-gray-100" 
+          style={{ overflowX: 'scroll' }}
+          onScroll={handleScroll('bottom')}
+        >
+          <div style={{ minWidth: '1200px', height: '20px' }}>
+            <div className="w-full h-px bg-gray-200"></div>
+          </div>
         </div>
 
         {filteredClasses.length === 0 && (
