@@ -4,6 +4,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import StudentsManagement from './pages/admin/StudentsManagement'
 import SubjectsManagement from './pages/admin/SubjectsManagement'
 import ClassesManagement from './pages/admin/ClassesManagement'
+import ScheduleManagement from './pages/admin/ScheduleManagement'
 import StudentDashboard from './pages/student/StudentDashboard'
 import Schedule from './pages/student/Schedule'
 import Grades from './pages/student/Grades'
@@ -36,6 +37,7 @@ function AppRoutes() {
         <Route index element={<AdminDashboard />} />
         <Route path="students" element={<StudentsManagement />} />
         <Route path="schedule" element={<ClassesManagement />} />
+        <Route path="schedule-update" element={<ScheduleManagement />} />
         <Route path="subjects" element={<SubjectsManagement />} />
         <Route path="settings" element={<AdminDashboard />} />
       </Route>
