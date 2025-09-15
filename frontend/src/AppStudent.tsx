@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { UserGuide, FAQ, Feedback } from './components/SupportPages'
 import './assets/css/main.css'
 import './assets/css/component.css'
 import './assets/css/chatbot.css'
@@ -630,6 +631,21 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* User Guide Page */}
+        <div className={`page ${currentPage === 'user-guide' ? '' : 'hidden'}`}>
+          <UserGuide />
+        </div>
+
+        {/* FAQ Page */}
+        <div className={`page ${currentPage === 'faq' ? '' : 'hidden'}`}>
+          <FAQ />
+        </div>
+
+        {/* Feedback Page */}
+        <div className={`page ${currentPage === 'feedback' ? '' : 'hidden'}`}>
+          <Feedback />
         </div>
 
         {/* Các trang khác sẽ được render ở đây dựa trên currentPage */}

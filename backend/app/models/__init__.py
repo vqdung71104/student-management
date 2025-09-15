@@ -8,3 +8,4 @@ from .class_register_model import ClassRegister
 from .subject_register_model import SubjectRegister
 from .learned_subject_model import LearnedSubject
 from .semester_gpa_model import SemesterGPA
+from .feedback_model import Feedback, FAQ

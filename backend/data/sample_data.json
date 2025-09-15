@@ -1,0 +1,430 @@
+{
+  "departments": [
+    {
+      "department_id": "SOICT",
+      "department_name": "Trường Công nghệ Thông tin và Truyền thông",
+      "description": "Đào tạo các chuyên ngành về Công nghệ thông tin, Khoa học máy tính, Kỹ thuật máy tính"
+    },
+    {
+      "department_id": "ME",
+      "department_name": "Viện Cơ khí",
+      "description": "Đào tạo các chuyên ngành về Cơ khí, Cơ điện tử, Công nghệ sản xuất"
+    },
+    {
+      "department_id": "EE",
+      "department_name": "Viện Điện",
+      "description": "Đào tạo các chuyên ngành về Điện, Điện tử, Tự động hóa"
+    },
+    {
+      "department_id": "CE",
+      "department_name": "Viện Xây dựng",
+      "description": "Đào tạo các chuyên ngành về Xây dựng dân dụng, Xây dựng công nghiệp"
+    },
+    {
+      "department_id": "CHE",
+      "department_name": "Viện Hóa học và Khoa học sự sống",
+      "description": "Đào tạo các chuyên ngành về Hóa học, Sinh học, Công nghệ sinh học"
+    }
+  ],
+  "subjects": [
+    {
+      "subject_id": "IT1110",
+      "subject_name": "Nhập môn lập trình",
+      "credits": 3,
+      "description": "Môn học cơ bản về lập trình với ngôn ngữ C"
+    },
+    {
+      "subject_id": "IT2030",
+      "subject_name": "Cấu trúc dữ liệu và giải thuật",
+      "credits": 3,
+      "description": "Các cấu trúc dữ liệu cơ bản và thuật toán"
+    },
+    {
+      "subject_id": "IT3080",
+      "subject_name": "Cơ sở dữ liệu",
+      "credits": 3,
+      "description": "Thiết kế và quản trị cơ sở dữ liệu"
+    },
+    {
+      "subject_id": "IT4409",
+      "subject_name": "Công nghệ phần mềm",
+      "credits": 3,
+      "description": "Quy trình phát triển phần mềm"
+    },
+    {
+      "subject_id": "IT4501",
+      "subject_name": "Đồ án tốt nghiệp",
+      "credits": 10,
+      "description": "Đồ án tốt nghiệp ngành CNTT"
+    },
+    {
+      "subject_id": "ME2012",
+      "subject_name": "Cơ học lý thuyết",
+      "credits": 3,
+      "description": "Cơ sở lý thuyết về cơ học"
+    },
+    {
+      "subject_id": "ME3011",
+      "subject_name": "Chi tiết máy",
+      "credits": 4,
+      "description": "Thiết kế chi tiết máy cơ bản"
+    },
+    {
+      "subject_id": "EE2011",
+      "subject_name": "Mạch điện",
+      "credits": 3,
+      "description": "Lý thuyết mạch điện cơ bản"
+    },
+    {
+      "subject_id": "EE3012",
+      "subject_name": "Điện tử học",
+      "credits": 3,
+      "description": "Các linh kiện và mạch điện tử"
+    },
+    {
+      "subject_id": "MI1110",
+      "subject_name": "Giải tích 1",
+      "credits": 4,
+      "description": "Toán giải tích cơ bản"
+    },
+    {
+      "subject_id": "MI1120",
+      "subject_name": "Giải tích 2",
+      "credits": 4,
+      "description": "Toán giải tích nâng cao"
+    },
+    {
+      "subject_id": "MI1130",
+      "subject_name": "Đại số tuyến tính",
+      "credits": 3,
+      "description": "Ma trận và không gian vector"
+    },
+    {
+      "subject_id": "PH1110",
+      "subject_name": "Vật lý đại cương 1",
+      "credits": 4,
+      "description": "Cơ học và nhiệt học"
+    },
+    {
+      "subject_id": "PH1120",
+      "subject_name": "Vật lý đại cương 2",
+      "credits": 4,
+      "description": "Điện từ học và quang học"
+    }
+  ],
+  "courses": [
+    {
+      "course_id": "ICT01",
+      "course_name": "Công nghệ thông tin",
+      "department_id": "SOICT",
+      "total_credits": 140
+    },
+    {
+      "course_id": "ICT02",
+      "course_name": "Khoa học máy tính",
+      "department_id": "SOICT",
+      "total_credits": 140
+    },
+    {
+      "course_id": "ICT03",
+      "course_name": "Kỹ thuật máy tính",
+      "department_id": "SOICT",
+      "total_credits": 140
+    },
+    {
+      "course_id": "ME01",
+      "course_name": "Cơ khí",
+      "department_id": "ME",
+      "total_credits": 150
+    },
+    {
+      "course_id": "ME02",
+      "course_name": "Cơ điện tử",
+      "department_id": "ME",
+      "total_credits": 145
+    },
+    {
+      "course_id": "EE01",
+      "course_name": "Điện",
+      "department_id": "EE",
+      "total_credits": 145
+    },
+    {
+      "course_id": "EE02",
+      "course_name": "Điện tử - Viễn thông",
+      "department_id": "EE",
+      "total_credits": 145
+    },
+    {
+      "course_id": "CE01",
+      "course_name": "Xây dựng dân dụng",
+      "department_id": "CE",
+      "total_credits": 150
+    }
+  ],
+  "students": [
+    {
+      "student_id": "20210001",
+      "student_name": "Nguyễn Văn An",
+      "enrolled_year": 2021,
+      "course_id": 1,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nam"
+    },
+    {
+      "student_id": "20210002",
+      "student_name": "Trần Thị Bình",
+      "enrolled_year": 2021,
+      "course_id": 1,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nữ"
+    },
+    {
+      "student_id": "20210003",
+      "student_name": "Lê Hoàng Cường",
+      "enrolled_year": 2021,
+      "course_id": 2,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nam"
+    },
+    {
+      "student_id": "20210004",
+      "student_name": "Phạm Thị Dung",
+      "enrolled_year": 2021,
+      "course_id": 2,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nữ"
+    },
+    {
+      "student_id": "20200001",
+      "student_name": "Vũ Minh Hoàng",
+      "enrolled_year": 2020,
+      "course_id": 1,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nam"
+    },
+    {
+      "student_id": "20200002",
+      "student_name": "Đỗ Thị Mai",
+      "enrolled_year": 2020,
+      "course_id": 3,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nữ"
+    },
+    {
+      "student_id": "20220001",
+      "student_name": "Bùi Thanh Nam",
+      "enrolled_year": 2022,
+      "course_id": 4,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nam"
+    },
+    {
+      "student_id": "20220002",
+      "student_name": "Hoàng Thị Phương",
+      "enrolled_year": 2022,
+      "course_id": 5,
+      "training_level": "Đại học",
+      "learning_status": "Đang học",
+      "gender": "Nữ"
+    },
+    {
+      "student_id": "20190001",
+      "student_name": "Ngô Văn Quang",
+      "enrolled_year": 2019,
+      "course_id": 6,
+      "training_level": "Đại học",
+      "learning_status": "Tốt nghiệp",
+      "gender": "Nam"
+    },
+    {
+      "student_id": "20190002",
+      "student_name": "Lý Thị Thu",
+      "enrolled_year": 2019,
+      "course_id": 7,
+      "training_level": "Đại học",
+      "learning_status": "Tốt nghiệp",
+      "gender": "Nữ"
+    }
+  ],
+  "classes": [
+    {
+      "class_id": "IT1110_001",
+      "subject_id": "IT1110",
+      "class_name": "Nhập môn lập trình - Lớp 1",
+      "semester": "2024.1",
+      "year": 2024,
+      "teacher_name": "TS. Nguyễn Văn A",
+      "room": "TC-201",
+      "day_of_week": "Monday",
+      "study_time_start": "08:00",
+      "study_time_end": "10:50",
+      "study_weeks": "1-15",
+      "max_students": 50
+    },
+    {
+      "class_id": "IT1110_002",
+      "subject_id": "IT1110",
+      "class_name": "Nhập môn lập trình - Lớp 2",
+      "semester": "2024.1",
+      "year": 2024,
+      "teacher_name": "TS. Trần Thị B",
+      "room": "TC-202",
+      "day_of_week": "Tuesday",
+      "study_time_start": "14:00",
+      "study_time_end": "16:50",
+      "study_weeks": "1-15",
+      "max_students": 50
+    },
+    {
+      "class_id": "IT2030_001",
+      "subject_id": "IT2030",
+      "class_name": "Cấu trúc dữ liệu và giải thuật - Lớp 1",
+      "semester": "2024.1",
+      "year": 2024,
+      "teacher_name": "PGS. Lê Văn C",
+      "room": "TC-301",
+      "day_of_week": "Wednesday",
+      "study_time_start": "08:00",
+      "study_time_end": "10:50",
+      "study_weeks": "1-15",
+      "max_students": 45
+    },
+    {
+      "class_id": "IT3080_001",
+      "subject_id": "IT3080",
+      "class_name": "Cơ sở dữ liệu - Lớp 1",
+      "semester": "2024.1",
+      "year": 2024,
+      "teacher_name": "GS. Phạm Văn D",
+      "room": "TC-401",
+      "day_of_week": "Thursday",
+      "study_time_start": "14:00",
+      "study_time_end": "16:50",
+      "study_weeks": "1-15",
+      "max_students": 40
+    },
+    {
+      "class_id": "ME2012_001",
+      "subject_id": "ME2012",
+      "class_name": "Cơ học lý thuyết - Lớp 1",
+      "semester": "2024.1",
+      "year": 2024,
+      "teacher_name": "TS. Hoàng Văn E",
+      "room": "C2-101",
+      "day_of_week": "Friday",
+      "study_time_start": "08:00",
+      "study_time_end": "10:50",
+      "study_weeks": "1-15",
+      "max_students": 60
+    },
+    {
+      "class_id": "EE2011_001",
+      "subject_id": "EE2011",
+      "class_name": "Mạch điện - Lớp 1",
+      "semester": "2024.1",
+      "year": 2024,
+      "teacher_name": "TS. Vũ Thị F",
+      "room": "D3-201",
+      "day_of_week": "Monday",
+      "study_time_start": "14:00",
+      "study_time_end": "16:50",
+      "study_weeks": "1-15",
+      "max_students": 55
+    }
+  ],
+  "faqs": [
+    {
+      "question": "Làm thế nào để đăng ký học phần?",
+      "answer": "Để đăng ký học phần, bạn cần: 1) Đăng nhập vào hệ thống, 2) Vào mục 'Đăng ký học phần', 3) Chọn các môn học muốn đăng ký, 4) Kiểm tra thời khóa biểu, 5) Xác nhận đăng ký.",
+      "is_active": true,
+      "order_index": 1
+    },
+    {
+      "question": "Tôi có thể hủy đăng ký học phần đã đăng ký không?",
+      "answer": "Có, bạn có thể hủy đăng ký trong thời gian cho phép (thường là trong 2 tuần đầu của học kỳ). Vào mục 'Quản lý đăng ký' để hủy.",
+      "is_active": true,
+      "order_index": 2
+    },
+    {
+      "question": "Làm thế nào để xem điểm số?",
+      "answer": "Điểm số sẽ được cập nhật trong mục 'Điểm số' sau khi giảng viên nhập điểm. Bạn có thể xem điểm theo từng môn học hoặc theo học kỳ.",
+      "is_active": true,
+      "order_index": 3
+    },
+    {
+      "question": "Tôi quên mật khẩu thì làm sao?",
+      "answer": "Liên hệ với bộ phận kỹ thuật qua email: support@soict.hust.edu.vn hoặc đến trực tiếp phòng Đào tạo để được hỗ trợ reset mật khẩu.",
+      "is_active": true,
+      "order_index": 4
+    },
+    {
+      "question": "Làm thế nào để đăng ký đồ án/thực tập?",
+      "answer": "Vào mục 'Đồ án/Thực tập', xem danh sách đề tài, đăng ký nguyện vọng (tối đa 3 nguyện vọng), và chờ giảng viên/doanh nghiệp duyệt.",
+      "is_active": true,
+      "order_index": 5
+    },
+    {
+      "question": "Thời gian đăng ký học phần là khi nào?",
+      "answer": "Thời gian đăng ký thường bắt đầu 2-3 tuần trước khi học kỳ mới bắt đầu. Thông báo cụ thể sẽ được đăng trên trang chủ hệ thống.",
+      "is_active": true,
+      "order_index": 6
+    },
+    {
+      "question": "Tôi có thể đăng ký vượt số tín chỉ tối đa không?",
+      "answer": "Không, hệ thống sẽ không cho phép đăng ký vượt quá số tín chỉ tối đa quy định (thường là 22 tín chỉ/học kỳ). Sinh viên có GPA cao có thể được phép đăng ký thêm.",
+      "is_active": true,
+      "order_index": 7
+    },
+    {
+      "question": "Hệ thống có hỗ trợ trên mobile không?",
+      "answer": "Có, hệ thống được thiết kế responsive và hoạt động tốt trên các thiết bị mobile, tablet và desktop.",
+      "is_active": true,
+      "order_index": 8
+    }
+  ],
+  "feedbacks": [
+    {
+      "email": "student1@hust.edu.vn",
+      "subject": "ui",
+      "feedback": "Giao diện đăng ký học phần có thể cải thiện để dễ sử dụng hơn. Menu dropdown đôi khi bị che khuất bởi các phần tử khác.",
+      "suggestions": "Nên thiết kế lại layout của trang đăng ký học phần và tăng độ tương phản của các nút bấm.",
+      "status": "pending"
+    },
+    {
+      "email": "student2@hust.edu.vn",
+      "subject": "bug",
+      "feedback": "Khi tôi cố gắng đăng ký nhiều học phần cùng lúc, hệ thống báo lỗi và không lưu được dữ liệu.",
+      "suggestions": "Cần kiểm tra lại logic xử lý đăng ký nhiều học phần đồng thời.",
+      "status": "resolved"
+    },
+    {
+      "email": "student3@hust.edu.vn",
+      "subject": "feature",
+      "feedback": "Tôi muốn có tính năng xuất thời khóa biểu ra file PDF để in ra giấy.",
+      "suggestions": "Thêm nút 'Xuất PDF' trong trang xem thời khóa biểu.",
+      "status": "pending"
+    },
+    {
+      "email": "student4@hust.edu.vn",
+      "subject": "performance",
+      "feedback": "Trang web load rất chậm vào giờ cao điểm đăng ký học phần. Đôi khi mất hơn 30 giây mới tải được.",
+      "suggestions": "Cần tối ưu hóa server và database để xử lý được nhiều user đồng thời.",
+      "status": "pending"
+    },
+    {
+      "email": "student5@hust.edu.vn",
+      "subject": "content",
+      "feedback": "Thông tin về các môn học tiên quyết không được hiển thị rõ ràng, khiến sinh viên nhầm lẫn khi đăng ký.",
+      "suggestions": "Hiển thị chi tiết thông tin môn tiên quyết ngay trong danh sách môn học.",
+      "status": "resolved"
+    }
+  ]
+}
