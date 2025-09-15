@@ -5,6 +5,8 @@ import StudentsManagement from './pages/admin/StudentsManagement'
 import SubjectsManagement from './pages/admin/SubjectsManagement'
 import ClassesManagement from './pages/admin/ClassesManagement'
 import ScheduleManagement from './pages/admin/ScheduleManagement'
+import FeedbackManagement from './pages/admin/FeedbackManagement'
+import FAQManagement from './pages/admin/FAQManagement'
 import StudentDashboard from './pages/student/StudentDashboard'
 import Schedule from './pages/student/Schedule'
 import Grades from './pages/student/Grades'
@@ -12,6 +14,9 @@ import Curriculum from './pages/student/Curriculum'
 import Projects from './pages/student/Projects'
 import Forms from './pages/student/Forms'
 import Scholarships from './pages/student/Scholarships'
+import UserGuidePage from './pages/student/UserGuidePage'
+import FAQPage from './pages/student/FAQPage'
+import FeedbackPage from './pages/student/FeedbackPage'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './contexts/AuthContext'
 
@@ -39,6 +44,8 @@ function AppRoutes() {
         <Route path="schedule" element={<ClassesManagement />} />
         <Route path="schedule-update" element={<ScheduleManagement />} />
         <Route path="subjects" element={<SubjectsManagement />} />
+        <Route path="feedback" element={<FeedbackManagement />} />
+        <Route path="faq" element={<FAQManagement />} />
         <Route path="settings" element={<AdminDashboard />} />
       </Route>
 
@@ -51,6 +58,9 @@ function AppRoutes() {
         <Route path="projects" element={<Projects />} />
         <Route path="forms" element={<Forms />} />
         <Route path="scholarships" element={<Scholarships />} />
+        <Route path="support/user-guide" element={<UserGuidePage />} />
+        <Route path="support/faq" element={<FAQPage />} />
+        <Route path="support/feedback" element={<FeedbackPage />} />
         <Route path="profile" element={<StudentDashboard />} />
       </Route>
 

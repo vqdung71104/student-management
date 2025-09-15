@@ -151,6 +151,12 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 </button>
                 {settingsMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                    <button onClick={() => navigateTo('/admin/feedback')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                      💬 Trả lời phản hồi
+                    </button>
+                    <button onClick={() => navigateTo('/admin/faq')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                      ❓ Quản lý FAQ
+                    </button>
                     <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
                       🌐 {t.languageSettings}
                     </button>
