@@ -1,0 +1,62 @@
+[
+  {
+    "question": "Làm thế nào để đăng ký học phần?",
+    "answer": "Để đăng ký học phần, bạn cần: 1) Đăng nhập vào hệ thống, 2) Vào mục 'Học tập' > 'Đăng ký học phần', 3) Chọn các môn học muốn đăng ký, 4) Kiểm tra thời khóa biểu không bị trùng, 5) Xác nhận đăng ký và chờ duyệt.",
+    "is_active": true,
+    "order_index": 1
+  },
+  {
+    "question": "Tôi có thể hủy đăng ký học phần đã đăng ký không?",
+    "answer": "Có, bạn có thể hủy đăng ký trong thời gian cho phép (thường là trong 2 tuần đầu của học kỳ). Vào mục 'Học tập' > 'Quản lý đăng ký' để hủy các môn đã đăng ký.",
+    "is_active": true,
+    "order_index": 2
+  },
+  {
+    "question": "Làm thế nào để xem điểm số?",
+    "answer": "Điểm số sẽ được cập nhật trong mục 'Học tập' > 'Xem điểm' sau khi giảng viên nhập điểm. Bạn có thể xem điểm theo từng môn học hoặc theo học kỳ, bao gồm điểm quá trình, điểm cuối kỳ và điểm tổng kết.",
+    "is_active": true,
+    "order_index": 3
+  },
+  {
+    "question": "Tôi quên mật khẩu thì làm sao?",
+    "answer": "Liên hệ với bộ phận kỹ thuật qua email: registry@hust.edu.vn hoặc hotline 024.3868.3008, hoặc đến trực tiếp phòng Đào tạo để được hỗ trợ reset mật khẩu. Bạn cần mang theo thẻ sinh viên để xác minh danh tính.",
+    "is_active": true,
+    "order_index": 4
+  },
+  {
+    "question": "Làm thế nào để đăng ký đồ án/thực tập?",
+    "answer": "Vào mục 'Đồ án' > 'Đăng ký nguyện vọng', xem danh sách đề tài hoặc doanh nghiệp, đăng ký nguyện vọng (tối đa 3 nguyện vọng theo thứ tự ưu tiên), và chờ giảng viên/doanh nghiệp duyệt. Kết quả sẽ được thông báo qua email và hệ thống.",
+    "is_active": true,
+    "order_index": 5
+  },
+  {
+    "question": "Thời gian đăng ký học phần là khi nào?",
+    "answer": "Thời gian đăng ký thường bắt đầu 2-3 tuần trước khi học kỳ mới bắt đầu. Thông báo cụ thể về lịch đăng ký sẽ được đăng trên trang chủ hệ thống và gửi qua email sinh viên. Sinh viên cần chú ý theo dõi thông báo để không bỏ lỡ.",
+    "is_active": true,
+    "order_index": 6
+  },
+  {
+    "question": "Tôi có thể đăng ký vượt số tín chỉ tối đa không?",
+    "answer": "Không, hệ thống sẽ không cho phép đăng ký vượt quá số tín chỉ tối đa quy định (thường là 22 tín chỉ/học kỳ đối với sinh viên bình thường). Sinh viên có GPA từ 3.2 trở lên có thể được phép đăng ký thêm tối đa 3 tín chỉ sau khi có đơn xin phép.",
+    "is_active": true,
+    "order_index": 7
+  },
+  {
+    "question": "Làm thế nào để kiểm tra lịch thi?",
+    "answer": "Lịch thi được công bố trong mục 'Học tập' > 'Lịch thi' hoặc trên trang thông báo chính. Thông tin bao gồm môn thi, ngày giờ, phòng thi và hình thức thi. Sinh viên nên kiểm tra thường xuyên vì lịch thi có thể được cập nhật.",
+    "is_active": true,
+    "order_index": 8
+  },
+  {
+    "question": "Tôi có thể thay đổi thông tin cá nhân không?",
+    "answer": "Một số thông tin cá nhân như số điện thoại, email có thể được thay đổi trong mục 'Hồ sơ sinh viên'. Đối với thông tin quan trọng như họ tên, ngày sinh, bạn cần liên hệ với phòng Đào tạo và mang theo giấy tờ chứng minh để được hỗ trợ.",
+    "is_active": true,
+    "order_index": 9
+  },
+  {
+    "question": "Làm thế nào để đăng ký học bổng?",
+    "answer": "Vào mục 'Học bổng' > 'Đăng ký học bổng', kiểm tra điều kiện từng loại học bổng (học bổng khuyến khích học tập, học bổng tài trợ, học bổng doanh nghiệp), chuẩn bị hồ sơ theo yêu cầu và nộp đúng thời hạn. Kết quả xét duyệt sẽ được thông báo qua hệ thống.",
+    "is_active": true,
+    "order_index": 10
+  }
+]

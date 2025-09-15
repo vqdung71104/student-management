@@ -5,9 +5,9 @@ from app.schemas.department_schema import DepartmentResponse
 class SubjectBase(BaseModel):
     subject_id: str = Field(..., max_length=50)
     subject_name: str = Field(..., max_length=255)
-    duration: int
+    duration: str = Field(..., max_length=50)
     credits: int
-    tuition_fee: float
+    tuition_fee: int
     english_subject_name: str = Field(..., max_length=255)
     weight: float
     conditional_subjects: Optional[str] = None  # Changed to str to match DB
@@ -17,9 +17,9 @@ class SubjectCreate(SubjectBase):
 
 class SubjectUpdate(BaseModel):
     subject_name: Optional[str] = Field(None, max_length=255)
-    duration: Optional[int] = None
+    duration: Optional[str] = None
     credits: Optional[int] = None
-    tuition_fee: Optional[float] = None
+    tuition_fee: Optional[int] = None
     english_subject_name: Optional[str] = Field(None, max_length=255)
     weight: Optional[float] = None
     conditional_subjects: Optional[str] = None  # Changed to str

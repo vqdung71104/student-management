@@ -1,0 +1,58 @@
+[
+  {
+    "email": "student1@hust.edu.vn",
+    "subject": "ui",
+    "feedback": "Giao diện trang đăng ký học phần hơi khó sử dụng, các nút bấm nhỏ và màu sắc không rõ ràng. Mong admin có thể cải thiện để dễ sử dụng hơn.",
+    "suggestions": "Nên làm các nút to hơn, dùng màu xanh cho nút chính và có thêm tooltip hướng dẫn.",
+    "status": "pending"
+  },
+  {
+    "email": "student2@hust.edu.vn",
+    "subject": "bug",
+    "feedback": "Khi tôi đăng ký học phần môn Cơ sở dữ liệu, hệ thống báo lỗi 'Internal Server Error' và không thể hoàn thành đăng ký.",
+    "suggestions": "Hy vọng admin kiểm tra và sửa lỗi này sớm.",
+    "status": "pending"
+  },
+  {
+    "email": "student3@hust.edu.vn",
+    "subject": "feature",
+    "feedback": "Tôi mong muốn hệ thống có thêm tính năng thông báo qua email khi có môn học mới mở hoặc khi có thay đổi lịch học.",
+    "suggestions": "Có thể thêm cài đặt thông báo trong phần hồ sơ sinh viên để tùy chọn loại thông báo muốn nhận.",
+    "status": "resolved"
+  },
+  {
+    "email": "student4@hust.edu.vn",
+    "subject": "performance",
+    "feedback": "Trang web load rất chậm vào giờ cao điểm (8-9h sáng), đôi khi mất tới 30 giây mới tải được trang.",
+    "suggestions": "Nên tối ưu hóa server hoặc tăng cường bandwidth trong giờ cao điểm.",
+    "status": "pending"
+  },
+  {
+    "email": "student5@hust.edu.vn",
+    "subject": "content",
+    "feedback": "Thông tin về các môn học thiếu mô tả chi tiết, không biết môn học đó học gì, khó khăn trong việc chọn môn.",
+    "suggestions": "Nên bổ sung mô tả chi tiết môn học, điều kiện tiên quyết và outcomes sau khi học xong.",
+    "status": "resolved"
+  },
+  {
+    "email": "student6@hust.edu.vn",
+    "subject": "other",
+    "feedback": "Hệ thống rất hữu ích nhưng mong muốn có thêm tính năng chat trực tiếp với tư vấn viên khi gặp khó khăn.",
+    "suggestions": "Thêm chatbot hoặc live chat để hỗ trợ sinh viên nhanh chóng.",
+    "status": "pending"
+  },
+  {
+    "email": "student7@hust.edu.vn",
+    "subject": "ui",
+    "feedback": "Trên điện thoại, một số trang hiển thị không responsive, phải zoom in/out mới xem được đầy đủ nội dung.",
+    "suggestions": "Cần tối ưu cho mobile, đặc biệt là trang thời khóa biểu và xem điểm.",
+    "status": "pending"
+  },
+  {
+    "email": "student8@hust.edu.vn",
+    "subject": "feature",
+    "feedback": "Mong muốn có thể xuất thời khóa biểu ra file PDF hoặc sync với Google Calendar.",
+    "suggestions": "Thêm nút 'Xuất PDF' và 'Sync Calendar' trong trang thời khóa biểu.",
+    "status": "resolved"
+  }
+]

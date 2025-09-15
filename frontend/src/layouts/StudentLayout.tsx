@@ -248,7 +248,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
               <div className="relative">
                 <button 
                   className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
-                    location.pathname.includes('support')
+                    location.pathname.includes('/student/support')
                       ? 'bg-blue-600 text-white shadow-lg' 
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
@@ -266,13 +266,13 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     onMouseEnter={() => setSupportMenuOpen(true)}
                     onMouseLeave={() => setSupportMenuOpen(false)}
                   >
-                    <button onClick={() => navigateTo('/student')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                    <button onClick={() => navigateTo('/student/support/user-guide')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
                       📖 Hướng dẫn sử dụng
                     </button>
-                    <button onClick={() => navigateTo('/student')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                    <button onClick={() => navigateTo('/student/support/faq')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
                       ❓ Những câu hỏi thường gặp
                     </button>
-                    <button onClick={() => navigateTo('/student')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                    <button onClick={() => navigateTo('/student/support/feedback')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
                       💬 Phản hồi và góp ý
                     </button>
                   </div>
