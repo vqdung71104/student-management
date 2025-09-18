@@ -1,38 +1,93 @@
 import json
 import sys
 import os
+import unicodedata
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
 # Add parent directory to path to import models
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
-from app.db.database import SQLALCHEMY_DATABASE_URL, Base
+from app.db.database import DATABASE_URL, Base, SessionLocal
 from app.models.department_model import Department
 from app.models.subject_model import Subject
 from app.models.course_model import Course
+from app.models.course_subject_model import CourseSubject
 from app.models.student_model import Student
-from app.models.class_model import Class
 from app.models.feedback_model import FAQ, Feedback
 
 def create_database_session():
     """Create database session"""
-    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+    # Engine đã tạo sẵn trong database.py
+    from app.db.database import engine, SessionLocal
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     return SessionLocal()
 
-def load_sample_data():
-    """Load sample data from JSON file"""
+
+def clear_all_data(db):
+    """Clear all data from tables (in correct order to respect foreign keys)"""
+    print("🗑️ Clearing existing data...")
     try:
-        with open('data/sample_data.json', 'r', encoding='utf-8') as file:
+        from sqlalchemy import text
+        # Delete in reverse order of dependencies to avoid foreign key constraints
+        # First, delete tables that reference others
+        db.execute(text("SET FOREIGN_KEY_CHECKS = 0"))  # Temporarily disable foreign key checks
+        
+        # Clear all tables
+        db.execute(text("DELETE FROM feedbacks"))
+        db.execute(text("DELETE FROM faqs"))
+        db.execute(text("DELETE FROM class_registers"))
+        db.execute(text("DELETE FROM subject_registers"))
+        db.execute(text("DELETE FROM learned_subjects"))
+        db.execute(text("DELETE FROM semester_gpa"))
+        db.execute(text("DELETE FROM classes"))
+        db.execute(text("DELETE FROM students"))
+        db.execute(text("DELETE FROM course_subjects"))
+        db.execute(text("DELETE FROM courses"))
+        db.execute(text("DELETE FROM subjects"))
+        db.execute(text("DELETE FROM departments"))
+        
+        # Reset auto-increment counters
+        db.execute(text("ALTER TABLE departments AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE subjects AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE courses AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE students AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE classes AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE faqs AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE feedbacks AUTO_INCREMENT = 1"))
+        
+        db.execute(text("SET FOREIGN_KEY_CHECKS = 1"))  # Re-enable foreign key checks
+        db.commit()
+        print("✅ All data cleared successfully")
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"❌ Error clearing data: {e}")
+
+def generate_email(student_name: str, student_id: str) -> str:
+    """Tạo email từ tên + MSSV"""
+    def remove_accents(text: str) -> str:
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', text)
+            if unicodedata.category(c) != 'Mn'
+        )
+    
+    unaccented_name = remove_accents(student_name.strip())
+    name_parts = unaccented_name.split()
+    last_name = name_parts[-1].lower()
+    initials = "".join([w[0].lower() for w in name_parts[:-1]])
+    mssv_suffix = student_id[2:]  # bỏ 2 số đầu
+    return f"{last_name}.{initials}{mssv_suffix}@sis.hust.edu.vn"
+
+def load_json_file(filename):
+    """Load data from a specific JSON file"""
+    try:
+        with open(f'data/{filename}', 'r', encoding='utf-8') as file:
             return json.load(file)
     except FileNotFoundError:
-        print("Error: sample_data.json file not found!")
+        print(f"Error: {filename} file not found!")
         return None
     except json.JSONDecodeError as e:
-        print(f"Error parsing JSON: {e}")
+        print(f"Error parsing JSON in {filename}: {e}")
         return None
 
 def populate_departments(db, departments_data):
@@ -40,10 +95,14 @@ def populate_departments(db, departments_data):
     print("📁 Populating departments...")
     for dept_data in departments_data:
         try:
-            dept = Department(**dept_data)
+            # Map JSON fields to model fields (already correct format)
+            dept = Department(
+                id=dept_data.get('id'),
+                name=dept_data.get('name')
+            )
             db.add(dept)
         except Exception as e:
-            print(f"Error adding department {dept_data.get('department_id', '')}: {e}")
+            print(f"Error adding department {dept_data.get('id', '')}: {e}")
     
     try:
         db.commit()
@@ -55,16 +114,43 @@ def populate_departments(db, departments_data):
 def populate_subjects(db, subjects_data):
     """Populate subjects table"""
     print("📚 Populating subjects...")
+    seen_subject_ids = set()  # Track subject_ids to avoid duplicates in JSON
+    
     for subject_data in subjects_data:
         try:
-            subject = Subject(**subject_data)
+            subject_id = subject_data.get('subject_id')
+            
+            # Skip if we've already seen this subject_id in current batch
+            if subject_id in seen_subject_ids:
+                print(f"Duplicate subject_id {subject_id} found in JSON, skipping...")
+                continue
+            seen_subject_ids.add(subject_id)
+            
+            # Check if subject already exists in database
+            existing = db.query(Subject).filter(Subject.subject_id == subject_id).first()
+            if existing:
+                print(f"Subject {subject_id} already exists in database, skipping...")
+                continue
+                
+            # Map JSON fields to model fields (already correct format)
+            subject = Subject(
+                subject_id=subject_id,
+                subject_name=subject_data.get('subject_name'),
+                credits=subject_data.get('credits'),
+                duration=subject_data.get('duration') or '',  # Convert None to empty string
+                tuition_fee=int(float(subject_data.get('tuition_fee', 0))),
+                english_subject_name=subject_data.get('english_subject_name', ''),
+                weight=subject_data.get('weight'),
+                conditional_subjects=subject_data.get('conditional_subjects'),
+                department_id=subject_data.get('department_id')
+            )
             db.add(subject)
         except Exception as e:
             print(f"Error adding subject {subject_data.get('subject_id', '')}: {e}")
     
     try:
         db.commit()
-        print(f"✅ Added {len(subjects_data)} subjects")
+        print(f"✅ Added {len(seen_subject_ids)} unique subjects")
     except SQLAlchemyError as e:
         db.rollback()
         print(f"❌ Error committing subjects: {e}")
@@ -74,7 +160,11 @@ def populate_courses(db, courses_data):
     print("🎓 Populating courses...")
     for course_data in courses_data:
         try:
-            course = Course(**course_data)
+            # Map JSON fields to model fields
+            course = Course(
+                course_id=course_data.get('course_id'),
+                course_name=course_data.get('course_name')
+            )
             db.add(course)
         except Exception as e:
             print(f"Error adding course {course_data.get('course_id', '')}: {e}")
@@ -91,7 +181,46 @@ def populate_students(db, students_data):
     print("👨‍🎓 Populating students...")
     for student_data in students_data:
         try:
-            student = Student(**student_data)
+            # Generate email from student_name and student_id using proper format
+            student_id = student_data.get('student_id')
+            student_name = student_data.get('student_name')
+            email = generate_email(student_name, student_id)
+            
+            # Find the course by course_id string (not by auto-increment id)
+            json_course_id = student_data.get('course_id')
+            course = db.query(Course).filter(Course.course_id == json_course_id).first()
+            if not course:
+                print(f"Course with course_id '{json_course_id}' not found, skipping student {student_id}")
+                continue
+            
+            # Map learning_status to match schema validation
+            learning_status = student_data.get('learning_status', 'Đang học')
+            if learning_status == 'Tốt nghiệp':
+                learning_status = 'Đang học'  # Map "Tốt nghiệp" to "Đang học" since schema doesn't allow "Tốt nghiệp"
+            
+            # Map JSON fields to model fields (already correct format)
+            student = Student(
+                student_id=student_id,
+                student_name=student_data.get('student_name'),
+                course_id=course.id,  # Use the auto-increment id from database
+                enrolled_year=student_data.get('enrolled_year'),
+                training_level=student_data.get('training_level'),
+                learning_status=learning_status,
+                gender=student_data.get('gender'),
+                classes=student_data.get('classes', ''),
+                email=email,  # Auto-generated email
+                login_password='e10adc3949ba59abbe56e057f20f883e',  # Default password hash
+                newest_semester=student_data.get('newest_semester'),
+                cpa=student_data.get('cpa', 0.0),
+                failed_subjects_number=student_data.get('failed_subjects_number', 0),
+                study_subjects_number=student_data.get('study_subjects_number', 0),
+                total_learned_credits=student_data.get('total_learned_credits', 0),
+                total_failed_credits=student_data.get('total_failed_credits', 0),
+                year_level=student_data.get('year_level', 'Trình độ năm 1'),
+                warning_level=student_data.get('warning_level', 'Cảnh cáo mức 0'),
+                level_3_warning_number=student_data.get('level_3_warning_number', 0),
+                department_id=student_data.get('department_id')
+            )
             db.add(student)
         except Exception as e:
             print(f"Error adding student {student_data.get('student_id', '')}: {e}")
@@ -103,22 +232,60 @@ def populate_students(db, students_data):
         db.rollback()
         print(f"❌ Error committing students: {e}")
 
-def populate_classes(db, classes_data):
-    """Populate classes table"""
-    print("🏫 Populating classes...")
-    for class_data in classes_data:
+def populate_course_subjects(db, courses_data):
+    """Create course_subjects relationships from JSON data (following route logic)"""
+    print("🔗 Creating course-subject relationships...")
+    course_subject_count = 0
+    
+    for course_data in courses_data:
         try:
-            cls = Class(**class_data)
-            db.add(cls)
+            course_id_str = course_data.get("course_id")
+            subjects = course_data.get("subjects", [])
+            
+            # Find the course in database (like in route)
+            course = db.query(Course).filter(Course.course_id == course_id_str).first()
+            if not course:
+                print(f"Course {course_id_str} not found in database, skipping...")
+                continue
+            
+            # For each subject in JSON, create course_subject relationship (following route pattern)
+            for subj in subjects:
+                subj_id_str = subj.get("subject_id")
+                learning_semester = subj.get("learning_semester", 1)  # Default semester 1 (like in route)
+                
+                # Find subject in database (like in route)
+                subject = db.query(Subject).filter(Subject.subject_id == subj_id_str).first()
+                if not subject:
+                    print(f"Subject with subject_id '{subj_id_str}' not found, skipping...")
+                    continue
+                
+                # Check if relationship already exists
+                existing = db.query(CourseSubject).filter(
+                    CourseSubject.course_id == course.id,
+                    CourseSubject.subject_id == subject.id
+                ).first()
+                
+                if not existing:
+                    # Create new course_subject relationship (exactly like in route)
+                    db_course_subject = CourseSubject(
+                        course_id=course.id,   # int PK
+                        subject_id=subject.id,    # int PK
+                        learning_semester=learning_semester  # Add learning_semester
+                    )
+                    db.add(db_course_subject)
+                    course_subject_count += 1
+                else:
+                    print(f"Course-Subject relationship already exists: {course_id_str} - {subj_id_str}")
+                    
         except Exception as e:
-            print(f"Error adding class {class_data.get('class_id', '')}: {e}")
+            print(f"Error adding course_subjects for course {course_data.get('course_id', 'unknown')}: {e}")
     
     try:
         db.commit()
-        print(f"✅ Added {len(classes_data)} classes")
+        print(f"✅ Added {course_subject_count} course-subject relationships")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing classes: {e}")
+        print(f"❌ Error committing course-subject relationships: {e}")
 
 def populate_faqs(db, faqs_data):
     """Populate FAQs table"""
@@ -159,11 +326,6 @@ def main():
     print("🚀 Starting data population...")
     print("=" * 50)
     
-    # Load sample data
-    sample_data = load_sample_data()
-    if not sample_data:
-        return
-    
     # Create database session
     try:
         db = create_database_session()
@@ -172,36 +334,44 @@ def main():
         print(f"❌ Failed to connect to database: {e}")
         return
     
+    # Clear existing data first
+    clear_all_data(db)
+    
     try:
         # Populate data in correct order (respecting foreign key dependencies)
         
         # 1. Departments (no dependencies)
-        if 'departments' in sample_data:
-            populate_departments(db, sample_data['departments'])
+        departments_data = load_json_file('sample_department.json')
+        if departments_data:
+            populate_departments(db, departments_data)
         
-        # 2. Subjects (no dependencies)
-        if 'subjects' in sample_data:
-            populate_subjects(db, sample_data['subjects'])
+        # 2. Subjects (depends on departments)
+        subjects_data = load_json_file('sample_subject.json')
+        if subjects_data:
+            populate_subjects(db, subjects_data)
         
-        # 3. Courses (depends on departments)
-        if 'courses' in sample_data:
-            populate_courses(db, sample_data['courses'])
+        # 3. Courses (no dependencies in current model)
+        courses_data = load_json_file('sample_courses.json')
+        if courses_data:
+            populate_courses(db, courses_data)
+        
+        # 3.5. Course-Subject relationships (depends on courses and subjects)
+        populate_course_subjects(db, courses_data)
         
         # 4. Students (depends on courses)
-        if 'students' in sample_data:
-            populate_students(db, sample_data['students'])
+        students_data = load_json_file('sample_student.json')
+        if students_data:
+            populate_students(db, students_data)
         
-        # 5. Classes (depends on subjects)
-        if 'classes' in sample_data:
-            populate_classes(db, sample_data['classes'])
+        # 5. FAQs (no dependencies)
+        faqs_data = load_json_file('sample_faqs.json')
+        if faqs_data:
+            populate_faqs(db, faqs_data)
         
-        # 6. FAQs (no dependencies)
-        if 'faqs' in sample_data:
-            populate_faqs(db, sample_data['faqs'])
-        
-        # 7. Feedbacks (no dependencies)
-        if 'feedbacks' in sample_data:
-            populate_feedbacks(db, sample_data['feedbacks'])
+        # 6. Feedbacks (no dependencies)
+        feedbacks_data = load_json_file('sample_feedbacks.json')
+        if feedbacks_data:
+            populate_feedbacks(db, feedbacks_data)
         
         print("=" * 50)
         print("🎉 Data population completed successfully!")
