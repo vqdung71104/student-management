@@ -23,6 +23,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [scholarshipMenuOpen, setScholarshipMenuOpen] = useState(false)
   const [integratedStudyMenuOpen, setIntegratedStudyMenuOpen] = useState(false)
   const [supportMenuOpen, setSupportMenuOpen] = useState(false)
+  const [registrationMenuOpen, setRegistrationMenuOpen] = useState(false)
 
   const unreadCount = notifications.filter(n => !n.isRead).length
 
@@ -33,6 +34,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     setScholarshipMenuOpen(false)
     setIntegratedStudyMenuOpen(false)
     setSupportMenuOpen(false)
+    setRegistrationMenuOpen(false)
     setNotificationOpen(false)
   }
 
@@ -99,6 +101,38 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     </button>
                     <button onClick={() => navigateTo('/student/curriculum')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
                       📖 Chương trình đào tạo
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Đăng ký học tập */}
+              <div className="relative">
+                <button 
+                  className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
+                    isActive('/student/subject-registration') || isActive('/student/class-registration')
+                      ? 'bg-blue-600 text-white shadow-lg' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onMouseEnter={() => setRegistrationMenuOpen(true)}
+                  onMouseLeave={() => setRegistrationMenuOpen(true)}
+                >
+                  <span>📝 Đăng ký học tập</span>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {registrationMenuOpen && (
+                  <div 
+                    className="absolute top-full left-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                    onMouseEnter={() => setRegistrationMenuOpen(true)}
+                    onMouseLeave={() => setRegistrationMenuOpen(false)}
+                  >
+                    <button onClick={() => navigateTo('/student/subject-registration')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                      📚 Đăng ký học phần
+                    </button>
+                    <button onClick={() => navigateTo('/student/class-registration')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                      🏫 Đăng ký lớp
                     </button>
                   </div>
                 )}

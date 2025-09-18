@@ -238,7 +238,7 @@ const StudentDashboard = () => {
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Thao tác nhanh</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <button 
             onClick={() => navigate('/student/schedule')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
@@ -259,6 +259,20 @@ const StudentDashboard = () => {
           >
             <div className="text-2xl mb-2">📖</div>
             <p className="text-sm font-medium text-gray-900">Chương trình đào tạo</p>
+          </button>
+          <button 
+            onClick={() => navigate('/student/subject-registration')}
+            className="p-4 text-center border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+          >
+            <div className="text-2xl mb-2">📚</div>
+            <p className="text-sm font-medium text-gray-900">Đăng ký học phần</p>
+          </button>
+          <button 
+            onClick={() => navigate('/student/class-registration')}
+            className="p-4 text-center border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors"
+          >
+            <div className="text-2xl mb-2">🏫</div>
+            <p className="text-sm font-medium text-gray-900">Đăng ký lớp</p>
           </button>
           <button 
             onClick={() => navigate('/student/forms')}
