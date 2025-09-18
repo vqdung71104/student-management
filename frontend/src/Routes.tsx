@@ -17,6 +17,8 @@ import Scholarships from './pages/student/Scholarships'
 import UserGuidePage from './pages/student/UserGuidePage'
 import FAQPage from './pages/student/FAQPage'
 import FeedbackPage from './pages/student/FeedbackPage'
+import SubjectRegistration from './pages/student/SubjectRegistration'
+import ClassRegistration from './pages/student/ClassRegistration'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './contexts/AuthContext'
 
@@ -55,6 +57,8 @@ function AppRoutes() {
         <Route path="schedule" element={<Schedule />} />
         <Route path="grades" element={<Grades />} />
         <Route path="curriculum" element={<Curriculum />} />
+        <Route path="subject-registration" element={<SubjectRegistration />} />
+        <Route path="class-registration" element={<ClassRegistration />} />
         <Route path="projects" element={<Projects />} />
         <Route path="forms" element={<Forms />} />
         <Route path="scholarships" element={<Scholarships />} />

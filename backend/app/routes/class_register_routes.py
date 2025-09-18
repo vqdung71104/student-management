@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from typing import List
 from app.db.database import get_db
-from app.models.__init__ import ClassRegister
+from app.models.__init__ import ClassRegister, Student
 from app.schemas.class_register_schema import ClassRegisterCreate, ClassRegisterUpdate, ClassRegisterResponse
 
 router = APIRouter(prefix="/class-registers", tags=["Class Registers"])
@@ -35,7 +36,19 @@ def get_class_registers_by_student(student_id: str, db: Session = Depends(get_db
     return registers
 
 # ✅ Get class registers by student internal ID (integer)
-@router.get("/student-by-id/{student_internal_id}", response_model=list[ClassRegisterResponse])
+@router.get("/student/{student_id}", response_model=List[ClassRegisterResponse])
+def get_class_registers_by_student_id(student_id: str, db: Session = Depends(get_db)):
+    """Get all class registers for a student by student_id (MSSV)"""
+    # First find the student by student_id
+    student = db.query(Student).filter(Student.student_id == student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Then get class registers by student's database ID
+    registers = db.query(ClassRegister).filter(ClassRegister.student_id == student.id).all()
+    return registers
+
+@router.get("/student-by-id/{student_db_id}", response_model=List[ClassRegisterResponse])
 def get_class_registers_by_student_id(student_internal_id: int, db: Session = Depends(get_db)):
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_internal_id).all()
     return registers

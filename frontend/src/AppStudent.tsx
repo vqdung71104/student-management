@@ -91,6 +91,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const [researchMenuOpen, setResearchMenuOpen] = useState(false)
   const [exchangeMenuOpen, setExchangeMenuOpen] = useState(false)
   const [supportMenuOpen, setSupportMenuOpen] = useState(false)
+  const [registrationMenuOpen, setRegistrationMenuOpen] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       type: 'bot',
@@ -222,6 +223,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
     setResearchMenuOpen(false)
     setExchangeMenuOpen(false)
     setSupportMenuOpen(false)
+    setRegistrationMenuOpen(false)
     setNotificationOpen(false)
   }
 
@@ -299,6 +301,33 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   </span>
                 </button>
               </Dropdown>
+              
+              {/* Đăng ký học tập */}
+              <div className="relative">
+                <button 
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
+                    currentPage.includes('registration')
+                      ? 'bg-blue-600 text-white shadow-lg' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={() => setRegistrationMenuOpen(!registrationMenuOpen)}
+                >
+                  <span>📝 Đăng ký học tập</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {registrationMenuOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                    <button onClick={() => window.location.href = '/student/subject-registration'} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                      📚 Đăng ký học phần
+                    </button>
+                    <button onClick={() => window.location.href = '/student/class-registration'} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
+                      🏫 Đăng ký lớp
+                    </button>
+                  </div>
+                )}
+              </div>
               
               {/* Đồ án */}
               <div className="relative">
