@@ -40,6 +40,25 @@ def get_subject_register(subject_register_id: int, db: Session = Depends(get_db)
         raise HTTPException(status_code=404, detail="Subject register not found")
     return subject_register
 
+# ✅ Get subject registers by student ID
+@router.get("/student/{student_id}", response_model=list[SubjectRegisterResponse])
+def get_subject_registers_by_student(student_id: int, db: Session = Depends(get_db)):
+    subject_registers = db.query(SubjectRegister).filter(SubjectRegister.student_id == student_id).all()
+    return subject_registers
+
+# ✅ Get subject registers by student MSSV
+@router.get("/student-mssv/{mssv}", response_model=list[SubjectRegisterResponse])
+def get_subject_registers_by_mssv(mssv: str, db: Session = Depends(get_db)):
+    # First get student by student_id (MSSV)
+    from ..models.student_model import Student
+    student = db.query(Student).filter(Student.student_id == mssv).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Then get subject registers by student's database ID
+    subject_registers = db.query(SubjectRegister).filter(SubjectRegister.student_id == student.id).all()
+    return subject_registers
+
 # ✅ Update subject register (chỉ được đổi student_id hoặc subject_id, còn subject_name và credits sẽ cập nhật lại theo subject mới)
 @router.put("/{subject_register_id}", response_model=SubjectRegisterResponse)
 def update_subject_register(subject_register_id: int, subject_register_update: SubjectRegisterUpdate, db: Session = Depends(get_db)):
