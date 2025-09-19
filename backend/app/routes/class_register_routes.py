@@ -19,7 +19,7 @@ def create_class_register(register_data: ClassRegisterCreate, db: Session = Depe
 # ✅ Get all class registers
 @router.get("/", response_model=list[ClassRegisterResponse])
 def get_class_registers(db: Session = Depends(get_db)):
-    return db.query(ClassRegister).all() # Return all class registers
+    return db.query(ClassRegister).all()
 
 # ✅ Get class register by ID
 @router.get("/{register_id}", response_model=ClassRegisterResponse)
@@ -29,15 +29,15 @@ def get_class_register(register_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Class register not found")
     return register
 
-# ✅ Get class registers by student ID  
+# ✅ Get class registers by student database ID (internal ID)
 @router.get("/student/{student_id}", response_model=list[ClassRegisterResponse])
-def get_class_registers_by_student(student_id: str, db: Session = Depends(get_db)):
+def get_class_registers_by_student_db_id(student_id: int, db: Session = Depends(get_db)):
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_id).all()
     return registers
 
-# ✅ Get class registers by student internal ID (integer)
-@router.get("/student/{student_id}", response_model=List[ClassRegisterResponse])
-def get_class_registers_by_student_id(student_id: str, db: Session = Depends(get_db)):
+# ✅ Get class registers by student MSSV
+@router.get("/student-mssv/{student_id}", response_model=List[ClassRegisterResponse])
+def get_class_registers_by_student_mssv(student_id: str, db: Session = Depends(get_db)):
     """Get all class registers for a student by student_id (MSSV)"""
     # First find the student by student_id
     student = db.query(Student).filter(Student.student_id == student_id).first()
@@ -45,7 +45,9 @@ def get_class_registers_by_student_id(student_id: str, db: Session = Depends(get
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Then get class registers by student's database ID
-    registers = db.query(ClassRegister).filter(ClassRegister.student_id == student.id).all()
+    registers = db.query(ClassRegister)\
+        .filter(ClassRegister.student_id == student.id)\
+        .all()
     return registers
 
 @router.get("/student-by-id/{student_db_id}", response_model=List[ClassRegisterResponse])

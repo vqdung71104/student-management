@@ -1,6 +1,7 @@
 from typing import Optional
-from sqlalchemy import Column, String, Integer, ForeignKey
+from sqlalchemy import Column, String, Integer, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from app.db.database import Base
 
 class ClassRegister(Base):
@@ -11,6 +12,7 @@ class ClassRegister(Base):
     requirement = Column(String(255), nullable=True)
     register_type = Column(String(255))
     register_status = Column(String(255))
+    register_date = Column(DateTime, default=datetime.now)
     student_id = Column(Integer, ForeignKey("students.id"))
     class_id = Column(Integer, ForeignKey("classes.id"))
 
