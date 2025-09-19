@@ -1,5 +1,6 @@
 from typing import Optional
 from pydantic import BaseModel
+from datetime import datetime
 
 # Base model chỉ chứa subject_name và credits (được lấy tự động)
 class SubjectRegisterBase(BaseModel):
@@ -16,11 +17,12 @@ class SubjectRegisterUpdate(BaseModel):
     student_id: Optional[int] = None
     subject_id: Optional[int] = None
 
-# Response: hiển thị đủ 5 trường
+# Response: hiển thị đủ trường bao gồm register_date
 class SubjectRegisterResponse(SubjectRegisterBase):
     id: int
     student_id: int
     subject_id: int
+    register_date: datetime
 
     class Config:
         from_attributes = True

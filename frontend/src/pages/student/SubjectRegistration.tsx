@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input, Select } from 'antd'
-import { SearchOutlined, BookOutlined, PlusOutlined, ArrowLeftOutlined } from '@ant-design/icons'
+import { SearchOutlined, BookOutlined, PlusOutlined, ArrowLeftOutlined, CalendarOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 
 const { Title, Text } = Typography
@@ -10,7 +10,7 @@ const { Option } = Select
 interface Subject {
   id: number
   subject_name: string
-  subject_code: string
+  subject_id: string
   credits: number
   semester: number
   subject_type: string
@@ -131,9 +131,30 @@ const SubjectRegistration = () => {
     try {
       const response = await fetch(`http://localhost:8000/subject-registers/student-mssv/${userInfo.student_id}`)
       if (response.ok) {
-        const data = await response.json()
-        console.log('Registered subjects:', data)
-        setRegisteredSubjects(data)
+        const registersData = await response.json()
+        console.log('Registered subjects data:', registersData)
+        
+        // Fetch subject information for each registered subject
+        const subjectsResponse = await fetch('http://localhost:8000/subjects/')
+        if (subjectsResponse.ok) {
+          const allSubjects = await subjectsResponse.json()
+          
+          // Join subject info with register data
+          const enrichedRegisters = registersData.map((register: any) => {
+            const subjectInfo = allSubjects.find((subject: any) => subject.id === register.subject_id)
+            return {
+              ...register,
+              subject_id: subjectInfo?.subject_id || 'N/A', // Using subject.subject_id as subject code
+              subject_name: subjectInfo?.subject_name || register.subject_name || 'N/A',
+              credits: subjectInfo?.credits || register.credits || 0
+            }
+          })
+          
+          console.log('Enriched registered subjects:', enrichedRegisters)
+          setRegisteredSubjects(enrichedRegisters)
+        } else {
+          setRegisteredSubjects(registersData)
+        }
       } else {
         console.error('Failed to fetch registered subjects, status:', response.status)
         message.error('Không thể tải danh sách học phần đã đăng ký')
@@ -228,7 +249,7 @@ const SubjectRegistration = () => {
     return subjects.filter(subject => {
       // Safe string matching with null/undefined checks
       const subjectName = subject.subject_name || ''
-      const subjectCode = subject.subject_code || ''
+      const subjectCode = subject.subject_id || ''
       const searchLower = searchText.toLowerCase()
       
       const matchSearch = searchText === '' || 
@@ -248,8 +269,8 @@ const SubjectRegistration = () => {
   const availableSubjectsColumns = [
     {
       title: 'Mã học phần',
-      dataIndex: 'subject_code',
-      key: 'subject_code',
+      dataIndex: 'subject_id',
+      key: 'subject_id',
       width: 120,
       render: (text: string) => <Text strong>{text}</Text>
     },
@@ -276,23 +297,14 @@ const SubjectRegistration = () => {
     },
     {
       title: 'Học kỳ',
-      dataIndex: 'semester',
-      key: 'semester',
+      key: 'newest_semester',
       width: 100,
       align: 'center' as const,
-      render: (semester: number) => (
-        <Tag color="green">HK {semester}</Tag>
+      render: () => (
+        <Tag color="green">HK {studentData?.newest_semester || 'N/A'}</Tag>
       )
     },
-    {
-      title: 'Loại học phần',
-      dataIndex: 'subject_type',
-      key: 'subject_type',
-      width: 130,
-      render: (type: string) => (
-        <Tag color={type === 'Bắt buộc' ? 'red' : 'orange'}>{type}</Tag>
-      )
-    },
+    
     {
       title: 'Thao tác',
       key: 'action',
@@ -317,12 +329,10 @@ const SubjectRegistration = () => {
   const registeredSubjectsColumns = [
     {
       title: 'Mã học phần',
-      key: 'subject_code',
+      dataIndex: 'subject_id',
+      key: 'subject_id',
       width: 120,
-      render: (_: any, record: SubjectRegister) => {
-        const subject = subjects.find(s => s.id === record.subject_id)
-        return <Text strong>{subject?.subject_code}</Text>
-      }
+      render: (code: string | number) => <Text strong>{code}</Text>
     },
     {
       title: 'Tên học phần',
@@ -349,8 +359,26 @@ const SubjectRegistration = () => {
       title: 'Ngày đăng ký',
       dataIndex: 'register_date',
       key: 'register_date',
-      width: 130,
-      render: (date: string) => new Date(date).toLocaleDateString('vi-VN')
+      width: 160,
+      render: (date: string) => {
+        if (!date) return 'N/A'
+        try {
+          const dateObj = new Date(date)
+          return (
+            <div className="flex items-center">
+              <CalendarOutlined className="mr-1" />
+              <div>
+                <div>{dateObj.toLocaleDateString('vi-VN')}</div>
+                <div className="text-xs text-gray-500">
+                  {dateObj.toLocaleTimeString('vi-VN')}
+                </div>
+              </div>
+            </div>
+          )
+        } catch (error) {
+          return 'Invalid Date'
+        }
+      }
     },
     {
       title: 'Thao tác',
@@ -426,27 +454,8 @@ const SubjectRegistration = () => {
               style={{ width: 200 }}
               allowClear
             />
-            <Select
-              placeholder="Chọn học kỳ"
-              allowClear
-              style={{ width: 120 }}
-              value={filterSemester}
-              onChange={setFilterSemester}
-            >
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
-                <Option key={sem} value={sem}>HK {sem}</Option>
-              ))}
-            </Select>
-            <Select
-              placeholder="Loại học phần"
-              allowClear
-              style={{ width: 140 }}
-              value={filterType}
-              onChange={setFilterType}
-            >
-              <Option value="Bắt buộc">Bắt buộc</Option>
-              <Option value="Tự chọn">Tự chọn</Option>
-            </Select>
+            
+            
           </Space>
         }
       >
@@ -491,7 +500,7 @@ const SubjectRegistration = () => {
           <div className="space-y-3">
             <div>
               <Text strong>Mã học phần: </Text>
-              <Text>{selectedSubject.subject_code}</Text>
+              <Text>{selectedSubject.subject_id}</Text>
             </div>
             <div>
               <Text strong>Tên học phần: </Text>
@@ -505,12 +514,7 @@ const SubjectRegistration = () => {
               <Text strong>Học kỳ: </Text>
               <Tag color="green">HK {selectedSubject.semester}</Tag>
             </div>
-            <div>
-              <Text strong>Loại học phần: </Text>
-              <Tag color={selectedSubject.subject_type === 'Bắt buộc' ? 'red' : 'orange'}>
-                {selectedSubject.subject_type}
-              </Tag>
-            </div>
+            
             {selectedSubject.description && (
               <div>
                 <Text strong>Mô tả: </Text>

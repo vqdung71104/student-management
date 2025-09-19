@@ -394,17 +394,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
               onChange={(e) => setSearchText(e.target.value)}
               style={{ width: 250 }}
             />
-            <Select
-              placeholder="Trạng thái"
-              allowClear
-              style={{ width: 120 }}
-              value={filterStatus}
-              onChange={setFilterStatus}
-            >
-              <Option value="Mở">Mở</Option>
-              <Option value="Đầy">Đầy</Option>
-              <Option value="Đóng">Đóng</Option>
-            </Select>
+            
           </Space>
         }
       >
