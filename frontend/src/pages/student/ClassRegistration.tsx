@@ -23,6 +23,7 @@ interface Class {
   max_students?: number
   max_student_number?: number
   current_students: number
+  registered_count?: number // Add this field for actual registered students
   subject_id: number
   subject_name?: string
   credits?: number
@@ -88,9 +89,29 @@ const ClassRegistration = () => {
         const allClasses = await response.json()
         console.log('All classes fetched:', allClasses.length)
         
+        // Fetch registration counts for all classes
+        const registrationResponse = await fetch('http://localhost:8000/class-registers/')
+        let registrationCounts: { [key: number]: number } = {}
+        
+        if (registrationResponse.ok) {
+          const allRegistrations = await registrationResponse.json()
+          // Count registrations by class_id (which is the foreign key to class.id)
+          registrationCounts = allRegistrations.reduce((acc: { [key: number]: number }, reg: any) => {
+            acc[reg.class_id] = (acc[reg.class_id] || 0) + 1
+            return acc
+          }, {})
+          console.log('Registration counts:', registrationCounts)
+        }
+        
+        // Add registration count to each class
+        const classesWithCounts = allClasses.map((classItem: any) => ({
+          ...classItem,
+          registered_count: registrationCounts[classItem.id] || 0
+        }))
+        
         // Create a Set of all linked class IDs to filter out
         const linkedClassIds = new Set<number>()
-        allClasses.forEach((classItem: any) => {
+        classesWithCounts.forEach((classItem: any) => {
           if (classItem.linked_class_ids && Array.isArray(classItem.linked_class_ids)) {
             classItem.linked_class_ids.forEach((linkedId: number) => {
               if (linkedId !== classItem.class_id) { // Don't exclude self
@@ -103,7 +124,7 @@ const ClassRegistration = () => {
         console.log('Linked class IDs to exclude:', Array.from(linkedClassIds))
         
         // Filter classes: must be in registered subjects AND not be a linked class
-        const allowedClasses = allClasses.filter((classItem: any) => {
+        const allowedClasses = classesWithCounts.filter((classItem: any) => {
           const isRegisteredSubject = registeredSubjectIds.includes(classItem.subject?.id)
           const isNotLinkedClass = !linkedClassIds.has(classItem.class_id)
           return isRegisteredSubject && isNotLinkedClass
@@ -407,14 +428,23 @@ const ClassRegistration = () => {
       key: 'capacity',
       width: 70,
       align: 'center' as const,
-      render: (record: any) => (
-        <div className="text-center">
-          <div className="text-sm">0/{record.max_student_number || 0}</div>
-          <div className="w-full bg-gray-200 rounded h-1 mt-1">
-            <div className="bg-blue-500 h-1 rounded" style={{ width: '0%' }}></div>
+      render: (record: any) => {
+        const registeredCount = record.registered_count || 0
+        const maxStudents = record.max_student_number || 0
+        const percentage = maxStudents > 0 ? (registeredCount / maxStudents) * 100 : 0
+        
+        return (
+          <div className="text-center">
+            <div className="text-sm">{registeredCount}/{maxStudents}</div>
+            <div className="w-full bg-gray-200 rounded h-1 mt-1">
+              <div 
+                className={`h-1 rounded ${percentage >= 100 ? 'bg-red-500' : percentage >= 80 ? 'bg-orange-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.min(percentage, 100)}%` }}
+              ></div>
+            </div>
           </div>
-        </div>
-      )
+        )
+      }
     },
     {
       title: 'Thao tác',
@@ -575,17 +605,7 @@ const ClassRegistration = () => {
               style={{ width: 250 }}
               allowClear
             />
-            <Select
-              placeholder="Trạng thái"
-              allowClear
-              style={{ width: 120 }}
-              value={filterStatus}
-              onChange={setFilterStatus}
-            >
-              <Option value="Mở">Mở</Option>
-              <Option value="Đầy">Đầy</Option>
-              <Option value="Đóng">Đóng</Option>
-            </Select>
+            
           </Space>
         }
       >
