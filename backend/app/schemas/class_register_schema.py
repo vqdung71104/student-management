@@ -1,5 +1,21 @@
 from typing import Optional
 from pydantic import BaseModel, validator
+from datetime import datetime
+
+class ClassInfo(BaseModel):
+    id: int
+    class_id: int
+    class_name: str
+    class_type: str
+    classroom: str
+    study_date: str
+    study_time_start: str
+    study_time_end: str
+    max_student_number: int
+    teacher_name: str
+    
+    class Config:
+        from_attributes = True
 
 class ClassRegisterBase(BaseModel):
     class_info: str
@@ -72,9 +88,7 @@ class ClassRegisterResponse(ClassRegisterBase):
     student_id: int
     class_id: int
     requirement: Optional[str] = None
-    class_info: str
-    register_type: str
-    register_status: str
+    register_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True

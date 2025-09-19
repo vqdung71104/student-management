@@ -8,17 +8,30 @@ const { Option } = Select
 
 interface Class {
   id: number
+  class_id: number
   class_name: string
   class_code: string
-  instructor_name: string
-  room: string
-  time_slot: string
-  max_students: number
+  class_type: string
+  instructor_name?: string
+  teacher_name?: string
+  room?: string
+  classroom?: string
+  time_slot?: string
+  study_date?: string
+  study_time_start?: string
+  study_time_end?: string
+  max_students?: number
+  max_student_number?: number
   current_students: number
   subject_id: number
-  subject_name: string
-  credits: number
+  subject_name?: string
+  credits?: number
   status: string
+  linked_class_ids?: number[]
+  subject?: {
+    subject_name: string
+    credits: number
+  }
 }
 
 interface ClassRegister {
@@ -29,6 +42,12 @@ interface ClassRegister {
   register_type: string
   register_status: string
   register_date: string
+  // Added fields from enriched data
+  class_name?: string
+  class_code?: string | number
+  subject_name?: string
+  classroom?: string
+  teacher_name?: string
 }
 
 const ClassRegistration = () => {
@@ -67,15 +86,36 @@ const ClassRegistration = () => {
       const response = await fetch('http://localhost:8000/classes/')
       if (response.ok) {
         const allClasses = await response.json()
-        // Filter classes to only show those with subject_id in registered subjects
-        const allowedClasses = allClasses.filter((classItem: Class) => 
-          registeredSubjectIds.includes(classItem.subject_id)
-        )
+        console.log('All classes fetched:', allClasses.length)
+        
+        // Create a Set of all linked class IDs to filter out
+        const linkedClassIds = new Set<number>()
+        allClasses.forEach((classItem: any) => {
+          if (classItem.linked_class_ids && Array.isArray(classItem.linked_class_ids)) {
+            classItem.linked_class_ids.forEach((linkedId: number) => {
+              if (linkedId !== classItem.class_id) { // Don't exclude self
+                linkedClassIds.add(linkedId)
+              }
+            })
+          }
+        })
+        
+        console.log('Linked class IDs to exclude:', Array.from(linkedClassIds))
+        
+        // Filter classes: must be in registered subjects AND not be a linked class
+        const allowedClasses = allClasses.filter((classItem: any) => {
+          const isRegisteredSubject = registeredSubjectIds.includes(classItem.subject?.id)
+          const isNotLinkedClass = !linkedClassIds.has(classItem.class_id)
+          return isRegisteredSubject && isNotLinkedClass
+        })
+        
+        console.log('Filtered classes (main classes only):', allowedClasses.length)
         setClasses(allowedClasses)
       } else {
         message.error('Không thể tải danh sách lớp học')
       }
     } catch (error) {
+      console.error('Error fetching classes:', error)
       message.error('Lỗi kết nối server')
     } finally {
       setLoading(false)
@@ -88,11 +128,34 @@ const ClassRegistration = () => {
     
     try {
       // Use student-mssv endpoint with MSSV
-      const response = await fetch(`http://localhost:8000/class-registers/student/${userInfo.student_id}`)
+      const response = await fetch(`http://localhost:8000/class-registers/student-mssv/${userInfo.student_id}`)
       if (response.ok) {
-        const data = await response.json()
-        console.log('Registered classes data:', data)
-        setRegisteredClasses(data)
+        const registersData = await response.json()
+        console.log('Registered classes data:', registersData)
+        
+        // Fetch class information for each registered class
+        const classesResponse = await fetch('http://localhost:8000/classes/')
+        if (classesResponse.ok) {
+          const allClasses = await classesResponse.json()
+          
+          // Join class info with register data
+          const enrichedRegisters = registersData.map((register: any) => {
+            const classInfo = allClasses.find((cls: any) => cls.id === register.class_id)
+            return {
+              ...register,
+              class_name: classInfo?.class_name || 'Unknown',
+              class_code: classInfo?.class_id || 'N/A',
+              subject_name: classInfo?.subject?.subject_name || 'N/A',
+              classroom: classInfo?.classroom || 'N/A',
+              teacher_name: classInfo?.teacher_name || 'N/A'
+            }
+          })
+          
+          console.log('Enriched registered classes:', enrichedRegisters)
+          setRegisteredClasses(enrichedRegisters)
+        } else {
+          setRegisteredClasses(registersData)
+        }
       } else {
         console.error('Failed to fetch registered classes, status:', response.status)
       }
@@ -110,43 +173,110 @@ const ClassRegistration = () => {
 
     try {
       setLoading(true)
-      console.log('Registering class with data:', {
-        student_id: userInfo.student_id,
+      
+      // First get student database ID from MSSV
+      const studentResponse = await fetch(`http://localhost:8000/students/?student_id=${userInfo.student_id}`)
+      if (!studentResponse.ok) {
+        throw new Error('Cannot find student')
+      }
+      const students = await studentResponse.json()
+      const student = students.find((s: any) => s.student_id === userInfo.student_id)
+      if (!student) {
+        throw new Error('Student not found')
+      }
+
+      // Find the selected class to get its linked classes
+      const selectedClassData = classes.find(cls => cls.id === classId)
+      const linkedClassIds = selectedClassData?.linked_class_ids || []
+      
+      console.log('Main class ID:', classId)
+      console.log('Main class data:', selectedClassData)
+      console.log('Linked class IDs (class_id values):', linkedClassIds)
+
+      // Register main class
+      const registerData = {
+        student_id: student.id,
         class_id: classId,
-        class_info: selectedClass?.class_name || '',
-        register_type: 'Bình thường',
-        register_status: 'Đang chờ'
-      })
+        class_info: 'Đang mở',
+        register_type: 'Đăng ký online',
+        register_status: 'Đăng ký thành công'
+      }
+
+      console.log('Registering main class:', registerData)
       
       const response = await fetch('http://localhost:8000/class-registers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          student_id: userInfo.student_id,
-          class_id: classId,
-          class_info: selectedClass?.class_name || '',
-          register_type: 'Bình thường',
-          register_status: 'Đang chờ'
-        }),
+        body: JSON.stringify(registerData),
       })
 
-      if (response.ok) {
-        message.success('Đăng ký lớp học thành công!')
-        setModalVisible(false)
-        setSelectedClass(null)
-        // Refresh both lists
-        await fetchClasses()
-        await fetchRegisteredClasses()
-      } else {
+      if (!response.ok) {
         const errorData = await response.json()
-        console.error('Registration failed:', errorData)
-        message.error(errorData.detail || 'Đăng ký thất bại')
+        throw new Error(errorData.detail || 'Đăng ký lớp chính thất bại')
       }
+
+      // Register linked classes if any
+      // Need to fetch all classes to find linked classes (since they're filtered out from main list)
+      const linkedRegistrations = []
+      if (linkedClassIds.length > 0) {
+        console.log('Fetching all classes to find linked classes...')
+        const allClassesResponse = await fetch('http://localhost:8000/classes/')
+        if (allClassesResponse.ok) {
+          const allClasses = await allClassesResponse.json()
+          
+          for (const linkedClassId of linkedClassIds) {
+            if (linkedClassId !== selectedClassData?.class_id) { // Don't register self again
+              // Find the class with this class_id to get its database id
+              const linkedClass = allClasses.find((cls: any) => cls.class_id === linkedClassId)
+              if (linkedClass) {
+                const linkedRegisterData = {
+                  student_id: student.id,
+                  class_id: linkedClass.id, // Use database ID, not class_id
+                  class_info: 'Đang mở',
+                  register_type: 'Đăng ký online',
+                  register_status: 'Đăng ký thành công'
+                }
+
+                console.log(`Registering linked class ${linkedClassId} (DB ID: ${linkedClass.id}):`, linkedRegisterData)
+                
+                const linkedResponse = await fetch('http://localhost:8000/class-registers', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(linkedRegisterData),
+                })
+
+                if (linkedResponse.ok) {
+                  linkedRegistrations.push(linkedClassId)
+                } else {
+                  const errorData = await linkedResponse.json()
+                  console.warn(`Failed to register linked class ${linkedClassId}:`, errorData)
+                }
+              } else {
+                console.warn(`Could not find linked class with class_id ${linkedClassId} in all classes`)
+              }
+            }
+          }
+        } else {
+          console.error('Failed to fetch all classes for linked class registration')
+        }
+      }
+
+      const totalRegistered = 1 + linkedRegistrations.length
+      message.success(`Đăng ký thành công ${totalRegistered} lớp học!${linkedRegistrations.length > 0 ? ` (Bao gồm ${linkedRegistrations.length} lớp kèm)` : ''}`)
+      
+      setModalVisible(false)
+      setSelectedClass(null)
+      // Refresh both lists
+      await fetchClasses()
+      await fetchRegisteredClasses()
+      
     } catch (error) {
       console.error('Error registering class:', error)
-      message.error('Lỗi kết nối server')
+      message.error(error instanceof Error ? error.message : 'Lỗi kết nối server')
     } finally {
       setLoading(false)
     }
@@ -210,102 +340,93 @@ const ClassRegistration = () => {
   const availableClassesColumns = [
     {
       title: 'Mã lớp',
-      dataIndex: 'class_code',
-      key: 'class_code',
-      width: 100,
-      render: (text: string) => <Text strong>{text}</Text>
-    },
-    {
-      title: 'Tên lớp',
-      dataIndex: 'class_name',
-      key: 'class_name',
-      render: (text: string) => (
-        <div className="flex items-center">
-          <HomeOutlined className="mr-2 text-blue-500" />
-          {text}
-        </div>
-      )
+      key: 'class_id',
+      width: 80,
+      render: (record: any) => <Text strong>{record.class_id || 'N/A'}</Text>
     },
     {
       title: 'Học phần',
-      key: 'subject_info',
-      render: (record: Class) => (
+      key: 'class_name',
+      width: 180,
+      render: (record: any) => (
         <div>
-          <div>{record.subject_name || 'N/A'}</div>
-          <Tag color="blue">{record.credits || 0} TC</Tag>
+          <div className="font-medium">{record.class_name || 'N/A'}</div>
+          <div className="text-xs text-gray-500">{record.subject?.subject_name || 'N/A'}</div>
         </div>
       )
     },
     {
-      title: 'Giảng viên',
-      dataIndex: 'instructor_name',
-      key: 'instructor_name',
-      width: 150,
-      render: (text: string) => text || 'Chưa phân công'
+      title: 'Lớp kèm',
+      key: 'linked_classes',
+      width: 90,
+      render: (record: any) => {
+        const linkedIds = record.linked_class_ids || []
+        return linkedIds.length > 0 ? (
+          <div className="text-xs">
+            {linkedIds.slice(0, 2).map((id: number) => (
+              <div key={id}>{id}</div>
+            ))}
+            {linkedIds.length > 2 && <div>+{linkedIds.length - 2}</div>}
+          </div>
+        ) : 'Không'
+      }
     },
     {
-      title: 'Phòng học',
-      dataIndex: 'room',
-      key: 'room',
-      width: 100,
+      title: 'Loại',
+      dataIndex: 'class_type',
+      key: 'class_type',
+      width: 70,
+      render: (type: string) => (
+        <Tag color="blue">{type || 'N/A'}</Tag>
+      )
+    },
+    {
+      title: 'Phòng',
+      dataIndex: 'classroom',
+      key: 'classroom',
+      width: 80,
       render: (room: string) => (
-        <Tag color="green">{room || 'Chưa phân phòng'}</Tag>
+        <Tag color="green">{room || 'TBD'}</Tag>
       )
     },
     {
       title: 'Thời gian',
-      dataIndex: 'time_slot',
-      key: 'time_slot',
+      key: 'schedule',
       width: 120,
-      render: (time: string) => (
-        <div className="flex items-center">
-          <ClockCircleOutlined className="mr-1" />
-          <span className="text-sm">{time || 'Chưa xác định'}</span>
-        </div>
-      )
-    },
-    {
-      title: 'Sĩ số',
-      key: 'students',
-      width: 100,
-      align: 'center' as const,
-      render: (_: any, record: Class) => (
-        <div>
-          <Text>{record.current_students || 0}/{record.max_students || 0}</Text>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-            <div 
-              className="bg-blue-600 h-2 rounded-full" 
-              style={{ 
-                width: `${record.max_students > 0 ? (record.current_students / record.max_students) * 100 : 0}%` 
-              }}
-            ></div>
+      render: (record: any) => (
+        <div className="text-xs">
+          <div>{record.study_date || 'N/A'}</div>
+          <div className="text-gray-500">
+            {record.study_time_start} - {record.study_time_end}
           </div>
         </div>
       )
     },
     {
-      title: 'Trạng thái',
-      dataIndex: 'status',
-      key: 'status',
-      width: 100,
-      render: (status: string) => (
-        <Tag color={status === 'Mở' ? 'green' : status === 'Đầy' ? 'red' : 'orange'}>
-          {status || 'Chưa xác định'}
-        </Tag>
+      title: 'Sĩ số',
+      key: 'capacity',
+      width: 70,
+      align: 'center' as const,
+      render: (record: any) => (
+        <div className="text-center">
+          <div className="text-sm">0/{record.max_student_number || 0}</div>
+          <div className="w-full bg-gray-200 rounded h-1 mt-1">
+            <div className="bg-blue-500 h-1 rounded" style={{ width: '0%' }}></div>
+          </div>
+        </div>
       )
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 120,
+      width: 90,
       align: 'center' as const,
-      render: (_: any, record: Class) => (
+      render: (_: any, record: any) => (
         <Button
           type="primary"
-          icon={<PlusOutlined />}
           size="small"
-          disabled={record.status !== 'Mở' || record.current_students >= record.max_students}
           onClick={() => {
+            console.log('Register button clicked for class:', record)
             setSelectedClass(record)
             setModalVisible(true)
           }}
@@ -319,12 +440,19 @@ const ClassRegistration = () => {
   const registeredClassesColumns = [
     {
       title: 'Thông tin lớp',
-      dataIndex: 'class_info',
-      key: 'class_info',
-      render: (text: string) => (
-        <div className="flex items-center">
-          <HomeOutlined className="mr-2 text-green-500" />
-          {text}
+      key: 'class_details',
+      render: (record: ClassRegister) => (
+        <div>
+          <div className="flex items-center mb-1">
+            <HomeOutlined className="mr-2 text-green-500" />
+            <strong>{record.class_name || record.class_info}</strong>
+          </div>
+          <div className="text-sm text-gray-500">
+            Mã lớp: {record.class_code || 'N/A'} | Học phần: {record.subject_name || 'N/A'}
+          </div>
+          <div className="text-sm text-gray-500">
+            Phòng: {record.classroom || 'N/A'} | GV: {record.teacher_name || 'N/A'}
+          </div>
         </div>
       )
     },
@@ -352,13 +480,26 @@ const ClassRegistration = () => {
       title: 'Ngày đăng ký',
       dataIndex: 'register_date',
       key: 'register_date',
-      width: 130,
-      render: (date: string) => (
-        <div className="flex items-center">
-          <CalendarOutlined className="mr-1" />
-          {new Date(date).toLocaleDateString('vi-VN')}
-        </div>
-      )
+      width: 160,
+      render: (date: string) => {
+        if (!date) return 'N/A'
+        try {
+          const dateObj = new Date(date)
+          return (
+            <div className="flex items-center">
+              <CalendarOutlined className="mr-1" />
+              <div>
+                <div>{dateObj.toLocaleDateString('vi-VN')}</div>
+                <div className="text-xs text-gray-500">
+                  {dateObj.toLocaleTimeString('vi-VN')}
+                </div>
+              </div>
+            </div>
+          )
+        } catch (error) {
+          return 'Invalid Date'
+        }
+      }
     },
     {
       title: 'Thao tác',
@@ -462,12 +603,13 @@ const ClassRegistration = () => {
             loading={loading}
             size="small"
             pagination={{
-              pageSize: 10,
+              pageSize: 8,
               showSizeChanger: true,
               showQuickJumper: true,
               showTotal: (total) => `Tổng ${total} lớp học`
             }}
-            scroll={{ x: 1200 }}
+            tableLayout="auto"
+            scroll={{ y: 400 }}
           />
         )}
       </Card>
@@ -498,7 +640,7 @@ const ClassRegistration = () => {
           <div className="space-y-3">
             <div>
               <Text strong>Mã lớp: </Text>
-              <Text>{selectedClass.class_code}</Text>
+              <Text>{selectedClass.class_id}</Text>
             </div>
             <div>
               <Text strong>Tên lớp: </Text>
@@ -506,24 +648,39 @@ const ClassRegistration = () => {
             </div>
             <div>
               <Text strong>Học phần: </Text>
-              <Text>{selectedClass.subject_name || 'N/A'}</Text>
-              <Tag color="blue" className="ml-2">{selectedClass.credits || 0} TC</Tag>
+              <Text>{selectedClass.subject?.subject_name || 'N/A'}</Text>
+              <Tag color="blue" className="ml-2">{selectedClass.subject?.credits || 0} TC</Tag>
+            </div>
+            <div>
+              <Text strong>Loại lớp: </Text>
+              <Tag color="blue">{selectedClass.class_type || 'N/A'}</Tag>
             </div>
             <div>
               <Text strong>Giảng viên: </Text>
-              <Text>{selectedClass.instructor_name || 'Chưa phân công'}</Text>
+              <Text>{selectedClass.teacher_name || 'Chưa phân công'}</Text>
             </div>
             <div>
               <Text strong>Phòng học: </Text>
-              <Tag color="green">{selectedClass.room || 'Chưa phân phòng'}</Tag>
+              <Tag color="green">{selectedClass.classroom || 'Chưa phân phòng'}</Tag>
             </div>
             <div>
               <Text strong>Thời gian: </Text>
-              <Text>{selectedClass.time_slot || 'Chưa xác định'}</Text>
+              <Text>
+                {selectedClass.study_date} ({selectedClass.study_time_start} - {selectedClass.study_time_end})
+              </Text>
+            </div>
+            <div>
+              <Text strong>Lớp kèm: </Text>
+              <Text>
+                {selectedClass.linked_class_ids && selectedClass.linked_class_ids?.length > 0
+                  ? selectedClass.linked_class_ids.join(', ')
+                  : 'Không có'
+                }
+              </Text>
             </div>
             <div>
               <Text strong>Sĩ số hiện tại: </Text>
-              <Text>{selectedClass.current_students || 0}/{selectedClass.max_students || 0} sinh viên</Text>
+              <Text>0/{selectedClass.max_student_number || 0} sinh viên</Text>
             </div>
             <div>
               <Text strong>Trạng thái: </Text>
