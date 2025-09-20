@@ -15,6 +15,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [language, setLanguage] = useState<'vi' | 'en'>('vi')
   const [chatbotOpen, setChatbotOpen] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const texts = {
     vi: {
@@ -53,6 +54,19 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
   const t = texts[language]
 
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true)
+  }
+
+  const handleConfirmLogout = () => {
+    setShowLogoutConfirm(false)
+    logout()
+  }
+
+  const handleCancelLogout = () => {
+    setShowLogoutConfirm(false)
+  }
+
   const navigateTo = (path: string) => {
     navigate(path)
     setSubjectMenuOpen(false)
@@ -68,133 +82,187 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
       {/* Header */}
-      <header className="bg-white shadow-lg border-b border-gray-200">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            {/* Logo và Title */}
-            <div className="flex items-center space-x-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <h1 className="text-xl font-bold text-gray-800">ADMIN PORTAL</h1>
-            </div>
+      <header className="bg-white shadow-sm border-b border-gray-200 w-full">
+        <div className="w-full max-w-none px-4 py-2">
+          <div className="flex justify-between items-center w-full min-w-full">
+            {/* Logo */}
+            <button 
+              onClick={() => navigate('/admin')}
+              className="flex items-center space-x-2 hover:opacity-90 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-white rounded-lg p-2 bg-gray-50"
+            >
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-sm">AP</span>
+              </div>
+              <h1 className="text-base font-bold text-gray-800">ADMIN PORTAL</h1>
+            </button>
 
             {/* Navigation Menu */}
-            <div className="hidden md:flex items-center space-x-4">
-              {/* Dashboard Button */}
-              <button 
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  isActive('/admin') && location.pathname === '/admin'
-                    ? 'bg-blue-600 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => navigateTo('/admin')}
-              >
-                📊 {t.dashboard}
-              </button>
-
-              {/* Student Management Button */}
-              <button 
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  isActive('/admin/students')
-                    ? 'bg-blue-600 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => navigateTo('/admin/students')}
-              >
-                👥 {t.studentManagement}
-              </button>
-
-              {/* Subject Management Dropdown */}
-              <div className="relative">
+            <div className="hidden md:flex items-center flex-1 justify-end mr-4">
+              <div className="flex items-center space-x-1">
+                {/* Dashboard */}
                 <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    isActive('/admin/schedule') || isActive('/admin/subjects')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                  className={`h-8 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded flex items-center space-x-1 ${
+                    isActive('/admin') && location.pathname === '/admin'
+                      ? 'bg-blue-600 text-white' 
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
-                  onClick={() => setSubjectMenuOpen(!subjectMenuOpen)}
+                  onClick={() => navigateTo('/admin')}
                 >
-                  <span>📚 {t.subjectManagement}</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <span>📊</span>
+                  <span className="hidden lg:inline">{t.dashboard}</span>
                 </button>
-                {subjectMenuOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
-                    <button onClick={() => navigateTo('/admin/schedule-update')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📅 {t.updateSchedule}
-                    </button>
-                    <button onClick={() => navigateTo('/admin/subjects')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📄 {t.updateSubjects}
-                    </button>
-                  </div>
-                )}
-              </div>
 
-              {/* Settings Dropdown */}
-              <div className="relative">
+                {/* Student Management */}
                 <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    isActive('/admin/settings')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                  className={`h-8 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded flex items-center space-x-1 ${
+                    isActive('/admin/students')
+                      ? 'bg-blue-600 text-white' 
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
-                  onClick={() => setSettingsMenuOpen(!settingsMenuOpen)}
+                  onClick={() => navigateTo('/admin/students')}
                 >
-                  <span>⚙️ {t.settings}</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <span>👥</span>
+                  <span className="hidden lg:inline">{t.studentManagement}</span>
                 </button>
-                {settingsMenuOpen && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
-                    <button onClick={() => navigateTo('/admin/feedback')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      💬 Trả lời phản hồi
-                    </button>
-                    <button onClick={() => navigateTo('/admin/faq')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ❓ Quản lý FAQ
-                    </button>
-                    <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🌐 {t.languageSettings}
-                    </button>
-                    <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🔐 {t.changePassword}
-                    </button>
-                  </div>
-                )}
-              </div>
 
-              {/* Chatbot Support Button */}
-              <button 
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  chatbotOpen 
-                    ? 'bg-green-600 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={toggleChatbot}
-              >
-                🤖 {t.chatbotSupport}
-              </button>
+                {/* Subject Management */}
+                <div className="relative">
+                  <button 
+                    className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
+                      isActive('/admin/schedule') || isActive('/admin/subjects')
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    onMouseEnter={() => setSubjectMenuOpen(true)}
+                    onMouseLeave={() => setSubjectMenuOpen(true)}
+                  >
+                    <span>📚</span>
+                    <span className="hidden lg:inline">{t.subjectManagement}</span>
+                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {subjectMenuOpen && (
+                    <div 
+                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+                      onMouseEnter={() => setSubjectMenuOpen(true)}
+                      onMouseLeave={() => setSubjectMenuOpen(false)}
+                    >
+                      <button onClick={() => navigateTo('/admin/schedule-update')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📅 {t.updateSchedule}
+                      </button>
+                      <button onClick={() => navigateTo('/admin/subjects')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📄 {t.updateSubjects}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Settings */}
+                <div className="relative">
+                  <button 
+                    className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
+                      isActive('/admin/settings')
+                        ? 'bg-blue-600 text-white' 
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                    onMouseEnter={() => setSettingsMenuOpen(true)}
+                    onMouseLeave={() => setSettingsMenuOpen(true)}
+                  >
+                    <span>⚙️</span>
+                    <span className="hidden lg:inline">{t.settings}</span>
+                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {settingsMenuOpen && (
+                    <div 
+                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+                      onMouseEnter={() => setSettingsMenuOpen(true)}
+                      onMouseLeave={() => setSettingsMenuOpen(false)}
+                    >
+                      <button onClick={() => navigateTo('/admin/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        💬 Trả lời phản hồi
+                      </button>
+                      <button onClick={() => navigateTo('/admin/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        ❓ Quản lý FAQ
+                      </button>
+                      <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        🌐 {t.languageSettings}
+                      </button>
+                      <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        🔐 {t.changePassword}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Chatbot Support */}
+                <button 
+                  className={`h-8 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded flex items-center space-x-1 ${
+                    chatbotOpen 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={toggleChatbot}
+                >
+                  <span>🤖</span>
+                  <span className="hidden lg:inline">{t.chatbotSupport}</span>
+                </button>
+              </div>
             </div>
 
             {/* Logout Button */}
             <button
-              onClick={logout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 font-medium"
+              onClick={handleLogoutClick}
+              className="h-8 px-3 bg-gray-500 text-white rounded-md hover:bg-gray-400 border border-gray-300 transition-all duration-200 text-xs font-medium flex items-center space-x-1 shadow-sm hover:shadow-md"
             >
-              🚪 {t.logout}
+              <span>�</span>
+              <span className="hidden lg:inline">{t.logout}</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow container mx-auto px-4 py-6">
-        {children}
+      <main className="flex-grow w-full max-w-none px-4 py-6 overflow-x-hidden">
+        <div className="w-full max-w-none">
+          {children}
+        </div>
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-6 max-w-sm mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 text-xl">⚠️</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Xác nhận đăng xuất</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Bạn có chắc chắn muốn đăng xuất khỏi hệ thống quản trị không?
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleCancelLogout}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200 font-medium"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmLogout}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors duration-200 font-medium"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chatbot */}
       {chatbotOpen && (
