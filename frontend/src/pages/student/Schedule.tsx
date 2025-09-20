@@ -54,17 +54,8 @@ const Schedule = () => {
         return
       }
 
-      // Bước 1: Lấy thông tin student để có student.id
-      const studentResponse = await fetch(`http://localhost:8000/students/${userInfo.student_id}`)
-      if (!studentResponse.ok) {
-        console.error('Failed to fetch student info')
-        setLoading(false)
-        return
-      }
-      const studentData = await studentResponse.json()
-      
-      // Bước 2: Lấy danh sách class_register theo student.id (integer)
-      const classRegisterResponse = await fetch(`http://localhost:8000/class-registers/student-by-id/${studentData.id}`)
+      // Sử dụng endpoint đơn giản hơn: /class-registers/student-mssv/{student_id}
+      const classRegisterResponse = await fetch(`http://localhost:8000/class-registers/student-mssv/${userInfo.student_id}`)
       console.log('Class register response status:', classRegisterResponse.status)
       
       if (classRegisterResponse.ok) {
@@ -105,7 +96,7 @@ const Schedule = () => {
                     
                     scheduleEntries.push({
                       id: register.id,
-                      class_name: `${classData.class_name} - ${subjectData.subject_name} - ${subjectData.subject_id}`,
+                      class_name: `${classData.class_name}`,
                       subject_name: subjectData.subject_name,
                       subject_id: subjectData.subject_id,
                       study_date: dayName,
@@ -133,7 +124,7 @@ const Schedule = () => {
                   
                   scheduleEntries.push({
                     id: register.id,
-                    class_name: `${classData.class_name} - ${subjectData.subject_name} - ${subjectData.subject_id}`,
+                    class_name: `${classData.class_name}`,
                     subject_name: subjectData.subject_name,
                     subject_id: subjectData.subject_id,
                     study_date: classData.study_date,
@@ -274,7 +265,7 @@ const Schedule = () => {
                     </div>
                     
                     <h5 className="font-semibold text-gray-900 mb-3">
-                      {`${classItem.class_name} - ${classItem.subject_name} - ${classItem.subject_id}`}
+                      {`${classItem.class_name}`}
                     </h5>
                     
                     <div className="space-y-2 text-sm text-gray-600">
@@ -320,7 +311,7 @@ const Schedule = () => {
           {classes.map((classItem) => (
             <div key={classItem.id} className="border border-gray-200 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-2">
-                {`${classItem.class_name} - ${classItem.subject_name}`}
+                {`${classItem.class_name} - ${classItem.subject_id}`}
               </h3>
               <div className="space-y-1 text-sm text-gray-600">
                 <div>📅 {daysOfWeekFull[classItem.day_of_week]}</div>
