@@ -51,8 +51,8 @@ def get_class_registers_by_student_mssv(student_id: str, db: Session = Depends(g
     return registers
 
 @router.get("/student-by-id/{student_db_id}", response_model=List[ClassRegisterResponse])
-def get_class_registers_by_student_id(student_internal_id: int, db: Session = Depends(get_db)):
-    registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_internal_id).all()
+def get_class_registers_by_student_id(student_db_id: int, db: Session = Depends(get_db)):
+    registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_db_id).all()
     return registers
 
 # ✅ Get class registers by class ID
