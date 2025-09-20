@@ -24,8 +24,23 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [integratedStudyMenuOpen, setIntegratedStudyMenuOpen] = useState(false)
   const [supportMenuOpen, setSupportMenuOpen] = useState(false)
   const [registrationMenuOpen, setRegistrationMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const unreadCount = notifications.filter(n => !n.isRead).length
+
+  const handleLogoutClick = () => {
+    setShowLogoutConfirm(true)
+  }
+
+  const handleConfirmLogout = () => {
+    setShowLogoutConfirm(false)
+    logout()
+  }
+
+  const handleCancelLogout = () => {
+    setShowLogoutConfirm(false)
+  }
 
   const navigateTo = (path: string) => {
     navigate(path)
@@ -53,279 +68,203 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
       {/* Header */}
-      <header className="bg-white shadow-lg border-b border-gray-200">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
+      <header className="bg-blue-600 shadow-sm border-b border-blue-700 w-full">
+        <div className="w-full max-w-none px-4 py-2">
+          <div className="flex justify-between items-center w-full min-w-full">
             {/* Logo */}
             <button 
               onClick={() => navigate('/student')}
-              className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg p-1"
+              className="flex items-center space-x-2 hover:opacity-90 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600 rounded-lg p-2 bg-white bg-opacity-10"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-              <h1 className="text-xl font-bold text-gray-800">STUDENT PORTAL</h1>
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                <span className="text-blue-600 font-bold text-sm">SP</span>
+              </div>
+              <h1 className="text-base font-bold text-white">STUDENT PORTAL</h1>
             </button>
 
             {/* Navigation Menu */}
-            <div className="hidden md:flex items-center space-x-2">
-              {/* Học tập */}
-              <div className="relative">
-                <button 
-                  className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
-                    isActive('/student/schedule') || isActive('/student/grades') || isActive('/student/curriculum')
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  onMouseEnter={() => setStudyMenuOpen(true)}
-                  onMouseLeave={() => setStudyMenuOpen(true)}
-                >
-                  <span>📚 Học tập</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {studyMenuOpen && (
-                  <div 
-                    className="absolute top-full left-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+            <div className="hidden md:flex items-center flex-1 justify-end mr-4">
+              <div className="flex items-center space-x-1">
+                {/* Học tập */}
+                <div className="relative">
+                  <button 
+                    className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
+                      isActive('/student/schedule') || isActive('/student/grades') || isActive('/student/curriculum')
+                        ? 'bg-blue-700 text-white' 
+                        : 'bg-blue-600 text-blue-100 hover:bg-blue-700 hover:text-white'
+                    }`}
                     onMouseEnter={() => setStudyMenuOpen(true)}
-                    onMouseLeave={() => setStudyMenuOpen(false)}
+                    onMouseLeave={() => setStudyMenuOpen(true)}
                   >
-                    <button onClick={() => navigateTo('/student/schedule')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📅 Thời khóa biểu
-                    </button>
-                    <button onClick={() => navigateTo('/student/grades')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📊 Xem điểm
-                    </button>
-                    <button onClick={() => navigateTo('/student/curriculum')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📖 Chương trình đào tạo
-                    </button>
-                  </div>
-                )}
-              </div>
+                    <span>📚</span>
+                    <span className="hidden lg:inline">Học tập</span>
+                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {studyMenuOpen && (
+                    <div 
+                      className="absolute top-full left-0 mt-1 w-44 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+                      onMouseEnter={() => setStudyMenuOpen(true)}
+                      onMouseLeave={() => setStudyMenuOpen(false)}
+                    >
+                      <button onClick={() => navigateTo('/student/schedule')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📅 Thời khóa biểu
+                      </button>
+                      <button onClick={() => navigateTo('/student/grades')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📊 Xem điểm
+                      </button>
+                      <button onClick={() => navigateTo('/student/curriculum')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📖 Chương trình đào tạo
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-              {/* Đăng ký học tập */}
-              <div className="relative">
-                <button 
-                  className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
-                    isActive('/student/subject-registration') || isActive('/student/class-registration')
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  onMouseEnter={() => setRegistrationMenuOpen(true)}
-                  onMouseLeave={() => setRegistrationMenuOpen(true)}
-                >
-                  <span>📝 Đăng ký học tập</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {registrationMenuOpen && (
-                  <div 
-                    className="absolute top-full left-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                {/* Đăng ký học tập */}
+                <div className="relative">
+                  <button 
+                    className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
+                      isActive('/student/subject-registration') || isActive('/student/class-registration')
+                        ? 'bg-blue-700 text-white' 
+                        : 'bg-blue-600 text-blue-100 hover:bg-blue-700 hover:text-white'
+                    }`}
                     onMouseEnter={() => setRegistrationMenuOpen(true)}
-                    onMouseLeave={() => setRegistrationMenuOpen(false)}
+                    onMouseLeave={() => setRegistrationMenuOpen(true)}
                   >
-                    <button onClick={() => navigateTo('/student/subject-registration')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📚 Đăng ký học phần
-                    </button>
-                    <button onClick={() => navigateTo('/student/class-registration')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🏫 Đăng ký lớp
-                    </button>
-                  </div>
-                )}
-              </div>
+                    <span>📝</span>
+                    <span className="hidden lg:inline">Đăng ký học tập</span>
+                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {registrationMenuOpen && (
+                    <div 
+                      className="absolute top-full left-0 mt-1 w-44 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+                      onMouseEnter={() => setRegistrationMenuOpen(true)}
+                      onMouseLeave={() => setRegistrationMenuOpen(false)}
+                    >
+                      <button onClick={() => navigateTo('/student/subject-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📚 Đăng ký học phần
+                      </button>
+                      <button onClick={() => navigateTo('/student/class-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        🏫 Đăng ký lớp
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-              {/* Đồ án */}
-              <div className="relative">
+                {/* Biểu mẫu */}
                 <button 
-                  className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
-                    isActive('/student/projects')
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  className={`h-8 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded flex items-center space-x-1 ${
+                    isActive('/student/forms')
+                      ? 'bg-blue-700 text-white' 
+                      : 'bg-blue-600 text-blue-100 hover:bg-blue-700 hover:text-white'
                   }`}
-                  onMouseEnter={() => setProjectMenuOpen(true)}
-                  onMouseLeave={() => setProjectMenuOpen(true)}
+                  onClick={() => navigateTo('/student/forms')}
                 >
-                  <span>💼 Đồ án</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <span>📄</span>
+                  <span className="hidden lg:inline">Biểu mẫu</span>
                 </button>
-                {projectMenuOpen && (
-                  <div 
-                    className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
-                    onMouseEnter={() => setProjectMenuOpen(true)}
-                    onMouseLeave={() => setProjectMenuOpen(false)}
-                  >
-                    <button onClick={() => navigateTo('/student/projects')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📋 Danh sách đồ án
-                    </button>
-                    <button onClick={() => navigateTo('/student/projects')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📝 Đăng ký nguyện vọng
-                    </button>
-                    <button onClick={() => navigateTo('/student/projects')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🎯 Định hướng đề tài
-                    </button>
-                    <button onClick={() => navigateTo('/student/projects')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🏢 DS Doanh nghiệp
-                    </button>
-                    <button onClick={() => navigateTo('/student/projects')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🔍 Kiểm tra trùng lặp
-                    </button>
-                  </div>
-                )}
-              </div>
 
-              {/* Biểu mẫu */}
-              <button 
-                className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  isActive('/student/forms')
-                    ? 'bg-blue-600 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => navigateTo('/student/forms')}
-              >
-                📄 Biểu mẫu
-              </button>
-
-              {/* Học bổng */}
-              <div className="relative">
-                <button 
-                  className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
-                    isActive('/student/scholarships')
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  onMouseEnter={() => setScholarshipMenuOpen(true)}
-                  onMouseLeave={() => setScholarshipMenuOpen(true)}
-                >
-                  <span>💰 Học bổng</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {scholarshipMenuOpen && (
-                  <div 
-                    className="absolute top-full left-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                {/* Học bổng */}
+                <div className="relative">
+                  <button 
+                    className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
+                      isActive('/student/scholarships')
+                        ? 'bg-blue-700 text-white' 
+                        : 'bg-blue-600 text-blue-100 hover:bg-blue-700 hover:text-white'
+                    }`}
                     onMouseEnter={() => setScholarshipMenuOpen(true)}
-                    onMouseLeave={() => setScholarshipMenuOpen(false)}
+                    onMouseLeave={() => setScholarshipMenuOpen(true)}
                   >
-                    <button onClick={() => navigateTo('/student/scholarships')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📝 Đăng ký học bổng
-                    </button>
-                    <button onClick={() => navigateTo('/student/scholarships')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📏 Điều kiện xét học bổng
-                    </button>
-                  </div>
-                )}
-              </div>
+                    <span>🏆</span>
+                    <span className="hidden lg:inline">Học bổng</span>
+                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {scholarshipMenuOpen && (
+                    <div 
+                      className="absolute top-full left-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+                      onMouseEnter={() => setScholarshipMenuOpen(true)}
+                      onMouseLeave={() => setScholarshipMenuOpen(false)}
+                    >
+                      <button onClick={() => navigateTo('/student/scholarships')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📝 Đăng ký học bổng
+                      </button>
+                      <button onClick={() => navigateTo('/student/scholarships')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📏 Điều kiện xét học bổng
+                      </button>
+                    </div>
+                  )}
+                </div>
 
-              {/* Học tích hợp */}
-              <div className="relative">
-                <button 
-                  className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
-                    location.pathname.includes('integrated')
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  onMouseEnter={() => setIntegratedStudyMenuOpen(true)}
-                  onMouseLeave={() => setIntegratedStudyMenuOpen(true)}
-                >
-                  <span>🎓 Học tích hợp</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {integratedStudyMenuOpen && (
-                  <div className="absolute top-full left-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
-                    onMouseEnter={() => setIntegratedStudyMenuOpen(true)}
-                    onMouseLeave={() => setIntegratedStudyMenuOpen(false)}
-                  >
-                    <button onClick={() => navigateTo('/student')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      👨‍💼 Kỹ sư chuyên sâu
-                    </button>
-                    <button onClick={() => navigateTo('/student')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🎯 Thạc sỹ
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* NCKH */}
-              <button 
-                className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  location.pathname === '/student/research'
-                    ? 'bg-blue-600 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => navigateTo('/student')}
-              >
-                🔬 NCKH
-              </button>
-
-              {/* CT Trao đổi */}
-              <button 
-                className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  location.pathname === '/student/exchange'
-                    ? 'bg-blue-600 text-white shadow-lg' 
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-                onClick={() => navigateTo('/student')}
-              >
-                🌍 CT Trao đổi
-              </button>
-
-              {/* Hỗ trợ */}
-              <div className="relative">
-                <button 
-                  className={`px-3 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-1 ${
-                    location.pathname.includes('/student/support')
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  onMouseEnter={() => setSupportMenuOpen(true)}
-                  onMouseLeave={() => setSupportMenuOpen(true)}
-                >
-                  <span>❓ Hỗ trợ</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                {supportMenuOpen && (
-                  <div 
-                    className="absolute top-full left-0 mt-1 w-52 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50"
+                {/* Hỗ trợ */}
+                <div className="relative">
+                  <button 
+                    className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
+                      location.pathname.includes('/student/support')
+                        ? 'bg-blue-700 text-white' 
+                        : 'bg-blue-600 text-blue-100 hover:bg-blue-700 hover:text-white'
+                    }`}
                     onMouseEnter={() => setSupportMenuOpen(true)}
-                    onMouseLeave={() => setSupportMenuOpen(false)}
+                    onMouseLeave={() => setSupportMenuOpen(true)}
                   >
-                    <button onClick={() => navigateTo('/student/support/user-guide')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📖 Hướng dẫn sử dụng
-                    </button>
-                    <button onClick={() => navigateTo('/student/support/faq')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ❓ Những câu hỏi thường gặp
-                    </button>
-                    <button onClick={() => navigateTo('/student/support/feedback')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      💬 Phản hồi và góp ý
-                    </button>
-                  </div>
-                )}
+                    <span>❓</span>
+                    <span className="hidden lg:inline">Hỗ trợ</span>
+                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {supportMenuOpen && (
+                    <div 
+                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
+                      onMouseEnter={() => setSupportMenuOpen(true)}
+                      onMouseLeave={() => setSupportMenuOpen(false)}
+                    >
+                      <button onClick={() => navigateTo('/student/support/user-guide')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📖 Hướng dẫn sử dụng
+                      </button>
+                      <button onClick={() => navigateTo('/student/support/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        ❓ Những câu hỏi thường gặp
+                      </button>
+                      <button onClick={() => navigateTo('/student/support/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        💬 Phản hồi và góp ý
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+
+            {/* Mobile menu và User actions */}
+            <div className="flex items-center space-x-2">
+              {/* Mobile Menu Button */}
+              <button 
+                className="md:hidden h-8 w-8 rounded-md flex items-center justify-center bg-blue-600 text-blue-100 hover:bg-blue-700 hover:text-white transition-all duration-200"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
 
               {/* Notification Bell */}
               <div className="relative">
                 <button 
-                  className={`p-2 rounded-lg transition-all duration-200 relative ${
+                  className={`h-8 w-8 rounded-md flex items-center justify-center text-xs transition-all duration-200 relative ${
                     notificationOpen 
-                      ? 'bg-red-500 text-white shadow-lg' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-blue-700 text-white' 
+                      : 'bg-blue-600 text-blue-100 hover:bg-blue-700 hover:text-white'
                   }`}
                   onClick={() => setNotificationOpen(!notificationOpen)}
                 >
                   🔔
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
                       {unreadCount}
                     </span>
                   )}
@@ -349,23 +288,80 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Logout Button */}
-            <button
-              onClick={logout}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 font-medium"
-            >
-              🚪 Đăng xuất
-            </button>
+              {/* Logout Button */}
+              <button
+                onClick={handleLogoutClick}
+                className="h-8 px-3 bg-blue-500 text-white rounded-md hover:bg-blue-400 border border-blue-300 transition-all duration-200 text-xs font-medium flex items-center space-x-1 shadow-sm hover:shadow-md"
+              >
+                <span>👤</span>
+                <span className="hidden lg:inline">Đăng xuất</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden bg-blue-500 border-t border-blue-700 w-full">
+            <div className="w-full px-4 py-2 space-y-1">
+              <button onClick={() => { navigateTo('/student/schedule'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-blue-100 hover:bg-blue-600 rounded">
+                📚 Học tập
+              </button>
+              <button onClick={() => { navigateTo('/student/subject-registration'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-blue-100 hover:bg-blue-600 rounded">
+                📝 Đăng ký học tập
+              </button>
+              <button onClick={() => { navigateTo('/student/forms'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-blue-100 hover:bg-blue-600 rounded">
+                📄 Biểu mẫu
+              </button>
+              <button onClick={() => { navigateTo('/student/scholarships'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-blue-100 hover:bg-blue-600 rounded">
+                🏆 Học bổng
+              </button>
+              <button onClick={() => { navigateTo('/student/support/faq'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-blue-100 hover:bg-blue-600 rounded">
+                ❓ Hỗ trợ
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow container mx-auto px-4 py-6">
-        {children}
+      <main className="flex-grow w-full max-w-none px-4 py-6 overflow-x-hidden">
+        <div className="w-full max-w-none">
+          {children}
+        </div>
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-6 max-w-sm mx-4">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <span className="text-orange-600 text-xl">⚠️</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Xác nhận đăng xuất</h3>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Bạn có chắc chắn muốn đăng xuất khỏi hệ thống không?
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleCancelLogout}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors duration-200 font-medium"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleConfirmLogout}
+                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors duration-200 font-medium"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chatbot */}
       {chatbotOpen && (
@@ -387,43 +383,30 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
             <p className="text-gray-600 text-sm">
               Xin chào {userInfo?.student_name || 'bạn'}! Tôi có thể giúp gì cho bạn?
             </p>
+            <div className="mt-4 space-y-2">
+              <button className="w-full text-left p-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">
+                💬 Hướng dẫn đăng ký học phần
+              </button>
+              <button className="w-full text-left p-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">
+                📊 Xem kết quả học tập
+              </button>
+              <button className="w-full text-left p-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">
+                🏆 Thông tin học bổng
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white py-8">
-        <div className="container mx-auto px-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Liên hệ</h3>
-              <ul className="text-sm text-gray-400 space-y-2">
-                <li>📞 Hotline: 024.3868.3008</li>
-                <li>✉️ Email: registry@hust.edu.vn</li>
-                <li>🏢 Phòng Đào tạo</li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Thông tin</h3>
-              <div className="text-sm text-gray-400 space-y-1">
-                <p>Trường Đại học Bách khoa Hà Nội</p>
-                <p>Địa chỉ: Số 1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội</p>
-              </div>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold mb-3">Trợ giúp</h3>
-              <ul className="text-sm text-gray-400 space-y-2">
-                <li><a href="#" className="hover:text-white transition">Hướng dẫn sử dụng</a></li>
-                <li><a href="#" className="hover:text-white transition">Câu hỏi thường gặp</a></li>
-                <li><a href="#" className="hover:text-white transition">Quy định đăng ký học phần</a></li>
-              </ul>
-            </div>
-          </div>
-          <div className="mt-6 pt-4 border-t border-gray-700 text-center text-sm text-gray-400">
-            <p>© 2023 Hệ thống đăng ký học tập. Bản quyền thuộc về Trường Đại học.</p>
-          </div>
-        </div>
-      </footer>
+      {/* Floating Chatbot Button */}
+      <button
+        onClick={toggleChatbot}
+        className="fixed bottom-4 right-4 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 z-40"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+        </svg>
+      </button>
     </div>
   )
 }
