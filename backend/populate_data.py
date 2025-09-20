@@ -15,6 +15,7 @@ from app.models.course_model import Course
 from app.models.course_subject_model import CourseSubject
 from app.models.student_model import Student
 from app.models.feedback_model import FAQ, Feedback
+from app.models.learned_subject_model import LearnedSubject
 
 def create_database_session():
     """Create database session"""
@@ -77,6 +78,32 @@ def generate_email(student_name: str, student_id: str) -> str:
     initials = "".join([w[0].lower() for w in name_parts[:-1]])
     mssv_suffix = student_id[2:]  # bỏ 2 số đầu
     return f"{last_name}.{initials}{mssv_suffix}@sis.hust.edu.vn"
+
+def calculate_letter_grade(score: float) -> str:
+    """Tính letter grade từ điểm số"""
+    if 0.0 <= score <= 3.9:
+        return "F"
+    elif 4.0 <= score <= 4.9:
+        return "D"
+    elif 5.0 <= score <= 5.4:
+        return "D+"
+    elif 5.5 <= score <= 6.4:
+        return "C"
+    elif 6.5 <= score <= 6.9:
+        return "C+"
+    elif 7.0 <= score <= 7.9:
+        return "B"
+    elif 8.0 <= score <= 8.4:
+        return "B+"
+    elif 8.5 <= score <= 9.4:
+        return "A"
+    elif 9.5 <= score <= 10.0:
+        return "A+"
+    return "F"
+
+def calculate_total_score(midterm_score: float, final_score: float, weight: float) -> float:
+    """Tính điểm tổng kết: midterm * (1-weight) + final * weight"""
+    return midterm_score * (1 - weight) + final_score * weight
 
 def load_json_file(filename):
     """Load data from a specific JSON file"""
@@ -321,6 +348,45 @@ def populate_feedbacks(db, feedbacks_data):
         db.rollback()
         print(f"❌ Error committing feedbacks: {e}")
 
+def populate_learned_subjects(db, learned_subjects_data):
+    """Populate learned subjects table"""
+    print("📚 Populating learned subjects...")
+    try:
+        for learned_data in learned_subjects_data:
+            # Tính total score và letter grade
+            total_score = calculate_total_score(
+                learned_data['midterm_score'],
+                learned_data['final_score'], 
+                learned_data['weight']
+            )
+            letter_grade = calculate_letter_grade(total_score)
+            
+            # Lấy thông tin subject để có subject_name và credits
+            subject = db.query(Subject).filter(Subject.id == learned_data['subject_id']).first()
+            if not subject:
+                print(f"⚠️ Subject with ID {learned_data['subject_id']} not found")
+                continue
+                
+            learned_subject = LearnedSubject(
+                final_score=learned_data['final_score'],
+                midterm_score=learned_data['midterm_score'],
+                weight=learned_data['weight'],
+                total_score=total_score,
+                letter_grade=letter_grade,
+                semester=learned_data['semester'],
+                student_id=learned_data['student_id'],
+                subject_id=learned_data['subject_id'],
+                subject_name=subject.subject_name,
+                credits=subject.credits
+            )
+            db.add(learned_subject)
+        
+        db.commit()
+        print(f"✅ Successfully populated {len(learned_subjects_data)} learned subjects")
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"❌ Error committing learned subjects: {e}")
+
 def main():
     """Main function to populate all data"""
     print("🚀 Starting data population...")
@@ -363,12 +429,17 @@ def main():
         if students_data:
             populate_students(db, students_data)
         
-        # 5. FAQs (no dependencies)
+        # 5. Learned subjects (depends on students and subjects)
+        learned_subjects_data = load_json_file('sample_learned_subjects.json')
+        if learned_subjects_data:
+            populate_learned_subjects(db, learned_subjects_data)
+        
+        # 6. FAQs (no dependencies)
         faqs_data = load_json_file('sample_faqs.json')
         if faqs_data:
             populate_faqs(db, faqs_data)
         
-        # 6. Feedbacks (no dependencies)
+        # 7. Feedbacks (no dependencies)
         feedbacks_data = load_json_file('sample_feedbacks.json')
         if feedbacks_data:
             populate_feedbacks(db, feedbacks_data)

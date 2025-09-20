@@ -1,0 +1,306 @@
+[
+    {    
+     "final_score": 6.0,
+     "midterm_score": 8.5,
+     "weight": 0.7,
+     "semester": "20221",
+     "student_id": 1,
+     "subject_id": 2808    
+    },
+    {    
+     "final_score": 8.0,
+     "midterm_score": 9.5,
+     "weight": 0.6,
+     "semester": "20221",
+     "student_id": 1,
+     "subject_id": 2809    
+    },
+    {    
+     "final_score": 5.0,
+     "midterm_score": 5.0,
+     "weight": 0.5,
+     "semester": "20221",
+     "student_id": 1,
+     "subject_id": 1093    
+    },
+    {    
+     "final_score": 7.0,
+     "midterm_score": 7.5,
+     "weight": 0.5,
+     "semester": "20221",
+     "student_id": 1,
+     "subject_id": 1123    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 6.0,
+     "weight": 0.5,
+     "semester": "20222",
+     "student_id": 2,
+     "subject_id": 2824    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 10.0,
+     "weight": 0.7,
+     "semester": "20222",
+     "student_id": 2,
+     "subject_id": 3516    
+    },
+    {    
+     "final_score": 8.0,
+     "midterm_score": 4.0,
+     "weight": 0.5,
+     "semester": "20231",
+     "student_id": 2,
+     "subject_id": 2811    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 9.5,
+     "weight": 0.7,
+     "semester": "20231",
+     "student_id": 2,
+     "subject_id": 3519    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 3.5,
+     "weight": 0.5,
+     "semester": "20232",
+     "student_id": 2,
+     "subject_id": 1113    
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 8.5,
+     "weight": 0.5,
+     "semester": "20232",
+     "student_id": 1,
+     "subject_id": 1139    
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 9.0,
+     "weight": 0.7,
+     "semester": "20232",
+     "student_id": 1,
+     "subject_id": 3521    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 8.0,
+     "weight": 0.7,
+     "semester": "20241",
+     "student_id": 1,
+     "subject_id": 3515    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 5.0,
+     "weight": 0.7,
+     "semester": "20241",
+     "student_id": 1,
+     "subject_id": 3525    
+    },
+    {    
+     "final_score": 6.5,
+     "midterm_score": 8.5,
+     "weight": 0.7,
+     "semester": "20241",
+     "student_id": 1,
+     "subject_id": 3216   
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 5.0,
+     "weight": 0.6,
+     "semester": "20241",
+     "student_id": 1,
+     "subject_id": 2997    
+    },
+    {    
+     "final_score": 10.0,
+     "midterm_score": 10.0,
+     "weight": 0.5,
+     "semester": "20241",
+     "student_id": 1,
+     "subject_id": 2883    
+    },
+    {    
+     "final_score": 10,
+     "midterm_score": 6,
+     "weight": 0.7,
+     "semester": "20242",
+     "student_id": 1,
+     "subject_id": 3528    
+    },
+    {    
+     "final_score": 10,
+     "midterm_score": 5,
+     "weight": 0.5,
+     "semester": "20242",
+     "student_id": 1,
+     "subject_id": 3198   
+    },
+    {    
+     "final_score": 9,
+     "midterm_score": 8,
+     "weight": 0.6,
+     "semester": "20242",
+     "student_id": 1,
+     "subject_id": 2902   
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 8.5,
+     "weight": 0.7,
+     "semester": "20221",
+     "student_id": 2,
+     "subject_id": 2808    
+    },
+    {    
+     "final_score": 8.0,
+     "midterm_score": 9.5,
+     "weight": 0.6,
+     "semester": "20221",
+     "student_id": 2,
+     "subject_id": 2809    
+    },
+    {    
+     "final_score": 8.0,
+     "midterm_score": 8.0,
+     "weight": 0.5,
+     "semester": "20221",
+     "student_id": 2,
+     "subject_id": 1093    
+    },
+    {    
+     "final_score": 7.0,
+     "midterm_score": 7.5,
+     "weight": 0.5,
+     "semester": "20221",
+     "student_id": 2,
+     "subject_id": 1123    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 9.0,
+     "weight": 0.5,
+     "semester": "20222",
+     "student_id": 2,
+     "subject_id": 2824    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 5.0,
+     "weight": 0.7,
+     "semester": "20222",
+     "student_id": 2,
+     "subject_id": 3516    
+    },
+    {    
+     "final_score": 8.0,
+     "midterm_score": 8.0,
+     "weight": 0.5,
+     "semester": "20231",
+     "student_id": 2,
+     "subject_id": 2811    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 9.0,
+     "weight": 0.7,
+     "semester": "20231",
+     "student_id": 2,
+     "subject_id": 3519    
+    },
+    {    
+     "final_score": 5.0,
+     "midterm_score": 3.5,
+     "weight": 0.5,
+     "semester": "20232",
+     "student_id": 2,
+     "subject_id": 1113    
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 8.5,
+     "weight": 0.5,
+     "semester": "20232",
+     "student_id": 2,
+     "subject_id": 1139    
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 9.0,
+     "weight": 0.7,
+     "semester": "20232",
+     "student_id": 2,
+     "subject_id": 3521    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 8.0,
+     "weight": 0.7,
+     "semester": "20241",
+     "student_id": 2,
+     "subject_id": 3515    
+    },
+    {    
+     "final_score": 9.0,
+     "midterm_score": 5.0,
+     "weight": 0.7,
+     "semester": "20241",
+     "student_id": 2,
+     "subject_id": 3525    
+    },
+    {    
+     "final_score": 6.5,
+     "midterm_score": 8.5,
+     "weight": 0.7,
+     "semester": "20241",
+     "student_id": 2,
+     "subject_id": 3216   
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 10,
+     "weight": 0.6,
+     "semester": "20241",
+     "student_id": 2,
+     "subject_id": 2997    
+    },
+    {    
+     "final_score": 10,
+     "midterm_score": 10,
+     "weight": 0.5,
+     "semester": "20241",
+     "student_id": 2,
+     "subject_id": 2883    
+    },
+    {    
+     "final_score": 10,
+     "midterm_score": 6,
+     "weight": 0.7,
+     "semester": "20242",
+     "student_id": 2,
+     "subject_id": 3528    
+    },
+    {    
+     "final_score": 10.0,
+     "midterm_score": 8.0,
+     "weight": 0.5,
+     "semester": "20242",
+     "student_id": 2,
+     "subject_id": 3198   
+    },
+    {    
+     "final_score": 6.0,
+     "midterm_score": 8.0,
+     "weight": 0.6,
+     "semester": "20242",
+     "student_id": 2,
+     "subject_id": 2902   
+    }
+]

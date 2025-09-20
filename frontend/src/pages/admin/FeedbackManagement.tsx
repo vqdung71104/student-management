@@ -262,7 +262,7 @@ const FeedbackManagement: React.FC = () => {
                               : 'text-yellow-600 hover:text-yellow-800'
                           }`}
                         >
-                          {feedback.status === 'pending' ? 'Đánh dấu đã xử lý' : 'Đánh dấu chưa xử lý'}
+                          {feedback.status === 'pending' ? 'Thay đổi trạng thái' : 'Thay đổi trạng thái'}
                         </button>
                         <button
                           onClick={() => deleteFeedback(feedback.id)}
