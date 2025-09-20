@@ -46,8 +46,8 @@ const StudentDashboard = () => {
           console.error('Failed to fetch academic details, status:', response.status)
         }
 
-        // Lấy lịch học tuần này
-        const scheduleResponse = await fetch(`http://localhost:8000/class-registers/student/${userInfo.student_id}`)
+        // Lấy lịch học tuần này  
+        const scheduleResponse = await fetch(`http://localhost:8000/class-registers/student-mssv/${userInfo.student_id}`)
         if (scheduleResponse.ok) {
           const classRegisters = await scheduleResponse.json()
           console.log('Class registers data:', classRegisters) // Debug log
