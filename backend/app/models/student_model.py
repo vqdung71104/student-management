@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, Integer, Float, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.database import Base
 from app.models.associations import student_course_table
@@ -18,6 +19,7 @@ class Student(Base):
     classes = Column(String(500))  #ví dụ: Việt Nhật 01
     email = Column(String(255), unique=True, nullable=False)  # auto-generate
     login_password = Column(String(255), nullable=False, default="e10adc3949ba59abbe56e057f20f883e")  # MD5 của "123456"
+    password_updated_at = Column(DateTime, default=func.now(), nullable=True)  # Thời gian đổi mật khẩu gần nhất
     newest_semester = Column(String(20))
     cpa = Column(Float, default=0.0)
     failed_subjects_number = Column(Integer, default=0)

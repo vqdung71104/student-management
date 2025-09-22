@@ -2,6 +2,8 @@ import json
 import sys
 import os
 import unicodedata
+import hashlib
+from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,6 +19,7 @@ from app.models.student_model import Student
 from app.models.feedback_model import FAQ, Feedback
 from app.models.learned_subject_model import LearnedSubject
 from app.models.notification_model import Notification
+from app.models.admin_model import Admin
 
 def create_database_session():
     """Create database session"""
@@ -36,6 +39,8 @@ def clear_all_data(db):
         db.execute(text("SET FOREIGN_KEY_CHECKS = 0"))  # Temporarily disable foreign key checks
         
         # Clear all tables
+        db.execute(text("DELETE FROM otp_verifications"))
+        db.execute(text("DELETE FROM admins"))
         db.execute(text("DELETE FROM notifications"))
         db.execute(text("DELETE FROM feedbacks"))
         db.execute(text("DELETE FROM faqs"))
@@ -51,6 +56,8 @@ def clear_all_data(db):
         db.execute(text("DELETE FROM departments"))
         
         # Reset auto-increment counters
+        db.execute(text("ALTER TABLE otp_verifications AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE admins AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE notifications AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE departments AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE subjects AUTO_INCREMENT = 1"))
@@ -407,6 +414,43 @@ def populate_learned_subjects(db, learned_subjects_data):
         db.rollback()
         print(f"❌ Error committing learned subjects: {e}")
 
+
+def populate_admin(db):
+    """Populate admin user with secure password"""
+    print("👤 Populating admin...")
+    
+    try:
+        # Check if admin already exists
+        existing_admin = db.query(Admin).filter(Admin.username == "admin").first()
+        if existing_admin:
+            print("ℹ️ Admin already exists, skipping...")
+            return
+        
+        # Hash password using SHA256
+        password = "Admin123!"  # Strong default password
+        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        
+        admin = Admin(
+            username="admin",
+            email="vuquangdung71104@gmail.com",
+            password_hash=password_hash,
+            password_updated_at=datetime.now(),
+            is_active="active"
+        )
+        
+        db.add(admin)
+        db.commit()
+        
+        print("✅ Admin user created successfully")
+        print(f"   📧 Email: vuquangdung71104@gmail.com")
+        print(f"   🔑 Password: {password}")
+        print("   ⚠️ Please change the password after first login!")
+        
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"❌ Error creating admin: {e}")
+
+
 def main():
     """Main function to populate all data"""
     print("🚀 Starting data population...")
@@ -425,6 +469,9 @@ def main():
     
     try:
         # Populate data in correct order (respecting foreign key dependencies)
+        
+        # 0. Admin user (no dependencies)
+        populate_admin(db)
         
         # 1. Departments (no dependencies)
         departments_data = load_json_file('sample_department.json')
