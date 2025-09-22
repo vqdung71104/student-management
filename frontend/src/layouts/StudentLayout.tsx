@@ -197,6 +197,19 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   )}
                 </div>
 
+                {/* Đổi mật khẩu */}
+                <button 
+                  className={`h-8 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded flex items-center space-x-1 ${
+                    isActive('/student/change-password')
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={() => navigateTo('/student/change-password')}
+                >
+                  <span>🔐</span>
+                  <span className="hidden lg:inline">Đổi mật khẩu</span>
+                </button>
+
                 {/* Hỗ trợ */}
                 <div className="relative">
                   <button 
