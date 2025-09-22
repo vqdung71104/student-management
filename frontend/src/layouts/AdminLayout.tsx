@@ -156,7 +156,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                       <button onClick={() => navigateTo('/admin/notifications')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
                         📢 Quản lý thông báo
                       </button>
-                      <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                      <button onClick={() => navigateTo('/admin/change-password')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
                         🔐 {t.changePassword}
                       </button>
                     </div>

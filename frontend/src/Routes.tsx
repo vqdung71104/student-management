@@ -8,6 +8,7 @@ import ScheduleManagement from './pages/admin/ScheduleManagement'
 import FeedbackManagement from './pages/admin/FeedbackManagement'
 import FAQManagement from './pages/admin/FAQManagement'
 import NotificationManagement from './pages/admin/NotificationManagement'
+import ChangePassword from './pages/admin/ChangePassword'
 import StudentDashboard from './pages/student/StudentDashboard'
 import Schedule from './pages/student/Schedule'
 import Grades from './pages/student/Grades'
@@ -20,6 +21,7 @@ import FAQPage from './pages/student/FAQPage'
 import FeedbackPage from './pages/student/FeedbackPage'
 import SubjectRegistration from './pages/student/SubjectRegistration'
 import ClassRegistration from './pages/student/ClassRegistration'
+import StudentChangePassword from './pages/student/StudentChangePassword'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useAuth } from './contexts/AuthContext'
 
@@ -50,6 +52,7 @@ function AppRoutes() {
         <Route path="feedback" element={<FeedbackManagement />} />
         <Route path="faq" element={<FAQManagement />} />
         <Route path="notifications" element={<NotificationManagement />} />
+        <Route path="change-password" element={<ChangePassword />} />
         <Route path="settings" element={<AdminDashboard />} />
       </Route>
 
@@ -64,6 +67,7 @@ function AppRoutes() {
         <Route path="projects" element={<Projects />} />
         <Route path="forms" element={<Forms />} />
         <Route path="scholarships" element={<Scholarships />} />
+        <Route path="change-password" element={<StudentChangePassword />} />
         <Route path="support/user-guide" element={<UserGuidePage />} />
         <Route path="support/faq" element={<FAQPage />} />
         <Route path="support/feedback" element={<FeedbackPage />} />

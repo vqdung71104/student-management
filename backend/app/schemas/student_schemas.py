@@ -1,5 +1,6 @@
 from pydantic import BaseModel, validator, EmailStr
 from typing import Optional
+from datetime import datetime
 import re
 import unicodedata
 
@@ -130,3 +131,64 @@ class StudentResponse(StudentBase):
 
     class Config:
         from_attributes = True
+
+
+# Student Password Management Schemas
+class StudentChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+    
+    @validator('new_password')
+    def validate_new_password(cls, v):
+        """Kiểm tra mật khẩu mạnh"""
+        if len(v) < 8:
+            raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
+        
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết hoa')
+        
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết thường')
+        
+        if not re.search(r'\d', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ số')
+        
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>?]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt')
+        
+        return v
+
+
+class StudentRequestPasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class StudentVerifyOTPRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
+    
+    @validator('new_password')
+    def validate_new_password(cls, v):
+        """Kiểm tra mật khẩu mạnh"""
+        if len(v) < 8:
+            raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
+        
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết hoa')
+        
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết thường')
+        
+        if not re.search(r'\d', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ số')
+        
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>?]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt')
+        
+        return v
+
+
+class StudentPasswordResetResponse(BaseModel):
+    message: str
+    expires_in: int  # seconds
