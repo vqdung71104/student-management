@@ -7,6 +7,7 @@ import ClassesManagement from './pages/admin/ClassesManagement'
 import ScheduleManagement from './pages/admin/ScheduleManagement'
 import FeedbackManagement from './pages/admin/FeedbackManagement'
 import FAQManagement from './pages/admin/FAQManagement'
+import NotificationManagement from './pages/admin/NotificationManagement'
 import StudentDashboard from './pages/student/StudentDashboard'
 import Schedule from './pages/student/Schedule'
 import Grades from './pages/student/Grades'
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="subjects" element={<SubjectsManagement />} />
         <Route path="feedback" element={<FeedbackManagement />} />
         <Route path="faq" element={<FAQManagement />} />
+        <Route path="notifications" element={<NotificationManagement />} />
         <Route path="settings" element={<AdminDashboard />} />
       </Route>
 

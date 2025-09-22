@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useLanguage } from '../pages/admin/useLanguage'
 import type { ReactNode } from 'react'
 
 interface AdminLayoutProps {
@@ -11,48 +12,11 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { logout } = useAuth()
+  const { language, changeLanguage, t } = useLanguage()
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
-  const [language, setLanguage] = useState<'vi' | 'en'>('vi')
   const [chatbotOpen, setChatbotOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-
-  const texts = {
-    vi: {
-      dashboard: 'Bảng điều khiển',
-      studentManagement: 'Quản lý sinh viên',
-      subjectManagement: 'Quản lý học phần',
-      settings: 'Cài đặt',
-      chatbotSupport: 'Chatbot hỗ trợ',
-      create: 'Tạo mới',
-      update: 'Cập nhật',
-      delete: 'Xóa',
-      get: 'Danh sách',
-      updateSchedule: 'Cập nhật thời khóa biểu',
-      updateSubjects: 'Cập nhật danh sách học phần',
-      languageSettings: 'Cài đặt ngôn ngữ',
-      changePassword: 'Đổi mật khẩu',
-      logout: 'Đăng xuất'
-    },
-    en: {
-      dashboard: 'Dashboard',
-      studentManagement: 'Student Management',
-      subjectManagement: 'Subject Management',
-      settings: 'Settings',
-      chatbotSupport: 'Chatbot Support',
-      create: 'Create',
-      update: 'Update',
-      delete: 'Delete',
-      get: 'List',
-      updateSchedule: 'Update Schedule',
-      updateSubjects: 'Update Subject List',
-      languageSettings: 'Language Settings',
-      changePassword: 'Change Password',
-      logout: 'Logout'
-    }
-  }
-
-  const t = texts[language]
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true)
@@ -189,8 +153,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                       <button onClick={() => navigateTo('/admin/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
                         ❓ Quản lý FAQ
                       </button>
-                      <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        🌐 {t.languageSettings}
+                      <button onClick={() => navigateTo('/admin/notifications')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                        📢 Quản lý thông báo
                       </button>
                       <button onClick={() => navigateTo('/admin/settings')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
                         🔐 {t.changePassword}
@@ -211,6 +175,40 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   <span>🤖</span>
                   <span className="hidden lg:inline">{t.chatbotSupport}</span>
                 </button>
+
+                {/* Language Switcher */}
+                <div className="relative flex items-center bg-white border border-gray-300 h-8 rounded-none">
+                  {/* Sliding background */}
+                  <div
+                    className={`absolute top-0 bottom-0 w-1/2 bg-blue-100 border-blue-200 transition-transform duration-300 ease-in-out ${
+                      language === 'vi' ? 'translate-x-full' : 'translate-x-0'
+                    }`}
+                  />
+                  
+                  {/* EN Button */}
+                  <button
+                    onClick={() => changeLanguage('en')}
+                    className={`relative z-10 flex-1 h-full px-3 text-xs font-medium transition-colors duration-300 rounded-none ${
+                      language === 'en'
+                        ? 'text-blue-700 font-semibold'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    EN
+                  </button>
+                  
+                  {/* VI Button */}
+                  <button
+                    onClick={() => changeLanguage('vi')}
+                    className={`relative z-10 flex-1 h-full px-3 text-xs font-medium transition-colors duration-300 rounded-none ${
+                      language === 'vi'
+                        ? 'text-blue-700 font-semibold'
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    VI
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -219,7 +217,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               onClick={handleLogoutClick}
               className="h-8 px-3 bg-gray-500 text-white rounded-md hover:bg-gray-400 border border-gray-300 transition-all duration-200 text-xs font-medium flex items-center space-x-1 shadow-sm hover:shadow-md"
             >
-              <span>�</span>
+              <span>👤</span>
               <span className="hidden lg:inline">{t.logout}</span>
             </button>
           </div>
