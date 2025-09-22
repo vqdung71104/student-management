@@ -16,6 +16,7 @@ from app.models.course_subject_model import CourseSubject
 from app.models.student_model import Student
 from app.models.feedback_model import FAQ, Feedback
 from app.models.learned_subject_model import LearnedSubject
+from app.models.notification_model import Notification
 
 def create_database_session():
     """Create database session"""
@@ -35,6 +36,7 @@ def clear_all_data(db):
         db.execute(text("SET FOREIGN_KEY_CHECKS = 0"))  # Temporarily disable foreign key checks
         
         # Clear all tables
+        db.execute(text("DELETE FROM notifications"))
         db.execute(text("DELETE FROM feedbacks"))
         db.execute(text("DELETE FROM faqs"))
         db.execute(text("DELETE FROM class_registers"))
@@ -49,6 +51,7 @@ def clear_all_data(db):
         db.execute(text("DELETE FROM departments"))
         
         # Reset auto-increment counters
+        db.execute(text("ALTER TABLE notifications AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE departments AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE subjects AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE courses AUTO_INCREMENT = 1"))
@@ -348,6 +351,23 @@ def populate_feedbacks(db, feedbacks_data):
         db.rollback()
         print(f"❌ Error committing feedbacks: {e}")
 
+def populate_notifications(db, notifications_data):
+    """Populate notifications table"""
+    print("🔔 Populating notifications...")
+    for notification_data in notifications_data:
+        try:
+            notification = Notification(**notification_data)
+            db.add(notification)
+        except Exception as e:
+            print(f"Error adding notification: {e}")
+    
+    try:
+        db.commit()
+        print(f"✅ Added {len(notifications_data)} notifications")
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"❌ Error committing notifications: {e}")
+
 def populate_learned_subjects(db, learned_subjects_data):
     """Populate learned subjects table"""
     print("📚 Populating learned subjects...")
@@ -443,6 +463,11 @@ def main():
         feedbacks_data = load_json_file('sample_feedbacks.json')
         if feedbacks_data:
             populate_feedbacks(db, feedbacks_data)
+        
+        # 8. Notifications (no dependencies)
+        notifications_data = load_json_file('sample_notifications.json')
+        if notifications_data:
+            populate_notifications(db, notifications_data)
         
         print("=" * 50)
         print("🎉 Data population completed successfully!")
