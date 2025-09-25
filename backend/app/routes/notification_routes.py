@@ -6,9 +6,9 @@ from ..db.database import get_db
 from ..models.notification_model import Notification
 from ..schemas.notification_schema import NotificationCreate, NotificationUpdate, NotificationResponse
 
-router = APIRouter(prefix="/notifications", tags=["Notifications"])
+router = APIRouter(tags=["Notifications"])
 
-@router.get("/", response_model=List[NotificationResponse])
+@router.get("/notifications", response_model=List[NotificationResponse])
 def get_notifications(
     skip: int = Query(0, ge=0, description="Number of notifications to skip"),
     limit: int = Query(20, ge=1, le=100, description="Number of notifications to return"),
@@ -18,7 +18,7 @@ def get_notifications(
     notifications = db.query(Notification).order_by(desc(Notification.updated_at)).offset(skip).limit(limit).all()
     return notifications
 
-@router.get("/{notification_id}", response_model=NotificationResponse)
+@router.get("/notifications/{notification_id}", response_model=NotificationResponse)
 def get_notification(notification_id: int, db: Session = Depends(get_db)):
     """Get a specific notification by ID"""
     notification = db.query(Notification).filter(Notification.id == notification_id).first()
@@ -26,7 +26,7 @@ def get_notification(notification_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Notification not found")
     return notification
 
-@router.post("/", response_model=NotificationResponse)
+@router.post("/notifications", response_model=NotificationResponse)
 def create_notification(notification: NotificationCreate, db: Session = Depends(get_db)):
     """Create a new notification"""
     db_notification = Notification(**notification.dict())
@@ -35,7 +35,7 @@ def create_notification(notification: NotificationCreate, db: Session = Depends(
     db.refresh(db_notification)
     return db_notification
 
-@router.put("/{notification_id}", response_model=NotificationResponse)
+@router.put("/notifications/{notification_id}", response_model=NotificationResponse)
 def update_notification(
     notification_id: int, 
     notification_update: NotificationUpdate, 
@@ -54,7 +54,7 @@ def update_notification(
     db.refresh(db_notification)
     return db_notification
 
-@router.delete("/{notification_id}")
+@router.delete("/notifications/{notification_id}")
 def delete_notification(notification_id: int, db: Session = Depends(get_db)):
     """Delete a notification"""
     db_notification = db.query(Notification).filter(Notification.id == notification_id).first()
@@ -65,7 +65,7 @@ def delete_notification(notification_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Notification deleted successfully"}
 
-@router.get("/count/total")
+@router.get("/notifications/count/total")
 def get_notifications_count(db: Session = Depends(get_db)):
     """Get total count of notifications"""
     count = db.query(Notification).count()

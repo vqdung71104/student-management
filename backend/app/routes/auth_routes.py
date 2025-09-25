@@ -22,8 +22,8 @@ def hash_password_sha256(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 
-def verify_student_password(password: str, hashed_password: str) -> bool:
-    """Verify student password against hash (support both MD5 and SHA256)"""
+def verify_password(password: str, hashed_password: str) -> bool:
+    """Verify password against hash (support both MD5 and SHA256)"""
     # Try SHA256 first (new format)
     if hashlib.sha256(password.encode()).hexdigest() == hashed_password:
         return True
@@ -36,34 +36,38 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     """
     API đăng nhập cho admin và sinh viên
     """
-    # Admin đăng nhập với database
+    # Admin đăng nhập với database (check by email)
     admin = db.query(Admin).filter(Admin.email == request.email).first()
-    if admin:
-        # Kiểm tra mật khẩu SHA256
-        if admin.password_hash == hash_password_sha256(request.password):
-            return LoginResponse(
-                user_type="admin",
-                user_info={
-                    "id": admin.id,
-                    "username": admin.username,
-                    "email": admin.email,
-                    "role": "administrator"
-                },
-                message="Đăng nhập admin thành công"
-            )
-    
-    # Fallback cho admin cũ (tạm thời)
-    if request.email == "admin" and request.password == "admin123":
+    if admin and verify_password(request.password, admin.password_hash):
         return LoginResponse(
             user_type="admin",
-            user_info={"username": "admin", "role": "administrator"},
-            message="Đăng nhập admin thành công (fallback)"
+            user_info={
+                "id": admin.id,
+                "username": admin.username,
+                "email": admin.email,
+                "role": "administrator"
+            },
+            message="Đăng nhập admin thành công"
+        )
+    
+    # Admin đăng nhập với database (check by username for backward compatibility)
+    admin_by_username = db.query(Admin).filter(Admin.username == request.email).first()
+    if admin_by_username and verify_password(request.password, admin_by_username.password_hash):
+        return LoginResponse(
+            user_type="admin",
+            user_info={
+                "id": admin_by_username.id,
+                "username": admin_by_username.username,
+                "email": admin_by_username.email,
+                "role": "administrator"
+            },
+            message="Đăng nhập admin thành công"
         )
     
     # Sinh viên đăng nhập bằng email (hỗ trợ cả MD5 và SHA256)
     student = db.query(Student).filter(Student.email == request.email).first()
     
-    if student and verify_student_password(request.password, student.login_password):
+    if student and verify_password(request.password, student.login_password):
         return LoginResponse(
             user_type="student",
             user_info={

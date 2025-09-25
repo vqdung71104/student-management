@@ -9,7 +9,9 @@ from app.schemas.student_schemas import (
     StudentPasswordResetResponse
 )
 from app.services.email_service import email_service
+from pydantic import BaseModel, validator
 import hashlib
+import re
 from datetime import datetime
 
 router = APIRouter(prefix="/student", tags=["Student Password Management"])
@@ -92,15 +94,40 @@ def verify_otp_and_change_password(
         raise HTTPException(status_code=500, detail="Lỗi khi cập nhật mật khẩu")
 
 
+class StudentChangePasswordWithEmailRequest(BaseModel):
+    student_email: str
+    current_password: str
+    new_password: str
+    
+    @validator('new_password')
+    def validate_new_password(cls, v):
+        """Kiểm tra mật khẩu mạnh"""
+        if len(v) < 8:
+            raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
+        
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết hoa')
+        
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết thường')
+        
+        if not re.search(r'\d', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 chữ số')
+        
+        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>?]', v):
+            raise ValueError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt')
+        
+        return v
+
+
 @router.post("/change-password")
 def change_password_with_current(
-    request: StudentChangePasswordRequest,
-    student_email: str,  # Từ session/token
+    request: StudentChangePasswordWithEmailRequest,
     db: Session = Depends(get_db)
 ):
     """Đổi mật khẩu sinh viên với mật khẩu hiện tại (không cần OTP)"""
     # Lấy thông tin sinh viên
-    student = db.query(Student).filter(Student.email == student_email).first()
+    student = db.query(Student).filter(Student.email == request.student_email).first()
     if not student:
         raise HTTPException(status_code=404, detail="Sinh viên không tồn tại")
     
@@ -124,10 +151,14 @@ def change_password_with_current(
         raise HTTPException(status_code=500, detail="Lỗi khi cập nhật mật khẩu")
 
 
-@router.get("/profile")
-def get_student_profile(student_email: str, db: Session = Depends(get_db)):
+class StudentProfileRequest(BaseModel):
+    student_email: str
+
+
+@router.post("/profile")
+def get_student_profile(request: StudentProfileRequest, db: Session = Depends(get_db)):
     """Lấy thông tin sinh viên profile"""
-    student = db.query(Student).filter(Student.email == student_email).first()
+    student = db.query(Student).filter(Student.email == request.student_email).first()
     if not student:
         raise HTTPException(status_code=404, detail="Sinh viên không tồn tại")
     

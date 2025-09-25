@@ -75,11 +75,10 @@ const StudentChangePassword = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          student_email: userInfo?.email,
           current_password: currentPasswordData.currentPassword,
           new_password: currentPasswordData.newPassword
         }),
-        // Note: In real app, you would get student_email from auth context/token
-        // For now, using query parameter
       })
       
       const data = await response.json()

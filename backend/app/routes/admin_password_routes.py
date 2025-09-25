@@ -22,8 +22,12 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, hashed_password: str) -> bool:
-    """Verify password against hash"""
-    return hash_password(password) == hashed_password
+    """Verify password against hash (support both MD5 and SHA256)"""
+    # Try SHA256 first (new format)
+    if hashlib.sha256(password.encode()).hexdigest() == hashed_password:
+        return True
+    # Fallback to MD5 (old format)
+    return hashlib.md5(password.encode()).hexdigest() == hashed_password
 
 
 def check_password_expiry(admin: Admin) -> bool:
@@ -36,9 +40,9 @@ def check_password_expiry(admin: Admin) -> bool:
 
 
 @router.get("/profile", response_model=AdminResponse)
-def get_admin_profile(admin_username: str = "admin", db: Session = Depends(get_db)):
+def get_admin_profile(db: Session = Depends(get_db)):
     """Lấy thông tin admin profile"""
-    admin = db.query(Admin).filter(Admin.username == admin_username).first()
+    admin = db.query(Admin).first()
     if not admin:
         raise HTTPException(status_code=404, detail="Admin không tồn tại")
     
@@ -106,12 +110,11 @@ def verify_otp_and_change_password(
 @router.post("/change-password")
 def change_password_with_current(
     request: ChangePasswordRequest,
-    admin_username: str = "admin",  # Từ session/token
     db: Session = Depends(get_db)
 ):
     """Đổi mật khẩu với mật khẩu hiện tại (không cần OTP)"""
-    # Lấy thông tin admin
-    admin = db.query(Admin).filter(Admin.username == admin_username).first()
+    # Lấy thông tin admin (hiện tại chỉ có 1 admin)
+    admin = db.query(Admin).first()
     if not admin:
         raise HTTPException(status_code=404, detail="Admin không tồn tại")
     
@@ -137,9 +140,9 @@ def change_password_with_current(
 
 
 @router.get("/password-status")
-def check_password_status(admin_username: str = "admin", db: Session = Depends(get_db)):
+def check_password_status(db: Session = Depends(get_db)):
     """Kiểm tra trạng thái mật khẩu (có hết hạn không)"""
-    admin = db.query(Admin).filter(Admin.username == admin_username).first()
+    admin = db.query(Admin).first()
     if not admin:
         raise HTTPException(status_code=404, detail="Admin không tồn tại")
     

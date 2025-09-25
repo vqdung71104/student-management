@@ -70,14 +70,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Kiểm tra admin login trước
-      if (email === 'admin' && password === 'admin123') {
-        setUserRole('admin')
-        setUserInfo({ username: 'admin', role: 'administrator' })
-        setIsAuthenticated(true)
-        return true
-      }
-
       // Thử đăng nhập qua API backend
       const response = await fetch('http://localhost:8000/auth/login', {
         method: 'POST',

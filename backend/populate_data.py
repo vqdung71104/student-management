@@ -427,7 +427,7 @@ def populate_admin(db):
             return
         
         # Hash password using SHA256
-        password = "Admin123!"  # Strong default password
+        password = "admin123"  # Strong default password
         password_hash = hashlib.sha256(password.encode()).hexdigest()
         
         admin = Admin(
