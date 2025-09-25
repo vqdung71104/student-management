@@ -8,15 +8,21 @@ const Login = () => {
     password: ''
   })
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError('') // Clear previous error
     
     try {
-      await login(loginForm.username, loginForm.password)
+      const success = await login(loginForm.username, loginForm.password)
+      if (!success) {
+        setError('Sai mật khẩu hoặc email/tên đăng nhập.')
+      }
     } catch (error) {
       console.error('Login error:', error)
+      setError('Sai mật khẩu hoặc email/tên đăng nhập.')
     } finally {
       setLoading(false)
     }
@@ -27,6 +33,10 @@ const Login = () => {
       ...loginForm,
       [e.target.name]: e.target.value
     })
+    // Clear error when user starts typing
+    if (error) {
+      setError('')
+    }
   }
 
   return (
@@ -75,6 +85,24 @@ const Login = () => {
             />
           </div>
 
+          {/* Error message */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-red-800 font-medium">
+                    {error}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={loading}
@@ -84,14 +112,7 @@ const Login = () => {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="text-sm font-medium text-blue-800 mb-2">Tài khoản demo:</h3>
-          <div className="text-xs text-blue-700 space-y-1">
-            <p><strong>Admin:</strong> admin / admin123</p>
-            <p><strong>Student:</strong> student / student123</p>
-            <p><strong>Sinh viên:</strong> email@sis.hust.edu.vn / 123456</p>
-          </div>
-        </div>
+        
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
