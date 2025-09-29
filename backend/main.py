@@ -17,6 +17,7 @@ from app.routes import feedback_routes
 from app.routes import notification_routes
 from app.routes import admin_password_routes
 from app.routes import student_password_routes
+from app.routes import student_forms_routes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -48,6 +49,7 @@ app.include_router(feedback_routes.router)
 app.include_router(notification_routes.router)
 app.include_router(admin_password_routes.router)
 app.include_router(student_password_routes.router)
+app.include_router(student_forms_routes.router)
 
 @app.get("/")
 def read_root():
