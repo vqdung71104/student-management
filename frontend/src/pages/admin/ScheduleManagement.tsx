@@ -1,10 +1,235 @@
 import { useState, useEffect, useRef } from 'react'
 import ExcelUpload from '../../components/ExcelUpload'
+import * as XLSX from 'xlsx'
+
+// Teacher Update Modal Component
+const TeacherUpdateModal = ({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) => {
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0])
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0])
+    }
+  }
+
+  const processExcelFile = async (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+          
+          // Tìm dòng header có chứa các cột cần thiết
+          let headerRowIndex = -1
+          for (let i = 0; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[]
+            if (row.some(cell => 
+              cell && (
+                String(cell).toLowerCase().includes('mã_lớp') || 
+                String(cell).toLowerCase().includes('mã lớp') ||
+                String(cell).toLowerCase().includes('giảng viên')
+              )
+            )) {
+              headerRowIndex = i
+              break
+            }
+          }
+
+          if (headerRowIndex === -1) {
+            throw new Error('Không tìm thấy header có các cột: Mã_lớp, Mã_lớp_kèm, Giảng viên giảng dạy')
+          }
+
+          const headers = jsonData[headerRowIndex] as any[]
+          const teacherUpdates: any[] = []
+
+          // Tìm index của các cột cần thiết
+          const classIdIndex = headers.findIndex((h: any) => 
+            h && (String(h).includes('Mã_lớp') && !String(h).includes('kèm'))
+          )
+          const classIdKemIndex = headers.findIndex((h: any) => 
+            h && String(h).includes('Mã_lớp_kèm')
+          )
+          const teacherIndex = headers.findIndex((h: any) => 
+            h && String(h).includes('Giảng viên giảng dạy')
+          )
+
+          if (classIdIndex === -1 || classIdKemIndex === -1 || teacherIndex === -1) {
+            throw new Error('Không tìm thấy đầy đủ các cột: Mã_lớp, Mã_lớp_kèm, Giảng viên giảng dạy')
+          }
+
+          // Xử lý dữ liệu từ dòng sau header
+          for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[]
+            if (row.length > Math.max(classIdIndex, classIdKemIndex, teacherIndex)) {
+              const classId = row[classIdIndex]
+              const classIdKem = row[classIdKemIndex]
+              const teacher = row[teacherIndex]
+
+              // Chỉ xử lý nếu tất cả 3 giá trị đều có
+              if (classId && classIdKem && teacher) {
+                teacherUpdates.push({
+                  class_id: String(classId).trim(),
+                  class_id_kem: String(classIdKem).trim(),
+                  teacher: String(teacher).trim()
+                })
+              }
+            }
+          }
+
+          if (teacherUpdates.length === 0) {
+            throw new Error('Không tìm thấy dữ liệu hợp lệ trong file')
+          }
+
+          resolve(teacherUpdates)
+        } catch (error) {
+          reject(error)
+        }
+      }
+      reader.onerror = () => reject(new Error('Lỗi khi đọc file'))
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  const handleSubmit = async () => {
+    if (!file) {
+      alert('Vui lòng chọn file Excel')
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Xử lý file Excel
+      const teacherUpdates = await processExcelFile(file)
+      
+      // Gửi dữ liệu đến API
+      const response = await fetch('http://localhost:8000/classes/update-teachers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ updates: teacherUpdates }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert(`Cập nhật thành công! ${result.updated_count} lớp đã được cập nhật giáo viên.`)
+        onSuccess()
+      } else {
+        const error = await response.text()
+        throw new Error(error)
+      }
+    } catch (error) {
+      console.error('Error updating teachers:', error)
+      alert(`Lỗi: ${error instanceof Error ? error.message : 'Có lỗi xảy ra'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4">Cập nhật giáo viên</h2>
+        
+        <div
+          className={`border-2 border-dashed rounded-lg p-8 text-center ${
+            dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+          }`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+        >
+          {file ? (
+            <div>
+              <p className="text-green-600 font-medium">{file.name}</p>
+              <p className="text-sm text-gray-500 mt-1">Kích thước: {(file.size / 1024).toFixed(1)} KB</p>
+            </div>
+          ) : (
+            <div>
+              <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <p className="text-gray-600">Kéo thả file Excel vào đây hoặc</p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-blue-600 hover:underline mt-2"
+              >
+                chọn file từ máy tính
+              </button>
+            </div>
+          )}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept=".xlsx,.xls"
+          onChange={handleFileChange}
+        />
+
+        <div className="mt-4 text-sm text-gray-600">
+          <p><strong>Lưu ý:</strong> File Excel cần có các cột:</p>
+          <ul className="list-disc list-inside mt-1">
+            <li>Mã_lớp</li>
+            <li>Mã_lớp_kèm</li>
+            <li>Giảng viên giảng dạy</li>
+          </ul>
+        </div>
+
+        <div className="flex justify-end space-x-4 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+            disabled={loading}
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading || !file}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+          >
+            {loading ? 'Đang xử lý...' : 'Cập nhật'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const ScheduleManagement = () => {
   const [classes, setClasses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showExcelUpload, setShowExcelUpload] = useState(false)
+  const [showTeacherUpdate, setShowTeacherUpdate] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [editingClass, setEditingClass] = useState<any>(null)
@@ -309,6 +534,16 @@ const ScheduleManagement = () => {
                 <span>Tải file Excel</span>
               </>
             )}
+          </button>
+          
+          <button
+            onClick={() => setShowTeacherUpdate(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center space-x-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <span>Cập nhật giáo viên</span>
           </button>
           
           <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
@@ -652,6 +887,17 @@ const ScheduleManagement = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Teacher Update Modal */}
+      {showTeacherUpdate && (
+        <TeacherUpdateModal 
+          onClose={() => setShowTeacherUpdate(false)}
+          onSuccess={() => {
+            setShowTeacherUpdate(false)
+            fetchClasses() // Refresh classes after update
+          }}
+        />
       )}
     </div>
   )

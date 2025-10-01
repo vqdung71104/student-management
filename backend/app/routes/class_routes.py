@@ -3,8 +3,19 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.__init__ import Class
 from app.schemas.class_schema import ClassCreate, ClassUpdate, ClassResponse
+from pydantic import BaseModel
+from typing import List
 
 router = APIRouter(prefix="/classes", tags=["Classes"])
+
+# Schema for teacher update
+class TeacherUpdate(BaseModel):
+    class_id: str
+    class_id_kem: str
+    teacher: str
+
+class TeacherUpdateRequest(BaseModel):
+    updates: List[TeacherUpdate]
 
 # ✅ Create class
 @router.post("/", response_model=ClassResponse)
@@ -74,3 +85,47 @@ def delete_class(class_id: int, db: Session = Depends(get_db)):
     db.delete(class_obj)
     db.commit()
     return {"message": "Class deleted successfully"}
+
+# ✅ Update teachers from Excel
+@router.post("/update-teachers")
+def update_teachers(request: TeacherUpdateRequest, db: Session = Depends(get_db)):
+    """Update teacher names for existing classes based on class_id"""
+    updated_count = 0
+    errors = []
+    
+    for update in request.updates:
+        try:
+            # Tìm lớp dựa trên class_id hoặc class_id_kem
+            class_obj = db.query(Class).filter(
+                (Class.class_id == update.class_id)  
+               
+            ).first()
+            
+            if class_obj:
+                # Cập nhật tên giáo viên
+                class_obj.teacher_name = update.teacher
+                print(f"Updating class {class_obj.class_id} with teacher {update.teacher}")
+                updated_count += 1
+            else:
+                errors.append(f"Không tìm thấy lớp với mã: {update.class_id} hoặc {update.class_id_kem}")
+                
+        except Exception as e:
+            errors.append(f"Lỗi khi cập nhật lớp {update.class_id}: {str(e)}")
+    
+    try:
+        db.commit()
+        
+        result = {
+            "updated_count": updated_count,
+            "total_records": len(request.updates),
+            "message": f"Đã cập nhật thành công {updated_count}/{len(request.updates)} lớp"
+        }
+        
+        if errors:
+            result["errors"] = errors
+            
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Lỗi khi lưu dữ liệu: {str(e)}")
