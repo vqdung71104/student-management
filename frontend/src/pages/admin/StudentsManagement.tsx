@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import * as XLSX from 'xlsx'
 
 interface Student {
   id: number
@@ -45,6 +46,7 @@ const StudentsManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
+  const [showUploadModal, setShowUploadModal] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [formData, setFormData] = useState<StudentFormData>({
     student_id: '',
@@ -214,12 +216,20 @@ const StudentsManagement = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Quản lý sinh viên</h1>
-        <button 
-          onClick={openCreateModal}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-        >
-          ➕ Thêm sinh viên
-        </button>
+        <div className="flex space-x-2">
+          <button 
+            onClick={() => setShowUploadModal(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+          >
+            📊 Upload Excel
+          </button>
+          <button 
+            onClick={openCreateModal}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          >
+            ➕ Thêm sinh viên
+          </button>
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -572,6 +582,312 @@ const StudentsManagement = () => {
           </div>
         </div>
       )}
+
+      {showUploadModal && (
+        <StudentUploadModal 
+          onClose={() => setShowUploadModal(false)} 
+          onSuccess={() => {
+            fetchStudents()
+            setShowUploadModal(false)
+          }} 
+        />
+      )}
+    </div>
+  )
+}
+
+// Component StudentUploadModal
+const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) => {
+  const [file, setFile] = useState<File | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setFile(e.dataTransfer.files[0])
+    }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0])
+    }
+  }
+
+  const processExcelFile = async (file: File): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+          
+          // Tìm dòng header có chứa các cột cần thiết
+          let headerRowIndex = -1
+          for (let i = 0; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[]
+            if (row.some(cell => 
+              cell && (
+                String(cell).toLowerCase().includes('họ và tên') || 
+                String(cell).toLowerCase().includes('mssv') ||
+                String(cell).toLowerCase().includes('năm nhập học') ||
+                String(cell).toLowerCase().includes('giới tính') ||
+                String(cell).toLowerCase().includes('ngành học')
+              )
+            )) {
+              headerRowIndex = i
+              break
+            }
+          }
+
+          if (headerRowIndex === -1) {
+            throw new Error('Không tìm thấy header có các cột: Họ và tên, MSSV, Năm nhập học')
+          }
+
+          const headers = jsonData[headerRowIndex] as any[]
+          const students: any[] = []
+
+          // Tìm index của các cột cần thiết
+          const nameIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('họ và tên')
+          )
+          const studentIdIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('mssv')
+          )
+          const enrolledYearIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('năm nhập học')
+          )
+          const courseIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('ngành học')
+          )
+          const trainingLevelIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('trình độ đào tạo')
+          )
+          const genderIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('giới tính')
+          )
+          const classIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('lớp học')
+          )
+          const departmentIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('trường/viện')
+          )
+
+          if (nameIndex === -1 || studentIdIndex === -1 || enrolledYearIndex === -1) {
+            throw new Error('Không tìm thấy các cột bắt buộc: Họ và tên, MSSV, Năm nhập học')
+          }
+
+          // Xử lý dữ liệu từ các dòng sau header
+          for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[]
+            
+            if (row && row.length > 0 && row[nameIndex]) {
+              const enrolledYear = parseInt(String(row[enrolledYearIndex] || '').trim())
+              
+              // Map course code to course_id
+              const courseCode = courseIndex !== -1 ? String(row[courseIndex] || '').trim() : 'IT-E6'
+              let courseId = 1 // Default to IT-E6 course
+              if (courseCode === 'IT-E6') {
+                courseId = 1
+              }
+
+              const student = {
+                student_name: String(row[nameIndex] || '').trim(),
+                student_id: String(row[studentIdIndex] || '').trim(),
+                enrolled_year: enrolledYear,
+                course_id: courseId,
+                training_level: trainingLevelIndex !== -1 ? String(row[trainingLevelIndex] || 'Cử nhân').trim() : 'Cử nhân',
+                learning_status: 'Đang học',
+                gender: genderIndex !== -1 ? String(row[genderIndex] || 'Nam').trim() : 'Nam',
+                classes: classIndex !== -1 ? String(row[classIndex] || '').trim() : null,
+                newest_semester: enrolledYear ? String(enrolledYear) + '1' : null,
+                department_id: departmentIndex !== -1 ? String(row[departmentIndex] || '').trim() : null
+              }
+
+              if (student.student_name && student.student_id && student.enrolled_year) {
+                students.push(student)
+              }
+            }
+          }
+
+          resolve(students)
+        } catch (error) {
+          reject(error)
+        }
+      }
+      reader.onerror = () => reject(new Error('Không thể đọc file'))
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
+  const handleUpload = async () => {
+    if (!file) {
+      alert('Vui lòng chọn file Excel')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const students = await processExcelFile(file)
+      
+      if (students.length === 0) {
+        alert('Không tìm thấy dữ liệu sinh viên hợp lệ trong file')
+        setLoading(false)
+        return
+      }
+
+      // Log dữ liệu để debug
+      console.log('Processed students data:', students)
+
+      // Gửi từng sinh viên lên server
+      let successCount = 0
+      let errorCount = 0
+      
+      for (const student of students) {
+        console.log('Sending student:', student)
+        try {
+          const response = await fetch('http://localhost:8000/students/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(student)
+          })
+          
+          if (response.ok) {
+            successCount++
+            console.log(`✓ Tạo thành công sinh viên ${student.student_name}`)
+          } else {
+            const errorText = await response.text()
+            if (errorText.includes('student_id đã tồn tại')) {
+              console.log(`⚠ Sinh viên ${student.student_name} (${student.student_id}) đã tồn tại, bỏ qua`)
+            } else {
+              errorCount++
+              console.error(`✗ Lỗi khi tạo sinh viên ${student.student_name}:`, errorText)
+            }
+          }
+        } catch (error) {
+          errorCount++
+          console.error(`✗ Lỗi khi tạo sinh viên ${student.student_name}:`, error)
+        }
+      }
+
+      const duplicateCount = students.length - successCount - errorCount
+      let message = `Hoàn thành! Tạo thành công ${successCount} sinh viên`
+      if (duplicateCount > 0) {
+        message += `, bỏ qua ${duplicateCount} sinh viên đã tồn tại`
+      }
+      if (errorCount > 0) {
+        message += `, lỗi ${errorCount} sinh viên`
+      }
+      alert(message)
+      
+      if (successCount > 0) {
+        onSuccess()
+      }
+      onClose()
+    } catch (error) {
+      console.error('Error processing file:', error)
+      alert('Có lỗi khi xử lý file: ' + (error as Error).message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-6 rounded-lg max-w-md w-full mx-4">
+        <h3 className="text-xl font-bold mb-4">Upload danh sách sinh viên</h3>
+        
+        <div 
+          className={`border-2 border-dashed rounded-lg p-6 text-center ${
+            dragActive ? 'border-blue-400 bg-blue-50' : 'border-gray-300'
+          }`}
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+        >
+          {file ? (
+            <div className="text-green-600">
+              <p>📁 {file.name}</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Kích thước: {(file.size / 1024).toFixed(1)} KB
+              </p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-gray-600 mb-2">
+                Kéo thả file Excel vào đây hoặc
+              </p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Chọn file
+              </button>
+              <p className="text-sm text-gray-500 mt-2">
+                Hỗ trợ file .xlsx, .xls
+              </p>
+            </div>
+          )}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={handleFileChange}
+          className="hidden"
+        />
+
+        <div className="mt-4 text-sm text-gray-600">
+          <p className="font-semibold mb-1">Yêu cầu định dạng Excel:</p>
+          <ul className="text-xs">
+            <li>• Họ và tên (bắt buộc)</li>
+            <li>• MSSV (bắt buộc)</li>
+            <li>• Năm nhập học (bắt buộc)</li>
+            <li>• Mã ngành (tùy chọn)</li>
+            <li>• Bậc đào tạo (tùy chọn)</li>
+            <li>• Tình trạng học tập (tùy chọn)</li>
+            <li>• Giới tính (tùy chọn)</li>
+          </ul>
+        </div>
+
+        <div className="flex justify-end space-x-2 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50"
+            disabled={loading}
+          >
+            Hủy
+          </button>
+          <button
+            onClick={handleUpload}
+            disabled={!file || loading}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Đang xử lý...' : 'Upload'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
