@@ -40,3 +40,5 @@ class Student(Base):
     enrolled_courses = relationship(
         "Course", secondary=student_course_table, back_populates="enrolled_students"
     )
+    drl_records = relationship("StudentDRL", back_populates="student")
+    projects = relationship("StudentProjects", back_populates="student")
