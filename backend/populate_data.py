@@ -21,6 +21,7 @@ from app.models.learned_subject_model import LearnedSubject
 from app.models.notification_model import Notification
 from app.models.admin_model import Admin
 from app.models.student_drl_model import StudentDRL
+from app.models.semester_gpa_model import SemesterGPA
 
 def create_database_session():
     """Create database session"""
@@ -112,6 +113,131 @@ def calculate_letter_grade(score: float) -> str:
     elif 9.5 <= score <= 10.0:
         return "A+"
     return "F"
+
+def letter_grade_to_score(letter_grade: str) -> float:
+    """Chuyển letter grade thành điểm số thang 4.0"""
+    grade_map = {
+        "F": 0.0,
+        "D": 1.0,
+        "D+": 1.5,
+        "C": 2.0,
+        "C+": 2.5,
+        "B": 3.0,
+        "B+": 3.5,
+        "A": 4.0,
+        "A+": 4.0
+    }
+    return grade_map.get(letter_grade, 0.0)
+
+def update_semester_gpa(student_id: int, semester: str, db):
+    """Cập nhật GPA theo kỳ học"""
+    from sqlalchemy import and_
+    
+    # Lấy tất cả learned subjects của student trong semester này
+    learned_subjects = db.query(LearnedSubject).filter(
+        and_(
+            LearnedSubject.student_id == student_id,
+            LearnedSubject.semester == semester
+        )
+    ).all()
+    
+    if not learned_subjects:
+        return
+    
+    total_credits = 0
+    total_grade_points = 0.0
+    
+    for ls in learned_subjects:
+        credits = ls.credits
+        score = letter_grade_to_score(ls.letter_grade)
+        total_credits += credits
+        total_grade_points += credits * score
+    
+    gpa = total_grade_points / total_credits if total_credits > 0 else 0.0
+    
+    # Tìm hoặc tạo semester GPA
+    semester_gpa = db.query(SemesterGPA).filter(
+        and_(
+            SemesterGPA.student_id == student_id,
+            SemesterGPA.semester == semester
+        )
+    ).first()
+    
+    if semester_gpa:
+        semester_gpa.gpa = gpa
+        semester_gpa.total_credits = total_credits
+    else:
+        semester_gpa = SemesterGPA(
+            student_id=student_id,
+            semester=semester,
+            gpa=gpa,
+            total_credits=total_credits
+        )
+        db.add(semester_gpa)
+
+def update_student_stats(student_id: int, db):
+    """Cập nhật thống kê student"""
+    student = db.query(Student).filter(Student.id == student_id).first()
+    if not student:
+        return
+    
+    # Lấy tất cả learned subjects của student
+    learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == student_id).all()
+    
+    # Reset counters
+    failed_subjects_number = 0
+    study_subjects_number = 0
+    total_failed_credits = 0
+    total_learned_credits = 0
+    
+    for ls in learned_subjects:
+        if ls.letter_grade == "F":
+            failed_subjects_number += 1
+            total_failed_credits += ls.credits
+        else:
+            study_subjects_number += 1
+            total_learned_credits += ls.credits
+    
+    # Update student fields
+    student.failed_subjects_number = failed_subjects_number
+    student.study_subjects_number = study_subjects_number
+    student.total_failed_credits = total_failed_credits
+    student.total_learned_credits = total_learned_credits
+    
+    # Calculate CPA from all semester GPAs
+    semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student_id).all()
+    total_credits = sum(sgpa.total_credits for sgpa in semester_gpas)
+    total_grade_points = sum(sgpa.gpa * sgpa.total_credits for sgpa in semester_gpas)
+    
+    student.cpa = total_grade_points / total_credits if total_credits > 0 else 0.0
+    
+    # Update warning level
+    old_warning = student.warning_level
+    if total_failed_credits >= 27:
+        student.warning_level = "Cảnh báo mức 3"
+    elif total_failed_credits >= 16:
+        student.warning_level = "Cảnh báo mức 2"
+    elif total_failed_credits >= 8:
+        student.warning_level = "Cảnh báo mức 1"
+    else:
+        student.warning_level = "Cảnh báo mức 0"
+    
+    # Update level 3 warning counter
+    if old_warning != "Cảnh báo mức 3" and student.warning_level == "Cảnh báo mức 3":
+        student.level_3_warning_number += 1
+    
+    # Update year level
+    total_learned = total_learned_credits
+    if total_learned < 32:
+        student.year_level = "Năm 1"
+    elif total_learned < 64:
+        student.year_level = "Năm 2"
+    elif total_learned < 96:
+        student.year_level = "Năm 3"
+    elif total_learned < 128:
+        student.year_level = "Năm 4"
+    else:
+        student.year_level = "Năm 5"
 
 def calculate_total_score(midterm_score: float, final_score: float, weight: float) -> float:
     """Tính điểm tổng kết: midterm * (1-weight) + final * weight"""
@@ -412,6 +538,31 @@ def populate_learned_subjects(db, learned_subjects_data):
         
         db.commit()
         print(f"✅ Successfully populated {len(learned_subjects_data)} learned subjects")
+        
+        # 🎯 Cập nhật student stats và semester GPA sau khi thêm learned subjects
+        print("🔄 Updating student statistics and GPA...")
+        
+        # Lấy danh sách unique student_id và semester để cập nhật
+        student_semesters = set()
+        student_ids = set()
+        
+        for learned_data in learned_subjects_data:
+            student_id = learned_data['student_id']
+            semester = learned_data['semester']
+            student_semesters.add((student_id, semester))
+            student_ids.add(student_id)
+        
+        # Cập nhật semester GPA
+        for student_id, semester in student_semesters:
+            update_semester_gpa(student_id, semester, db)
+        
+        # Cập nhật student stats
+        for student_id in student_ids:
+            update_student_stats(student_id, db)
+        
+        db.commit()
+        print(f"✅ Updated statistics for {len(student_ids)} students")
+        
     except SQLAlchemyError as e:
         db.rollback()
         print(f"❌ Error committing learned subjects: {e}")
