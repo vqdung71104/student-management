@@ -42,3 +42,17 @@ class WarningLevel(str, Enum):
     LEVEL_1 = "Cảnh báo mức 1"
     LEVEL_2 = "Cảnh báo mức 2"
     LEVEL_3 = "Cảnh báo mức 3"
+
+class ProjectType(str, Enum):
+    GR1 = "Nghiên cứu tốt nghiệp 1"
+    GR2 = "Nghiên cứu tốt nghiệp 2"
+    Graduation_Research = "Đồ án tốt nghiệp"
+    Internship_Subject = "Thực tập"
+
+class ProjectStatus(str, Enum):
+    PENDING = "Chờ duyệt"
+    IN_PROGRESS = "Đang thực hiện"
+    SUBMITTED = "Đã nộp"
+    GRADED = "Đã chấm điểm"
+    COMPLETED = "Hoàn thành"
+    REJECTED = "Từ chối"
