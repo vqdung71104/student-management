@@ -1,0 +1,22 @@
+[   
+   {
+      "student_id": "20225818",
+      "semester": "20241",
+      "drl_score": 92
+    },
+    {
+      "student_id": "20225818",
+      "semester": "20242",
+      "drl_score": 100
+    },
+    {
+      "student_id": "20225819",
+      "semester": "20241",
+      "drl_score": 98
+    },
+    {
+      "student_id": "20225819",
+      "semester": "20242",
+      "drl_score": 99
+    }
+]

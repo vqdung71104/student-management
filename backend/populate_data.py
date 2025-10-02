@@ -20,6 +20,7 @@ from app.models.feedback_model import FAQ, Feedback
 from app.models.learned_subject_model import LearnedSubject
 from app.models.notification_model import Notification
 from app.models.admin_model import Admin
+from app.models.student_drl_model import StudentDRL
 
 def create_database_session():
     """Create database session"""
@@ -47,6 +48,7 @@ def clear_all_data(db):
         db.execute(text("DELETE FROM class_registers"))
         db.execute(text("DELETE FROM subject_registers"))
         db.execute(text("DELETE FROM learned_subjects"))
+        db.execute(text("DELETE FROM student_drl"))
         db.execute(text("DELETE FROM semester_gpa"))
         db.execute(text("DELETE FROM classes"))
         db.execute(text("DELETE FROM students"))
@@ -415,6 +417,43 @@ def populate_learned_subjects(db, learned_subjects_data):
         print(f"❌ Error committing learned subjects: {e}")
 
 
+def populate_student_drl(db, student_drl_data):
+    """Populate student DRL (Điểm rèn luyện) table"""
+    print("🎯 Populating student DRL...")
+    try:
+        for drl_data in student_drl_data:
+            # Kiểm tra xem student_id có tồn tại không
+            student_id = drl_data.get('student_id')
+            student = db.query(Student).filter(Student.student_id == student_id).first()
+            if not student:
+                print(f"⚠️ Student with ID {student_id} not found, skipping DRL record")
+                continue
+            
+            # Kiểm tra xem record đã tồn tại chưa (tránh duplicate)
+            existing_drl = db.query(StudentDRL).filter(
+                StudentDRL.student_id == student_id,
+                StudentDRL.semester == str(drl_data.get('semester'))
+            ).first()
+            
+            if existing_drl:
+                print(f"⚠️ DRL record already exists for student {student_id}, semester {drl_data.get('semester')}")
+                continue
+            
+            # Tạo record mới
+            student_drl = StudentDRL(
+                student_id=student_id,
+                semester=str(drl_data.get('semester')),  # Đảm bảo semester là string
+                drl_score=drl_data.get('drl_score')
+            )
+            db.add(student_drl)
+        
+        db.commit()
+        print(f"✅ Successfully populated {len(student_drl_data)} student DRL records")
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"❌ Error committing student DRL: {e}")
+
+
 def populate_admin(db):
     """Populate admin user with secure password"""
     print("👤 Populating admin...")
@@ -500,6 +539,11 @@ def main():
         learned_subjects_data = load_json_file('sample_learned_subjects.json')
         if learned_subjects_data:
             populate_learned_subjects(db, learned_subjects_data)
+        
+        # 5.5. Student DRL (depends on students)
+        student_drl_data = load_json_file('sample_student_drl.json')
+        if student_drl_data:
+            populate_student_drl(db, student_drl_data)
         
         # 6. FAQs (no dependencies)
         faqs_data = load_json_file('sample_faqs.json')
