@@ -9,7 +9,7 @@ class StudentDRL(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String(255), ForeignKey("students.student_id"), nullable=False)
-    semester = Column(Integer, nullable=False)  # Kỳ học (1,2,3...14)
+    semester = Column(String(255), nullable=False)  # Kỳ học (20241,20221,...)
     drl_score = Column(Integer, nullable=False)  # Điểm rèn luyện (-50 đến 100) 
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
