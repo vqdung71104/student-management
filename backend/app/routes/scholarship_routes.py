@@ -12,7 +12,7 @@ from app.schemas.scholarship_schema import (
     ScholarshipResponse,
     ScholarshipListResponse
 )
-from app.utils.auth_utils import get_current_admin
+
 
 router = APIRouter(prefix="/api/scholarships", tags=["Scholarships"])
 
@@ -21,7 +21,6 @@ router = APIRouter(prefix="/api/scholarships", tags=["Scholarships"])
 async def get_scholarships(
     search: Optional[str] = None,
     type_filter: Optional[str] = None,
-    current_admin: dict = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -52,7 +51,6 @@ async def get_scholarships(
 @router.get("/{scholarship_id}", response_model=ScholarshipResponse)
 async def get_scholarship(
     scholarship_id: int,
-    current_admin: dict = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -70,7 +68,6 @@ async def get_scholarship(
 @router.post("/", response_model=ScholarshipResponse)
 async def create_scholarship(
     scholarship_data: ScholarshipCreate,
-    current_admin: dict = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -97,7 +94,6 @@ async def create_scholarship(
 async def update_scholarship(
     scholarship_id: int,
     scholarship_data: ScholarshipUpdate,
-    current_admin: dict = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -131,7 +127,6 @@ async def update_scholarship(
 @router.delete("/{scholarship_id}")
 async def delete_scholarship(
     scholarship_id: int,
-    current_admin: dict = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
@@ -162,7 +157,6 @@ async def delete_scholarship(
 async def upload_document(
     scholarship_id: int,
     file: UploadFile = File(...),
-    current_admin: dict = Depends(get_current_admin),
     db: Session = Depends(get_db)
 ):
     """
