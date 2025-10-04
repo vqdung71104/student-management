@@ -14,3 +14,5 @@ from .admin_model import Admin
 from .otp_model import OTPVerification
 from .student_drl_model import StudentDRL
 from .student_projects_model import StudentProjects
+from .scholarship_model import Scholarship
+from .scholarship_application_model import ScholarshipApplication

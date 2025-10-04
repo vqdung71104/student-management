@@ -42,3 +42,4 @@ class Student(Base):
     )
     drl_records = relationship("StudentDRL", back_populates="student")
     projects = relationship("StudentProjects", back_populates="student")
+    scholarship_applications = relationship("ScholarshipApplication", back_populates="student")
