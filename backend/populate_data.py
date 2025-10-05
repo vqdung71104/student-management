@@ -6,9 +6,9 @@ import hashlib
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError    # Flush để đảm bảo SemesterGPA đã được thêm vào database session
+   
 
-# Add parent directory to path to import models
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from app.db.database import DATABASE_URL, Base, SessionLocal
 from app.models.department_model import Department
@@ -133,6 +133,8 @@ def update_semester_gpa(student_id: int, semester: str, db):
     """Cập nhật GPA theo kỳ học"""
     from sqlalchemy import and_
     
+    print(f"Updating semester GPA for student {student_id}, semester {semester}")
+    
     # Lấy tất cả learned subjects của student trong semester này
     learned_subjects = db.query(LearnedSubject).filter(
         and_(
@@ -141,7 +143,10 @@ def update_semester_gpa(student_id: int, semester: str, db):
         )
     ).all()
     
+    print(f"Found {len(learned_subjects)} learned subjects for student {student_id} in semester {semester}")
+    
     if not learned_subjects:
+        print(f"No learned subjects found for student {student_id} in semester {semester}")
         return
     
     total_credits = 0
@@ -164,9 +169,11 @@ def update_semester_gpa(student_id: int, semester: str, db):
     ).first()
     
     if semester_gpa:
+        print(f"Updating existing semester GPA: {gpa} with {total_credits} credits")
         semester_gpa.gpa = gpa
         semester_gpa.total_credits = total_credits
     else:
+        print(f"Creating new semester GPA: {gpa} with {total_credits} credits")
         semester_gpa = SemesterGPA(
             student_id=student_id,
             semester=semester,
@@ -174,6 +181,10 @@ def update_semester_gpa(student_id: int, semester: str, db):
             total_credits=total_credits
         )
         db.add(semester_gpa)
+    
+    # Commit changes để đảm bảo dữ liệu được lưu
+    db.commit()
+    print(f"Successfully saved semester GPA for student {student_id}, semester {semester}")
 
 def update_student_stats(student_id: int, db):
     """Cập nhật thống kê student"""
@@ -204,11 +215,19 @@ def update_student_stats(student_id: int, db):
     student.total_failed_credits = total_failed_credits
     student.total_learned_credits = total_learned_credits
     
+    # Flush để đảm bảo SemesterGPA đã được thêm vào database session
+    db.flush()
+    
     # Calculate CPA from all semester GPAs
-    semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student_id).all()
+    semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student.id).all()
+    print(f"Student ID: {student.id}, Student code: {student.student_id}")
+    print(f"Found {len(semester_gpas)} semester GPAs for student {student.id}")
+    for sgpa in semester_gpas:
+        print(f"  Semester: {sgpa.semester}, GPA: {sgpa.gpa}, Credits: {sgpa.total_credits}")
+    
     total_credits = sum(sgpa.total_credits for sgpa in semester_gpas)
     total_grade_points = sum(sgpa.gpa * sgpa.total_credits for sgpa in semester_gpas)
-    
+    print(f"Total credits: {total_credits}, Total grade points: {total_grade_points}")
     student.cpa = total_grade_points / total_credits if total_credits > 0 else 0.0
     
     # Update warning level
