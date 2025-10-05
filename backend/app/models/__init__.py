@@ -16,3 +16,4 @@ from .student_drl_model import StudentDRL
 from .student_projects_model import StudentProjects
 from .scholarship_model import Scholarship
 from .scholarship_application_model import ScholarshipApplication
+from .scholarship_attachment_model import ScholarshipApplicationAttachment

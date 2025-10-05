@@ -1,17 +1,21 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import './assets/css/main.css'
 import './assets/css/component.css'
 import './assets/css/chatbot.css'
+import ScholarshipManagement from './pages/admin/ScholarshipManagement'
 
 interface AppAdminProps {
   onLogout: () => void
 }
 
 function AppAdmin({ onLogout }: AppAdminProps) {
+  const navigate = useNavigate()
   const [currentPage, setCurrentPage] = useState('dashboard')
   const [chatbotOpen, setChatbotOpen] = useState(false)
   const [studentMenuOpen, setStudentMenuOpen] = useState(false)
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false)
+  const [infoManagementMenuOpen, setInfoManagementMenuOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [language, setLanguage] = useState('vi')
   const [chatMessages, setChatMessages] = useState([
@@ -35,6 +39,10 @@ function AppAdmin({ onLogout }: AppAdminProps) {
       dashboard: 'Bảng điều khiển',
       studentManagement: 'Quản lý sinh viên',
       subjectManagement: 'Quản lý môn học',
+      infoManagement: 'Quản lý thông tin',
+      scholarshipManagement: 'Quản lý học bổng',
+      internshipManagement: 'Quản lý thực tập',
+      projectManagement: 'Quản lý đồ án',
       settings: 'Cài đặt',
       chatbotSupport: 'Chatbot hỗ trợ',
       create: 'Tạo mới',
@@ -51,6 +59,10 @@ function AppAdmin({ onLogout }: AppAdminProps) {
       dashboard: 'Dashboard',
       studentManagement: 'Student Management',
       subjectManagement: 'Subject Management',
+      infoManagement: 'Information Management',
+      scholarshipManagement: 'Scholarship Management',
+      internshipManagement: 'Internship Management',
+      projectManagement: 'Project Management',
       settings: 'Settings',
       chatbotSupport: 'Chatbot Support',
       create: 'Create',
@@ -71,6 +83,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
     setCurrentPage(page)
     setStudentMenuOpen(false)
     setSubjectMenuOpen(false)
+    setInfoManagementMenuOpen(false)
     setSettingsMenuOpen(false)
   }
 
@@ -181,6 +194,56 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                     </button>
                     <button onClick={() => showAdminPage('subjects-upload')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
                       📄 {t.updateSubjects}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Information Management Dropdown */}
+              <div className="relative">
+                <button 
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
+                    currentPage.includes('scholarship') || currentPage.includes('internship') || currentPage.includes('project')
+                      ? 'bg-blue-600 text-white shadow-lg' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                  onClick={() => setInfoManagementMenuOpen(!infoManagementMenuOpen)}
+                >
+                  <span>📋 {t.infoManagement}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {infoManagementMenuOpen && (
+                  <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
+                    <button 
+                      onClick={() => {
+                        setInfoManagementMenuOpen(false)
+                        navigate('/admin/scholarships')
+                      }} 
+                      className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left"
+                    >
+                      🎓 {t.scholarshipManagement}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setInfoManagementMenuOpen(false)
+                        // TODO: Tạo route cho internship management
+                        alert('Đang phát triển...')
+                      }} 
+                      className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left"
+                    >
+                      🏢 {t.internshipManagement}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setInfoManagementMenuOpen(false)
+                        // TODO: Tạo route cho project management
+                        alert('Đang phát triển...')
+                      }} 
+                      className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left"
+                    >
+                      📝 {t.projectManagement}
                     </button>
                   </div>
                 )}
@@ -887,6 +950,27 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Scholarship Management Page */}
+        <div className={`page ${currentPage === 'scholarship-management' ? '' : 'hidden'}`}>
+          <ScholarshipManagement />
+        </div>
+
+        {/* Internship Management Page (Placeholder) */}
+        <div className={`page ${currentPage === 'internship-management' ? '' : 'hidden'}`}>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-bold mb-4">Quản lý thực tập</h2>
+            <p className="text-gray-600">Tính năng đang phát triển...</p>
+          </div>
+        </div>
+
+        {/* Project Management Page (Placeholder) */}
+        <div className={`page ${currentPage === 'project-management' ? '' : 'hidden'}`}>
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-bold mb-4">Quản lý đồ án</h2>
+            <p className="text-gray-600">Tính năng đang phát triển...</p>
           </div>
         </div>
       </main>

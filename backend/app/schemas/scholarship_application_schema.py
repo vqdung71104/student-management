@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
@@ -17,6 +17,13 @@ class ApplicationStatusEnum(str, Enum):
     BI_TU_CHOI = "Bị từ chối"
 
 
+class AttachmentInfo(BaseModel):
+    filename: str = Field(..., description="Tên file")
+    file_type: str = Field(..., description="Loại file (pdf, jpg, png, jpeg)")
+    file_size: int = Field(..., description="Kích thước file (bytes)")
+    upload_order: int = Field(..., description="Thứ tự upload (1, 2, 3)")
+
+
 class ScholarshipApplicationCreate(BaseModel):
     scholarship_id: int = Field(..., description="ID học bổng")
     student_id: str = Field(..., description="ID sinh viên")
@@ -32,7 +39,7 @@ class ScholarshipApplicationCreate(BaseModel):
     achievement_special: Optional[str] = Field(None, description="Thành tích đặc biệt")
     achievement_activity: Optional[str] = Field(None, description="Hoạt động nổi bật")
     reason_apply: Optional[str] = Field(None, description="Lý do xin học bổng")
-    attachment_url: Optional[str] = Field(None, description="File đính kèm")
+    # attachment_url: Optional[str] = Field(None, description="File đính kèm")  # Replaced with multiple files
 
 
 class ScholarshipApplicationUpdate(BaseModel):
