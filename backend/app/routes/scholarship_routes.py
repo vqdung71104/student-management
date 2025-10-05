@@ -17,7 +17,7 @@ from app.schemas.scholarship_schema import (
 router = APIRouter(prefix="/api/scholarships", tags=["Scholarships"])
 
 
-@router.get("/", response_model=List[ScholarshipListResponse])
+@router.get("/", response_model=List[ScholarshipResponse])
 async def get_scholarships(
     search: Optional[str] = None,
     type_filter: Optional[str] = None,
@@ -74,7 +74,20 @@ async def create_scholarship(
     Tạo học bổng mới
     """
     try:
-        scholarship = Scholarship(**scholarship_data.dict())
+        # Xử lý và làm sạch dữ liệu
+        data_dict = scholarship_data.dict()
+        
+        # Đảm bảo description được xử lý đúng
+        if data_dict.get('description'):
+            desc = data_dict['description']
+            # Normalize line endings
+            desc = desc.replace('\r\n', '\n').replace('\r', '\n')
+            # Loại bỏ ký tự điều khiển không hợp lệ
+            import re
+            desc = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', desc)
+            data_dict['description'] = desc.strip()
+        
+        scholarship = Scholarship(**data_dict)
         
         db.add(scholarship)
         db.commit()
@@ -82,6 +95,12 @@ async def create_scholarship(
         
         return scholarship
         
+    except ValueError as ve:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Dữ liệu không hợp lệ: {str(ve)}"
+        )
     except Exception as e:
         db.rollback()
         raise HTTPException(

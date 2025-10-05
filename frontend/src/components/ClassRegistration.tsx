@@ -253,20 +253,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
       key: 'action',
       width: 120,
       align: 'center' as const,
-      render: (_: any, record: Class) => (
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          size="small"
-          disabled={record.status !== 'Mở' || record.current_students >= record.max_students}
-          onClick={() => {
-            setSelectedClass(record)
-            setModalVisible(true)
-          }}
-        >
-          Đăng ký
-        </Button>
-      ),
+      
     },
   ]
 

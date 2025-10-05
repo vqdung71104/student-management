@@ -27,8 +27,17 @@ from app.core.config import settings
 # Use the DATABASE_URL from settings which handles URL encoding
 DATABASE_URL = settings.DATABASE_URL
 
-# Engine và Session
-engine = create_engine(DATABASE_URL, echo=False, future=True)
+# Engine và Session với cấu hình UTF-8
+engine = create_engine(
+    DATABASE_URL, 
+    echo=False, 
+    future=True,
+    # Đảm bảo sử dụng UTF-8 encoding
+    connect_args={
+        "charset": "utf8mb4",
+        "use_unicode": True
+    } if "mysql" in DATABASE_URL else {}
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

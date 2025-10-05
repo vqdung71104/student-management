@@ -42,7 +42,7 @@ class ScholarshipApplication(Base):
     achievement_special = Column(Text, nullable=True)
     achievement_activity = Column(Text, nullable=True)
     reason_apply = Column(Text, nullable=True)
-    attachment_url = Column(String(255), nullable=True)
+    # attachment_url = Column(String(255), nullable=True)  # Replaced with attachments relationship
     
     # Thông tin tự động từ CSDL sinh viên
     auto_cpa = Column(Float, nullable=True)
@@ -65,3 +65,4 @@ class ScholarshipApplication(Base):
     # Relationships
     scholarship = relationship("Scholarship", back_populates="applications")
     student = relationship("Student", back_populates="scholarship_applications")
+    attachments = relationship("ScholarshipApplicationAttachment", back_populates="application", cascade="all, delete-orphan")

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.__init__ import Student, Admin
+from app.utils.jwt_utils import create_access_token
 from pydantic import BaseModel
 import hashlib
 
@@ -15,6 +16,8 @@ class LoginResponse(BaseModel):
     user_type: str
     user_info: dict
     message: str
+    access_token: str
+    token_type: str
 
 
 def hash_password_sha256(password: str) -> str:
@@ -39,6 +42,13 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
     # Admin đăng nhập với database (check by email)
     admin = db.query(Admin).filter(Admin.email == request.email).first()
     if admin and verify_password(request.password, admin.password_hash):
+        # Create JWT token for admin
+        token = create_access_token(data={
+            "user_id": admin.id,
+            "user_type": "admin",
+            "email": admin.email
+        })
+        
         return LoginResponse(
             user_type="admin",
             user_info={
@@ -47,12 +57,21 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
                 "email": admin.email,
                 "role": "administrator"
             },
-            message="Đăng nhập admin thành công"
+            message="Đăng nhập admin thành công",
+            access_token=token,
+            token_type="bearer"
         )
     
     # Admin đăng nhập với database (check by username for backward compatibility)
     admin_by_username = db.query(Admin).filter(Admin.username == request.email).first()
     if admin_by_username and verify_password(request.password, admin_by_username.password_hash):
+        # Create JWT token for admin
+        token = create_access_token(data={
+            "user_id": admin_by_username.id,
+            "user_type": "admin",
+            "email": admin_by_username.email
+        })
+        
         return LoginResponse(
             user_type="admin",
             user_info={
@@ -61,13 +80,22 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
                 "email": admin_by_username.email,
                 "role": "administrator"
             },
-            message="Đăng nhập admin thành công"
+            message="Đăng nhập admin thành công",
+            access_token=token,
+            token_type="bearer"
         )
     
     # Sinh viên đăng nhập bằng email (hỗ trợ cả MD5 và SHA256)
     student = db.query(Student).filter(Student.email == request.email).first()
     
     if student and verify_password(request.password, student.login_password):
+        # Create JWT token for student
+        token = create_access_token(data={
+            "user_id": student.student_id,
+            "user_type": "student",
+            "email": student.email
+        })
+        
         return LoginResponse(
             user_type="student",
             user_info={
@@ -77,7 +105,9 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
                 "course_id": student.course_id,
                 "classes": student.classes
             },
-            message="Đăng nhập sinh viên thành công"
+            message="Đăng nhập sinh viên thành công",
+            access_token=token,
+            token_type="bearer"
         )
     
     raise HTTPException(status_code=401, detail="Email hoặc mật khẩu không chính xác")
