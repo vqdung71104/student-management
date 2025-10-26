@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LearnedSubjectBase(BaseModel):
@@ -12,6 +12,14 @@ class LearnedSubjectBase(BaseModel):
 class LearnedSubjectCreate(LearnedSubjectBase):
     student_id: int
     subject_id: int   # nên để int vì model ForeignKey là Integer
+
+
+class LearnedSubjectSimpleCreate(BaseModel):
+    """Schema đơn giản để sinh viên tự thêm học phần"""
+    student_id: int  # ID của sinh viên trong bảng students (students.id)
+    subject_id: str  # Mã HP dạng string như "IT3080", "PE3305" (Subject.subject_id)
+    semester: str 
+    letter_grade: str 
 
 
 class LearnedSubjectUpdate(BaseModel):

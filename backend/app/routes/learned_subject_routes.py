@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from typing import List
+import openpyxl
+from io import BytesIO
 from app.db.database import get_db
 from app.models.__init__ import LearnedSubject, Subject, Student, SemesterGPA
 from app.schemas.learned_subject_schema import (
     LearnedSubjectCreate,
     LearnedSubjectUpdate,
     LearnedSubjectResponse,
+    LearnedSubjectSimpleCreate,
 )
 
 router = APIRouter(prefix="/learned-subjects", tags=["Learned Subjects"])
@@ -282,3 +286,246 @@ def delete_learned_subject(learned_subject_id: int, db: Session = Depends(get_db
     db.commit()
     
     return {"message": "Learned subject deleted successfully"}
+
+
+# 🔹 API: Sinh viên tự thêm môn học đã học
+@router.post("/create-new-learned-subject")
+def create_new_learned_subject(
+    data: LearnedSubjectSimpleCreate,
+    db: Session = Depends(get_db)
+):
+    # 1. Kiểm tra student tồn tại (data.student_id là students.id - INTEGER)
+    student = db.query(Student).filter(Student.student_id == data.student_id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy sinh viên với ID {data.student_id}")
+    
+    # 2. Tra cứu subject từ mã HP (data.subject_id là mã HP string như "IT3080")
+    subject = db.query(Subject).filter(Subject.subject_id == data.subject_id).first()
+    if not subject:
+        raise HTTPException(status_code=404, detail=f"Không tìm thấy môn học với mã HP {data.subject_id}")
+
+    # 3. Kiểm tra trùng lặp (sử dụng student_id và subject.id - INTEGER FK)
+    existing = db.query(LearnedSubject).filter(
+        and_(
+            LearnedSubject.student_id == data.student_id,
+            LearnedSubject.subject_id == subject.id,
+            LearnedSubject.semester == data.semester
+        )
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Môn học {subject.subject_name} đã tồn tại trong học kỳ {data.semester}"
+        )
+    
+    # 4. Convert letter grade to final_score (reverse từ điểm chữ sang điểm số)
+    grade_to_score_10 = {
+        "A+": 9.5, "A": 8.5, "B+": 8.0, "B": 7.0,
+        "C+": 6.5, "C": 5.5, "D+": 5.0, "D": 4.0, "F": 2.0
+    }
+    final_score = round(grade_to_score_10.get(data.letter_grade, 0.0), 1)
+    
+    # 5. Tạo LearnedSubject với student_id và subject.id (INTEGER FK)
+    new_learned_subject = LearnedSubject(
+        subject_name=subject.subject_name,
+        credits=subject.credits,
+        final_score=final_score,
+        midterm_score=final_score,
+        weight=subject.weight,
+        total_score=final_score,
+        letter_grade=data.letter_grade,
+        semester=data.semester,
+        student_id=student.id,  # INTEGER: students.id
+        subject_id=subject.id         # INTEGER: subjects.id
+    )
+    
+    db.add(new_learned_subject)
+    db.commit()
+    db.refresh(new_learned_subject)
+    
+    # 6. 🎯 AUTO-CALCULATE GPA & STUDENT STATS
+    update_semester_gpa(student.id, data.semester, db)
+    update_student_stats(student.id, db)
+    db.commit()
+    
+    return {
+        "message": "Thêm môn học thành công",
+        "learned_subject": {
+            "id": new_learned_subject.id,
+            "subject_code": subject.subject_id,  # Trả về mã HP để hiển thị
+            "subject_name": subject.subject_name,
+            "credits": subject.credits,
+            "letter_grade": data.letter_grade,
+            "semester": data.semester,
+            "final_score": final_score,
+            "total_score": final_score
+        }
+    }
+    
+
+
+# 🔹 API: Upload điểm từ file Excel CTT HUST
+@router.post("/upload-grades-excel")
+async def upload_grades_excel(
+    student_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    API upload file điểm Excel từ CTT HUST
+    - Nhận student_id (MSSV string như "20225818") → tìm students.id
+    - Parse Excel: Học kỳ, Mã HP (subject_id string), Tên HP, Tín chỉ, Điểm HP (chữ)
+    - Mỗi dòng: tìm subjects.id từ mã HP, tạo LearnedSubject với FK integer
+    - Xử lý giống POST "/" nhưng nhận student_id dạng string và parse từ Excel
+    """
+    try:
+        # 1. Validate file type
+        if not file.filename.endswith(('.xlsx', '.xls')):
+            raise HTTPException(status_code=400, detail="Chỉ chấp nhận file Excel (.xlsx, .xls)")
+        
+        # 2. Tìm Student theo student_id (MSSV string) → lấy students.id (integer)
+        student = db.query(Student).filter(Student.student_id == student_id).first()
+        if not student:
+            raise HTTPException(status_code=404, detail=f"Không tìm thấy sinh viên với MSSV {student_id}")
+        
+        # 3. Read Excel file
+        contents = await file.read()
+        workbook = openpyxl.load_workbook(BytesIO(contents))
+        sheet = workbook.active
+        
+        # 4. Find header row
+        header_row_idx = None
+        required_fields = ['học kỳ', 'mã hp', 'điểm hp']
+        
+        for idx, row in enumerate(sheet.iter_rows(min_row=1, max_row=20, values_only=True), start=1):
+            if row and all(any(field in str(cell).lower() for cell in row if cell) for field in required_fields):
+                header_row_idx = idx
+                break
+        
+        if not header_row_idx:
+            raise HTTPException(
+                status_code=400,
+                detail="Không tìm thấy header với các cột bắt buộc: Học kỳ, Mã HP, Điểm HP"
+            )
+        
+        # 5. Get headers
+        headers = [str(cell).strip().lower() if cell else '' for cell in sheet[header_row_idx]]
+        
+        # Find column indices
+        semester_idx = next((i for i, h in enumerate(headers) if 'học kỳ' in h or 'hoc ky' in h), None)
+        subject_code_idx = next((i for i, h in enumerate(headers) if 'mã hp' in h), None)
+        grade_idx = next((i for i, h in enumerate(headers) if 'điểm hp' in h or 'diem hp' in h), None)
+        
+        if semester_idx is None or subject_code_idx is None or grade_idx is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Không tìm thấy các cột bắt buộc: Học kỳ, Mã HP, Điểm HP"
+            )
+        
+        # 6. Parse data rows (giống logic POST "/")
+        created_count = 0
+        skipped_count = 0
+        errors = []
+        valid_grades = ["A+", "A", "B+", "B", "C+", "C", "D+", "D", "F"]
+        grade_to_score_10 = {
+            "A+": 9.5, "A": 8.5, "B+": 8.0, "B": 7.0,
+            "C+": 6.5, "C": 5.5, "D+": 5.0, "D": 4.0, "F": 2.0
+        }
+        
+        for row_idx, row in enumerate(sheet.iter_rows(min_row=header_row_idx + 1, values_only=True), start=header_row_idx + 1):
+            # Skip empty rows
+            if not row or all(cell is None or str(cell).strip() == '' for cell in row):
+                continue
+            
+            try:
+                semester = str(row[semester_idx]).strip() if row[semester_idx] else ''
+                subject_code = str(row[subject_code_idx]).strip() if row[subject_code_idx] else ''
+                letter_grade = str(row[grade_idx]).strip() if row[grade_idx] else ''
+                
+                # Validate data
+                if not semester or not subject_code or not letter_grade:
+                    skipped_count += 1
+                    continue
+                
+                if letter_grade not in valid_grades:
+                    errors.append(f"Dòng {row_idx}: Điểm '{letter_grade}' không hợp lệ")
+                    skipped_count += 1
+                    continue
+                
+                # Find subject
+                subject = db.query(Subject).filter(Subject.subject_id == subject_code).first()
+                if not subject:
+                    errors.append(f"Dòng {row_idx}: Không tìm thấy môn học với mã HP '{subject_code}'")
+                    skipped_count += 1
+                    continue
+                
+                # Check duplicate (dùng students.id và subjects.id - integer FK)
+                existing = db.query(LearnedSubject).filter(
+                    and_(
+                        LearnedSubject.student_id == student.id,  # INTEGER FK
+                        LearnedSubject.subject_id == subject.id,  # INTEGER FK
+                        LearnedSubject.semester == semester
+                    )
+                ).first()
+                
+                if existing:
+                    skipped_count += 1
+                    continue
+                
+                # Create learned subject (giống POST "/")
+                final_score = round(grade_to_score_10.get(letter_grade, 0.0), 1)
+                
+                # Lưu ý: student_id và subject_id là INTEGER (FK đến id)
+                new_learned_subject = LearnedSubject(
+                    subject_name=subject.subject_name,
+                    credits=subject.credits,
+                    final_score=final_score,
+                    midterm_score=0.0,
+                    weight=1.0,
+                    total_score=final_score,
+                    letter_grade=letter_grade,
+                    semester=semester,
+                    student_id=student.id,  # INTEGER: students.id
+                    subject_id=subject.id   # INTEGER: subjects.id
+                )
+                
+                db.add(new_learned_subject)
+                created_count += 1
+                
+            except Exception as e:
+                errors.append(f"Dòng {row_idx}: {str(e)}")
+                skipped_count += 1
+                continue
+        
+        # 7. Commit and update stats (giống POST "/")
+        if created_count > 0:
+            db.commit()
+            
+            # Update GPA for all affected semesters
+            semesters = db.query(LearnedSubject.semester).filter(
+                LearnedSubject.student_id == student.id
+            ).distinct().all()
+            
+            for (semester,) in semesters:
+                update_semester_gpa(student.id, semester, db)
+            
+            update_student_stats(student.id, db)
+            db.commit()
+        
+        return {
+            "message": "Upload điểm thành công",
+            "created": created_count,
+            "skipped": skipped_count,
+            "errors": errors[:10] if errors else None  # Limit to first 10 errors
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi khi upload file: {str(e)}"
+        )
+
