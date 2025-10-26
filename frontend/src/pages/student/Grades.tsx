@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import AddGradeForm from '../../components/AddGradeForm'
+import GradeExcelUpload from '../../components/GradeExcelUpload'
 
 interface Grade {
   id: number
-  subject_code: string
+  subject_code: string  // Mã HP như "IT3080" (từ Subject.subject_id)
   subject_name: string
   credits: number
   semester: string
@@ -34,6 +36,10 @@ const Grades = () => {
   })
   const [loading, setLoading] = useState(true)
   const [selectedSemester, setSelectedSemester] = useState('all')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [showExcelUpload, setShowExcelUpload] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
 
   useEffect(() => {
     fetchGrades()
@@ -51,7 +57,7 @@ const Grades = () => {
       console.log('Fetching academic details for student:', userInfo.student_id)
       
       // Lấy thông tin chi tiết học tập từ API
-      const response = await fetch(`http://localhost:8000/students/${userInfo.student_id}/academic-details`)
+      const response = await fetch(`http://localhost:8000/api/students/${userInfo.student_id}/academic-details`)
       console.log('Response status:', response.status)
       
       if (response.ok) {
@@ -61,7 +67,7 @@ const Grades = () => {
         // Chuyển đổi learned_subjects thành định dạng grades
         const gradesData = (data.learned_subjects || []).map((subject: any) => ({
           id: subject.id,
-          subject_code: subject.subject_id?.toString() || 'N/A', // Use subject_id as code
+          subject_code: subject.subject_code || 'N/A', // Mã HP từ Subject.subject_id (backend đã trả về)
           subject_name: subject.subject_name,
           credits: subject.credits,
           semester: subject.semester,
@@ -108,6 +114,71 @@ const Grades = () => {
     setLoading(false)
   }
 
+  const handleAddGrade = async (data: { subject_code: string; semester: string; letter_grade: string }) => {
+    setSubmitting(true)
+    try {
+      const response = await fetch('http://localhost:8000/api/learned-subjects/create-new-learned-subject', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          student_id: userInfo?.student_id,
+          subject_id: data.subject_code,  // Đổi từ data.subject_id sang data.subject_code
+          semester: data.semester,
+          letter_grade: data.letter_grade
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        alert(`✅ ${result.message}`)
+        setShowAddForm(false)
+        fetchGrades() // Refresh data
+      } else {
+        const error = await response.json()
+        alert(`❌ Lỗi: ${error.detail}`)
+      }
+    } catch (error) {
+      console.error('Error adding grade:', error)
+      alert('❌ Có lỗi xảy ra khi thêm môn học')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteGrade = async (gradeId: number, subjectName: string) => {
+    // Hộp thoại xác nhận
+    const confirmed = window.confirm(
+      `Bạn có chắc chắn muốn xóa môn học "${subjectName}" không?\n\nHành động này không thể hoàn tác.`
+    )
+    
+    if (!confirmed) return
+
+    setDeletingId(gradeId)
+    try {
+      const response = await fetch(`http://localhost:8000/api/learned-subjects/${gradeId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.ok) {
+        alert('✅ Đã xóa môn học thành công!')
+        fetchGrades() // Refresh data
+      } else {
+        const error = await response.json()
+        alert(`❌ Lỗi: ${error.detail || 'Không thể xóa môn học'}`)
+      }
+    } catch (error) {
+      console.error('Error deleting grade:', error)
+      alert('❌ Có lỗi xảy ra khi xóa môn học')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const getLetterGradeColor = (grade: string) => {
     switch (grade) {
       case 'A+':
@@ -144,13 +215,30 @@ const Grades = () => {
       </div>
     )
   }
+  
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Xem điểm</h1>
-        <div className="text-sm text-gray-600">
-          Sinh viên: {userInfo?.student_name}
+        <div className="flex items-center space-x-4">
+          <div className="text-sm text-gray-600">
+            Sinh viên: {userInfo?.student_name}
+          </div>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2"
+          >
+            <span>➕</span>
+            <span>Thêm môn học</span>
+          </button>
+          <button
+            onClick={() => setShowExcelUpload(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
+          >
+            <span>📊</span>
+            <span>Upload Excel</span>
+          </button>
         </div>
       </div>
 
@@ -239,23 +327,16 @@ const Grades = () => {
                   Tên môn học
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tín chỉ
-                </th>
-                
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Giữa kỳ
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Cuối kỳ
-                </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tổng kết
+                  Số tín chỉ
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Điểm chữ
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Học kỳ
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Thao tác
                 </th>
               </tr>
             </thead>
@@ -271,16 +352,6 @@ const Grades = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                     {grade.credits}
                   </td>
-                 
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                    {grade.midterm_score ? grade.midterm_score.toFixed(1) : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                    {grade.final_score ? grade.final_score.toFixed(1) : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 text-center">
-                    {grade.total_score ? grade.total_score.toFixed(1) : '-'}
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-center">
                     {grade.letter_grade && (
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLetterGradeColor(grade.letter_grade)}`}>
@@ -290,6 +361,20 @@ const Grades = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                     {grade.semester}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <button
+                      onClick={() => handleDeleteGrade(grade.id, grade.subject_name)}
+                      disabled={deletingId === grade.id}
+                      className={`px-3 py-1 text-xs font-medium rounded-lg transition ${
+                        deletingId === grade.id
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200 hover:text-red-800'
+                      }`}
+                      title="Xóa môn học"
+                    >
+                      {deletingId === grade.id ? '⏳' : '🗑️ Xóa'}
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -303,6 +388,25 @@ const Grades = () => {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      {showAddForm && (
+        <AddGradeForm
+          onSubmit={handleAddGrade}
+          onClose={() => setShowAddForm(false)}
+          loading={submitting}
+        />
+      )}
+
+      {showExcelUpload && (
+        <GradeExcelUpload
+          onClose={() => setShowExcelUpload(false)}
+          onSuccess={() => {
+            setShowExcelUpload(false)
+            fetchGrades() // Refresh data after successful upload
+          }}
+        />
+      )}
     </div>
   )
 }

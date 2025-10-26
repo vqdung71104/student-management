@@ -116,7 +116,7 @@ const Login = () => {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            © 2023 Hệ thống đăng ký học tập. Bản quyền thuộc về Trường Đại học.
+            © 2023 Hệ thống hỗ trợ đăng ký học tập. Bản quyền thuộc về Trường Đại học.
           </p>
         </div>
       </div>
