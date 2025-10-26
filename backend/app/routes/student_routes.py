@@ -114,10 +114,29 @@ def get_student_academic_details(student_id: str, db: Session = Depends(get_db))
     ])
     overall_gpa = total_grade_points / total_credits if total_credits > 0 else 0.0
     
+    # Map learned subjects với subject_code từ relationship
+    learned_subjects_data = []
+    for ls in learned_subjects:
+        ls_dict = {
+            "id": ls.id,
+            "subject_name": ls.subject_name,
+            "credits": ls.credits,
+            "final_score": ls.final_score,
+            "midterm_score": ls.midterm_score,
+            "weight": ls.weight,
+            "total_score": ls.total_score,
+            "letter_grade": ls.letter_grade,
+            "semester": ls.semester,
+            "student_id": ls.student_id,
+            "subject_id": ls.subject_id,
+            "subject_code": ls.subject.subject_id if ls.subject else None  # Mã HP từ Subject
+        }
+        learned_subjects_data.append(ls_dict)
+    
     return {
         "student": student,
         "semester_gpas": semester_gpas,
-        "learned_subjects": learned_subjects,
+        "learned_subjects": learned_subjects_data,
         "overall_gpa": round(overall_gpa, 2),
         "total_credits": total_credits,
         "total_learned_credits": student.total_learned_credits,
