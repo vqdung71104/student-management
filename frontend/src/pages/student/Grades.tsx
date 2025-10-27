@@ -9,12 +9,7 @@ interface Grade {
   subject_name: string
   credits: number
   semester: string
-  attendance_score?: number
-  midterm_score?: number
-  final_score?: number
-  total_score?: number
-  letter_grade?: string
-  gpa_4?: number
+  letter_grade: string  // Chỉ giữ lại letter_grade
 }
 
 interface SemesterGPA {
@@ -67,16 +62,11 @@ const Grades = () => {
         // Chuyển đổi learned_subjects thành định dạng grades
         const gradesData = (data.learned_subjects || []).map((subject: any) => ({
           id: subject.id,
-          subject_code: subject.subject_code || 'N/A', // Mã HP từ Subject.subject_id (backend đã trả về)
+          subject_code: subject.subject_code || 'N/A', // Mã HP từ Subject.subject_id
           subject_name: subject.subject_name,
           credits: subject.credits,
           semester: subject.semester,
-          attendance_score: null, // Not available in current API
-          midterm_score: subject.midterm_score,
-          final_score: subject.final_score,
-          total_score: subject.total_score,
-          letter_grade: subject.letter_grade,
-          gpa_4: null // Can calculate from letter_grade if needed
+          letter_grade: subject.letter_grade
         }))
         
         console.log('Processed grades data:', gradesData)
@@ -288,9 +278,9 @@ const Grades = () => {
               <span className="font-bold">{semesterGPAs.length}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">Điểm cao nhất:</span>
+              <span className="text-gray-600">Tổng tín chỉ:</span>
               <span className="font-bold text-green-600">
-                {Math.max(...grades.map(g => g.total_score || 0)).toFixed(1)}
+                {grades.reduce((sum, g) => sum + g.credits, 0)}
               </span>
             </div>
           </div>

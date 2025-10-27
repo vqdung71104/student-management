@@ -91,28 +91,6 @@ def generate_email(student_name: str, student_id: str) -> str:
     mssv_suffix = student_id[2:]  # bỏ 2 số đầu
     return f"{last_name}.{initials}{mssv_suffix}@sis.hust.edu.vn"
 
-def calculate_letter_grade(score: float) -> str:
-    """Tính letter grade từ điểm số"""
-    if 0.0 <= score <= 3.9:
-        return "F"
-    elif 4.0 <= score <= 4.9:
-        return "D"
-    elif 5.0 <= score <= 5.4:
-        return "D+"
-    elif 5.5 <= score <= 6.4:
-        return "C"
-    elif 6.5 <= score <= 6.9:
-        return "C+"
-    elif 7.0 <= score <= 7.9:
-        return "B"
-    elif 8.0 <= score <= 8.4:
-        return "B+"
-    elif 8.5 <= score <= 9.4:
-        return "A"
-    elif 9.5 <= score <= 10.0:
-        return "A+"
-    return "F"
-
 def letter_grade_to_score(letter_grade: str) -> float:
     """Chuyển letter grade thành điểm số thang 4.0"""
     grade_map = {
@@ -256,10 +234,6 @@ def update_student_stats(student_id: int, db):
         student.year_level = "Năm 4"
     else:
         student.year_level = "Năm 5"
-
-def calculate_total_score(midterm_score: float, final_score: float, weight: float) -> float:
-    """Tính điểm tổng kết: midterm * (1-weight) + final * weight"""
-    return midterm_score * (1 - weight) + final_score * weight
 
 def load_json_file(filename):
     """Load data from a specific JSON file"""
@@ -513,14 +487,6 @@ def populate_learned_subjects(db, learned_subjects_data):
     print("📚 Populating learned subjects...")
     try:
         for learned_data in learned_subjects_data:
-            # Tính total score và letter grade
-            total_score = calculate_total_score(
-                learned_data['midterm_score'],
-                learned_data['final_score'], 
-                learned_data['weight']
-            )
-            letter_grade = calculate_letter_grade(total_score)
-            
             # Lấy thông tin subject để có subject_name và credits
             subject = db.query(Subject).filter(Subject.id == learned_data['subject_id']).first()
             if not subject:
@@ -528,11 +494,7 @@ def populate_learned_subjects(db, learned_subjects_data):
                 continue
                 
             learned_subject = LearnedSubject(
-                final_score=learned_data['final_score'],
-                midterm_score=learned_data['midterm_score'],
-                weight=learned_data['weight'],
-                total_score=total_score,
-                letter_grade=letter_grade,
+                letter_grade=learned_data['letter_grade'],
                 semester=learned_data['semester'],
                 student_id=learned_data['student_id'],
                 subject_id=learned_data['subject_id'],
