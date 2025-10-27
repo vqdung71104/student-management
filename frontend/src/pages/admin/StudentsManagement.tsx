@@ -3,62 +3,47 @@ import * as XLSX from 'xlsx'
 
 interface Student {
   id: number
-  student_id: string
   student_name: string
-  enrolled_year: number
-  course_id: number
-  training_level: string
-  learning_status: string
-  gender: string
-  classes?: string
-  newest_semester?: string
-  department_id?: string
   email: string
+  course_id: number
+  department_id: number
   // Auto-calculated fields
-  cpa: number
-  failed_subjects_number: number
-  study_subjects_number: number
-  total_failed_credits: number
-  total_learned_credits: number
-  year_level: string
-  warning_level: string
-  level_3_warning_number: number
+  cpa?: number
+  credits_accumulated?: number
+  credits_registered?: number
+  credits_passed?: number
+  failed_subjects_number?: number
+  study_subjects_number?: number
+  total_failed_credits?: number
+  total_learned_credits?: number
+  year_level?: string
+  warning_level?: string
+  level_3_warning_number?: number
 }
 
 interface StudentFormData {
-  student_id: string
   student_name: string
-  enrolled_year: number
+  email: string
+  password: string
   course_id: number
-  training_level: string
-  learning_status: string
-  gender: string
-  classes?: string
-  newest_semester?: string
-  department_id?: string
+  department_id: number
 }
 
 const StudentsManagement = () => {
   const [students, setStudents] = useState<Student[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
-  const [filter, setFilter] = useState('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showViewModal, setShowViewModal] = useState(false)
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
   const [formData, setFormData] = useState<StudentFormData>({
-    student_id: '',
     student_name: '',
-    enrolled_year: new Date().getFullYear(),
+    email: '',
+    password: '',
     course_id: 1,
-    training_level: 'Cử nhân',
-    learning_status: 'Đang học',
-    gender: 'Nam',
-    classes: '',
-    newest_semester: '',
-    department_id: '',
+    department_id: 1,
   })
 
   useEffect(() => {
@@ -111,7 +96,7 @@ const StudentsManagement = () => {
     if (!selectedStudent) return
     
     try {
-      const response = await fetch(`http://localhost:8000/students/${selectedStudent.student_id}`, {
+      const response = await fetch(`http://localhost:8000/students/${selectedStudent.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -133,7 +118,7 @@ const StudentsManagement = () => {
     }
   }
 
-  const handleDeleteStudent = async (studentId: String) => {
+  const handleDeleteStudent = async (studentId: number) => {
     if (!confirm('Bạn có chắc chắn muốn xóa sinh viên này?')) return
     
     try {
@@ -155,16 +140,11 @@ const StudentsManagement = () => {
 
   const resetForm = () => {
     setFormData({
-      student_id: '',
       student_name: '',
-      enrolled_year: new Date().getFullYear(),
+      email: '',
+      password: '',
       course_id: 1,
-      training_level: 'Cử nhân',
-      learning_status: 'Đang học',
-      gender: 'Nam',
-      classes: '',
-      newest_semester: '',
-      department_id: '',
+      department_id: 1,
     })
   }
 
@@ -176,16 +156,11 @@ const StudentsManagement = () => {
   const openEditModal = (student: Student) => {
     setSelectedStudent(student)
     setFormData({
-      student_id: student.student_id,
       student_name: student.student_name,
-      enrolled_year: student.enrolled_year,
+      email: student.email,
+      password: '', // Don't populate password for security
       course_id: student.course_id,
-      training_level: student.training_level,
-      learning_status: student.learning_status,
-      gender: student.gender,
-      classes: student.classes || '',
-      newest_semester: student.newest_semester || '',
-      department_id: student.department_id || '',
+      department_id: student.department_id,
     })
     setShowEditModal(true)
   }
@@ -197,11 +172,10 @@ const StudentsManagement = () => {
 
   const filteredStudents = students.filter(student => {
     const matchesSearch = student.student_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         student.student_id.includes(searchTerm) ||
+                         student.id.toString().includes(searchTerm) ||
                          student.email.toLowerCase().includes(searchTerm.toLowerCase())
     
-    if (filter === 'all') return matchesSearch
-    return matchesSearch && student.learning_status === filter
+    return matchesSearch // Removed learning_status filter since field no longer exists
   })
 
   if (loading) {
@@ -232,29 +206,18 @@ const StudentsManagement = () => {
         </div>
       </div>
 
-      {/* Search and Filter */}
+      {/* Search */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1">
             <input
               type="text"
-              placeholder="Tìm kiếm theo tên, mã sinh viên, email..."
+              placeholder="Tìm kiếm theo tên, ID, email..."
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          >
-            <option value="all">Tất cả trạng thái</option>
-            <option value="Đang học">Đang học</option>
-            <option value="Bảo lưu">Bảo lưu</option>
-            <option value="Thôi học">Thôi học</option>
-            <option value="Buộc thôi học">Buộc thôi học</option>
-          </select>
         </div>
       </div>
 
@@ -265,7 +228,7 @@ const StudentsManagement = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Mã SV
+                  ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Họ tên
@@ -280,7 +243,7 @@ const StudentsManagement = () => {
                   Khoá
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trạng thái
+                  CPA
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Thao tác
@@ -291,7 +254,7 @@ const StudentsManagement = () => {
               {filteredStudents.map((student) => (
                 <tr key={student.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {student.student_id}
+                    {student.id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {student.student_name}
@@ -300,19 +263,13 @@ const StudentsManagement = () => {
                     {student.email}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {student.department_id || 'Chưa phân Trường/Viện'}
+                    {student.department_id || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {student.course_id || 'Chưa phân khóa'}
+                    {student.course_id || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      student.learning_status === 'Đang học'
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {student.learning_status}
-                    </span>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {student.cpa ? student.cpa.toFixed(2) : 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                     <button 
@@ -328,7 +285,7 @@ const StudentsManagement = () => {
                       ✏️ Sửa
                     </button>
                     <button 
-                      onClick={() => handleDeleteStudent(student.student_id)}
+                      onClick={() => handleDeleteStudent(student.id)}
                       className="text-red-600 hover:text-red-900"
                     >
                       🗑️ Xóa
@@ -355,80 +312,38 @@ const StudentsManagement = () => {
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder="Mã sinh viên"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.student_id}
-                onChange={(e) => setFormData({...formData, student_id: e.target.value})}
-              />
-              <input
-                type="text"
                 placeholder="Họ tên"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.student_name}
                 onChange={(e) => setFormData({...formData, student_name: e.target.value})}
               />
               <input
-                type="number"
-                placeholder="Năm nhập học"
+                type="email"
+                placeholder="Email"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.enrolled_year}
-                onChange={(e) => setFormData({...formData, enrolled_year: parseInt(e.target.value)})}
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+              <input
+                type="password"
+                placeholder="Mật khẩu"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
               <input
                 type="number"
-                placeholder="Mã khóa học"
+                placeholder="Mã khóa học (Course ID)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.course_id}
                 onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}
               />
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.training_level}
-                onChange={(e) => setFormData({...formData, training_level: e.target.value})}
-              >
-                <option value="Cử nhân">Cử nhân</option>
-                <option value="Kỹ sư">Kỹ sư</option>
-                <option value="Thạc sỹ">Thạc sỹ</option>
-                <option value="Tiến sỹ">Tiến sỹ</option>
-              </select>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.learning_status}
-                onChange={(e) => setFormData({...formData, learning_status: e.target.value})}
-              >
-                <option value="Đang học">Đang học</option>
-                <option value="Bảo lưu">Bảo lưu</option>
-                <option value="Thôi học">Thôi học</option>
-                <option value="Buộc thôi học">Buộc thôi học</option>
-              </select>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.gender}
-                onChange={(e) => setFormData({...formData, gender: e.target.value})}
-              >
-                <option value="Nam">Nam</option>
-                <option value="Nữ">Nữ</option>
-              </select>
               <input
-                type="text"
-                placeholder="Lớp (tùy chọn)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.classes}
-                onChange={(e) => setFormData({...formData, classes: e.target.value})}
-              />
-              <input
-                type="text"
-                placeholder="Học kỳ mới nhất (tùy chọn)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.newest_semester}
-                onChange={(e) => setFormData({...formData, newest_semester: e.target.value})}
-              />
-              <input
-                type="text"
-                placeholder="Mã Trường/Viện (tùy chọn)"
+                type="number"
+                placeholder="Mã Trường/Viện (Department ID)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.department_id}
-                onChange={(e) => setFormData({...formData, department_id: e.target.value})}
+                onChange={(e) => setFormData({...formData, department_id: parseInt(e.target.value)})}
               />
             </div>
             <div className="flex justify-end space-x-2 mt-6">
@@ -457,80 +372,38 @@ const StudentsManagement = () => {
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder="Mã sinh viên"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.student_id}
-                onChange={(e) => setFormData({...formData, student_id: e.target.value})}
-              />
-              <input
-                type="text"
                 placeholder="Họ tên"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.student_name}
                 onChange={(e) => setFormData({...formData, student_name: e.target.value})}
               />
               <input
-                type="number"
-                placeholder="Năm nhập học"
+                type="email"
+                placeholder="Email"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.enrolled_year}
-                onChange={(e) => setFormData({...formData, enrolled_year: parseInt(e.target.value)})}
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+              />
+              <input
+                type="password"
+                placeholder="Mật khẩu mới (để trống nếu không thay đổi)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
               <input
                 type="number"
-                placeholder="Mã khóa học"
+                placeholder="Mã khóa học (Course ID)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.course_id}
                 onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}
               />
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.training_level}
-                onChange={(e) => setFormData({...formData, training_level: e.target.value})}
-              >
-                <option value="Cử nhân">Cử nhân</option>
-                <option value="Kỹ sư">Kỹ sư</option>
-                <option value="Thạc sỹ">Thạc sỹ</option>
-                <option value="Tiến sỹ">Tiến sỹ</option>
-              </select>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.learning_status}
-                onChange={(e) => setFormData({...formData, learning_status: e.target.value})}
-              >
-                <option value="Đang học">Đang học</option>
-                <option value="Bảo lưu">Bảo lưu</option>
-                <option value="Thôi học">Thôi học</option>
-                <option value="Buộc thôi học">Buộc thôi học</option>
-              </select>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.gender}
-                onChange={(e) => setFormData({...formData, gender: e.target.value})}
-              >
-                <option value="Nam">Nam</option>
-                <option value="Nữ">Nữ</option>
-              </select>
               <input
-                type="text"
-                placeholder="Lớp (tùy chọn)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.classes}
-                onChange={(e) => setFormData({...formData, classes: e.target.value})}
-              />
-              <input
-                type="text"
-                placeholder="Học kỳ mới nhất (tùy chọn)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.newest_semester}
-                onChange={(e) => setFormData({...formData, newest_semester: e.target.value})}
-              />
-              <input
-                type="text"
-                placeholder="Mã Trường/Viện (tùy chọn)"
+                type="number"
+                placeholder="Mã Trường/Viện (Department ID)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.department_id}
-                onChange={(e) => setFormData({...formData, department_id: e.target.value})}
+                onChange={(e) => setFormData({...formData, department_id: parseInt(e.target.value)})}
               />
             </div>
             <div className="flex justify-end space-x-2 mt-6">
@@ -557,19 +430,17 @@ const StudentsManagement = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Thông tin sinh viên</h2>
             <div className="space-y-3">
-              <div><strong>Mã sinh viên:</strong> {selectedStudent.student_id}</div>
+              <div><strong>ID:</strong> {selectedStudent.id}</div>
               <div><strong>Họ tên:</strong> {selectedStudent.student_name}</div>
               <div><strong>Email:</strong> {selectedStudent.email}</div>
-              <div><strong>Năm nhập học:</strong> {selectedStudent.enrolled_year}</div>
-              <div><strong>Trường/Viện:</strong> {selectedStudent.department_id || 'Chưa phân Trường/Viện'}</div>
-              <div><strong>Khóa:</strong> {selectedStudent.course_id}</div>
-              <div><strong>Bậc đào tạo:</strong> {selectedStudent.training_level}</div>
-              <div><strong>Trạng thái học tập:</strong> {selectedStudent.learning_status}</div>
-              <div><strong>Giới tính:</strong> {selectedStudent.gender}</div>
-              <div><strong>Lớp:</strong> {selectedStudent.classes || 'Chưa có'}</div>
-              <div><strong>CPA:</strong> {selectedStudent.cpa}</div>
-              <div><strong>Năm học:</strong> {selectedStudent.year_level}</div>
-              <div><strong>Mức cảnh báo:</strong> {selectedStudent.warning_level}</div>
+              <div><strong>Trường/Viện ID:</strong> {selectedStudent.department_id}</div>
+              <div><strong>Khóa học ID:</strong> {selectedStudent.course_id}</div>
+              <div><strong>CPA:</strong> {selectedStudent.cpa ? selectedStudent.cpa.toFixed(2) : 'Chưa có'}</div>
+              <div><strong>Tín chỉ tích lũy:</strong> {selectedStudent.credits_accumulated || 0}</div>
+              <div><strong>Tín chỉ đã đăng ký:</strong> {selectedStudent.credits_registered || 0}</div>
+              <div><strong>Tín chỉ đã qua:</strong> {selectedStudent.credits_passed || 0}</div>
+              <div><strong>Năm học:</strong> {selectedStudent.year_level || 'Chưa xác định'}</div>
+              <div><strong>Mức cảnh báo:</strong> {selectedStudent.warning_level || 'Không'}</div>
             </div>
             <div className="flex justify-end mt-6">
               <button
@@ -668,39 +539,25 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
           const nameIndex = headers.findIndex((h: any) => 
             h && String(h).toLowerCase().includes('họ và tên')
           )
-          const studentIdIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('mssv')
-          )
-          const enrolledYearIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('năm nhập học')
+          const emailIndex = headers.findIndex((h: any) => 
+            h && String(h).toLowerCase().includes('email')
           )
           const courseIndex = headers.findIndex((h: any) => 
             h && String(h).toLowerCase().includes('ngành học')
-          )
-          const trainingLevelIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('trình độ đào tạo')
-          )
-          const genderIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('giới tính')
-          )
-          const classIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('lớp học')
           )
           const departmentIndex = headers.findIndex((h: any) => 
             h && String(h).toLowerCase().includes('trường/viện')
           )
 
-          if (nameIndex === -1 || studentIdIndex === -1 || enrolledYearIndex === -1) {
-            throw new Error('Không tìm thấy các cột bắt buộc: Họ và tên, MSSV, Năm nhập học')
+          if (nameIndex === -1 || emailIndex === -1) {
+            throw new Error('Không tìm thấy các cột bắt buộc: Họ và tên, Email')
           }
 
           // Xử lý dữ liệu từ các dòng sau header
           for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
             const row = jsonData[i] as any[]
             
-            if (row && row.length > 0 && row[nameIndex]) {
-              const enrolledYear = parseInt(String(row[enrolledYearIndex] || '').trim())
-              
+            if (row && row.length > 0 && row[nameIndex] && row[emailIndex]) {
               // Map course code to course_id
               const courseCode = courseIndex !== -1 ? String(row[courseIndex] || '').trim() : 'IT-E6'
               let courseId = 1 // Default to IT-E6 course
@@ -708,20 +565,17 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
                 courseId = 1
               }
 
+              const departmentId = departmentIndex !== -1 ? parseInt(String(row[departmentIndex] || '1').trim()) : 1
+
               const student = {
                 student_name: String(row[nameIndex] || '').trim(),
-                student_id: String(row[studentIdIndex] || '').trim(),
-                enrolled_year: enrolledYear,
+                email: String(row[emailIndex] || '').trim(),
+                password: 'default123', // Default password for bulk upload
                 course_id: courseId,
-                training_level: trainingLevelIndex !== -1 ? String(row[trainingLevelIndex] || 'Cử nhân').trim() : 'Cử nhân',
-                learning_status: 'Đang học',
-                gender: genderIndex !== -1 ? String(row[genderIndex] || 'Nam').trim() : 'Nam',
-                classes: classIndex !== -1 ? String(row[classIndex] || '').trim() : null,
-                newest_semester: enrolledYear ? String(enrolledYear) + '1' : null,
-                department_id: departmentIndex !== -1 ? String(row[departmentIndex] || '').trim() : null
+                department_id: departmentId
               }
 
-              if (student.student_name && student.student_id && student.enrolled_year) {
+              if (student.student_name && student.email) {
                 students.push(student)
               }
             }
@@ -776,8 +630,8 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
             console.log(`✓ Tạo thành công sinh viên ${student.student_name}`)
           } else {
             const errorText = await response.text()
-            if (errorText.includes('student_id đã tồn tại')) {
-              console.log(`⚠ Sinh viên ${student.student_name} (${student.student_id}) đã tồn tại, bỏ qua`)
+            if (errorText.includes('email đã tồn tại') || errorText.includes('duplicate key')) {
+              console.log(`⚠ Sinh viên ${student.student_name} (${student.email}) đã tồn tại, bỏ qua`)
             } else {
               errorCount++
               console.error(`✗ Lỗi khi tạo sinh viên ${student.student_name}:`, errorText)
@@ -862,12 +716,10 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
           <p className="font-semibold mb-1">Yêu cầu định dạng Excel:</p>
           <ul className="text-xs">
             <li>• Họ và tên (bắt buộc)</li>
-            <li>• MSSV (bắt buộc)</li>
-            <li>• Năm nhập học (bắt buộc)</li>
-            <li>• Mã ngành (tùy chọn)</li>
-            <li>• Bậc đào tạo (tùy chọn)</li>
-            <li>• Tình trạng học tập (tùy chọn)</li>
-            <li>• Giới tính (tùy chọn)</li>
+            <li>• Email (bắt buộc)</li>
+            <li>• Mã ngành/Course ID (tùy chọn, mặc định: 1)</li>
+            <li>• Mã Trường/Viện/Department ID (tùy chọn, mặc định: 1)</li>
+            <li>• Mật khẩu mặc định: default123</li>
           </ul>
         </div>
 

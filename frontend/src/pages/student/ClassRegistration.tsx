@@ -64,11 +64,11 @@ const ClassRegistration = () => {
 
   // Fetch registered subject IDs for current student
   const fetchRegisteredSubjectIds = async () => {
-    if (!userInfo?.student_id) return
+    if (!userInfo?.id) return
     
     try {
-      // Use student-mssv endpoint with MSSV
-      const response = await fetch(`http://localhost:8000/subject-registers/student-mssv/${userInfo.student_id}`)
+      // Use student ID endpoint
+      const response = await fetch(`http://localhost:8000/subject-registers/student/${userInfo.id}`)
       if (response.ok) {
         const data = await response.json()
         console.log('Registered subjects data:', data)
@@ -145,11 +145,11 @@ const ClassRegistration = () => {
 
   // Fetch registered classes
   const fetchRegisteredClasses = async () => {
-    if (!userInfo?.student_id) return
+    if (!userInfo?.id) return
     
     try {
-      // Use student-mssv endpoint with MSSV
-      const response = await fetch(`http://localhost:8000/class-registers/student-mssv/${userInfo.student_id}`)
+      // Use student ID endpoint
+      const response = await fetch(`http://localhost:8000/class-registers/student/${userInfo.id}`)
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered classes data:', registersData)
@@ -187,7 +187,7 @@ const ClassRegistration = () => {
 
   // Register for class
   const registerClass = async (classId: number) => {
-    if (!userInfo?.student_id) {
+    if (!userInfo?.id) {
       message.error('Không tìm thấy thông tin sinh viên')
       return
     }
@@ -195,17 +195,6 @@ const ClassRegistration = () => {
     try {
       setLoading(true)
       
-      // First get student database ID from MSSV
-      const studentResponse = await fetch(`http://localhost:8000/students/?student_id=${userInfo.student_id}`)
-      if (!studentResponse.ok) {
-        throw new Error('Cannot find student')
-      }
-      const students = await studentResponse.json()
-      const student = students.find((s: any) => s.student_id === userInfo.student_id)
-      if (!student) {
-        throw new Error('Student not found')
-      }
-
       // Find the selected class to get its linked classes
       const selectedClassData = classes.find(cls => cls.id === classId)
       const linkedClassIds = selectedClassData?.linked_class_ids || []
@@ -216,7 +205,7 @@ const ClassRegistration = () => {
 
       // Register main class
       const registerData = {
-        student_id: student.id,
+        student_id: userInfo.id,
         class_id: classId,
         class_info: 'Đang mở',
         register_type: 'Đăng ký online',
@@ -253,7 +242,7 @@ const ClassRegistration = () => {
               const linkedClass = allClasses.find((cls: any) => cls.class_id === linkedClassId)
               if (linkedClass) {
                 const linkedRegisterData = {
-                  student_id: student.id,
+                  student_id: userInfo.id,
                   class_id: linkedClass.id, // Use database ID, not class_id
                   class_info: 'Đang mở',
                   register_type: 'Đăng ký online',
@@ -330,7 +319,7 @@ const ClassRegistration = () => {
   }
 
   useEffect(() => {
-    if (userInfo?.student_id) {
+    if (userInfo?.id) {
       fetchRegisteredSubjectIds()
     }
   }, [userInfo])

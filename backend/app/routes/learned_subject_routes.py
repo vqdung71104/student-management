@@ -295,7 +295,7 @@ def create_new_learned_subject(
     db: Session = Depends(get_db)
 ):
     # 1. Kiểm tra student tồn tại (data.student_id là students.id - INTEGER)
-    student = db.query(Student).filter(Student.student_id == data.student_id).first()
+    student = db.query(Student).filter(Student.id == data.student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail=f"Không tìm thấy sinh viên với ID {data.student_id}")
     

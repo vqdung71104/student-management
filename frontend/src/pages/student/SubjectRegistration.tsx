@@ -42,10 +42,10 @@ const SubjectRegistration = () => {
 
   // Fetch student data first
   const fetchStudentData = async () => {
-    if (!userInfo?.student_id) return
+    if (!userInfo?.id) return
     
     try {
-      const response = await fetch(`http://localhost:8000/students/${userInfo.student_id}`)
+      const response = await fetch(`http://localhost:8000/students/${userInfo.id}`)
       if (response.ok) {
         const data = await response.json()
         console.log('Student data:', data)
@@ -126,10 +126,10 @@ const SubjectRegistration = () => {
 
   // Fetch registered subjects
   const fetchRegisteredSubjects = async () => {
-    if (!userInfo?.student_id) return
+    if (!userInfo?.id) return
     
     try {
-      const response = await fetch(`http://localhost:8000/subject-registers/student-mssv/${userInfo.student_id}`)
+      const response = await fetch(`http://localhost:8000/subject-registers/student/${userInfo.id}`)
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered subjects data:', registersData)

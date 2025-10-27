@@ -88,7 +88,7 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
   }
 
   const handleConfirm = async () => {
-    if (!preview.length || !userInfo?.student_id) {
+    if (!preview.length || !userInfo?.id) {
       setError('Missing student info or data')
       return
     }
@@ -115,7 +115,7 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            student_id: userInfo.student_id,
+            student_id: userInfo.id,
             subject_id: row.subject_code,
             semester: row.semester,
             letter_grade: row.letter_grade

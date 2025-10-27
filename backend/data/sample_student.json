@@ -1,26 +1,16 @@
 [
 {
   "student_name": "Vũ Quang Dũng",
-  "enrolled_year": 2022,
-  "student_id": "20225818",
+  "email": "vuquangdung@example.com",
+  "password": "123456",
   "course_id": "IT-E6",
-  "training_level": "Cử nhân",
-  "learning_status": "Đang học",
-  "gender": "Nam",
-  "classes": "VN01",
-  "newest_semester": "20241",
   "department_id": "SOICT"
 },
 {
   "student_name": "Nguyễn Văn Nam",
-  "enrolled_year": 2022,
-  "student_id": "20225819",
+  "email": "nguyenvannam@example.com",
+  "password": "123456",
   "course_id": "IT-E6",
-  "training_level": "Cử nhân",
-  "learning_status": "Đang học",
-  "gender": "Nam",
-  "classes": "VN01",
-  "newest_semester": "20241",
   "department_id": "SOICT"
 }
 

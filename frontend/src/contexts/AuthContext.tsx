@@ -1,14 +1,13 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import type { ReactNode } from 'react'
 
 interface User {
-  id?: string
-  student_id?: string
+  id?: number
   student_name?: string
   email?: string
   username?: string
   role?: string
+  course_id?: number
 }
 
 interface AuthContextType {
@@ -16,6 +15,7 @@ interface AuthContextType {
   userRole: 'admin' | 'student' | null
   userInfo: User | null
   login: (email: string, password: string) => Promise<boolean>
+  register: (name: string, email: string, password: string, courseId: number, departmentId?: string) => Promise<{ success: boolean; message: string }>
   logout: () => void
 }
 
@@ -96,13 +96,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return true
         }
       } else {
-        // Fallback cho demo - sử dụng student_id thật từ database
+        // Fallback cho demo - không còn student_id
         if (email === 'student' && password === 'student123') {
           setUserRole('student')
           setUserInfo({ 
-            student_id: '20225818', // Sử dụng student_id thật từ database
+            id: 1,
             student_name: 'Vũ Quang Dũng',
-            email: 'dung.vq225818@sis.hust.edu.vn'
+            email: 'dung.vq225818@sis.hust.edu.vn',
+            course_id: 1
           })
           setIsAuthenticated(true)
           return true
@@ -111,18 +112,58 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       return false
     } catch (error) {
       console.error('Login error:', error)
-      // Fallback for demo - sử dụng student_id thật
+      // Fallback for demo
       if (email === 'student' && password === 'student123') {
         setUserRole('student')
         setUserInfo({ 
-          student_id: '20225818',
+          id: 1,
           student_name: 'Vũ Quang Dũng',
-          email: 'dung.vq225818@sis.hust.edu.vn'
+          email: 'dung.vq225818@sis.hust.edu.vn',
+          course_id: 1
         })
         setIsAuthenticated(true)
         return true
       }
       return false
+    }
+  }
+
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    courseId: number,
+    departmentId?: string
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      const response = await fetch('http://localhost:8000/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          student_name: name,
+          email: email,
+          password: password,
+          course_id: courseId,
+          department_id: departmentId
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        // Auto login after registration
+        setUserRole('student')
+        setUserInfo(data.user_info)
+        setIsAuthenticated(true)
+        return { success: true, message: data.message }
+      } else {
+        return { success: false, message: data.detail || 'Đăng ký thất bại' }
+      }
+    } catch (error) {
+      console.error('Registration error:', error)
+      return { success: false, message: 'Lỗi kết nối đến server' }
     }
   }
 
@@ -138,6 +179,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     userRole,
     userInfo,
     login,
+    register,
     logout
   }
 

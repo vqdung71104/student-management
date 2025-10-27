@@ -49,13 +49,13 @@ const Schedule = () => {
   const fetchSchedule = async () => {
     setLoading(true)
     try {
-      if (!userInfo?.student_id) {
+      if (!userInfo?.id) {
         setLoading(false)
         return
       }
 
-      // Sử dụng endpoint đơn giản hơn: /class-registers/student-mssv/{student_id}
-      const classRegisterResponse = await fetch(`http://localhost:8000/class-registers/student-mssv/${userInfo.student_id}`)
+      // Sử dụng endpoint với student ID
+      const classRegisterResponse = await fetch(`http://localhost:8000/class-registers/student/${userInfo.id}`)
       console.log('Class register response status:', classRegisterResponse.status)
       
       if (classRegisterResponse.ok) {
