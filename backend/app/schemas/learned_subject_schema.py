@@ -3,10 +3,8 @@ from pydantic import BaseModel, Field
 
 
 class LearnedSubjectBase(BaseModel):
-    final_score: float
-    midterm_score: float
-    weight: float
     semester: str
+    letter_grade: str
 
 
 class LearnedSubjectCreate(LearnedSubjectBase):
@@ -23,20 +21,14 @@ class LearnedSubjectSimpleCreate(BaseModel):
 
 
 class LearnedSubjectUpdate(BaseModel):
-    final_score: Optional[float] = None
-    midterm_score: Optional[float] = None
-    weight: Optional[float] = None
     semester: Optional[str] = None
+    letter_grade: Optional[str] = None
 
 
 class LearnedSubjectResponse(BaseModel):
     id: int
     subject_name: str
     credits: int
-    final_score: float
-    midterm_score: float
-    weight: float
-    total_score: float
     letter_grade: str
     semester: str
     student_id: int
