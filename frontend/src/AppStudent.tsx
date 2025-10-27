@@ -9,16 +9,14 @@ import { DownOutlined } from '@ant-design/icons'
 // Define interfaces for type safety
 interface Student {
   id: number
-  student_id: string
   student_name: string
-  enrolled_year: number
+  email: string
   course_id: number
-  training_level: string
-  learning_status: string
-  gender: string
-  classes?: string
-  newest_semester?: string
-  department_id?: string
+  department_id: number
+  cpa?: number
+  credits_accumulated?: number
+  credits_registered?: number
+  credits_passed?: number
 }
 
 interface Course {
@@ -32,13 +30,13 @@ interface Course {
 interface ScheduleItem {
   id: number
   class_id: number
-  student_id: number
+  student_id: number  // This is integer ID now
   registration_date: string
 }
 
 interface GradesData {
   id: number
-  student_id: number
+  student_id: number  // This is integer ID now
   subject_id: string
   semester: string
   midterm_score: number
@@ -65,7 +63,7 @@ interface Notification {
 interface AppStudentProps {
   onLogout: () => void
   studentInfo?: {
-    student_id: string
+    id: number
     role: string
   }
 }
@@ -112,7 +110,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
 
   // Fetch student data when component mounts
   useEffect(() => {
-    if (studentInfo?.student_id) {
+    if (studentInfo?.id) {
       fetchStudentData()
       fetchScheduleData()
     }
@@ -132,14 +130,11 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
 
   const fetchStudentData = async () => {
     try {
-      if (studentInfo?.student_id) {
-        const response = await fetch(`http://localhost:8000/students/`)
+      if (studentInfo?.id) {
+        const response = await fetch(`http://localhost:8000/students/${studentInfo.id}`)
         if (response.ok) {
-          const students: Student[] = await response.json()
-          const student = students.find(s => s.student_id === studentInfo.student_id)
-          if (student) {
-            setStudentData(student)
-          }
+          const student: Student = await response.json()
+          setStudentData(student)
         }
       }
     } catch (error) {
@@ -149,8 +144,8 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
 
   const fetchScheduleData = async () => {
     try {
-      if (studentInfo?.student_id) {
-        const response = await fetch(`http://localhost:8000/class-registers/student/${studentInfo.student_id}`)
+      if (studentInfo?.id) {
+        const response = await fetch(`http://localhost:8000/class-registers/student/${studentInfo.id}`)
         if (response.ok) {
           const data: ScheduleItem[] = await response.json()
           setScheduleData(data)

@@ -9,22 +9,20 @@ import hashlib
 router = APIRouter(prefix="/students", tags=["Students"])
 
 
-# ✅ Create student
+# ✅ Create student (chỉ dành cho admin, student sẽ dùng /auth/register)
 @router.post("/", response_model=StudentResponse)
 def create_student(student: StudentCreate, db: Session = Depends(get_db)):
-    # Check trùng student_id
-    if db.query(Student).filter(Student.student_id == student.student_id).first():
-        raise HTTPException(status_code=400, detail="student_id đã tồn tại")
-
-    # Auto-generate email
-    email = student.generate_email()
-    if db.query(Student).filter(Student.email == email).first():
+    # Check trùng email
+    if db.query(Student).filter(Student.email == student.email).first():
         raise HTTPException(status_code=400, detail="Email đã tồn tại")
 
+    # Hash password
+    hashed_password = hashlib.md5(student.password.encode()).hexdigest()
+
     # Create student with manual fields + auto-calculated defaults
-    student_data = student.dict()
+    student_data = student.dict(exclude={'password'})
     student_data.update({
-        'email': email,
+        'password': hashed_password,
         'cpa': 0.0,
         'failed_subjects_number': 0,
         'study_subjects_number': 0,
@@ -33,8 +31,6 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
         'year_level': "Trình độ năm 1",
         'warning_level': "Cảnh cáo mức 0",
         'level_3_warning_number': 0,
-        # Thêm thông tin đăng nhập với mật khẩu mặc định
-        'login_password': hashlib.md5("123456".encode()).hexdigest()  # Hash mật khẩu mặc định
     })
 
     db_student = Student(**student_data)
@@ -52,8 +48,8 @@ def get_students(db: Session = Depends(get_db)):
 
 # ✅ Get student by id
 @router.get("/{student_id}", response_model=StudentResponse)
-def get_student(student_id: str, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.student_id == student_id).first()
+def get_student(student_id: int, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên") #không thấy sinh viên
     return student
@@ -61,17 +57,21 @@ def get_student(student_id: str, db: Session = Depends(get_db)):
 
 # ✅ Update student
 @router.put("/{student_id}", response_model=StudentResponse)
-def update_student(student_id: str, student_update: StudentUpdate, db: Session = Depends(get_db)):
-    db_student = db.query(Student).filter(Student.student_id == student_id).first()
+def update_student(student_id: int, student_update: StudentUpdate, db: Session = Depends(get_db)):
+    db_student = db.query(Student).filter(Student.id == student_id).first()
     if not db_student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
 
     update_data = student_update.dict(exclude_unset=True)
 
-    # Nếu có thay đổi student_name hoặc student_id -> regenerate email
-    if "student_name" in update_data or "student_id" in update_data:
-        tmp_student = StudentCreate(**{**db_student.__dict__, **update_data})
-        update_data["email"] = tmp_student.generate_email()
+    # Check email trùng nếu có thay đổi
+    if "email" in update_data:
+        existing = db.query(Student).filter(
+            Student.email == update_data["email"],
+            Student.id != student_id
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="Email đã tồn tại")
 
     for key, value in update_data.items():
         setattr(db_student, key, value)
@@ -83,8 +83,8 @@ def update_student(student_id: str, student_update: StudentUpdate, db: Session =
 
 # ✅ Delete student
 @router.delete("/{student_id}")
-def delete_student(student_id: str, db: Session = Depends(get_db)):
-    db_student = db.query(Student).filter(Student.student_id == student_id).first()
+def delete_student(student_id: int, db: Session = Depends(get_db)):
+    db_student = db.query(Student).filter(Student.id == student_id).first()
     if not db_student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
 
@@ -95,8 +95,8 @@ def delete_student(student_id: str, db: Session = Depends(get_db)):
 
 # ✅ Get student with detailed academic information
 @router.get("/{student_id}/academic-details")
-def get_student_academic_details(student_id: str, db: Session = Depends(get_db)):
-    student = db.query(Student).filter(Student.student_id == student_id).first()
+def get_student_academic_details(student_id: int, db: Session = Depends(get_db)):
+    student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
     

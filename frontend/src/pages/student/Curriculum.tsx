@@ -30,15 +30,15 @@ const Curriculum = () => {
   const fetchCurriculum = async () => {
     setLoading(true)
     try {
-      if (!userInfo?.student_id) {
-        console.log('No student_id found in userInfo:', userInfo)
+      if (!userInfo?.id) {
+        console.log('No student id found in userInfo:', userInfo)
         setLoading(false)
         return
       }
 
-      console.log('Fetching curriculum for student:', userInfo.student_id)
+      console.log('Fetching curriculum for student:', userInfo.id)
       
-      const response = await fetch(`http://localhost:8000/courses/${userInfo.student_id}/curriculum`)
+      const response = await fetch(`http://localhost:8000/courses/${userInfo.id}/curriculum`)
       console.log('Response status:', response.status)
       
       if (response.ok) {

@@ -20,7 +20,6 @@ from app.models.feedback_model import FAQ, Feedback
 from app.models.learned_subject_model import LearnedSubject
 from app.models.notification_model import Notification
 from app.models.admin_model import Admin
-from app.models.student_drl_model import StudentDRL
 from app.models.semester_gpa_model import SemesterGPA
 
 def create_database_session():
@@ -220,7 +219,7 @@ def update_student_stats(student_id: int, db):
     
     # Calculate CPA from all semester GPAs
     semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student.id).all()
-    print(f"Student ID: {student.id}, Student code: {student.student_id}")
+    print(f"Student ID: {student.id}, Email: {student.email}")
     print(f"Found {len(semester_gpas)} semester GPAs for student {student.id}")
     for sgpa in semester_gpas:
         print(f"  Semester: {sgpa.semester}, GPA: {sgpa.gpa}, Credits: {sgpa.total_credits}")
@@ -365,49 +364,36 @@ def populate_students(db, students_data):
     print("👨‍🎓 Populating students...")
     for student_data in students_data:
         try:
-            # Generate email from student_name and student_id using proper format
-            student_id = student_data.get('student_id')
-            student_name = student_data.get('student_name')
-            email = generate_email(student_name, student_id)
-            
             # Find the course by course_id string (not by auto-increment id)
             json_course_id = student_data.get('course_id')
             course = db.query(Course).filter(Course.course_id == json_course_id).first()
             if not course:
-                print(f"Course with course_id '{json_course_id}' not found, skipping student {student_id}")
+                print(f"Course with course_id '{json_course_id}' not found, skipping student {student_data.get('student_name')}")
                 continue
             
-            # Map learning_status to match schema validation
-            learning_status = student_data.get('learning_status', 'Đang học')
-            if learning_status == 'Tốt nghiệp':
-                learning_status = 'Đang học'  # Map "Tốt nghiệp" to "Đang học" since schema doesn't allow "Tốt nghiệp"
+            # Hash password với MD5
+            password = student_data.get('password', '123456')
+            hashed_password = hashlib.md5(password.encode()).hexdigest()
             
-            # Map JSON fields to model fields (already correct format)
+            # Map JSON fields to model fields (new simplified format)
             student = Student(
-                student_id=student_id,
                 student_name=student_data.get('student_name'),
+                email=student_data.get('email'),
+                password=hashed_password,
                 course_id=course.id,  # Use the auto-increment id from database
-                enrolled_year=student_data.get('enrolled_year'),
-                training_level=student_data.get('training_level'),
-                learning_status=learning_status,
-                gender=student_data.get('gender'),
-                classes=student_data.get('classes', ''),
-                email=email,  # Auto-generated email
-                login_password='e10adc3949ba59abbe56e057f20f883e',  # Default password hash
-                newest_semester=student_data.get('newest_semester'),
-                cpa=student_data.get('cpa', 0.0),
-                failed_subjects_number=student_data.get('failed_subjects_number', 0),
-                study_subjects_number=student_data.get('study_subjects_number', 0),
-                total_learned_credits=student_data.get('total_learned_credits', 0),
-                total_failed_credits=student_data.get('total_failed_credits', 0),
-                year_level=student_data.get('year_level', 'Trình độ năm 1'),
-                warning_level=student_data.get('warning_level', 'Cảnh cáo mức 0'),
-                level_3_warning_number=student_data.get('level_3_warning_number', 0),
-                department_id=student_data.get('department_id')
+                department_id=student_data.get('department_id'),
+                cpa=0.0,
+                failed_subjects_number=0,
+                study_subjects_number=0,
+                total_learned_credits=0,
+                total_failed_credits=0,
+                year_level='Trình độ năm 1',
+                warning_level='Cảnh cáo mức 0',
+                level_3_warning_number=0
             )
             db.add(student)
         except Exception as e:
-            print(f"Error adding student {student_data.get('student_id', '')}: {e}")
+            print(f"Error adding student {student_data.get('student_name', '')}: {e}")
     
     try:
         db.commit()
@@ -587,43 +573,6 @@ def populate_learned_subjects(db, learned_subjects_data):
         print(f"❌ Error committing learned subjects: {e}")
 
 
-def populate_student_drl(db, student_drl_data):
-    """Populate student DRL (Điểm rèn luyện) table"""
-    print("🎯 Populating student DRL...")
-    try:
-        for drl_data in student_drl_data:
-            # Kiểm tra xem student_id có tồn tại không
-            student_id = drl_data.get('student_id')
-            student = db.query(Student).filter(Student.student_id == student_id).first()
-            if not student:
-                print(f"⚠️ Student with ID {student_id} not found, skipping DRL record")
-                continue
-            
-            # Kiểm tra xem record đã tồn tại chưa (tránh duplicate)
-            existing_drl = db.query(StudentDRL).filter(
-                StudentDRL.student_id == student_id,
-                StudentDRL.semester == str(drl_data.get('semester'))
-            ).first()
-            
-            if existing_drl:
-                print(f"⚠️ DRL record already exists for student {student_id}, semester {drl_data.get('semester')}")
-                continue
-            
-            # Tạo record mới
-            student_drl = StudentDRL(
-                student_id=student_id,
-                semester=str(drl_data.get('semester')),  # Đảm bảo semester là string
-                drl_score=drl_data.get('drl_score')
-            )
-            db.add(student_drl)
-        
-        db.commit()
-        print(f"✅ Successfully populated {len(student_drl_data)} student DRL records")
-    except SQLAlchemyError as e:
-        db.rollback()
-        print(f"❌ Error committing student DRL: {e}")
-
-
 def populate_admin(db):
     """Populate admin user with secure password"""
     print("👤 Populating admin...")
@@ -705,15 +654,10 @@ def main():
         if students_data:
             populate_students(db, students_data)
         
-        # 5. Learned subjects (depends on students and subjects)
+        # 5.4. Learned Subjects (depends on students and subjects)
         learned_subjects_data = load_json_file('sample_learned_subjects.json')
         if learned_subjects_data:
             populate_learned_subjects(db, learned_subjects_data)
-        
-        # 5.5. Student DRL (depends on students)
-        student_drl_data = load_json_file('sample_student_drl.json')
-        if student_drl_data:
-            populate_student_drl(db, student_drl_data)
         
         # 6. FAQs (no dependencies)
         faqs_data = load_json_file('sample_faqs.json')

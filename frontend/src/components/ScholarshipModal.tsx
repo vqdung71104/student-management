@@ -33,7 +33,7 @@ interface ScholarshipModalProps {
 interface ApplicationFormData {
   // Thông tin cơ bản - phải match với API schema
   scholarship_id: number;
-  student_id: string;
+  student_id: number;  // Changed to integer ID
   
   // Thông tin ngân hàng
   bank_account_number: string;
@@ -79,7 +79,7 @@ const ScholarshipModal: React.FC<ScholarshipModalProps> = ({
   const [activeSection, setActiveSection] = useState(1);
   const [formData, setFormData] = useState<ApplicationFormData>({
     scholarship_id: scholarship.id,
-    student_id: userInfo?.student_id || '20225818', // Lấy từ userInfo, fallback to student thực tế
+    student_id: userInfo?.id || 0, // Lấy từ userInfo, integer ID
     bank_account_number: '',
     bank_name: '',
     phone_number: '',
