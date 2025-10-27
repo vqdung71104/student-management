@@ -30,28 +30,6 @@ def letter_grade_to_score(letter_grade: str) -> float:
     }
     return grade_map.get(letter_grade, 0.0)
 
-# 🔹 Hàm tính letter grade từ điểm số
-def calculate_letter_grade(score: float) -> str:
-    if 0.0 <= score <= 3.9:
-        return "F"
-    elif 4.0 <= score <= 4.9:
-        return "D"
-    elif 5.0 <= score <= 5.4:
-        return "D+"
-    elif 5.5 <= score <= 6.4:
-        return "C"
-    elif 6.5 <= score <= 6.9:
-        return "C+"
-    elif 7.0 <= score <= 7.9:
-        return "B"
-    elif 8.0 <= score <= 8.4:
-        return "B+"
-    elif 8.5 <= score <= 9.4:
-        return "A"
-    elif 9.5 <= score <= 10.0:
-        return "A+"
-    return "F"
-
 # 🔹 Hàm update semester GPA
 def update_semester_gpa(student_id: int, semester: str, db: Session):
     # Lấy tất cả learned subjects của student trong semester này
@@ -200,22 +178,11 @@ def create_learned_subject(learned_subject: LearnedSubjectCreate, db: Session = 
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     
-    # Calculate total score
-    final_score = round(learned_subject.final_score, 1)
-    total_score = final_score * learned_subject.weight + learned_subject.midterm_score * (1 - learned_subject.weight)
-    
-    # Auto-calculate letter grade from final score
-    letter_grade = calculate_letter_grade(final_score)
-    
     # Create learned subject
     db_learned_subject = LearnedSubject(
         subject_name=subject.subject_name,
         credits=subject.credits,
-        final_score=final_score,
-        midterm_score=learned_subject.midterm_score,
-        weight=learned_subject.weight,
-        total_score=round(total_score, 1),
-        letter_grade=letter_grade,
+        letter_grade=learned_subject.letter_grade,
         semester=learned_subject.semester,
         student_id=learned_subject.student_id,
         subject_id=learned_subject.subject_id
@@ -245,18 +212,6 @@ def update_learned_subject(
     # Update fields
     for field, value in learned_subject.model_dump(exclude_unset=True).items():
         setattr(db_learned_subject, field, value)
-    
-    # Recalculate if final_score, midterm_score, or weight changed
-    if (learned_subject.final_score is not None or 
-        learned_subject.midterm_score is not None or 
-        learned_subject.weight is not None):
-        
-        db_learned_subject.final_score = round(db_learned_subject.final_score, 1)
-        db_learned_subject.total_score = round(
-            db_learned_subject.final_score * db_learned_subject.weight + 
-            db_learned_subject.midterm_score * (1 - db_learned_subject.weight), 1
-        )
-        db_learned_subject.letter_grade = calculate_letter_grade(db_learned_subject.final_score)
     
     db.commit()
     db.refresh(db_learned_subject)
@@ -319,25 +274,14 @@ def create_new_learned_subject(
             detail=f"Môn học {subject.subject_name} đã tồn tại trong học kỳ {data.semester}"
         )
     
-    # 4. Convert letter grade to final_score (reverse từ điểm chữ sang điểm số)
-    grade_to_score_10 = {
-        "A+": 9.5, "A": 8.5, "B+": 8.0, "B": 7.0,
-        "C+": 6.5, "C": 5.5, "D+": 5.0, "D": 4.0, "F": 2.0
-    }
-    final_score = round(grade_to_score_10.get(data.letter_grade, 0.0), 1)
-    
-    # 5. Tạo LearnedSubject với student_id và subject.id (INTEGER FK)
+    # 4. Tạo LearnedSubject với student_id và subject.id (INTEGER FK)
     new_learned_subject = LearnedSubject(
         subject_name=subject.subject_name,
         credits=subject.credits,
-        final_score=final_score,
-        midterm_score=final_score,
-        weight=subject.weight,
-        total_score=final_score,
         letter_grade=data.letter_grade,
         semester=data.semester,
         student_id=student.id,  # INTEGER: students.id
-        subject_id=subject.id         # INTEGER: subjects.id
+        subject_id=subject.id   # INTEGER: subjects.id
     )
     
     db.add(new_learned_subject)
@@ -357,9 +301,7 @@ def create_new_learned_subject(
             "subject_name": subject.subject_name,
             "credits": subject.credits,
             "letter_grade": data.letter_grade,
-            "semester": data.semester,
-            "final_score": final_score,
-            "total_score": final_score
+            "semester": data.semester
         }
     }
     
@@ -423,15 +365,11 @@ async def upload_grades_excel(
                 detail="Không tìm thấy các cột bắt buộc: Học kỳ, Mã HP, Điểm HP"
             )
         
-        # 6. Parse data rows (giống logic POST "/")
+        # 6. Parse data rows
         created_count = 0
         skipped_count = 0
         errors = []
         valid_grades = ["A+", "A", "B+", "B", "C+", "C", "D+", "D", "F"]
-        grade_to_score_10 = {
-            "A+": 9.5, "A": 8.5, "B+": 8.0, "B": 7.0,
-            "C+": 6.5, "C": 5.5, "D+": 5.0, "D": 4.0, "F": 2.0
-        }
         
         for row_idx, row in enumerate(sheet.iter_rows(min_row=header_row_idx + 1, values_only=True), start=header_row_idx + 1):
             # Skip empty rows
@@ -460,11 +398,11 @@ async def upload_grades_excel(
                     skipped_count += 1
                     continue
                 
-                # Check duplicate (dùng students.id và subjects.id - integer FK)
+                # Check duplicate
                 existing = db.query(LearnedSubject).filter(
                     and_(
-                        LearnedSubject.student_id == student.id,  # INTEGER FK
-                        LearnedSubject.subject_id == subject.id,  # INTEGER FK
+                        LearnedSubject.student_id == student.id,
+                        LearnedSubject.subject_id == subject.id,
                         LearnedSubject.semester == semester
                     )
                 ).first()
@@ -473,21 +411,14 @@ async def upload_grades_excel(
                     skipped_count += 1
                     continue
                 
-                # Create learned subject (giống POST "/")
-                final_score = round(grade_to_score_10.get(letter_grade, 0.0), 1)
-                
-                # Lưu ý: student_id và subject_id là INTEGER (FK đến id)
+                # Create learned subject
                 new_learned_subject = LearnedSubject(
                     subject_name=subject.subject_name,
                     credits=subject.credits,
-                    final_score=final_score,
-                    midterm_score=0.0,
-                    weight=1.0,
-                    total_score=final_score,
                     letter_grade=letter_grade,
                     semester=semester,
-                    student_id=student.id,  # INTEGER: students.id
-                    subject_id=subject.id   # INTEGER: subjects.id
+                    student_id=student.id,
+                    subject_id=subject.id
                 )
                 
                 db.add(new_learned_subject)
@@ -498,7 +429,7 @@ async def upload_grades_excel(
                 skipped_count += 1
                 continue
         
-        # 7. Commit and update stats (giống POST "/")
+        # 7. Commit and update stats
         if created_count > 0:
             db.commit()
             

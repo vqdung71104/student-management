@@ -39,9 +39,6 @@ interface GradesData {
   student_id: number  // This is integer ID now
   subject_id: string
   semester: string
-  midterm_score: number
-  final_score: number
-  total_score: number
   letter_grade: string
   subject_name: string
   credits: number

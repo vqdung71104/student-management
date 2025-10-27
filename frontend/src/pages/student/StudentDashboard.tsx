@@ -11,7 +11,7 @@ const StudentDashboard = () => {
     completedSubjects: 0,
     upcomingExams: 0
   })
-  const [recentGrades, setRecentGrades] = useState<Array<{subject: string, score: number, grade: string}>>([])
+  const [recentGrades, setRecentGrades] = useState<Array<{subject: string, grade: string}>>([])
   const [upcomingSchedule, setUpcomingSchedule] = useState<Array<{subject: string, time: string, room: string, day: string}>>([])
 
   useEffect(() => {
@@ -37,7 +37,6 @@ const StudentDashboard = () => {
             ?.slice(-3)
             ?.map((subject: any) => ({
               subject: subject.subject_name,
-              score: subject.total_score || 0,
               grade: subject.letter_grade || 'F'
             })) || []
           
@@ -194,11 +193,11 @@ const StudentDashboard = () => {
                   <p className="text-xs text-gray-600">Điểm tổng kết</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-bold text-gray-900">{grade.score}</p>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    grade.grade === 'A' ? 'bg-green-100 text-green-800' :
+                  <span className={`inline-flex px-3 py-2 text-lg font-semibold rounded-full ${
+                    grade.grade === 'A+' || grade.grade === 'A' ? 'bg-green-100 text-green-800' :
                     grade.grade === 'B+' || grade.grade === 'B' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
+                    grade.grade === 'C+' || grade.grade === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
                   }`}>
                     {grade.grade}
                   </span>

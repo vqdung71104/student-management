@@ -8,11 +8,7 @@ class LearnedSubject(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject_name = Column(String(255))
     credits = Column(Integer)
-    final_score = Column(Float)
-    midterm_score = Column(Float)
-    weight = Column(Float)  # Trọng số điểm cuối kỳ
-    total_score = Column(Float)
-    letter_grade = Column(String(255))
+    letter_grade = Column(String(10))  # Chỉ giữ lại letter_grade
     semester = Column(String(255))
     student_id = Column(Integer, ForeignKey("students.id"))
     subject_id = Column(Integer, ForeignKey("subjects.id"))
