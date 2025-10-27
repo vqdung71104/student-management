@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { Link } from 'react-router-dom'
 
 const Login = () => {
   const { login } = useAuth()
@@ -112,9 +113,16 @@ const Login = () => {
           </button>
         </form>
 
-        
-
         <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Chưa có tài khoản?{' '}
+            <Link to="/register" className="text-blue-600 hover:text-blue-700 font-medium">
+              Đăng ký ngay
+            </Link>
+          </p>
+        </div>
+
+        <div className="mt-4 text-center">
           <p className="text-sm text-gray-600">
             © 2023 Hệ thống hỗ trợ đăng ký học tập. Bản quyền thuộc về Trường Đại học.
           </p>

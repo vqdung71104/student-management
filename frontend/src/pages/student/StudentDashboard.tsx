@@ -16,11 +16,11 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     const fetchDashboardData = async () => {
-      if (!userInfo?.student_id) return
+      if (!userInfo?.id) return
       
       try {
         // Lấy thông tin chi tiết học tập
-        const response = await fetch(`http://localhost:8000/students/${userInfo.student_id}/academic-details`)
+        const response = await fetch(`http://localhost:8000/students/${userInfo.id}/academic-details`)
         if (response.ok) {
           const data = await response.json()
           console.log('Academic details data:', data) // Debug log
@@ -47,7 +47,7 @@ const StudentDashboard = () => {
         }
 
         // Lấy lịch học tuần này  
-        const scheduleResponse = await fetch(`http://localhost:8000/class-registers/student-mssv/${userInfo.student_id}`)
+        const scheduleResponse = await fetch(`http://localhost:8000/class-registers/student/${userInfo.id}`)
         if (scheduleResponse.ok) {
           const classRegisters = await scheduleResponse.json()
           console.log('Class registers data:', classRegisters) // Debug log
@@ -101,7 +101,7 @@ const StudentDashboard = () => {
             Chào mừng, {userInfo?.student_name}!
           </h1>
           <p className="text-gray-600 mt-1">
-            Mã sinh viên: {userInfo?.student_id} | Học kỳ: 2023-2024.2
+            ID: {userInfo?.id} | Học kỳ: 2023-2024.2
           </p>
         </div>
         <div className="text-sm text-gray-500">

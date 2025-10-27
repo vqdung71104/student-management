@@ -14,7 +14,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const { logout } = useAuth()
   const { language, changeLanguage, t } = useLanguage()
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false)
-  const [infoManagementMenuOpen, setInfoManagementMenuOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [chatbotOpen, setChatbotOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -120,42 +119,6 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                       </button>
                       <button onClick={() => navigateTo('/admin/subjects')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
                         📄 {t.updateSubjects}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Information Management */}
-                <div className="relative">
-                  <button 
-                    className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
-                      isActive('/admin/scholarships') || isActive('/admin/internships') || isActive('/admin/projects')
-                        ? 'bg-blue-600 text-white' 
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                    onMouseEnter={() => setInfoManagementMenuOpen(true)}
-                    onMouseLeave={() => setInfoManagementMenuOpen(true)}
-                  >
-                    <span>📋</span>
-                    <span className="hidden lg:inline">Quản lý thông tin</span>
-                    <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {infoManagementMenuOpen && (
-                    <div 
-                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                      onMouseEnter={() => setInfoManagementMenuOpen(true)}
-                      onMouseLeave={() => setInfoManagementMenuOpen(false)}
-                    >
-                      <button onClick={() => navigateTo('/admin/scholarships')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        🎓 Quản lý học bổng
-                      </button>
-                      <button onClick={() => navigateTo('/admin/internships')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        🏢 Quản lý thực tập
-                      </button>
-                      <button onClick={() => navigateTo('/admin/projects')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📝 Quản lý đồ án
                       </button>
                     </div>
                   )}

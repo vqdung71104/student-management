@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
+import Register from './pages/Register'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import StudentsManagement from './pages/admin/StudentsManagement'
 import SubjectsManagement from './pages/admin/SubjectsManagement'
@@ -9,16 +10,11 @@ import FeedbackManagement from './pages/admin/FeedbackManagement'
 import FAQManagement from './pages/admin/FAQManagement'
 import NotificationManagement from './pages/admin/NotificationManagement'
 import ChangePassword from './pages/admin/ChangePassword'
-import ScholarshipManagement from './pages/admin/ScholarshipManagement'
 import StudentDashboard from './pages/student/StudentDashboard'
 import Schedule from './pages/student/Schedule'
 import Grades from './pages/student/Grades'
 import Curriculum from './pages/student/Curriculum'
-import Projects from './pages/student/Projects'
 import Forms from './pages/student/Forms'
-import Scholarships from './pages/student/Scholarships'
-import ScholarshipDashboard from './pages/student/ScholarshipDashboard'
-import ScholarshipApplicationForm from './pages/student/ScholarshipApplicationForm'
 import UserGuidePage from './pages/student/UserGuidePage'
 import FAQPage from './pages/student/FAQPage'
 import FeedbackPage from './pages/student/FeedbackPage'
@@ -45,6 +41,17 @@ function AppRoutes() {
         } 
       />
       
+      <Route 
+        path="/register" 
+        element={
+          isAuthenticated ? (
+            <Navigate to="/student" replace />
+          ) : (
+            <Register />
+          )
+        } 
+      />
+      
       {/* Admin Routes */}
       <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']} />}>
         <Route index element={<AdminDashboard />} />
@@ -56,7 +63,6 @@ function AppRoutes() {
         <Route path="faq" element={<FAQManagement />} />
         <Route path="notifications" element={<NotificationManagement />} />
         <Route path="change-password" element={<ChangePassword />} />
-        <Route path="scholarships" element={<ScholarshipManagement />} />
         <Route path="settings" element={<AdminDashboard />} />
       </Route>
 
@@ -68,11 +74,7 @@ function AppRoutes() {
         <Route path="curriculum" element={<Curriculum />} />
         <Route path="subject-registration" element={<SubjectRegistration />} />
         <Route path="class-registration" element={<ClassRegistration />} />
-        <Route path="projects" element={<Projects />} />
         <Route path="forms" element={<Forms />} />
-        <Route path="scholarships" element={<ScholarshipDashboard />} />
-        <Route path="scholarships/:id/apply" element={<ScholarshipApplicationForm />} />
-        <Route path="scholarships-old" element={<Scholarships />} />
         <Route path="change-password" element={<StudentChangePassword />} />
         <Route path="support/user-guide" element={<UserGuidePage />} />
         <Route path="support/faq" element={<FAQPage />} />

@@ -21,4 +21,3 @@ class Subject(Base):
     learned_subjects = relationship("LearnedSubject", back_populates="subject")
     subject_registers = relationship("SubjectRegister", back_populates="subject")
     course_subjects = relationship("CourseSubject", back_populates="subject")
-    projects = relationship("StudentProjects", back_populates="subject")

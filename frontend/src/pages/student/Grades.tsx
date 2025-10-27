@@ -48,16 +48,16 @@ const Grades = () => {
   const fetchGrades = async () => {
     setLoading(true)
     try {
-      if (!userInfo?.student_id) {
-        console.log('No student_id found in userInfo:', userInfo)
+      if (!userInfo?.id) {
+        console.log('No student id found in userInfo:', userInfo)
         setLoading(false)
         return
       }
 
-      console.log('Fetching academic details for student:', userInfo.student_id)
+      console.log('Fetching academic details for student:', userInfo.id)
       
       // Lấy thông tin chi tiết học tập từ API
-      const response = await fetch(`http://localhost:8000/api/students/${userInfo.student_id}/academic-details`)
+      const response = await fetch(`http://localhost:8000/api/students/${userInfo.id}/academic-details`)
       console.log('Response status:', response.status)
       
       if (response.ok) {
@@ -123,7 +123,7 @@ const Grades = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          student_id: userInfo?.student_id,
+          student_id: userInfo?.id,
           subject_id: data.subject_code,  // Đổi từ data.subject_id sang data.subject_code
           semester: data.semester,
           letter_grade: data.letter_grade

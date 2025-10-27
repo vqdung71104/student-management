@@ -18,10 +18,6 @@ from app.routes import notification_routes
 from app.routes import admin_password_routes
 from app.routes import student_password_routes
 from app.routes import student_forms_routes
-from app.routes import student_drl_routes
-from app.routes import student_projects_routes
-from app.routes import scholarship_routes
-from app.routes import scholarship_application_routes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -54,10 +50,6 @@ app.include_router(notification_routes.router, prefix="/api")
 app.include_router(admin_password_routes.router, prefix="/api")
 app.include_router(student_password_routes.router, prefix="/api")
 app.include_router(student_forms_routes.router, prefix="/api")
-app.include_router(student_drl_routes.router, prefix="/api")
-app.include_router(student_projects_routes.router, prefix="/api")
-app.include_router(scholarship_routes.router, prefix="/api")
-app.include_router(scholarship_application_routes.router, prefix="/api")
 
 @app.get("/")
 def read_root():
