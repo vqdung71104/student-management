@@ -22,7 +22,7 @@ const Register = () => {
     password: '',
     confirmPassword: '',
     course_id: '',
-    department_id: 'SOICT'
+    department_id: ''
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -87,8 +87,13 @@ const Register = () => {
       return false
     }
     
+    if (!registerForm.department_id) {
+      setError('Vui lòng chọn Khoa/Viện')
+      return false
+    }
+    
     if (!registerForm.course_id) {
-      setError('Vui lòng chọn khóa học')
+      setError('Vui lòng chọn ngành học')
       return false
     }
     
@@ -129,10 +134,22 @@ const Register = () => {
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    
     setRegisterForm({
       ...registerForm,
-      [e.target.name]: e.target.value
+      [name]: value
     })
+    
+    // Reset course selection when department changes
+    if (name === 'department_id') {
+      setRegisterForm(prev => ({
+        ...prev,
+        department_id: value,
+        course_id: '' // Reset course when department changes
+      }))
+    }
+    
     // Clear error when user starts typing
     if (error) {
       setError('')
@@ -218,29 +235,8 @@ const Register = () => {
           </div>
 
           <div>
-            <label htmlFor="course_id" className="block text-sm font-medium text-gray-700 mb-1">
-              Khóa học <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="course_id"
-              name="course_id"
-              value={registerForm.course_id}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-              required
-            >
-              <option value="">-- Chọn khóa học --</option>
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
-                  {course.course_id} - {course.course_name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
             <label htmlFor="department_id" className="block text-sm font-medium text-gray-700 mb-1">
-              Khoa/Viện
+              Khoa/Viện <span className="text-red-500">*</span>
             </label>
             <select
               id="department_id"
@@ -248,10 +244,38 @@ const Register = () => {
               value={registerForm.department_id}
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              required
             >
+              <option value="">-- Chọn Khoa/Viện --</option>
               {departments.map((dept) => (
                 <option key={dept.id} value={dept.id}>
                   {dept.id} - {dept.department_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="course_id" className="block text-sm font-medium text-gray-700 mb-1">
+              Ngành học <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="course_id"
+              name="course_id"
+              value={registerForm.course_id}
+              onChange={handleInputChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              required
+              disabled={!registerForm.department_id}
+            >
+              <option value="">
+                {registerForm.department_id 
+                  ? "-- Chọn ngành học --" 
+                  : "-- Vui lòng chọn Khoa/Viện trước --"}
+              </option>
+              {registerForm.department_id && courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.course_id} - {course.course_name}
                 </option>
               ))}
             </select>
