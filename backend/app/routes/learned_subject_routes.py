@@ -107,8 +107,11 @@ def update_student_stats(student_id: int, db: Session):
     semester_gpas = db.query(SemesterGPA).filter(SemesterGPA.student_id == student_id).all()
     total_credits = sum(sgpa.total_credits for sgpa in semester_gpas)
     total_grade_points = sum(sgpa.gpa * sgpa.total_credits for sgpa in semester_gpas)
-    
-    student.cpa = total_grade_points / total_credits if total_credits > 0 else 0.0
+    print("total_credits:", total_credits, "total_grade_points:", total_grade_points)
+    if(total_learned_credits==0):
+        student.cpa=0.0
+    else:
+        student.cpa = total_grade_points / total_learned_credits if total_credits > 0 else 0.0
     
     # Update warning level
     old_warning = student.warning_level
@@ -218,6 +221,7 @@ def update_learned_subject(
     
     # 🎯 AUTO-CALCULATE GPA & STUDENT STATS
     update_semester_gpa(db_learned_subject.student_id, db_learned_subject.semester, db)
+    db.flush()  # ✅ Flush to ensure semester_gpa is in session before calculating CPA
     update_student_stats(db_learned_subject.student_id, db)
     db.commit()
     
@@ -290,6 +294,7 @@ def create_new_learned_subject(
     
     # 6. 🎯 AUTO-CALCULATE GPA & STUDENT STATS
     update_semester_gpa(student.id, data.semester, db)
+    db.flush()  # ✅ Flush to ensure semester_gpa is in session before calculating CPA
     update_student_stats(student.id, db)
     db.commit()
     
@@ -441,6 +446,7 @@ async def upload_grades_excel(
             for (semester,) in semesters:
                 update_semester_gpa(student.id, semester, db)
             
+            db.flush()  # ✅ Flush to ensure all semester_gpas are in session before calculating CPA
             update_student_stats(student.id, db)
             db.commit()
         

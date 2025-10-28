@@ -6,7 +6,7 @@ const StudentDashboard = () => {
   const { userInfo } = useAuth()
   const navigate = useNavigate()
   const [quickStats, setQuickStats] = useState({
-    currentGPA: 0,
+    currentCPA: 0,
     totalCredits: 0,
     completedSubjects: 0,
     upcomingExams: 0
@@ -26,7 +26,7 @@ const StudentDashboard = () => {
           console.log('Academic details data:', data) // Debug log
           
           setQuickStats({
-            currentGPA: data.overall_gpa || 0,
+            currentCPA: data.cpa || 0,
             totalCredits: data.total_credits || 0,
             completedSubjects: data.learned_subjects?.length || 0,
             upcomingExams: 0 // Tạm thời để 0, có thể cập nhật sau
@@ -123,8 +123,8 @@ const StudentDashboard = () => {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">GPA hiện tại</p>
-              <p className="text-2xl font-bold text-gray-900">{quickStats.currentGPA}</p>
+              <p className="text-sm text-gray-600">CPA hiện tại</p>
+              <p className="text-2xl font-bold text-gray-900">{quickStats.currentCPA}</p>
             </div>
           </div>
         </div>
