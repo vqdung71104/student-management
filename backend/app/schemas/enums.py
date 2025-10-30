@@ -1,4 +1,4 @@
-from app.enums import (
+from app.core.enums import (
     ClassType, RegisterStatus, RegisterType, TrainingLevel,
     LearningStatus, Gender, YearLevel, WarningLevel
 )
