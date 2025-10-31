@@ -1,0 +1,55 @@
+{
+  "intents": [
+    {
+      "tag": "registration_guide",
+      "patterns": [
+        "hướng dẫn đăng ký học phần",
+        "cách đăng ký môn học",
+        "đăng ký học phần như thế nào",
+        "làm sao để đăng ký môn",
+        "quy trình đăng ký",
+        "đăng ký online",
+        "em muốn đăng ký học",
+        "hướng dẫn đăng ký"
+      ],
+      "description": "Hướng dẫn quy trình đăng ký học phần"
+    },
+    {
+      "tag": "course_info",
+      "patterns": [
+        "thông tin học phần",
+        "học phần này học gì",
+        "nội dung học phần",
+        "tín chỉ học phần",
+        "giảng viên dạy học phần",
+        "học phần tiên quyết",
+        "học phần học kỳ nào"
+      ],
+      "description": "Thông tin về học phần"
+    },
+    {
+      "tag": "greeting",
+      "patterns": [
+        "xin chào",
+        "chào bạn",
+        "hello",
+        "hi",
+        "hey",
+        "chào chatbot",
+        "chào em"
+      ],
+      "description": "Lời chào"
+    },
+    {
+      "tag": "thanks",
+      "patterns": [
+        "cảm ơn",
+        "thank you",
+        "thanks",
+        "cảm ơn bạn",
+        "cảm ơn nhiều"
+      ],
+      "description": "Lời cảm ơn"
+    }
+  ]
+}

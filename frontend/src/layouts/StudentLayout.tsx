@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useStudentLanguage } from '../pages/student/useStudentLanguage'
 import { useNotifications } from '../hooks/useNotifications'
+import ChatBot from '../components/ChatBot/ChatBot'
 import type { ReactNode } from 'react'
 
 interface StudentLayoutProps {
@@ -12,7 +13,7 @@ interface StudentLayoutProps {
 const StudentLayout = ({ children }: StudentLayoutProps) => {
   const navigate = useNavigate()
   const location = useLocation()
-  const { logout, userInfo } = useAuth()
+  const { logout } = useAuth()
   const { language, changeLanguage, t } = useStudentLanguage()
   const { notifications, loading, hasMore, loadMore, formatDate } = useNotifications()
   const [chatbotOpen, setChatbotOpen] = useState(false)
@@ -478,47 +479,35 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
 
       {/* Chatbot */}
       {chatbotOpen && (
-        <div className="fixed bottom-4 right-4 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-          <div className="bg-blue-600 rounded-t-lg p-4 cursor-pointer" onClick={toggleChatbot}>
-            <div className="flex justify-between items-center text-white">
-              <div className="flex items-center space-x-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                </svg>
-                <h3 className="font-medium">Trợ lý học tập</h3>
-              </div>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </div>
-          </div>
-          <div className="p-4">
-            <p className="text-gray-600 text-sm">
-              Xin chào {userInfo?.student_name || 'bạn'}! Tôi có thể giúp gì cho bạn?
-            </p>
-            <div className="mt-4 space-y-2">
-              <button className="w-full text-left p-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">
-                💬 Hướng dẫn đăng ký học phần
-              </button>
-              <button className="w-full text-left p-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">
-                📊 Xem kết quả học tập
-              </button>
-              <button className="w-full text-left p-2 bg-gray-100 rounded hover:bg-gray-200 text-sm">
-                🏆 Thông tin học bổng
-              </button>
-            </div>
-          </div>
+        <div className="fixed bottom-20 right-4 w-96 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden">
+          <ChatBot />
+          <button
+            onClick={toggleChatbot}
+            className="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors z-10"
+            aria-label="Close chatbot"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
 
       {/* Floating Chatbot Button */}
       <button
         onClick={toggleChatbot}
-        className="fixed bottom-4 right-4 bg-blue-600 text-white p-3 rounded-full shadow-lg hover:bg-blue-700 transition-all duration-200 z-40"
+        className="fixed bottom-4 right-4 bg-gradient-to-br from-purple-600 to-purple-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200 z-40"
+        aria-label="Open chatbot"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-        </svg>
+        {chatbotOpen ? (
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+        )}
       </button>
     </div>
   )
