@@ -18,6 +18,7 @@ from app.routes import notification_routes
 from app.routes import admin_password_routes
 from app.routes import student_password_routes
 from app.routes import student_forms_routes
+from app.routes import chatbot_routes
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -50,6 +51,7 @@ app.include_router(notification_routes.router, prefix="/api")
 app.include_router(admin_password_routes.router, prefix="/api")
 app.include_router(student_password_routes.router, prefix="/api")
 app.include_router(student_forms_routes.router, prefix="/api")
+app.include_router(chatbot_routes.router, prefix="/api")
 
 @app.get("/")
 def read_root():
