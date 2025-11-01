@@ -15,7 +15,34 @@
       "description": "Hướng dẫn quy trình đăng ký học phần"
     },
     {
-      "tag": "course_info",
+      "tag": "subject_registration_suggestion",
+      "patterns": [
+        "tôi nên đăng ký học phần gì",
+        "tôi nên đăng ký môn nào",
+        "kỳ này nên học học phần thể chất nào",
+        "kỳ này nên học môn triết nào",
+        "các môn cần đăng ký ở kỳ này",
+        "các học phần phải đăng ký ở kỳ này theo chương trình chuẩn",
+        "các học phần nên đăng ký",
+        "danh sách học phần nên đăng ký"
+      ],
+      "description": "Gợi ý đăng ký học phần phù hợp"
+    },
+    {
+      "tag": "class_registration_suggestion",
+      "patterns": [
+        "tôi nên đăng ký lớp nào",
+        "môn này nên học học lớp nào",
+        "với thời khóa biểu như hiện tại nên học lớp triết nào",
+        "các lớp mở ở môn này",
+        "các lớp học bắt đầu vào lúc 6h45",
+        "các lớp học vào thứ 2 và thứ 4",
+        "danh sách lớp nên đăng ký"
+      ],
+      "description": "Gợi ý đăng ký lớp học phù hợp"
+    },
+    {
+      "tag": "subject_info",
       "patterns": [
         "thông tin học phần",
         "học phần này học gì",
