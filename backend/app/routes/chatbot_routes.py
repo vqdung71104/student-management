@@ -2,42 +2,14 @@
 Chatbot Routes - API endpoints cho chatbot
 """
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from app.chatbot.intent_classifier import IntentClassifier
+from app.chatbot.hybrid_classifier import HybridIntentClassifier
+from app.schemas.chatbot_schema import ChatMessage, ChatResponse, IntentsResponse, IntentInfo
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
-# Initialize intent classifier
-intent_classifier = IntentClassifier()
-
-
-class ChatMessage(BaseModel):
-    """Schema cho tin nhắn chat"""
-    message: str
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "message": "Làm sao để đăng ký môn học?"
-            }
-        }
-
-
-class ChatResponse(BaseModel):
-    """Schema cho response từ chatbot"""
-    text: str
-    intent: str
-    confidence: str
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "text": "Bạn định hướng dẫn đăng ký học phần phải không?",
-                "intent": "registration_guide",
-                "confidence": "high"
-            }
-        }
+# Initialize hybrid intent classifier (PhoBERT + Gemini)
+intent_classifier = HybridIntentClassifier(use_phobert=True, use_gemini=True)
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -88,27 +60,29 @@ async def chat(message: ChatMessage):
         )
 
 
-@router.get("/intents")
+@router.get("/intents", response_model=IntentsResponse)
 async def get_available_intents():
     """
     Lấy danh sách các intent mà chatbot có thể nhận diện
     
     Returns:
-        List các intent với tag và description
+        IntentsResponse: Danh sách các intent với tag, description và examples
     """
     try:
         intents_list = []
         for intent in intent_classifier.intents.get("intents", []):
-            intents_list.append({
-                "tag": intent["tag"],
-                "description": intent["description"],
-                "examples": intent["patterns"][:3]  # Lấy 3 ví dụ
-            })
+            intents_list.append(
+                IntentInfo(
+                    tag=intent["tag"],
+                    description=intent["description"],
+                    examples=intent["patterns"][:3]  # Lấy 3 ví dụ
+                )
+            )
         
-        return {
-            "total": len(intents_list),
-            "intents": intents_list
-        }
+        return IntentsResponse(
+            total=len(intents_list),
+            intents=intents_list
+        )
         
     except Exception as e:
         raise HTTPException(
