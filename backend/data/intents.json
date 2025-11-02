@@ -20,6 +20,8 @@
         "tôi nên đăng ký học phần gì",
         "tôi nên đăng ký môn nào",
         "kỳ này nên học học phần thể chất nào",
+        "Nên học lại",
+        "nên học cải thiện",
         "kỳ này nên học môn triết nào",
         "các môn cần đăng ký ở kỳ này",
         "các học phần phải đăng ký ở kỳ này theo chương trình chuẩn",
@@ -34,8 +36,12 @@
         "tôi nên đăng ký lớp nào",
         "môn này nên học học lớp nào",
         "với thời khóa biểu như hiện tại nên học lớp triết nào",
+        "nên học lại môn nào trước",
+        "nên học cải thiện môn nào kỳ này",
         "các lớp mở ở môn này",
         "các lớp học bắt đầu vào lúc 6h45",
+        "Nên đăng ký lớp Giải tích ca nào?",
+        "Nên đăng ký lớp hôm nào?",
         "các lớp học vào thứ 2 và thứ 4",
         "danh sách lớp nên đăng ký"
       ],
@@ -50,9 +56,107 @@
         "tín chỉ học phần",
         "giảng viên dạy học phần",
         "học phần tiên quyết",
+        "môn học tiên quyết",
+        "môn tiên quyết",
+        "học phần song hành",
+        "học phần này có mấy tín chỉ",
+        "môn học này có mấy tín chỉ",
         "học phần học kỳ nào"
       ],
       "description": "Thông tin về học phần"
+    },
+    {
+      "tag": "class_info",
+      "patterns": [
+        "thông tin lớp học",
+        "lớp học này học gì",
+        "lớp buổi chiều thứ 3",
+        "lớp học sáng thứ 4",
+        "giảng viên dạy lớp học",
+        "lớp thực hành đi kèm",
+        "lớp nào có giáo viên A",
+        "cho tôi danh sách các lớp môn X",
+        "danh sách các lớp môn X",
+        "danh sách các lớp môn A",
+        "các lớp của môn B",
+        "các lớp bắt đầu vào lúc 8h25"
+      ],
+      "description": "Thông tin về lớp học"
+    },
+    {
+      "tag": "grade_view",
+      "patterns": [
+        "xem điểm",
+        "xem điểm số",
+        "xem kết quả học tập",
+        "điểm của tôi",
+        "điểm số của tôi",
+        "em muốn xem điểm",
+        "em muốn xem điểm của mình",
+        "xem bảng điểm",
+        "kiểm tra điểm",
+        "tra điểm",
+        "điểm thi"
+      ],
+      "description": "Xem điểm số và kết quả học tập"
+    },
+    {
+      "tag": "student_info",
+      "patterns": [
+        "thông tin sinh viên",
+        "hồ sơ sinh viên",
+        "còn nợ bao nhiêu môn",
+        "còn nợ mấy tín chỉ",
+        "các môn bị D",
+        "các môn bị F",
+        "các môn nên học cải thiện",
+        "cần điểm như nào để đạt cpa >3.2",
+        "xem cpa",
+        "xem gpa",
+        "điểm trung bình"
+      ],
+      "description": "Xem thông tin sinh viên và học vụ"
+    },
+    {
+      "tag": "schedule_view",
+      "patterns": [
+        "lịch học",
+        "xem lịch học",
+        "thời khóa biểu",
+        "tkb",
+        "xem thời khóa biểu",
+        "xem tkb",
+        "lịch học tuần này",
+        "lịch học hôm nay",
+        "lịch học ngày mai",
+        "xem lịch",
+        "kiểm tra lịch học"
+      ],
+      "description": "Xem lịch học và thời khóa biểu hiện tại"
+    },
+    {
+      "tag": "schedule_info",
+      "patterns": [
+        "thời khóa biểu sau khi đăng ký các lớp",
+        "tkb sau khi đăng ký",
+        "lịch học sau khi đăng ký lớp",
+        "lịch học sẽ như thế nào",
+        "xem lịch tạm thời"
+      ],
+      "description": "Xem thời khóa biểu tạm thời sau đăng ký"
+    },
+    {
+      "tag": "registration_time",
+      "patterns": [
+        "bao giờ là thời điểm đăng ký lớp",
+        "khi nào đăng ký",
+        "thời gian đăng ký",
+        "đăng ký lúc nào",
+        "khi nào mở đăng ký",
+        "thời điểm đăng ký học phần",
+        "ngày đăng ký môn học"
+      ],
+      "description": "Hỏi về thời gian đăng ký học phần"
     },
     {
       "tag": "greeting",
@@ -63,7 +167,8 @@
         "hi",
         "hey",
         "chào chatbot",
-        "chào em"
+        "chào em",
+        "Xin chào!"
       ],
       "description": "Lời chào"
     },

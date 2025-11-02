@@ -6,16 +6,18 @@ import sys
 import os
 from typing import List, Dict
 
-# Add parent directory to path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add backend directory to path (vì file đang ở app/tests/)
+backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, backend_dir)
 
 from dotenv import load_dotenv
 from app.chatbot.phobert_classifier import PhoBERTIntentClassifier
 from app.chatbot.intent_classifier import IntentClassifier
 from app.chatbot.hybrid_classifier import HybridIntentClassifier
 
-# Load environment variables
-load_dotenv()
+# Load environment variables từ backend/.env
+env_path = os.path.join(backend_dir, '.env')
+load_dotenv(env_path)
 
 
 def print_result(method: str, message: str, result: Dict, time_taken: float = None):
@@ -47,10 +49,14 @@ async def test_phobert_only():
     test_messages = [
         "Xin chào!",
         "Kỳ này tôi nên đăng ký môn gì?",
-        "Tôi nên đăng ký lớp Toán cao cấp 1 hay lớp Toán A1?",
+        "Tôi nên đăng ký học phần Giải tích 1 hay Giải tích 2?",
+        "Tôi nên đăng ký lớp Triết sáng thứ 3 hay chiều thứ 4?",
+        "Cho tôi danh sách các lớp môn Đại số?",
+        "Bao giờ là thời điểm đăng ký lớp?",
+        "Nên học lại môn Đại số tuyến tính hay Vật lý đại cương 1 trước?",
         "Em muốn xem điểm của mình",
-        "Lịch học tuần này như thế nào?",
-        "Cho em hỏi về học bổng",
+        "Lịch học sau khi đăng ký như nào?",
+        "Nên đăng ký lớp Nhật 6 ca 1 hay 2?",
         "Môn tiên quyết của IT4040 là gì?",
         "Cảm ơn bạn nhé",
     ]

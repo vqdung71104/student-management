@@ -1,0 +1,62 @@
+{
+  "language": "vi",
+  "pipeline": [
+    {
+      "name": "WhitespaceTokenizer"
+    },
+    {
+      "name": "RegexFeaturizer"
+    },
+    {
+      "name": "LexicalSyntacticFeaturizer"
+    },
+    {
+      "name": "CountVectorsFeaturizer",
+      "analyzer": "char_wb",
+      "min_ngram": 1,
+      "max_ngram": 4
+    },
+    {
+      "name": "DIETClassifier",
+      "epochs": 200,
+      "constrain_similarities": true,
+      "model_confidence": "softmax",
+      "entity_recognition": false
+    },
+    {
+      "name": "FallbackClassifier",
+      "threshold": 0.6,
+      "ambiguity_threshold": 0.1
+    }
+  ],
+  "policies": [
+    {
+      "name": "MemoizationPolicy"
+    },
+    {
+      "name": "TEDPolicy",
+      "max_history": 5,
+      "epochs": 100,
+      "constrain_similarities": true
+    },
+    {
+      "name": "RulePolicy"
+    }
+  ],
+  "training": {
+    "augmentation_factor": 20,
+    "batch_size": 32,
+    "epochs": 200
+  },
+  "thresholds": {
+    "high_confidence": 0.60,
+    "medium_confidence": 0.40,
+    "low_confidence": 0.25
+  },
+  "model_config": {
+    "model_dir": "models/rasa",
+    "model_name": "intent_classifier",
+    "training_data_format": "json",
+    "fallback_intent": "out_of_scope"
+  }
+}
