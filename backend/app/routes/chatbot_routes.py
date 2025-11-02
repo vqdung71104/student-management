@@ -2,14 +2,14 @@
 Chatbot Routes - API endpoints cho chatbot
 """
 from fastapi import APIRouter, HTTPException
-from app.chatbot.hybrid_classifier import HybridIntentClassifier
+from app.chatbot.rasa_classifier import RasaIntentClassifier
 from app.schemas.chatbot_schema import ChatMessage, ChatResponse, IntentsResponse, IntentInfo
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
-# Initialize hybrid intent classifier (PhoBERT + Gemini)
-intent_classifier = HybridIntentClassifier(use_phobert=True, use_gemini=True)
+# Initialize Rasa NLU intent classifier
+intent_classifier = RasaIntentClassifier()
 
 
 @router.post("/chat", response_model=ChatResponse)
