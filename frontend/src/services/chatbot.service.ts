@@ -6,12 +6,16 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 
 export interface ChatMessage {
   message: string;
+  student_id?: number;
 }
 
 export interface ChatResponse {
   text: string;
   intent: string;
   confidence: string;
+  data?: any[];
+  sql?: string;
+  sql_error?: string;
 }
 
 export interface Intent {
@@ -28,13 +32,21 @@ export interface IntentsResponse {
 /**
  * Gửi tin nhắn tới chatbot
  */
-export const sendMessage = async (message: string): Promise<ChatResponse> => {
+export const sendMessage = async (
+  message: string, 
+  studentId?: number
+): Promise<ChatResponse> => {
+  const body: ChatMessage = { message };
+  if (studentId) {
+    body.student_id = studentId;
+  }
+
   const response = await fetch(`${API_BASE_URL}/chatbot/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {

@@ -2,16 +2,19 @@
 Chatbot Schemas - Pydantic models cho chatbot API
 """
 from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
 
 
 class ChatMessage(BaseModel):
     """Schema cho tin nhắn chat từ user"""
     message: str = Field(..., description="Tin nhắn từ người dùng", min_length=1)
+    student_id: Optional[int] = Field(None, description="ID sinh viên (optional, dùng cho queries cần authentication)")
     
     class Config:
         json_schema_extra = {
             "example": {
-                "message": "Làm sao để đăng ký môn học?"
+                "message": "Làm sao để đăng ký môn học?",
+                "student_id": 1
             }
         }
 
@@ -28,6 +31,32 @@ class ChatResponse(BaseModel):
                 "text": "Bạn định hướng dẫn đăng ký học phần phải không?",
                 "intent": "registration_guide",
                 "confidence": "high"
+            }
+        }
+
+
+class ChatResponseWithData(ChatResponse):
+    """Schema cho response từ chatbot kèm data từ database"""
+    data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu từ database")
+    sql: Optional[str] = Field(None, description="SQL query đã thực thi")
+    sql_error: Optional[str] = Field(None, description="Lỗi SQL (nếu có)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "Đây là điểm của bạn (tìm thấy 5 môn học):",
+                "intent": "grade_view",
+                "confidence": "high",
+                "data": [
+                    {
+                        "subject_name": "Giải tích 1",
+                        "credits": 4,
+                        "letter_grade": "A",
+                        "semester": "2024.1"
+                    }
+                ],
+                "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = 1",
+                "sql_error": None
             }
         }
 
