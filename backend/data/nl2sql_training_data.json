@@ -1,0 +1,200 @@
+{
+  "description": "Training data for NL2SQL using ViT5 - Vietnamese Text-to-SQL",
+  "schema": {
+    "students": {
+      "columns": ["id", "student_name", "email", "course_id", "department_id", "cpa", "failed_subjects_number", "study_subjects_number", "total_learned_credits", "total_failed_credits", "year_level", "warning_level"],
+      "description": "Thông tin sinh viên"
+    },
+    "subjects": {
+      "columns": ["id", "subject_id", "subject_name", "department_id", "duration", "credits", "tuition_fee", "english_subject_name", "weight", "conditional_subjects"],
+      "description": "Thông tin học phần/môn học"
+    },
+    "classes": {
+      "columns": ["id", "subject_id", "class_id", "class_name", "linked_class_ids", "class_type", "classroom", "study_date", "study_time_start", "study_time_end", "max_student_number", "teacher_name", "study_week"],
+      "description": "Thông tin lớp học"
+    },
+    "learned_subjects": {
+      "columns": ["id", "subject_name", "credits", "letter_grade", "semester", "student_id", "subject_id"],
+      "description": "Điểm học phần đã học của sinh viên"
+    },
+    "courses": {
+      "columns": ["id", "course_id", "course_name"],
+      "description": "Thông tin khóa học"
+    },
+    "departments": {
+      "columns": ["id", "name"],
+      "description": "Thông tin khoa"
+    },
+    "class_registers": {
+      "columns": ["id", "student_id", "class_id"],
+      "description": "Đăng ký lớp học của sinh viên"
+    },
+    "subject_registers": {
+      "columns": ["id", "student_id", "subject_id"],
+      "description": "Đăng ký học phần của sinh viên"
+    }
+  },
+  "training_examples": [
+    {
+      "intent": "grade_view",
+      "question": "xem điểm",
+      "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = {student_id} ORDER BY ls.semester DESC",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "grade_view",
+      "question": "xem điểm số của tôi",
+      "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = {student_id} ORDER BY ls.semester DESC",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "grade_view",
+      "question": "em muốn xem điểm của mình",
+      "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = {student_id} ORDER BY ls.semester DESC",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "grade_view",
+      "question": "xem kết quả học tập",
+      "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = {student_id} ORDER BY ls.semester DESC",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "student_info",
+      "question": "xem cpa",
+      "sql": "SELECT s.student_name, s.cpa, s.total_learned_credits, s.failed_subjects_number FROM students s WHERE s.id = {student_id}",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "student_info",
+      "question": "xem gpa",
+      "sql": "SELECT s.student_name, s.cpa, s.total_learned_credits FROM students s WHERE s.id = {student_id}",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "student_info",
+      "question": "còn nợ bao nhiêu môn",
+      "sql": "SELECT s.failed_subjects_number, s.total_failed_credits FROM students s WHERE s.id = {student_id}",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "student_info",
+      "question": "các môn bị D",
+      "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = {student_id} AND ls.letter_grade = 'D'",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "student_info",
+      "question": "các môn bị F",
+      "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = {student_id} AND ls.letter_grade = 'F'",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "subject_info",
+      "question": "thông tin học phần Giải tích 1",
+      "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.duration, s.tuition_fee, s.conditional_subjects FROM subjects s WHERE s.subject_name LIKE '%Giải tích 1%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "subject_info",
+      "question": "môn tiên quyết của IT4040",
+      "sql": "SELECT s.subject_id, s.subject_name, s.conditional_subjects FROM subjects s WHERE s.subject_id = 'IT4040'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "subject_info",
+      "question": "học phần IT4040 có mấy tín chỉ",
+      "sql": "SELECT s.subject_id, s.subject_name, s.credits FROM subjects s WHERE s.subject_id = 'IT4040'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "subject_info",
+      "question": "nội dung học phần Giải tích",
+      "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.duration FROM subjects s WHERE s.subject_name LIKE '%Giải tích%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "danh sách các lớp môn Đại số",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, c.max_student_number FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Đại số%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "các lớp của môn IT4040",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_id = 'IT4040'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "lớp học sáng thứ 4",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name FROM classes c WHERE c.study_date LIKE '%Wednesday%' AND c.study_time_start < '12:00:00'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "lớp buổi chiều thứ 3",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name FROM classes c WHERE c.study_date LIKE '%Tuesday%' AND c.study_time_start >= '12:00:00'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "các lớp học vào thứ 2 và thứ 4",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name FROM classes c WHERE c.study_date LIKE '%Monday%' OR c.study_date LIKE '%Wednesday%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "schedule_view",
+      "question": "lịch học",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM class_registers cr JOIN classes c ON cr.class_id = c.id JOIN subjects s ON c.subject_id = s.id WHERE cr.student_id = {student_id}",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "schedule_view",
+      "question": "xem thời khóa biểu",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM class_registers cr JOIN classes c ON cr.class_id = c.id JOIN subjects s ON c.subject_id = s.id WHERE cr.student_id = {student_id}",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "subject_registration_suggestion",
+      "question": "tôi nên đăng ký môn nào",
+      "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.conditional_subjects FROM subjects s WHERE s.id NOT IN (SELECT ls.subject_id FROM learned_subjects ls WHERE ls.student_id = {student_id} AND ls.letter_grade NOT IN ('D', 'F'))",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "subject_registration_suggestion",
+      "question": "các học phần nên đăng ký",
+      "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.conditional_subjects FROM subjects s WHERE s.id NOT IN (SELECT ls.subject_id FROM learned_subjects ls WHERE ls.student_id = {student_id} AND ls.letter_grade NOT IN ('D', 'F'))",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "class_registration_suggestion",
+      "question": "tôi nên đăng ký lớp nào",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE c.id NOT IN (SELECT cr.class_id FROM class_registers cr WHERE cr.student_id = {student_id})",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    }
+  ]
+}

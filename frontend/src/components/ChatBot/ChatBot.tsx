@@ -4,6 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { sendMessage } from '../../services/chatbot.service';
 import type { ChatResponse } from '../../services/chatbot.service';
+import { useAuth } from '../../contexts/AuthContext';
 import './ChatBot.css';
 
 interface Message {
@@ -12,9 +13,11 @@ interface Message {
   isUser: boolean;
   timestamp: Date;
   intent?: string;
+  data?: any[];
 }
 
 const ChatBot: React.FC = () => {
+  const { userInfo } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 0,
@@ -60,7 +63,8 @@ const ChatBot: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const response: ChatResponse = await sendMessage(inputValue);
+      // Send message with student_id from userInfo
+      const response: ChatResponse = await sendMessage(inputValue, userInfo?.id);
 
       const botMessage: Message = {
         id: Date.now() + 1,
@@ -68,6 +72,7 @@ const ChatBot: React.FC = () => {
         isUser: false,
         timestamp: new Date(),
         intent: response.intent,
+        data: response.data,
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -101,6 +106,36 @@ const ChatBot: React.FC = () => {
     });
   };
 
+  // Render data table if available
+  const renderDataTable = (data: any[]) => {
+    if (!data || data.length === 0) return null;
+
+    const columns = Object.keys(data[0]);
+
+    return (
+      <div className="data-table-container">
+        <table className="data-table">
+          <thead>
+            <tr>
+              {columns.map((col) => (
+                <th key={col}>{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row, idx) => (
+              <tr key={idx}>
+                {columns.map((col) => (
+                  <td key={col}>{row[col]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div className="chatbot-container">
       <div className="chatbot-header">
@@ -125,6 +160,7 @@ const ChatBot: React.FC = () => {
               )}
               <div className="message-bubble">
                 <p>{message.text}</p>
+                {message.data && message.data.length > 0 && renderDataTable(message.data)}
                 <span className="message-time">{formatTime(message.timestamp)}</span>
               </div>
               {message.isUser && (
