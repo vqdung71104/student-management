@@ -76,20 +76,6 @@ def clear_all_data(db):
         db.rollback()
         print(f"❌ Error clearing data: {e}")
 
-def generate_email(student_name: str, student_id: str) -> str:
-    """Tạo email từ tên + MSSV"""
-    def remove_accents(text: str) -> str:
-        return ''.join(
-            c for c in unicodedata.normalize('NFD', text)
-            if unicodedata.category(c) != 'Mn'
-        )
-    
-    unaccented_name = remove_accents(student_name.strip())
-    name_parts = unaccented_name.split()
-    last_name = name_parts[-1].lower()
-    initials = "".join([w[0].lower() for w in name_parts[:-1]])
-    mssv_suffix = student_id[2:]  # bỏ 2 số đầu
-    return f"{last_name}.{initials}{mssv_suffix}@sis.hust.edu.vn"
 
 def letter_grade_to_score(letter_grade: str) -> float:
     """Chuyển letter grade thành điểm số thang 4.0"""
