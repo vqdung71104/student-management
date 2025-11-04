@@ -128,7 +128,7 @@ const TeacherUpdateModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
       const teacherUpdates = await processExcelFile(file)
       
       // Gửi dữ liệu đến API
-      const response = await fetch('http://localhost:8000/classes/update-teachers', {
+      const response = await fetch('http://localhost:8000/api/classes/update-teachers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -261,14 +261,14 @@ const ScheduleManagement = () => {
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch('http://localhost:8000/classes/')
+      const response = await fetch('http://localhost:8000/api/classes/')
       if (response.ok) {
         const data = await response.json()
         // Fetch current student count for each class
         const classesWithStudentCount = await Promise.all(
           data.map(async (classItem: any) => {
             try {
-              const registersResponse = await fetch(`http://localhost:8000/class-registers/class/${classItem.id}`)
+              const registersResponse = await fetch(`http://localhost:8000/api/class-registers/class/${classItem.id}`)
               if (registersResponse.ok) {
                 const registers = await registersResponse.json()
                 return {
@@ -297,7 +297,7 @@ const ScheduleManagement = () => {
   const handleDeleteClass = async (classId: number) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa lớp học này?')) {
       try {
-        const response = await fetch(`http://localhost:8000/classes/${classId}`, {
+        const response = await fetch(`http://localhost:8000/api/classes/${classId}`, {
           method: 'DELETE'
         })
         
@@ -321,7 +321,7 @@ const ScheduleManagement = () => {
 
   const handleUpdateClass = async (updatedClass: any) => {
     try {
-      const response = await fetch(`http://localhost:8000/classes/${updatedClass.id}`, {
+      const response = await fetch(`http://localhost:8000/api/classes/${updatedClass.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -404,7 +404,7 @@ const ScheduleManagement = () => {
         department_id: "string" // Use first department ID
       }
 
-      const response = await fetch('http://localhost:8000/subjects/', {
+      const response = await fetch('http://localhost:8000/api/subjects/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -432,7 +432,7 @@ const ScheduleManagement = () => {
     // First, get all subjects to map subject_code to subject_id
     let subjectsMap: { [key: string]: number } = {}
     try {
-      const subjectsResponse = await fetch('http://localhost:8000/subjects/')
+      const subjectsResponse = await fetch('http://localhost:8000/api/subjects/')
       if (subjectsResponse.ok) {
         const subjects = await subjectsResponse.json()
         subjectsMap = subjects.reduce((map: any, subject: any) => {
@@ -475,7 +475,7 @@ const ScheduleManagement = () => {
 
         console.log('Creating class with data:', classData)
 
-        const response = await fetch('http://localhost:8000/classes/', {
+        const response = await fetch('http://localhost:8000/api/classes/', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
