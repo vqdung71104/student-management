@@ -152,3 +152,13 @@ Thumbs.db
 # =========================
 node_modules
 node_modules/
+
+# Machine Learning Models (too large for Git)
+backend/models/vit5_nl2sql/
+*.safetensors
+*.bin
+*.pth
+*.pt
+*.onnx
+*.h5
+*.keras
