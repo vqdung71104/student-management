@@ -38,7 +38,7 @@ const Curriculum = () => {
 
       console.log('Fetching curriculum for student:', userInfo.id)
       
-      const response = await fetch(`http://localhost:8000/courses/${userInfo.id}/curriculum`)
+      const response = await fetch(`http://localhost:8000/api/courses/${userInfo.id}/curriculum`)
       console.log('Response status:', response.status)
       
       if (response.ok) {

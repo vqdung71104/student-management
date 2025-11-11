@@ -45,7 +45,7 @@ const SubjectRegistration = () => {
     if (!userInfo?.id) return
     
     try {
-      const response = await fetch(`http://localhost:8000/students/${userInfo.id}`)
+      const response = await fetch(`http://localhost:8000/api/students/${userInfo.id}`)
       if (response.ok) {
         const data = await response.json()
         console.log('Student data:', data)
@@ -67,7 +67,7 @@ const SubjectRegistration = () => {
       }
 
       // First, get all course_subjects and filter by course_id
-      const courseSubjectResponse = await fetch(`http://localhost:8000/course-subjects/`)
+      const courseSubjectResponse = await fetch(`http://localhost:8000/api/course-subjects/`)
       if (!courseSubjectResponse.ok) {
         setSubjects([])
         message.error('Không thể tải danh sách học phần cho khóa học')
@@ -91,7 +91,7 @@ const SubjectRegistration = () => {
       const subjectDetails = await Promise.all(
         courseSubjects.map(async (courseSubject: any) => {
           try {
-            const response = await fetch(`http://localhost:8000/subjects/${courseSubject.subject_id}`)
+            const response = await fetch(`http://localhost:8000/api/subjects/${courseSubject.subject_id}`)
             if (response.ok) {
               const subjectData = await response.json()
               // Add course_subject info to subject data
@@ -129,13 +129,13 @@ const SubjectRegistration = () => {
     if (!userInfo?.id) return
     
     try {
-      const response = await fetch(`http://localhost:8000/subject-registers/student/${userInfo.id}`)
+      const response = await fetch(`http://localhost:8000/api/subject-registers/student/${userInfo.id}`)
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered subjects data:', registersData)
         
         // Fetch subject information for each registered subject
-        const subjectsResponse = await fetch('http://localhost:8000/subjects/')
+        const subjectsResponse = await fetch('http://localhost:8000/api/subjects/')
         if (subjectsResponse.ok) {
           const allSubjects = await subjectsResponse.json()
           
@@ -175,7 +175,7 @@ const SubjectRegistration = () => {
     try {
       setLoading(true)
       console.log('Registering subject with student_id:', studentData.id, 'subject_id:', subjectId)
-      const response = await fetch('http://localhost:8000/subject-registers/', {
+      const response = await fetch('http://localhost:8000/api/subject-registers/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -210,7 +210,7 @@ const SubjectRegistration = () => {
     try {
       setLoading(true)
       console.log('Deleting subject register with ID:', registerId)
-      const response = await fetch(`http://localhost:8000/subject-registers/${registerId}`, {
+      const response = await fetch(`http://localhost:8000/api/subject-registers/${registerId}`, {
         method: 'DELETE'
       })
 
