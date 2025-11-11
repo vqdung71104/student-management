@@ -60,37 +60,18 @@ const ClassRegistration = () => {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null)
   const [searchText, setSearchText] = useState('')
   const [filterStatus, setFilterStatus] = useState<string | null>(null)
-  const [registeredSubjectIds, setRegisteredSubjectIds] = useState<number[]>([])
-
-  // Fetch registered subject IDs for current student
-  const fetchRegisteredSubjectIds = async () => {
-    if (!userInfo?.id) return
-    
-    try {
-      // Use student ID endpoint
-      const response = await fetch(`http://localhost:8000/subject-registers/student/${userInfo.id}`)
-      if (response.ok) {
-        const data = await response.json()
-        console.log('Registered subjects data:', data)
-        const subjectIds = data.map((reg: any) => reg.subject_id)
-        setRegisteredSubjectIds(subjectIds)
-      }
-    } catch (error) {
-      console.error('Error fetching registered subjects:', error)
-    }
-  }
 
   // Fetch available classes (only for subjects student registered)
   const fetchClasses = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/classes/')
+      const response = await fetch('http://localhost:8000/api/classes/')
       if (response.ok) {
         const allClasses = await response.json()
         console.log('All classes fetched:', allClasses.length)
         
         // Fetch registration counts for all classes
-        const registrationResponse = await fetch('http://localhost:8000/class-registers/')
+        const registrationResponse = await fetch('http://localhost:8000/api/class-registers/')
         let registrationCounts: { [key: number]: number } = {}
         
         if (registrationResponse.ok) {
@@ -123,11 +104,10 @@ const ClassRegistration = () => {
         
         console.log('Linked class IDs to exclude:', Array.from(linkedClassIds))
         
-        // Filter classes: must be in registered subjects AND not be a linked class
+        // Filter classes: only exclude linked classes (no longer require subject registration)
         const allowedClasses = classesWithCounts.filter((classItem: any) => {
-          const isRegisteredSubject = registeredSubjectIds.includes(classItem.subject?.id)
           const isNotLinkedClass = !linkedClassIds.has(classItem.class_id)
-          return isRegisteredSubject && isNotLinkedClass
+          return isNotLinkedClass
         })
         
         console.log('Filtered classes (main classes only):', allowedClasses.length)
@@ -149,13 +129,13 @@ const ClassRegistration = () => {
     
     try {
       // Use student ID endpoint
-      const response = await fetch(`http://localhost:8000/class-registers/student/${userInfo.id}`)
+      const response = await fetch(`http://localhost:8000/api/class-registers/student/${userInfo.id}`)
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered classes data:', registersData)
         
         // Fetch class information for each registered class
-        const classesResponse = await fetch('http://localhost:8000/classes/')
+        const classesResponse = await fetch('http://localhost:8000/api/classes/')
         if (classesResponse.ok) {
           const allClasses = await classesResponse.json()
           
@@ -214,7 +194,7 @@ const ClassRegistration = () => {
 
       console.log('Registering main class:', registerData)
       
-      const response = await fetch('http://localhost:8000/class-registers', {
+      const response = await fetch('http://localhost:8000/api/class-registers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -232,7 +212,7 @@ const ClassRegistration = () => {
       const linkedRegistrations = []
       if (linkedClassIds.length > 0) {
         console.log('Fetching all classes to find linked classes...')
-        const allClassesResponse = await fetch('http://localhost:8000/classes/')
+        const allClassesResponse = await fetch('http://localhost:8000/api/classes/')
         if (allClassesResponse.ok) {
           const allClasses = await allClassesResponse.json()
           
@@ -251,7 +231,7 @@ const ClassRegistration = () => {
 
                 console.log(`Registering linked class ${linkedClassId} (DB ID: ${linkedClass.id}):`, linkedRegisterData)
                 
-                const linkedResponse = await fetch('http://localhost:8000/class-registers', {
+                const linkedResponse = await fetch('http://localhost:8000/api/class-registers', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -297,7 +277,7 @@ const ClassRegistration = () => {
     console.log('Attempting to cancel registration with ID:', registerId)
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:8000/class-registers/${registerId}`, {
+      const response = await fetch(`http://localhost:8000/api/class-registers/${registerId}`, {
         method: 'DELETE'
       })
 
@@ -320,16 +300,10 @@ const ClassRegistration = () => {
 
   useEffect(() => {
     if (userInfo?.id) {
-      fetchRegisteredSubjectIds()
-    }
-  }, [userInfo])
-
-  useEffect(() => {
-    if (registeredSubjectIds.length >= 0) { // Allow empty array to show "no data"
       fetchClasses()
       fetchRegisteredClasses()
     }
-  }, [registeredSubjectIds])
+  }, [userInfo])
 
   // Filter classes safely
   const filteredClasses = classes.filter(classItem => {
@@ -598,14 +572,7 @@ const ClassRegistration = () => {
           </Space>
         }
       >
-        {registeredSubjectIds.length === 0 ? (
-          <div className="text-center py-8">
-            <Text type="secondary">
-              Bạn chưa đăng ký học phần nào. Vui lòng đăng ký học phần trước khi đăng ký lớp.
-            </Text>
-          </div>
-        ) : (
-          <Table
+        <Table
             columns={availableClassesColumns}
             dataSource={filteredClasses}
             rowKey="id"
@@ -620,7 +587,6 @@ const ClassRegistration = () => {
             tableLayout="auto"
             scroll={{ y: 400 }}
           />
-        )}
       </Card>
 
       {/* Confirmation Modal */}

@@ -55,7 +55,7 @@ const Schedule = () => {
       }
 
       // Sử dụng endpoint với student ID
-      const classRegisterResponse = await fetch(`http://localhost:8000/class-registers/student/${userInfo.id}`)
+      const classRegisterResponse = await fetch(`http://localhost:8000/api/class-registers/student/${userInfo.id}`)
       console.log('Class register response status:', classRegisterResponse.status)
       
       if (classRegisterResponse.ok) {
@@ -69,7 +69,7 @@ const Schedule = () => {
               console.log('Processing class_register:', register)
               
               // Lấy thông tin lớp học theo class_id (đã bao gồm subject info)
-              const classResponse = await fetch(`http://localhost:8000/classes/${register.class_id}`)
+              const classResponse = await fetch(`http://localhost:8000/api/classes/${register.class_id}`)
               if (classResponse.ok) {
                 const classData = await classResponse.json()
                 console.log('Class data received:', classData)
