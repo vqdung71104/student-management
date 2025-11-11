@@ -9,7 +9,7 @@ interface Subject {
   id: number
   subject_id: string
   subject_name: string
-  duration: number
+  duration: string
   credits: number
   tuition_fee: number
   english_subject_name: string
@@ -21,7 +21,7 @@ interface Subject {
 interface SubjectFormData {
   subject_id: string
   subject_name: string
-  duration: number
+  duration: string
   credits: number
   tuition_fee: number
   english_subject_name: string
@@ -41,7 +41,7 @@ const SubjectsManagement = () => {
   const [formData, setFormData] = useState<SubjectFormData>({
     subject_id: '',
     subject_name: '',
-    duration: 15,
+    duration: '',
     credits: 1,
     tuition_fee: 0,
     english_subject_name: '',
@@ -57,7 +57,7 @@ const SubjectsManagement = () => {
   const fetchSubjects = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/subjects')
+      const response = await fetch('http://localhost:8000/api/subjects')
       if (response.ok) {
         const data = await response.json()
         setSubjects(data)
@@ -74,7 +74,7 @@ const SubjectsManagement = () => {
 
   const handleCreateSubject = async () => {
     try {
-      const response = await fetch('http://localhost:8000/subjects/', {
+      const response = await fetch('http://localhost:8000/api/subjects/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ const SubjectsManagement = () => {
     if (!selectedSubject) return
     
     try {
-      const response = await fetch(`http://localhost:8000/subjects/${selectedSubject.id}`, {
+      const response = await fetch(`http://localhost:8000/api/subjects/${selectedSubject.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -126,7 +126,7 @@ const SubjectsManagement = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa học phần này?')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/subjects/${subjectId}`, {
+      const response = await fetch(`http://localhost:8000/api/subjects/${subjectId}`, {
         method: 'DELETE',
       })
       
@@ -146,7 +146,7 @@ const SubjectsManagement = () => {
     setFormData({
       subject_id: '',
       subject_name: '',
-      duration: 15,
+      duration: '',
       credits: 1,
       tuition_fee: 0,
       english_subject_name: '',
@@ -320,11 +320,11 @@ const SubjectsManagement = () => {
                 onChange={(e) => setFormData({...formData, credits: parseInt(e.target.value)})}
               />
               <input
-                type="number"
-                placeholder="Thời lượng (tuần)"
+                type="text"
+                placeholder="Thời lượng (ví dụ: 0(0-2-0))"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.duration}
-                onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value)})}
+                onChange={(e) => setFormData({...formData, duration: e.target.value})}
               />
               <input
                 type="number"
@@ -409,11 +409,11 @@ const SubjectsManagement = () => {
                 onChange={(e) => setFormData({...formData, credits: parseInt(e.target.value)})}
               />
               <input
-                type="number"
-                placeholder="Thời lượng (tuần)"
+                type="text"
+                placeholder="Thời lượng (ví dụ: 0(0-2-0))"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.duration}
-                onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value)})}
+                onChange={(e) => setFormData({...formData, duration: e.target.value})}
               />
               <input
                 type="number"
