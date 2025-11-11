@@ -52,7 +52,7 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         
         # List of intents that need database query
         data_intents = [
-            "grade_view", "student_info", "subject_info", 
+            "grade_view", "learned_subjects_view", "student_info", "subject_info", 
             "class_info", "schedule_view",
             "subject_registration_suggestion", "class_registration_suggestion"
         ]
@@ -149,7 +149,9 @@ def _generate_response_text(
         
         # Generate response based on intent and data
         if intent == "grade_view":
-            return f"Đây là điểm của bạn (tìm thấy {len(data)} môn học):"
+            return f"Thông tin học vụ của bạn:"
+        elif intent == "learned_subjects_view":
+            return f"Đây là điểm các môn đã học của bạn (tìm thấy {len(data)} môn):"
         elif intent == "student_info":
             return f"Đây là thông tin của bạn:"
         elif intent == "subject_info":
@@ -157,7 +159,7 @@ def _generate_response_text(
         elif intent == "class_info":
             return f"Danh sách lớp học (tìm thấy {len(data)} lớp):"
         elif intent == "schedule_view":
-            return f"Thời khóa biểu của bạn (tìm thấy {len(data)} lớp):"
+            return f"Các môn/lớp bạn đã đăng ký (tìm thấy {len(data)} lớp):"
         elif intent == "subject_registration_suggestion":
             return f"Gợi ý các học phần nên đăng ký (tìm thấy {len(data)} học phần):"
         elif intent == "class_registration_suggestion":

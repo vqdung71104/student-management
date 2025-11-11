@@ -50,7 +50,7 @@ class PhoBERTIntentClassifier:
         )
         
         try:
-            with open(intents_path, "r", encoding="utf-8") as f:
+            with open(intents_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
             print(f"❌ Không tìm thấy file intents.json tại {intents_path}")

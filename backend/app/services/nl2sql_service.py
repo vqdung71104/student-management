@@ -48,7 +48,7 @@ class NL2SQLService:
         )
         
         try:
-            with open(data_path, "r", encoding="utf-8") as f:
+            with open(data_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
             print(f"⚠️ Training data not found at {data_path}")
@@ -106,22 +106,38 @@ class NL2SQLService:
         """Extract entities from question (subject names, class IDs, etc.)"""
         entities = {}
         
-        # Extract subject IDs (e.g., IT4040, MAT1234)
-        subject_id_match = re.search(r'\b([A-Z]{2,4}\d{4})\b', question)
+        # Extract class IDs (e.g., 161084, 123456)
+        class_id_match = re.search(r'\blớp\s+(\d{6})\b', question, re.IGNORECASE)
+        if class_id_match:
+            entities['class_id'] = class_id_match.group(1)
+        
+        # Extract subject IDs (e.g., IT4040, MAT1234, MI1114, EM1180Q)
+        subject_id_match = re.search(r'\b([A-Z]{2,4}\d{4}[A-Z]?)\b', question)
         if subject_id_match:
             entities['subject_id'] = subject_id_match.group(1)
         
-        # Extract subject names (e.g., "Giải tích 1", "Đại số")
+        # Extract subject names (e.g., "Giải tích 1", "Đại số", "Lý thuyết điều khiển tự động")
+        # Try to extract after keywords, match until end of string or special words
         subject_patterns = [
-            r'môn ([\w\s]+?)(?:\s|$)',
-            r'học phần ([\w\s]+?)(?:\s|$)',
-            r'các lớp môn ([\w\s]+?)(?:\s|$)',
+            r'các lớp của môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'các lớp của học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'lớp của môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'lớp của học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'lớp của hoc của học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'các lớp môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'các lớp học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'các lớp ([A-Z]{2,4}\d{4}[A-Z]?|[A-ZĐĂÂÊÔƠƯ][a-zđăâêôơư]+(?:\s+[a-zđăâêôơư]+)*(?:\s+\d+)?)(?:\s*$|,|\?|\.)',
+            r'môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
         ]
         for pattern in subject_patterns:
             match = re.search(pattern, question, re.IGNORECASE)
             if match:
-                entities['subject_name'] = match.group(1).strip()
-                break
+                extracted = match.group(1).strip()
+                # Check if it's a subject_id (already extracted above)
+                if not re.match(r'^[A-Z]{2,4}\d{4}[A-Z]?$', extracted):
+                    entities['subject_name'] = extracted
+                    break
         
         # Extract day of week
         day_mapping = {
@@ -164,6 +180,10 @@ class NL2SQLService:
         if not intent_examples:
             return None
         
+        # Key phrases to boost matching for class queries
+        class_keywords = ['các lớp', 'lớp', 'danh sách lớp', 'xem lớp']
+        subject_keywords = ['môn', 'học phần', 'của môn', 'của học phần']
+        
         # Calculate similarity with each example
         best_match = None
         best_score = 0
@@ -181,12 +201,25 @@ class NL2SQLService:
             overlap = len(q_words & ex_words)
             score = overlap / max(len(q_words), len(ex_words))
             
+            # Boost score if key phrases match
+            for keyword in class_keywords:
+                if keyword in normalized_q and keyword in example_q:
+                    score += 0.2
+                    break
+            
+            for keyword in subject_keywords:
+                if keyword in normalized_q and keyword in example_q:
+                    score += 0.1
+                    break
+            
             if score > best_score:
                 best_score = score
                 best_match = example
         
+        print(f"   Best match score: {best_score:.2f} - Example: {best_match['question'] if best_match else 'None'}")
+        
         # Return if similarity is above threshold
-        if best_score > 0.3:
+        if best_score > 0.25:
             return best_match
         
         # If no good match, return first example as fallback
@@ -196,9 +229,21 @@ class NL2SQLService:
         """Customize SQL template with extracted entities"""
         sql = sql_template
         
+        # Replace class_id if found
+        if 'class_id' in entities:
+            sql = re.sub(
+                r"c\.class_id = '\d+'",
+                f"c.class_id = '{entities['class_id']}'",
+                sql
+            )
+        
         # Replace subject_id if found
         if 'subject_id' in entities:
-            sql = sql.replace("s.subject_id = 'IT4040'", f"s.subject_id = '{entities['subject_id']}'")
+            sql = re.sub(
+                r"s\.subject_id = '[A-Z]{2,4}\d{4}[A-Z]?'",
+                f"s.subject_id = '{entities['subject_id']}'",
+                sql
+            )
         
         # Replace subject_name if found
         if 'subject_name' in entities:

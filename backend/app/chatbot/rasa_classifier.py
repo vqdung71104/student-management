@@ -68,7 +68,7 @@ class RasaIntentClassifier:
     def _load_config(self, config_path: str) -> Dict:
         """Load Rasa configuration từ file JSON"""
         try:
-            with open(config_path, "r", encoding="utf-8") as f:
+            with open(config_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
             print(f"⚠️ Config file not found at {config_path}, using default config")
@@ -101,7 +101,7 @@ class RasaIntentClassifier:
         )
         
         try:
-            with open(intents_path, "r", encoding="utf-8") as f:
+            with open(intents_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
             print(f"⚠️ Intents file not found at {intents_path}")
