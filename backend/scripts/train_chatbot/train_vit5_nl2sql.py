@@ -126,7 +126,7 @@ class NL2SQLTrainer:
     
     def _load_data(self, data_path: str) -> Dict:
         """Load training data from JSON"""
-        with open(data_path, "r", encoding="utf-8") as f:
+        with open(data_path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     
     def _augment_data(self, examples: List[Dict]) -> List[Dict]:

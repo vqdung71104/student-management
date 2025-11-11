@@ -79,16 +79,39 @@
         "danh sách các lớp môn X",
         "danh sách các lớp môn A",
         "các lớp của môn B",
-        "các lớp bắt đầu vào lúc 8h25"
+        "các lớp bắt đầu vào lúc 8h25",
+        "xem thông tin lớp",
+        "các lớp học kỳ này",
+        "các lớp hiện có",
+        "hiện tại có các lớp học nào",
+        "danh sách các lớp",
+        "cho tôi xem các lớp",
+        "các lớp học của môn",
+        "cho tôi các lớp học của môn",
+        "lớp học của môn"
       ],
       "description": "Thông tin về lớp học"
     },
     {
       "tag": "grade_view",
       "patterns": [
+        "xem cpa",
+        "xem gpa",
+        "điểm trung bình",
+        "còn nợ bao nhiêu môn",
+        "còn nợ mấy tín chỉ",
+        "thông tin học vụ",
+        "kết quả học tập tổng quan",
+        "xem cpa của tôi",
+        "tôi còn nợ bao nhiêu môn"
+      ],
+      "description": "Xem điểm CPA, GPA và thông tin học vụ tổng quan"
+    },
+    {
+      "tag": "learned_subjects_view",
+      "patterns": [
         "xem điểm",
         "xem điểm số",
-        "xem kết quả học tập",
         "điểm của tôi",
         "điểm số của tôi",
         "em muốn xem điểm",
@@ -96,26 +119,20 @@
         "xem bảng điểm",
         "kiểm tra điểm",
         "tra điểm",
-        "điểm thi"
-      ],
-      "description": "Xem điểm số và kết quả học tập"
-    },
-    {
-      "tag": "student_info",
-      "patterns": [
-        "thông tin sinh viên",
-        "hồ sơ sinh viên",
-        "còn nợ bao nhiêu môn",
-        "còn nợ mấy tín chỉ",
+        "xem các môn đã học",
+        "các môn học đã hoàn thành",
+        "danh sách môn đã học",
+        "các học phần đã học",
+        "môn học đã thi",
         "các môn bị D",
         "các môn bị F",
         "các môn nên học cải thiện",
-        "cần điểm như nào để đạt cpa >3.2",
-        "xem cpa",
-        "xem gpa",
-        "điểm trung bình"
+        "xem kết quả học tập chi tiết",
+        "điểm các môn đã học",
+        "xem điểm môn",
+        "điểm môn học"
       ],
-      "description": "Xem thông tin sinh viên và học vụ"
+      "description": "Xem danh sách các môn đã học và điểm chi tiết"
     },
     {
       "tag": "schedule_view",
@@ -130,7 +147,13 @@
         "lịch học hôm nay",
         "lịch học ngày mai",
         "xem lịch",
-        "kiểm tra lịch học"
+        "kiểm tra lịch học",
+        "các môn đã đăng ký",
+        "môn học đã đăng ký",
+        "các lớp đã đăng ký",
+        "lớp học đã đăng ký",
+        "các môn học kỳ này",
+        "môn học kỳ này"
       ],
       "description": "Xem lịch học và thời khóa biểu hiện tại"
     },
