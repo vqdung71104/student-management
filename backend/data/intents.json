@@ -18,6 +18,16 @@
       "tag": "subject_registration_suggestion",
       "patterns": [
         "tôi nên đăng ký học phần gì",
+        "tôi nên đăng ký môn gì",
+        "tôi nên học môn gì",
+        "tôi nên học học phần gì",
+        "tôi nên đăng ký học phần nào",
+        "tôi nên học học phần nào",
+        "tôi nên đăng ký học phần nào kỳ này",
+        "kỳ này nên học môn nào",
+        "kỳ này nên học học phần nào",
+        "kỳ này nên đăng ký môn nào",
+        "kỳ này nên  đăng ký học phần nào",
         "tôi nên đăng ký môn nào",
         "kỳ này nên học học phần thể chất nào",
         "Nên học lại",
@@ -34,6 +44,12 @@
       "tag": "class_registration_suggestion",
       "patterns": [
         "tôi nên đăng ký lớp nào",
+        "kỳ này nên học lớp nào",
+        "kỳ này nên học những lớp nào",
+        "tôi nên học lớp nào",
+        "tôi nên học những lớp nào",
+        "tôi nên học lớp nào của môn",
+        "nên học lớp nào của môn",
         "môn này nên học học lớp nào",
         "với thời khóa biểu như hiện tại nên học lớp triết nào",
         "nên học lại môn nào trước",
@@ -43,7 +59,9 @@
         "Nên đăng ký lớp Giải tích ca nào?",
         "Nên đăng ký lớp hôm nào?",
         "các lớp học vào thứ 2 và thứ 4",
-        "danh sách lớp nên đăng ký"
+        "danh sách lớp nên đăng ký",
+        "gợi ý lớp cho tôi",
+        "gợi ý lớp học cho tôi"
       ],
       "description": "Gợi ý đăng ký lớp học phù hợp"
     },

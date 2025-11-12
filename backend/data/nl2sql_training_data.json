@@ -100,14 +100,42 @@
     {
       "intent": "class_registration_suggestion",
       "question": "gợi ý lớp học",
-      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id JOIN course_subjects cs ON s.id = cs.subject_id WHERE cs.course_id = (SELECT course_id FROM students WHERE id = {student_id}) ORDER BY s.subject_name, c.study_date",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name, s.subject_id, s.conditional_subjects FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.id IN (SELECT subject_id FROM subject_registers WHERE student_id = {student_id}) AND s.id NOT IN (SELECT subject_id FROM learned_subjects WHERE student_id = {student_id} AND letter_grade NOT IN ('F', 'I')) ORDER BY s.subject_name, c.study_date",
       "requires_auth": true,
       "parameters": ["student_id"]
     },
     {
       "intent": "class_registration_suggestion",
       "question": "tôi nên đăng ký lớp nào",
-      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id JOIN course_subjects cs ON s.id = cs.subject_id WHERE cs.course_id = (SELECT course_id FROM students WHERE id = {student_id}) ORDER BY s.subject_name, c.study_date",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name, s.subject_id, s.conditional_subjects FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.id IN (SELECT subject_id FROM subject_registers WHERE student_id = {student_id}) AND s.id NOT IN (SELECT subject_id FROM learned_subjects WHERE student_id = {student_id} AND letter_grade NOT IN ('F', 'I')) ORDER BY s.subject_name, c.study_date",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "class_registration_suggestion",
+      "question": "kỳ này nên học lớp nào",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name, s.subject_id, s.conditional_subjects FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.id IN (SELECT subject_id FROM subject_registers WHERE student_id = {student_id}) AND s.id NOT IN (SELECT subject_id FROM learned_subjects WHERE student_id = {student_id} AND letter_grade NOT IN ('F', 'I')) ORDER BY s.subject_name, c.study_date",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "class_registration_suggestion",
+      "question": "kỳ này nên học những lớp nào",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name, s.subject_id, s.conditional_subjects FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.id IN (SELECT subject_id FROM subject_registers WHERE student_id = {student_id}) AND s.id NOT IN (SELECT subject_id FROM learned_subjects WHERE student_id = {student_id} AND letter_grade NOT IN ('F', 'I')) ORDER BY s.subject_name, c.study_date",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "class_registration_suggestion",
+      "question": "tôi nên học lớp nào của môn Giải tích",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name, s.subject_id, s.conditional_subjects FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.id IN (SELECT subject_id FROM subject_registers WHERE student_id = {student_id}) AND s.id NOT IN (SELECT subject_id FROM learned_subjects WHERE student_id = {student_id} AND letter_grade NOT IN ('F', 'I')) AND s.subject_name LIKE '%Giải tích%' ORDER BY c.study_date",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "class_registration_suggestion",
+      "question": "tôi nên học lớp nào của môn MI1114",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name, s.subject_id, s.conditional_subjects FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.id IN (SELECT subject_id FROM subject_registers WHERE student_id = {student_id}) AND s.id NOT IN (SELECT subject_id FROM learned_subjects WHERE student_id = {student_id} AND letter_grade NOT IN ('F', 'I')) AND s.subject_id = 'MI1114' ORDER BY c.study_date",
       "requires_auth": true,
       "parameters": ["student_id"]
     },
