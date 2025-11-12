@@ -84,6 +84,22 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                         data = [dict(zip(columns, row)) for row in rows]
                     else:
                         data = []
+                    
+                    # For class_registration_suggestion, add student CPA info
+                    if intent == "class_registration_suggestion" and message.student_id:
+                        try:
+                            student_result = db.execute(text(
+                                "SELECT cpa, failed_subjects_number, warning_level FROM students WHERE id = :student_id"
+                            ), {"student_id": message.student_id}).fetchone()
+                            
+                            if student_result:
+                                # Add student info to each class suggestion
+                                for item in data:
+                                    item["student_cpa"] = student_result[0]
+                                    item["student_failed_subjects"] = student_result[1]
+                                    item["student_warning_level"] = student_result[2]
+                        except Exception as e:
+                            print(f"⚠️ Warning: Could not fetch student CPA: {e}")
                 
             except Exception as e:
                 sql_error = str(e)
@@ -163,7 +179,13 @@ def _generate_response_text(
         elif intent == "subject_registration_suggestion":
             return f"Gợi ý các học phần nên đăng ký (tìm thấy {len(data)} học phần):"
         elif intent == "class_registration_suggestion":
-            return f"Gợi ý các lớp học nên đăng ký (tìm thấy {len(data)} lớp):"
+            # Add CPA info if available
+            cpa_info = ""
+            if len(data) > 0 and "student_cpa" in data[0]:
+                cpa = data[0]["student_cpa"]
+                warning = data[0].get("student_warning_level", "")
+                cpa_info = f" (CPA của bạn: {cpa:.2f}, {warning})"
+            return f"Gợi ý các lớp học nên đăng ký (tìm thấy {len(data)} lớp){cpa_info}:"
     
     # Default response
     intent_friendly_name = classifier.get_intent_friendly_name(intent)
