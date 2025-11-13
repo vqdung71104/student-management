@@ -511,7 +511,7 @@ const ScheduleManagement = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">📅 Quản lý thời khóa biểu</h1>
+          <h1 className="text-2xl font-bold text-gray-900">   Quản lý thời khóa biểu</h1>
           <p className="text-gray-600">Quản lý lịch học và thời khóa biểu của các lớp</p>
         </div>
         
@@ -547,7 +547,7 @@ const ScheduleManagement = () => {
           </button>
           
           <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
-            ➕ Thêm lớp thủ công
+               Thêm lớp thủ công
           </button>
         </div>
       </div>
@@ -717,13 +717,13 @@ const ScheduleManagement = () => {
                       onClick={() => handleEditClass(classItem)}
                       className="text-indigo-600 hover:text-indigo-900 mr-2 transition-colors"
                     >
-                      ✏️ Sửa
+                         Sửa
                     </button>
                     <button 
                       onClick={() => handleDeleteClass(classItem.id)}
                       className="text-red-600 hover:text-red-900 transition-colors"
                     >
-                      🗑️ Xóa
+                        Xóa
                     </button>
                   </td>
                 </tr>

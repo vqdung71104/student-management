@@ -7,7 +7,7 @@ from typing import List, Optional
 
 router = APIRouter(prefix="/subjects", tags=["Subjects"])
 
-# ✅ Create subject
+#    Create subject
 @router.post("/", response_model=SubjectResponse)
 def create_subject(subject_data: SubjectCreate, db: Session = Depends(get_db)):
     # Kiểm tra xem subject_id đã tồn tại chưa
@@ -23,12 +23,12 @@ def create_subject(subject_data: SubjectCreate, db: Session = Depends(get_db)):
     db.refresh(db_subject)
     return db_subject
 
-# ✅ Get all subjects
+#    Get all subjects
 @router.get("/", response_model=List[SubjectResponse])
 def get_subjects(db: Session = Depends(get_db)):
     return db.query(Subject).all()
 
-# ✅ Get subject by ID
+#    Get subject by ID
 @router.get("/{subject_id}", response_model=SubjectResponse)
 def get_subject(subject_id: int, db: Session = Depends(get_db)):
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
@@ -36,7 +36,7 @@ def get_subject(subject_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Subject not found")
     return subject
 
-# ✅ Update subject
+#    Update subject
 @router.put("/{subject_id}", response_model=SubjectResponse)
 def update_subject(subject_id: int, subject_update: SubjectUpdate, db: Session = Depends(get_db)):
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
@@ -57,7 +57,7 @@ def update_subject(subject_id: int, subject_update: SubjectUpdate, db: Session =
     db.refresh(subject)
     return subject
 
-# ✅ Delete subject
+#    Delete subject
 @router.delete("/{subject_id}")
 def delete_subject(subject_id: int, db: Session = Depends(get_db)):
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
@@ -67,7 +67,7 @@ def delete_subject(subject_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Subject deleted successfully"}
 
-# ✅ Get subject by subject_id (mã môn học)
+#    Get subject by subject_id (mã môn học)
 @router.get("/by-code/{subject_code}", response_model=SubjectResponse)
 def get_subject_by_code(subject_code: str, db: Session = Depends(get_db)):
     subject = db.query(Subject).filter(Subject.subject_id == subject_code).first()

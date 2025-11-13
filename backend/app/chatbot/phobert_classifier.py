@@ -17,14 +17,14 @@ class PhoBERTIntentClassifier:
     
     def __init__(self):
         """Initialize PhoBERT model và load intents"""
-        print("🔄 Loading PhoBERT model...")
+        print("   Loading PhoBERT model...")
         
         # Sử dụng Vietnamese SBERT model
         try:
             self.model = SentenceTransformer('keepitreal/vietnamese-sbert')
-            print("✅ Loaded Vietnamese SBERT model")
+            print("   Loaded Vietnamese SBERT model")
         except Exception as e:
-            print(f"⚠️ Failed to load Vietnamese SBERT, using multilingual model: {e}")
+            print(f"   Failed to load Vietnamese SBERT, using multilingual model: {e}")
             # Fallback to multilingual model
             self.model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
         
@@ -39,7 +39,7 @@ class PhoBERTIntentClassifier:
             "low": 0.0         # Còn lại = low confidence
         }
         
-        print(f"✅ PhoBERT classifier initialized with {len(self.intents.get('intents', []))} intents")
+        print(f"   PhoBERT classifier initialized with {len(self.intents.get('intents', []))} intents")
     
     def _load_intents(self) -> Dict:
         """Load intents từ file JSON"""
@@ -53,7 +53,7 @@ class PhoBERTIntentClassifier:
             with open(intents_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"❌ Không tìm thấy file intents.json tại {intents_path}")
+            print(f"  Không tìm thấy file intents.json tại {intents_path}")
             return {"intents": []}
     
     def _precompute_intent_embeddings(self):
@@ -61,7 +61,7 @@ class PhoBERTIntentClassifier:
         Tính trước embeddings cho tất cả patterns trong mỗi intent
         Sử dụng average embedding cho mỗi intent
         """
-        print("🔄 Precomputing intent embeddings...")
+        print("   Precomputing intent embeddings...")
         
         for intent in self.intents.get("intents", []):
             tag = intent["tag"]
@@ -86,7 +86,7 @@ class PhoBERTIntentClassifier:
                 "description": intent.get("description", "")
             }
         
-        print(f"✅ Precomputed embeddings for {len(self.intent_embeddings)} intents")
+        print(f"       Precomputed embeddings for {len(self.intent_embeddings)} intents")
     
     async def classify_intent(self, user_message: str) -> Dict[str, any]:
         """
@@ -142,7 +142,7 @@ class PhoBERTIntentClassifier:
             }
             
         except Exception as e:
-            print(f"❌ Lỗi khi phân loại intent với PhoBERT: {str(e)}")
+            print(f"  Lỗi khi phân loại intent với PhoBERT: {str(e)}")
             return {
                 "intent": "unknown",
                 "description": "Không thể xác định ý định",

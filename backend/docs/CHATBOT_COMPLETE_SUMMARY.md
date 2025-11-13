@@ -152,7 +152,7 @@ Result: Precise matching
 
 ---
 
-## 🧪 Test Files Summary
+##    Test Files Summary
 
 ### test_intent_classification.py
 
@@ -235,7 +235,7 @@ Result: Precise matching
 
 ---
 
-## 📈 Performance Summary
+##    Performance Summary
 
 ### Overall System Performance
 
@@ -268,7 +268,7 @@ Low confidence (<40%): 5% of queries
 
 ---
 
-## 🎯 Key Features Documented
+##    Key Features Documented
 
 ### 1. Intent Classification
 - **Method**: Rasa NLU + TF-IDF fallback
@@ -362,7 +362,7 @@ backend/
 
 ---
 
-## 📊 Statistics
+##    Statistics
 
 ### Documentation Coverage
 
@@ -374,23 +374,23 @@ backend/
 
 ### Components Documented
 
-- ✅ API Endpoints (1 main endpoint)
-- ✅ Intent Classification (2 methods)
-- ✅ Entity Extraction (10+ patterns)
-- ✅ SQL Generation (2 methods)
-- ✅ Database Integration (SQLAlchemy)
-- ✅ Response Generation (6 templates)
+-    API Endpoints (1 main endpoint)
+-    Intent Classification (2 methods)
+-    Entity Extraction (10+ patterns)
+-    SQL Generation (2 methods)
+-    Database Integration (SQLAlchemy)
+-    Response Generation (6 templates)
 
 ### Testing Coverage
 
-- ✅ Unit tests (Intent, NL2SQL)
-- ✅ Integration tests (End-to-end)
-- ✅ Performance tests (Throughput)
-- ✅ Edge cases (Errors, typos)
+-    Unit tests (Intent, NL2SQL)
+-    Integration tests (End-to-end)
+-    Performance tests (Throughput)
+-    Edge cases (Errors, typos)
 
 ---
 
-## 🎓 Learning Path
+##    Learning Path
 
 ### Beginner
 1. Read README.md
@@ -430,7 +430,7 @@ backend/
 
 ---
 
-## ✅ Checklist
+##    Checklist
 
 ### Documentation ✓
 - [x] Technical overview
@@ -453,7 +453,7 @@ backend/
 
 ---
 
-## 📝 Notes
+##    Notes
 
 ### Tools Used
 - **Rasa NLU 3.6+**: Intent classification
@@ -464,12 +464,12 @@ backend/
 - **FastAPI 0.104+**: API framework
 
 ### Key Achievements
-- ✅ 95-100% intent accuracy
-- ✅ 125ms average response
-- ✅ 40+ req/s throughput
-- ✅ Smart class suggestions
-- ✅ Vietnamese language support
-- ✅ Comprehensive documentation
+-    95-100% intent accuracy
+-    125ms average response
+-    40+ req/s throughput
+-    Smart class suggestions
+-    Vietnamese language support
+-    Comprehensive documentation
 
 ---
 

@@ -36,11 +36,11 @@ def test_api():
         print(f"Status Code: {response.status_code}")
         
         if response.status_code in [200, 201]:
-            print("✅ Success!")
+            print("   Success!")
             result = response.json()
             print(f"Created scholarship ID: {result.get('id')}")
         else:
-            print("❌ Failed!")
+            print("  Failed!")
             print(f"Error: {response.text}")
             
     except Exception as e:

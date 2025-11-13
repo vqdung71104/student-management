@@ -15,7 +15,7 @@ try:
             print('\nFirst learned subject:')
             first = data['learned_subjects'][0]
             print(json.dumps(first, indent=2, ensure_ascii=False))
-            print(f'\n✅ subject_code field exists: {"subject_code" in first}')
+            print(f'\n   subject_code field exists: {"subject_code" in first}')
     else:
         print(f'Error: {response.text}')
 except Exception as e:

@@ -258,21 +258,21 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                       onClick={() => showStudentPage('schedule')}
                       className={currentPage.includes('schedule') ? 'bg-blue-50 font-semibold' : ''}
                     >
-                      📅 Thời khóa biểu
+                       Thời khóa biểu
                     </Menu.Item>
                     <Menu.Item
                       key="grades"
                       onClick={() => showStudentPage('grades')}
                       className={currentPage.includes('grades') ? 'bg-blue-50 font-semibold' : ''}
                     >
-                      📊 Xem điểm
+                         Xem điểm
                     </Menu.Item>
                     <Menu.Item
                       key="curriculum"
                       onClick={() => showStudentPage('curriculum')}
                       className={currentPage.includes('curriculum') ? 'bg-blue-50 font-semibold' : ''}
                     >
-                      📋 Chương trình đào tạo
+                       Chương trình đào tạo
                     </Menu.Item>
                   </Menu>
                 }
@@ -287,7 +287,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
-                  <span>📚 Học tập</span>
+                  <span> Học tập</span>
                   <span className="span-icon-narrow">
                     <DownOutlined />
                   </span>
@@ -304,7 +304,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   }`}
                   onClick={() => setRegistrationMenuOpen(!registrationMenuOpen)}
                 >
-                  <span>📝 Đăng ký học tập</span>
+                  <span> Đăng ký học tập</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -312,10 +312,10 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {registrationMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => window.location.href = '/student/subject-registration'} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📚 Đăng ký học phần
+                         Đăng ký học phần
                     </button>
                     <button onClick={() => window.location.href = '/student/class-registration'} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🏫 Đăng ký lớp
+                       Đăng ký lớp
                     </button>
                   </div>
                 )}
@@ -331,7 +331,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   }`}
                   onClick={() => setProjectMenuOpen(!projectMenuOpen)}
                 >
-                  <span>🎯 Đồ án</span>
+                  <span> Đồ án</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -339,19 +339,19 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {projectMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('project-list')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📋 Danh sách đồ án
+                         Danh sách đồ án
                     </button>
                     <button onClick={() => showStudentPage('project-register')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ✍️ Đăng ký nguyện vọng
+                       Đăng ký nguyện vọng
                     </button>
                     <button onClick={() => showStudentPage('project-guidance')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🎯 Định hướng đề tài
+                         Định hướng đề tài
                     </button>
                     <button onClick={() => showStudentPage('company-list')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🏢 DS Doanh nghiệp
+                       DS Doanh nghiệp
                     </button>
                     <button onClick={() => showStudentPage('plagiarism-check')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🔍 Kiểm tra trùng lặp
+                       Kiểm tra trùng lặp
                     </button>
                   </div>
                 )}
@@ -366,7 +366,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 }`}
                 onClick={() => showStudentPage('forms')}
               >
-                📄 Biểu mẫu
+                 Biểu mẫu
               </button>
               
               {/* Học bổng */}
@@ -387,10 +387,10 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {scholarshipMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('scholarship-register')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📝 Đăng ký học bổng
+                         Đăng ký học bổng
                     </button>
                     <button onClick={() => showStudentPage('scholarship-criteria')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📊 Điều kiện xét học bổng
+                         Điều kiện xét học bổng
                     </button>
                   </div>
                 )}
@@ -406,7 +406,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   }`}
                   onClick={() => setIntegratedStudyMenuOpen(!integratedStudyMenuOpen)}
                 >
-                  <span>🎓 Học tích hợp</span>
+                  <span> Học tích hợp</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -414,10 +414,10 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {integratedStudyMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('engineer-advanced')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      👨‍💼 Kỹ sư chuyên sâu
+                       Kỹ sư chuyên sâu
                     </button>
                     <button onClick={() => showStudentPage('master-degree')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🎓 Thạc sỹ
+                         Thạc sỹ
                     </button>
                   </div>
                 )}
@@ -432,7 +432,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 }`}
                 onClick={() => showStudentPage('research')}
               >
-                🔬 NCKH
+                 NCKH
               </button>
               
               {/* CT Trao đổi */}
@@ -444,7 +444,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 }`}
                 onClick={() => showStudentPage('exchange')}
               >
-                🌏 CT Trao đổi
+                 CT Trao đổi
               </button>
               
               {/* Hỗ trợ */}
@@ -457,7 +457,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   }`}
                   onClick={() => setSupportMenuOpen(!supportMenuOpen)}
                 >
-                  <span>❓ Hỗ trợ</span>
+                  <span> Hỗ trợ</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -465,13 +465,13 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {supportMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('user-guide')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📖 Hướng dẫn sử dụng
+                       Hướng dẫn sử dụng
                     </button>
                     <button onClick={() => showStudentPage('faq')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ❓ Những câu hỏi thường gặp
+                         Những câu hỏi thường gặp
                     </button>
                     <button onClick={() => showStudentPage('feedback')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      💬 Phản hồi và góp ý
+                       Phản hồi và góp ý
                     </button>
                   </div>
                 )}
@@ -543,7 +543,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 onClick={onLogout}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 font-medium"
               >
-                🚪 Đăng xuất
+                 Đăng xuất
               </button>
             </div>
           </div>

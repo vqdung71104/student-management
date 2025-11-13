@@ -16,11 +16,11 @@ from app.services.nl2sql_service import NL2SQLService
 async def test_nl2sql_basic():
     """Test basic NL2SQL functionality"""
     print("\n" + "="*70)
-    print("🧪 TEST 1: BASIC NL2SQL FUNCTIONALITY")
+    print("   TEST 1: BASIC NL2SQL FUNCTIONALITY")
     print("="*70)
     
     # Initialize services
-    print("\n📋 Initializing services...")
+    print("\n   Initializing services...")
     intent_classifier = RasaIntentClassifier()
     nl2sql_service = NL2SQLService()
     
@@ -52,7 +52,7 @@ async def test_nl2sql_basic():
         },
     ]
     
-    print(f"\n📋 Testing {len(test_cases)} cases...\n")
+    print(f"\n   Testing {len(test_cases)} cases...\n")
     
     correct_intent = 0
     sql_generated = 0
@@ -84,9 +84,9 @@ async def test_nl2sql_basic():
         
         if intent_correct:
             correct_intent += 1
-            status = "✅"
+            status = "  "
         else:
-            status = "❌"
+            status = " "
         
         if has_sql:
             sql_generated += 1
@@ -102,7 +102,7 @@ async def test_nl2sql_basic():
     
     # Summary
     print("="*70)
-    print("📊 SUMMARY")
+    print("   SUMMARY")
     print("="*70)
     print(f"Intent classification: {correct_intent}/{len(test_cases)} ({correct_intent/len(test_cases)*100:.1f}%)")
     print(f"SQL generated: {sql_generated}/{len(test_cases)} ({sql_generated/len(test_cases)*100:.1f}%)")
@@ -111,7 +111,7 @@ async def test_nl2sql_basic():
 async def test_entity_extraction():
     """Test entity extraction"""
     print("\n" + "="*70)
-    print("🧪 TEST 2: ENTITY EXTRACTION")
+    print("   TEST 2: ENTITY EXTRACTION")
     print("="*70)
     
     nl2sql_service = NL2SQLService()
@@ -148,7 +148,7 @@ async def test_entity_extraction():
         },
     ]
     
-    print(f"\n📋 Testing {len(test_cases)} cases...\n")
+    print(f"\n   Testing {len(test_cases)} cases...\n")
     
     for i, test_case in enumerate(test_cases, 1):
         question = test_case["question"]
@@ -175,13 +175,13 @@ async def test_entity_extraction():
         all_found = True
         for key, value in expected_entities.items():
             if key not in entities:
-                print(f"   ❌ Missing entity: {key}")
+                print(f"     Missing entity: {key}")
                 all_found = False
             elif entities[key] != value:
-                print(f"   ⚠️  Entity mismatch: {key} = {entities[key]} (expected {value})")
+                print(f"       Entity mismatch: {key} = {entities[key]} (expected {value})")
         
         if all_found:
-            print(f"   ✅ All entities extracted correctly")
+            print(f"      All entities extracted correctly")
         
         print()
 
@@ -189,7 +189,7 @@ async def test_entity_extraction():
 async def test_sql_customization():
     """Test SQL query customization with entities"""
     print("\n" + "="*70)
-    print("🧪 TEST 3: SQL CUSTOMIZATION")
+    print("   TEST 3: SQL CUSTOMIZATION")
     print("="*70)
     
     nl2sql_service = NL2SQLService()
@@ -214,7 +214,7 @@ async def test_sql_customization():
         },
     ]
     
-    print(f"\n📋 Testing {len(test_cases)} cases...\n")
+    print(f"\n   Testing {len(test_cases)} cases...\n")
     
     for i, test_case in enumerate(test_cases, 1):
         question = test_case["question"]
@@ -240,13 +240,13 @@ async def test_sql_customization():
         all_found = True
         for expected_part in check_contains:
             if expected_part not in sql:
-                print(f"   ❌ Missing: {expected_part}")
+                print(f"     Missing: {expected_part}")
                 all_found = False
             else:
-                print(f"   ✅ Contains: {expected_part}")
+                print(f"      Contains: {expected_part}")
         
         if not all_found:
-            print(f"   ⚠️  SQL may not be fully customized")
+            print(f"       SQL may not be fully customized")
         
         print()
 
@@ -254,7 +254,7 @@ async def test_sql_customization():
 async def test_full_workflow():
     """Test full workflow: intent → SQL → response"""
     print("\n" + "="*70)
-    print("🧪 TEST 4: FULL WORKFLOW SIMULATION")
+    print("   TEST 4: FULL WORKFLOW SIMULATION")
     print("="*70)
     
     intent_classifier = RasaIntentClassifier()
@@ -267,17 +267,17 @@ async def test_full_workflow():
         ("Cảm ơn!", 1),
     ]
     
-    print(f"\n💬 Simulating conversation...\n")
+    print(f"\n   Simulating conversation...\n")
     
     for message, student_id in test_messages:
-        print(f"👤 User: {message}")
+        print(f"   User: {message}")
         
         # 1. Classify intent
         intent_result = await intent_classifier.classify_intent(message)
         intent = intent_result["intent"]
         confidence = intent_result["confidence"]
         
-        print(f"   🎯 Intent: {intent} ({confidence})")
+        print(f"      Intent: {intent} ({confidence})")
         
         # 2. Generate SQL if needed
         data_intents = [
@@ -294,16 +294,16 @@ async def test_full_workflow():
             
             sql = sql_result.get("sql")
             if sql:
-                print(f"   📊 SQL: {sql[:80]}{'...' if len(sql) > 80 else ''}")
-                print(f"   🤖 Response: Đã tìm thấy dữ liệu từ database")
+                print(f"      SQL: {sql[:80]}{'...' if len(sql) > 80 else ''}")
+                print(f"      Response: Đã tìm thấy dữ liệu từ database")
             else:
-                print(f"   ⚠️  No SQL generated")
+                print(f"       No SQL generated")
         else:
             # Non-data intent
             if intent == "greeting":
-                print(f"   🤖 Response: Xin chào! Mình là trợ lý ảo...")
+                print(f"      Response: Xin chào! Mình là trợ lý ảo...")
             elif intent == "thanks":
-                print(f"   🤖 Response: Rất vui được giúp đỡ bạn!")
+                print(f"      Response: Rất vui được giúp đỡ bạn!")
         
         print()
 
@@ -311,20 +311,20 @@ async def test_full_workflow():
 async def test_schema_info():
     """Test schema information"""
     print("\n" + "="*70)
-    print("🧪 TEST 5: SCHEMA INFORMATION")
+    print("   TEST 5: SCHEMA INFORMATION")
     print("="*70)
     
     nl2sql_service = NL2SQLService()
     
     schema = nl2sql_service.get_schema_info()
     
-    print(f"\n📊 Database Schema ({len(schema)} tables):\n")
+    print(f"\n   Database Schema ({len(schema)} tables):\n")
     
     for table_name, table_info in schema.items():
         columns = table_info.get("columns", [])
         description = table_info.get("description", "")
         
-        print(f"📋 {table_name}")
+        print(f"   {table_name}")
         print(f"   Description: {description}")
         print(f"   Columns ({len(columns)}): {', '.join(columns[:5])}")
         if len(columns) > 5:
@@ -350,12 +350,12 @@ async def run_all_tests():
         try:
             await test_func()
         except Exception as e:
-            print(f"\n❌ Test failed: {e}")
+            print(f"\n  Test failed: {e}")
             import traceback
             traceback.print_exc()
     
     print("\n" + "="*70)
-    print("✅ ALL TESTS COMPLETED")
+    print("   ALL TESTS COMPLETED")
     print("="*70)
 
 
@@ -363,8 +363,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(run_all_tests())
     except KeyboardInterrupt:
-        print("\n\n⚠️ Tests interrupted by user")
+        print("\n\n   Tests interrupted by user")
     except Exception as e:
-        print(f"\n\n❌ Fatal error: {e}")
+        print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()

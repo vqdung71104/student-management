@@ -122,16 +122,16 @@ const Grades = () => {
 
       if (response.ok) {
         const result = await response.json()
-        alert(`✅ ${result.message}`)
+        alert(`   ${result.message}`)
         setShowAddForm(false)
         fetchGrades() // Refresh data
       } else {
         const error = await response.json()
-        alert(`❌ Lỗi: ${error.detail}`)
+        alert(`  Lỗi: ${error.detail}`)
       }
     } catch (error) {
       console.error('Error adding grade:', error)
-      alert('❌ Có lỗi xảy ra khi thêm môn học')
+      alert('  Có lỗi xảy ra khi thêm môn học')
     } finally {
       setSubmitting(false)
     }
@@ -155,15 +155,15 @@ const Grades = () => {
       })
 
       if (response.ok) {
-        alert('✅ Đã xóa môn học thành công!')
+        alert('   Đã xóa môn học thành công!')
         fetchGrades() // Refresh data
       } else {
         const error = await response.json()
-        alert(`❌ Lỗi: ${error.detail || 'Không thể xóa môn học'}`)
+        alert(`  Lỗi: ${error.detail || 'Không thể xóa môn học'}`)
       }
     } catch (error) {
       console.error('Error deleting grade:', error)
-      alert('❌ Có lỗi xảy ra khi xóa môn học')
+      alert('  Có lỗi xảy ra khi xóa môn học')
     } finally {
       setDeletingId(null)
     }
@@ -219,14 +219,14 @@ const Grades = () => {
             onClick={() => setShowAddForm(true)}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2"
           >
-            <span>➕</span>
+            <span>  </span>
             <span>Thêm môn học</span>
           </button>
           <button
             onClick={() => setShowExcelUpload(true)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center space-x-2"
           >
-            <span>📊</span>
+            <span>  </span>
             <span>Upload Excel</span>
           </button>
         </div>
@@ -363,7 +363,7 @@ const Grades = () => {
                       }`}
                       title="Xóa môn học"
                     >
-                      {deletingId === grade.id ? '⏳' : '🗑️ Xóa'}
+                      {deletingId === grade.id ? 'hủy' : ' Xóa'}
                     </button>
                   </td>
                 </tr>

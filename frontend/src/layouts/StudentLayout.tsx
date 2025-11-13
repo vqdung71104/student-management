@@ -94,7 +94,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     onMouseEnter={() => setStudyMenuOpen(true)}
                     onMouseLeave={() => setStudyMenuOpen(true)}
                   >
-                    <span>📚</span>
+                    <span>  </span>
                     <span className="hidden lg:inline">{t.study}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -107,13 +107,13 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       onMouseLeave={() => setStudyMenuOpen(false)}
                     >
                       <button onClick={() => navigateTo('/student/schedule')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📅 {t.schedule}
+                           {t.schedule}
                       </button>
                       <button onClick={() => navigateTo('/student/grades')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📊 {t.grades}
+                           {t.grades}
                       </button>
                       <button onClick={() => navigateTo('/student/curriculum')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📖 {t.curriculum}
+                           {t.curriculum}
                       </button>
                     </div>
                   )}
@@ -130,7 +130,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     onMouseEnter={() => setRegistrationMenuOpen(true)}
                     onMouseLeave={() => setRegistrationMenuOpen(true)}
                   >
-                    <span>📝</span>
+                    <span>  </span>
                     <span className="hidden lg:inline">{t.registration}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -143,10 +143,10 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       onMouseLeave={() => setRegistrationMenuOpen(false)}
                     >
                       <button onClick={() => navigateTo('/student/subject-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📚 {t.subjectRegistration}
+                           {t.subjectRegistration}
                       </button>
                       <button onClick={() => navigateTo('/student/class-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        🏫 {t.classRegistration}
+                           {t.classRegistration}
                       </button>
                     </div>
                   )}
@@ -161,7 +161,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   }`}
                   onClick={() => navigateTo('/student/forms')}
                 >
-                  <span>📄</span>
+                  <span>  </span>
                   <span className="hidden lg:inline">{t.forms}</span>
                 </button>
 
@@ -176,7 +176,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     onMouseEnter={() => setScholarshipMenuOpen(true)}
                     onMouseLeave={() => setScholarshipMenuOpen(true)}
                   >
-                    <span>🏆</span>
+                    <span></span>
                     <span className="hidden lg:inline">{t.scholarships}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -189,10 +189,10 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       onMouseLeave={() => setScholarshipMenuOpen(false)}
                     >
                       <button onClick={() => navigateTo('/student/scholarships')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📝 Đăng ký học bổng
+                           Đăng ký học bổng
                       </button>
                       <button onClick={() => navigateTo('/student/scholarships')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📏 Điều kiện xét học bổng
+                         Điều kiện xét học bổng
                       </button>
                     </div>
                   )}
@@ -207,7 +207,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   }`}
                   onClick={() => navigateTo('/student/change-password')}
                 >
-                  <span>🔐</span>
+                  <span>  </span>
                   <span className="hidden lg:inline">Đổi mật khẩu</span>
                 </button>
 
@@ -222,7 +222,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     onMouseEnter={() => setSupportMenuOpen(true)}
                     onMouseLeave={() => setSupportMenuOpen(true)}
                   >
-                    <span>❓</span>
+                    <span>  </span>
                     <span className="hidden lg:inline">{t.support}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -235,13 +235,13 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       onMouseLeave={() => setSupportMenuOpen(false)}
                     >
                       <button onClick={() => navigateTo('/student/support/user-guide')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📖 {t.userGuide}
+                           {t.userGuide}
                       </button>
                       <button onClick={() => navigateTo('/student/support/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        ❓ {t.faq}
+                           {t.faq}
                       </button>
                       <button onClick={() => navigateTo('/student/support/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        💬 {t.feedback}
+                           {t.feedback}
                       </button>
                     </div>
                   )}
@@ -361,7 +361,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                 onClick={handleLogoutClick}
                 className="h-8 px-3 bg-gray-500 text-white rounded-md hover:bg-gray-400 border border-gray-300 transition-all duration-200 text-xs font-medium flex items-center space-x-1 shadow-sm hover:shadow-md"
               >
-                <span>👤</span>
+                
                 <span className="hidden lg:inline">{t.logout}</span>
               </button>
             </div>
@@ -373,19 +373,19 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
           <div className="md:hidden bg-gray-100 border-t border-gray-300 w-full">
             <div className="w-full px-4 py-2 space-y-1">
               <button onClick={() => { navigateTo('/student/schedule'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                📚 {t.study}
+                   {t.study}
               </button>
               <button onClick={() => { navigateTo('/student/subject-registration'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                📝 {t.registration}
+                   {t.registration}
               </button>
               <button onClick={() => { navigateTo('/student/forms'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                📄 {t.forms}
+                   {t.forms}
               </button>
               <button onClick={() => { navigateTo('/student/scholarships'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
                 🏆 {t.scholarships}
               </button>
               <button onClick={() => { navigateTo('/student/support/faq'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                ❓ {t.support}
+                   {t.support}
               </button>
             </div>
           </div>
@@ -452,7 +452,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
           <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-6 max-w-sm mx-4">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 text-xl">⚠️</span>
+                <span className="text-orange-600 text-xl">  </span>
               </div>
               <h3 className="text-lg font-semibold text-gray-900">Xác nhận đăng xuất</h3>
             </div>
@@ -483,11 +483,11 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
           <ChatBot />
           <button
             onClick={toggleChatbot}
-            className="absolute top-4 right-4 text-white hover:text-gray-200 transition-colors z-10"
+            className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-700 hover:text-gray-900 rounded-full p-1.5 shadow-lg hover:shadow-xl transition-all duration-200 z-10"
             aria-label="Close chatbot"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>

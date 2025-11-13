@@ -26,9 +26,9 @@ async def example_1_basic_usage():
     message = "Tôi muốn đăng ký môn học"
     result = await classifier.classify_intent(message)
     
-    print(f"\n💬 Message: \"{message}\"")
-    print(f"🎯 Intent: {result['intent']}")
-    print(f"📊 Confidence: {result['confidence']}")
+    print(f"\n   Message: \"{message}\"")
+    print(f"   Intent: {result['intent']}")
+    print(f"   Confidence: {result['confidence']}")
     print(f"🔢 Score: {result['confidence_score']:.4f}")
     print(f"🔧 Method: {result['method']}")
 
@@ -49,7 +49,7 @@ async def example_2_batch_processing():
         "Cảm ơn bạn!"
     ]
     
-    print(f"\n📋 Processing {len(messages)} messages...\n")
+    print(f"\n   Processing {len(messages)} messages...\n")
     
     for i, message in enumerate(messages, 1):
         result = await classifier.classify_intent(message)
@@ -67,12 +67,12 @@ async def example_3_similarity_analysis():
     
     message = "Tôi muốn hỏi về việc đăng ký lớp học"
     
-    print(f"\n💬 Message: \"{message}\"\n")
+    print(f"\n   Message: \"{message}\"\n")
     
     # Get all similarities
     similarities = classifier.get_all_similarities(message)
     
-    print("📊 Top 5 similar intents:")
+    print("   Top 5 similar intents:")
     for i, (intent, score) in enumerate(similarities[:5], 1):
         # Create a visual bar
         bar_length = int(score * 40)
@@ -95,7 +95,7 @@ async def example_4_confidence_levels():
         ("xyz123", "Expected: Low confidence or out_of_scope"),
     ]
     
-    print("\n📊 Testing different confidence levels:\n")
+    print("\n   Testing different confidence levels:\n")
     
     for message, expectation in test_cases:
         result = await classifier.classify_intent(message)
@@ -108,7 +108,7 @@ async def example_4_confidence_levels():
         
         emoji = confidence_emoji.get(result['confidence'], "⚪")
         
-        print(f"\n💬 \"{message}\"")
+        print(f"\n   \"{message}\"")
         print(f"   {expectation}")
         print(f"   {emoji} Actual: {result['confidence'].upper()} ({result['confidence_score']:.4f})")
         print(f"   Intent: {result['intent']}")
@@ -125,12 +125,12 @@ async def example_5_stats_and_config():
     # Get statistics
     stats = classifier.get_stats()
     
-    print("\n📊 Classifier Statistics:")
+    print("\n   Classifier Statistics:")
     print(f"   Total intents: {stats['total_intents']}")
     print(f"   Has Rasa installed: {stats['has_rasa']}")
     print(f"   Current method: {stats['method']}")
     
-    print("\n⚙️  Thresholds:")
+    print("\n    Thresholds:")
     for level, threshold in stats['thresholds'].items():
         print(f"   {level}: {threshold}")
     
@@ -157,7 +157,7 @@ async def example_6_error_handling():
         None,  # None (will be handled in real usage)
     ]
     
-    print("\n🧪 Testing edge cases:\n")
+    print("\n   Testing edge cases:\n")
     
     for i, message in enumerate(edge_cases, 1):
         try:
@@ -171,7 +171,7 @@ async def example_6_error_handling():
             print(f"   Result: {result['intent']} ({result['confidence']})")
         except Exception as e:
             print(f"{i}. Input: {repr(message)}")
-            print(f"   ❌ Error: {str(e)}")
+            print(f"     Error: {str(e)}")
 
 
 async def example_7_comparison_messages():
@@ -202,7 +202,7 @@ async def example_7_comparison_messages():
     ]
     
     for group_idx, messages in enumerate(message_groups, 1):
-        print(f"\n📋 Group {group_idx}:")
+        print(f"\n   Group {group_idx}:")
         
         for message in messages:
             result = await classifier.classify_intent(message)
@@ -229,15 +229,15 @@ async def example_8_real_conversation():
         ("Bot", "[Thank you response]"),
     ]
     
-    print("\n💬 Conversation Flow:\n")
+    print("\n   Conversation Flow:\n")
     
     for speaker, message in conversation:
         if speaker == "Student":
             result = await classifier.classify_intent(message)
-            print(f"👤 {speaker}: {message}")
-            print(f"   🤖 Detected intent: {result['intent']} ({result['confidence']})")
+            print(f"   {speaker}: {message}")
+            print(f"      Detected intent: {result['intent']} ({result['confidence']})")
         else:
-            print(f"🤖 Bot: {message}")
+            print(f"   Bot: {message}")
         print()
 
 
@@ -273,7 +273,7 @@ async def example_9_performance_test():
     total_messages = num_iterations * len(test_messages)
     avg_time = total_time / total_messages
     
-    print(f"📊 Performance Results:")
+    print(f"   Performance Results:")
     print(f"   Total messages: {total_messages}")
     print(f"   Total time: {total_time:.3f}s")
     print(f"   Average time: {avg_time:.4f}s per message")
@@ -291,16 +291,16 @@ async def example_10_custom_thresholds():
     # Test message with medium confidence
     message = "Có lớp học nào không?"
     
-    print(f"\n💬 Message: \"{message}\"\n")
+    print(f"\n   Message: \"{message}\"\n")
     
     result = await classifier.classify_intent(message)
     
-    print(f"🎯 Classification Result:")
+    print(f"   Classification Result:")
     print(f"   Intent: {result['intent']}")
     print(f"   Confidence: {result['confidence']}")
     print(f"   Score: {result['confidence_score']:.4f}")
     
-    print(f"\n📏 Current Thresholds:")
+    print(f"\n   Current Thresholds:")
     for level, threshold in classifier.thresholds.items():
         print(f"   {level}: {threshold}")
     
@@ -339,12 +339,12 @@ async def run_all_examples():
             await example_func()
             print()  # Extra spacing
         except Exception as e:
-            print(f"\n❌ Example {i} failed: {e}")
+            print(f"\n  Example {i} failed: {e}")
             import traceback
             traceback.print_exc()
     
     print("\n" + "="*70)
-    print("✅ ALL EXAMPLES COMPLETED")
+    print("   ALL EXAMPLES COMPLETED")
     print("="*70)
 
 
@@ -384,8 +384,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n\n⚠️ Examples interrupted by user")
+        print("\n\n   Examples interrupted by user")
     except Exception as e:
-        print(f"\n\n❌ Fatal error: {e}")
+        print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()

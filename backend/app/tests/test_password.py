@@ -13,10 +13,10 @@ def test_admin_password_reset():
     
     print(f"Request Password Reset Status: {response.status_code}")
     if response.status_code == 200:
-        print("✅ OTP request successful")
+        print("   OTP request successful")
         print(f"Response: {response.json()}")
     else:
-        print("❌ OTP request failed")
+        print("  OTP request failed")
         print(f"Error: {response.text}")
 
 def test_student_password_change():
@@ -35,10 +35,10 @@ def test_student_password_change():
     
     print(f"Student Password Change Status: {response.status_code}")
     if response.status_code == 200:
-        print("✅ Student password change successful")
+        print("   Student password change successful")
         print(f"Response: {response.json()}")
     else:
-        print("❌ Student password change failed")
+        print("  Student password change failed")
         print(f"Error: {response.text}")
 
 def test_student_login():
@@ -52,10 +52,10 @@ def test_student_login():
     
     print(f"Login Status: {response.status_code}")
     if response.status_code == 200:
-        print("✅ Login successful with old password")
+        print("   Login successful with old password")
         print(f"Response: {response.json()}")
     else:
-        print("❌ Login failed")
+        print("  Login failed")
         print(f"Error: {response.text}")
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 # Machine Learning Models
 
-## ⚠️ Important Note
+##    Important Note
 
 Model files are **NOT** stored in Git repository due to large file sizes (>100MB).
 
@@ -41,12 +41,12 @@ If someone on your team has trained the model, ask them to share:
 
 The NL2SQL system works **without** the ViT5 model using rule-based fallback:
 
-- ✅ Rule-based approach: ~70-80% accuracy (works immediately)
-- ✅ ViT5 model approach: >90% accuracy (requires training)
+-    Rule-based approach: ~70-80% accuracy (works immediately)
+-    ViT5 model approach: >90% accuracy (requires training)
 
 The system automatically detects if ViT5 model is available and falls back to rule-based if not.
 
-## 📊 Model Details
+##    Model Details
 
 **Model**: VietAI/vit5-base fine-tuned for Vietnamese NL2SQL
 
@@ -59,7 +59,7 @@ The system automatically detects if ViT5 model is available and falls back to ru
 - Inference time: ~100-300ms per query
 - Supports: 12 intent types
 
-## 🗑️ Ignored Files
+##   Ignored Files
 
 The following files are ignored by Git (see `.gitignore`):
 
@@ -74,7 +74,7 @@ backend/models/vit5_nl2sql/
 *.keras
 ```
 
-## 📝 Notes
+##    Notes
 
 - Models are stored locally only
 - Each developer needs to train or download models separately

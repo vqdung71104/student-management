@@ -71,10 +71,10 @@ def clear_all_data(db):
         
         db.execute(text("SET FOREIGN_KEY_CHECKS = 1"))  # Re-enable foreign key checks
         db.commit()
-        print("✅ All data cleared successfully")
+        print("   All data cleared successfully")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error clearing data: {e}")
+        print(f"  Error clearing data: {e}")
 
 
 def letter_grade_to_score(letter_grade: str) -> float:
@@ -249,14 +249,14 @@ def populate_departments(db, departments_data):
     
     try:
         db.commit()
-        print(f"✅ Added {len(departments_data)} departments")
+        print(f"   Added {len(departments_data)} departments")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing departments: {e}")
+        print(f"  Error committing departments: {e}")
 
 def populate_subjects(db, subjects_data):
     """Populate subjects table"""
-    print("📚 Populating subjects...")
+    print("   Populating subjects...")
     seen_subject_ids = set()  # Track subject_ids to avoid duplicates in JSON
     
     for subject_data in subjects_data:
@@ -293,14 +293,14 @@ def populate_subjects(db, subjects_data):
     
     try:
         db.commit()
-        print(f"✅ Added {len(seen_subject_ids)} unique subjects")
+        print(f"   Added {len(seen_subject_ids)} unique subjects")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing subjects: {e}")
+        print(f"  Error committing subjects: {e}")
 
 def populate_courses(db, courses_data):
     """Populate courses table"""
-    print("🎓 Populating courses...")
+    print("   Populating courses...")
     for course_data in courses_data:
         try:
             # Map JSON fields to model fields
@@ -314,14 +314,14 @@ def populate_courses(db, courses_data):
     
     try:
         db.commit()
-        print(f"✅ Added {len(courses_data)} courses")
+        print(f"   Added {len(courses_data)} courses")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing courses: {e}")
+        print(f"  Error committing courses: {e}")
 
 def populate_students(db, students_data):
     """Populate students table"""
-    print("👨‍🎓 Populating students...")
+    print("👨‍   Populating students...")
     for student_data in students_data:
         try:
             # Find the course by course_id string (not by auto-increment id)
@@ -357,10 +357,10 @@ def populate_students(db, students_data):
     
     try:
         db.commit()
-        print(f"✅ Added {len(students_data)} students")
+        print(f"   Added {len(students_data)} students")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing students: {e}")
+        print(f"  Error committing students: {e}")
 
 def populate_course_subjects(db, courses_data):
     """Create course_subjects relationships from JSON data (following route logic)"""
@@ -412,14 +412,14 @@ def populate_course_subjects(db, courses_data):
     
     try:
         db.commit()
-        print(f"✅ Added {course_subject_count} course-subject relationships")
+        print(f"   Added {course_subject_count} course-subject relationships")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing course-subject relationships: {e}")
+        print(f"  Error committing course-subject relationships: {e}")
 
 def populate_faqs(db, faqs_data):
     """Populate FAQs table"""
-    print("❓ Populating FAQs...")
+    print("   Populating FAQs...")
     for faq_data in faqs_data:
         try:
             faq = FAQ(**faq_data)
@@ -429,14 +429,14 @@ def populate_faqs(db, faqs_data):
     
     try:
         db.commit()
-        print(f"✅ Added {len(faqs_data)} FAQs")
+        print(f"   Added {len(faqs_data)} FAQs")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing FAQs: {e}")
+        print(f"  Error committing FAQs: {e}")
 
 def populate_feedbacks(db, feedbacks_data):
     """Populate feedbacks table"""
-    print("💬 Populating feedbacks...")
+    print("   Populating feedbacks...")
     for feedback_data in feedbacks_data:
         try:
             feedback = Feedback(**feedback_data)
@@ -446,14 +446,14 @@ def populate_feedbacks(db, feedbacks_data):
     
     try:
         db.commit()
-        print(f"✅ Added {len(feedbacks_data)} feedbacks")
+        print(f"   Added {len(feedbacks_data)} feedbacks")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing feedbacks: {e}")
+        print(f"  Error committing feedbacks: {e}")
 
 def populate_notifications(db, notifications_data):
     """Populate notifications table"""
-    print("🔔 Populating notifications...")
+    print("   Populating notifications...")
     for notification_data in notifications_data:
         try:
             notification = Notification(**notification_data)
@@ -463,20 +463,20 @@ def populate_notifications(db, notifications_data):
     
     try:
         db.commit()
-        print(f"✅ Added {len(notifications_data)} notifications")
+        print(f"   Added {len(notifications_data)} notifications")
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing notifications: {e}")
+        print(f"  Error committing notifications: {e}")
 
 def populate_learned_subjects(db, learned_subjects_data):
     """Populate learned subjects table"""
-    print("📚 Populating learned subjects...")
+    print("   Populating learned subjects...")
     try:
         for learned_data in learned_subjects_data:
             # Lấy thông tin subject để có subject_name và credits
             subject = db.query(Subject).filter(Subject.id == learned_data['subject_id']).first()
             if not subject:
-                print(f"⚠️ Subject with ID {learned_data['subject_id']} not found")
+                print(f"   Subject with ID {learned_data['subject_id']} not found")
                 continue
                 
             learned_subject = LearnedSubject(
@@ -490,10 +490,10 @@ def populate_learned_subjects(db, learned_subjects_data):
             db.add(learned_subject)
         
         db.commit()
-        print(f"✅ Successfully populated {len(learned_subjects_data)} learned subjects")
+        print(f"   Successfully populated {len(learned_subjects_data)} learned subjects")
         
-        # 🎯 Cập nhật student stats và semester GPA sau khi thêm learned subjects
-        print("🔄 Updating student statistics and GPA...")
+        #    Cập nhật student stats và semester GPA sau khi thêm learned subjects
+        print("   Updating student statistics and GPA...")
         
         # Lấy danh sách unique student_id và semester để cập nhật
         student_semesters = set()
@@ -514,22 +514,22 @@ def populate_learned_subjects(db, learned_subjects_data):
             update_student_stats(student_id, db)
         
         db.commit()
-        print(f"✅ Updated statistics for {len(student_ids)} students")
+        print(f"   Updated statistics for {len(student_ids)} students")
         
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error committing learned subjects: {e}")
+        print(f"  Error committing learned subjects: {e}")
 
 
 def populate_admin(db):
     """Populate admin user with secure password"""
-    print("👤 Populating admin...")
+    print("   Populating admin...")
     
     try:
         # Check if admin already exists
         existing_admin = db.query(Admin).filter(Admin.username == "admin").first()
         if existing_admin:
-            print("ℹ️ Admin already exists, skipping...")
+            print("   Admin already exists, skipping...")
             return
         
         # Hash password using SHA256
@@ -547,14 +547,14 @@ def populate_admin(db):
         db.add(admin)
         db.commit()
         
-        print("✅ Admin user created successfully")
-        print(f"   📧 Email: vuquangdung71104@gmail.com")
+        print("   Admin user created successfully")
+        print(f"      Email: vuquangdung71104@gmail.com")
         print(f"   🔑 Password: {password}")
-        print("   ⚠️ Please change the password after first login!")
+        print("      Please change the password after first login!")
         
     except SQLAlchemyError as e:
         db.rollback()
-        print(f"❌ Error creating admin: {e}")
+        print(f"  Error creating admin: {e}")
 
 
 def main():
@@ -565,9 +565,9 @@ def main():
     # Create database session
     try:
         db = create_database_session()
-        print("✅ Database connection established")
+        print("   Database connection established")
     except Exception as e:
-        print(f"❌ Failed to connect to database: {e}")
+        print(f"  Failed to connect to database: {e}")
         return
     
     # Clear existing data first
@@ -626,7 +626,7 @@ def main():
         print("🎉 Data population completed successfully!")
         
     except Exception as e:
-        print(f"❌ Unexpected error during population: {e}")
+        print(f"  Unexpected error during population: {e}")
     finally:
         db.close()
         print("🔒 Database connection closed")

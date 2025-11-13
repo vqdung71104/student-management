@@ -245,7 +245,7 @@ const ClassesManagement = () => {
           onClick={openCreateModal}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
         >
-          ➕ Thêm lớp học
+             Thêm lớp học
         </button>
       </div>
 
@@ -300,19 +300,19 @@ const ClassesManagement = () => {
                 onClick={() => openViewModal(classItem)}
                 className="px-3 py-1 text-sm text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded transition"
               >
-                👁️ Xem
+                   Xem
               </button>
               <button 
                 onClick={() => openEditModal(classItem)}
                 className="px-3 py-1 text-sm text-yellow-600 hover:text-yellow-900 hover:bg-yellow-50 rounded transition"
               >
-                ✏️ Sửa
+                   Sửa
               </button>
               <button 
                 onClick={() => handleDeleteClass(classItem.id)}
                 className="px-3 py-1 text-sm text-red-600 hover:text-red-900 hover:bg-red-50 rounded transition"
               >
-                🗑️ Xóa
+                  Xóa
               </button>
             </div>
           </div>

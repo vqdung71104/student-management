@@ -101,7 +101,7 @@ class NL2SQLTrainer:
         self.output_dir = output_dir
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        print(f"🔄 Initializing NL2SQL Trainer...")
+        print(f"   Initializing NL2SQL Trainer...")
         print(f"   Model: {model_name}")
         print(f"   Device: {self.device}")
         print(f"   Output: {output_dir}")
@@ -114,7 +114,7 @@ class NL2SQLTrainer:
         self.schema = self.training_data.get("schema", {})
         self.examples = self.training_data.get("training_examples", [])
         
-        print(f"✅ Loaded {len(self.examples)} training examples")
+        print(f"   Loaded {len(self.examples)} training examples")
         
         # Load tokenizer and model
         print("📦 Loading ViT5 model and tokenizer...")
@@ -122,7 +122,7 @@ class NL2SQLTrainer:
         self.model = T5ForConditionalGeneration.from_pretrained(model_name)
         self.model.to(self.device)
         
-        print("✅ Model and tokenizer loaded")
+        print("   Model and tokenizer loaded")
     
     def _load_data(self, data_path: str) -> Dict:
         """Load training data from JSON"""
@@ -163,7 +163,7 @@ class NL2SQLTrainer:
         
         # Augment data if requested
         if augment:
-            print("🔄 Augmenting training data...")
+            print("   Augmenting training data...")
             examples = self._augment_data(examples)
             print(f"   Total examples after augmentation: {len(examples)}")
         
@@ -172,7 +172,7 @@ class NL2SQLTrainer:
         train_examples = examples[:split_idx]
         val_examples = examples[split_idx:]
         
-        print(f"📊 Dataset split:")
+        print(f"   Dataset split:")
         print(f"   Train: {len(train_examples)} examples")
         print(f"   Validation: {len(val_examples)} examples")
         
@@ -223,7 +223,7 @@ class NL2SQLTrainer:
         best_val_loss = float('inf')
         
         for epoch in range(num_epochs):
-            print(f"\n📅 Epoch {epoch + 1}/{num_epochs}")
+            print(f"\n   Epoch {epoch + 1}/{num_epochs}")
             
             # Training
             self.model.train()
@@ -256,7 +256,7 @@ class NL2SQLTrainer:
                 progress_bar.set_postfix({'loss': loss.item()})
             
             avg_train_loss = train_loss / len(train_loader)
-            print(f"   📊 Average training loss: {avg_train_loss:.4f}")
+            print(f"      Average training loss: {avg_train_loss:.4f}")
             
             # Validation
             self.model.eval()
@@ -277,20 +277,20 @@ class NL2SQLTrainer:
                     val_loss += outputs.loss.item()
             
             avg_val_loss = val_loss / len(val_loader)
-            print(f"   📊 Average validation loss: {avg_val_loss:.4f}")
+            print(f"      Average validation loss: {avg_val_loss:.4f}")
             
             # Save best model
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
                 self.save_model(f"{self.output_dir}/best")
-                print(f"   ✅ Saved best model (val_loss: {avg_val_loss:.4f})")
+                print(f"      Saved best model (val_loss: {avg_val_loss:.4f})")
             
             # Save checkpoint
             if (epoch + 1) % 2 == 0:
                 self.save_model(f"{self.output_dir}/checkpoint-{epoch+1}")
         
         print("\n" + "="*70)
-        print("✅ TRAINING COMPLETED")
+        print("   TRAINING COMPLETED")
         print("="*70)
         print(f"Best validation loss: {best_val_loss:.4f}")
         print(f"Model saved to: {self.output_dir}/best")
@@ -304,7 +304,7 @@ class NL2SQLTrainer:
     def test_inference(self, questions: List[str], intents: List[str]):
         """Test model inference"""
         print("\n" + "="*70)
-        print("🧪 TESTING INFERENCE")
+        print("   TESTING INFERENCE")
         print("="*70)
         
         self.model.eval()
@@ -330,9 +330,9 @@ class NL2SQLTrainer:
             
             generated_sql = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
             
-            print(f"\n💬 Question: {question}")
-            print(f"🎯 Intent: {intent}")
-            print(f"📊 Generated SQL: {generated_sql}")
+            print(f"\n   Question: {question}")
+            print(f"   Intent: {intent}")
+            print(f"   Generated SQL: {generated_sql}")
     
     def _get_schema_for_intent(self, intent: str) -> str:
         """Get relevant schema for intent"""

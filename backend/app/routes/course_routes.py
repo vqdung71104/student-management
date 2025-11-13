@@ -7,7 +7,7 @@ from app.schemas.course_schema import CourseCreate, CourseUpdate, CourseResponse
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
 
-# ✅ Create course
+#    Create course
 @router.post("/", response_model=CourseResponse)
 def create_course(course_data: CourseCreate, db: Session = Depends(get_db)):
     # Kiểm tra xem course_id đã tồn tại chưa
@@ -54,7 +54,7 @@ def create_course(course_data: CourseCreate, db: Session = Depends(get_db)):
     return response_data
 
 
-# ✅ Get all courses
+#    Get all courses
 @router.get("/", response_model=list[CourseResponse])
 def get_courses(db: Session = Depends(get_db)):
     courses = db.query(Course).all()
@@ -79,7 +79,7 @@ def get_courses(db: Session = Depends(get_db)):
     return response_data
 
 
-# ✅ Get course by ID
+#    Get course by ID
 @router.get("/{course_id}", response_model=CourseResponse)
 def get_course(course_id: int, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()
@@ -102,7 +102,7 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
     return course_data
 
 
-# ✅ Update course
+#    Update course
 @router.put("/{course_id}", response_model=CourseResponse)
 def update_course(course_id: int, course_update: CourseUpdate, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()
@@ -148,7 +148,7 @@ def update_course(course_id: int, course_update: CourseUpdate, db: Session = Dep
     return course_data
 
 
-# ✅ Delete course
+#    Delete course
 @router.delete("/{course_id}")
 def delete_course(course_id: int, db: Session = Depends(get_db)):
     course = db.query(Course).filter(Course.id == course_id).first()
@@ -160,7 +160,7 @@ def delete_course(course_id: int, db: Session = Depends(get_db)):
     return {"message": "Course deleted successfully"}
 
 
-# ✅ Get student curriculum - course and subjects with learned status
+#    Get student curriculum - course and subjects with learned status
 @router.get("/{student_id}/curriculum")
 def get_student_curriculum(student_id: str, db: Session = Depends(get_db)):
     # Find student by student_id (string)

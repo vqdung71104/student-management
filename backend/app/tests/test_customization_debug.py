@@ -55,7 +55,7 @@ for i, test in enumerate(test_cases, 1):
     print(f"\n{status}: '{expected}' {'found' if is_found else 'NOT FOUND'} in customized SQL")
     
     if not is_found:
-        print(f"\n🔍 DEBUG INFO:")
+        print(f"\n   DEBUG INFO:")
         print(f"   - Original contained '{expected}': {expected in original}")
         print(f"   - Check what changed:")
         print(f"     Before: ...{original[50:]}...")

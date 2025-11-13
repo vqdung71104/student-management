@@ -195,7 +195,7 @@ def create_learned_subject(learned_subject: LearnedSubjectCreate, db: Session = 
     db.commit()
     db.refresh(db_learned_subject)
     
-    # 🎯 AUTO-CALCULATE GPA & STUDENT STATS
+    #    AUTO-CALCULATE GPA & STUDENT STATS
     update_semester_gpa(db_learned_subject.student_id, db_learned_subject.semester, db)
     update_student_stats(db_learned_subject.student_id, db)
     db.commit()
@@ -219,9 +219,9 @@ def update_learned_subject(
     db.commit()
     db.refresh(db_learned_subject)
     
-    # 🎯 AUTO-CALCULATE GPA & STUDENT STATS
+    #    AUTO-CALCULATE GPA & STUDENT STATS
     update_semester_gpa(db_learned_subject.student_id, db_learned_subject.semester, db)
-    db.flush()  # ✅ Flush to ensure semester_gpa is in session before calculating CPA
+    db.flush()  #    Flush to ensure semester_gpa is in session before calculating CPA
     update_student_stats(db_learned_subject.student_id, db)
     db.commit()
     
@@ -239,7 +239,7 @@ def delete_learned_subject(learned_subject_id: int, db: Session = Depends(get_db
     db.delete(db_learned_subject)
     db.commit()
     
-    # 🎯 AUTO-CALCULATE GPA & STUDENT STATS after deletion
+    #    AUTO-CALCULATE GPA & STUDENT STATS after deletion
     update_semester_gpa(student_id, semester, db)
     update_student_stats(student_id, db)
     db.commit()
@@ -292,9 +292,9 @@ def create_new_learned_subject(
     db.commit()
     db.refresh(new_learned_subject)
     
-    # 6. 🎯 AUTO-CALCULATE GPA & STUDENT STATS
+    # 6.    AUTO-CALCULATE GPA & STUDENT STATS
     update_semester_gpa(student.id, data.semester, db)
-    db.flush()  # ✅ Flush to ensure semester_gpa is in session before calculating CPA
+    db.flush()  #    Flush to ensure semester_gpa is in session before calculating CPA
     update_student_stats(student.id, db)
     db.commit()
     
@@ -446,7 +446,7 @@ async def upload_grades_excel(
             for (semester,) in semesters:
                 update_semester_gpa(student.id, semester, db)
             
-            db.flush()  # ✅ Flush to ensure all semester_gpas are in session before calculating CPA
+            db.flush()  #    Flush to ensure all semester_gpas are in session before calculating CPA
             update_student_stats(student.id, db)
             db.commit()
         

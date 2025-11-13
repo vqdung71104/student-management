@@ -4,10 +4,10 @@
 
 Đã cải thiện logic gợi ý đăng ký lớp học (`class_registration_suggestion`) để:
 
-1. ✅ **Lọc theo môn đã đăng ký** (subject_registers)
-2. ✅ **Loại bỏ môn đã học đạt** (learned_subjects với điểm không phải F/I)
-3. ✅ **Hiển thị điều kiện tiên quyết** (conditional_subjects)
-4. ✅ **Thêm thông tin CPA** vào response để sinh viên tham khảo
+1.    **Lọc theo môn đã đăng ký** (subject_registers)
+2.    **Loại bỏ môn đã học đạt** (learned_subjects với điểm không phải F/I)
+3.    **Hiển thị điều kiện tiên quyết** (conditional_subjects)
+4.    **Thêm thông tin CPA** vào response để sinh viên tham khảo
 
 ## Chi tiết thay đổi
 
@@ -40,10 +40,10 @@ ORDER BY s.subject_name, c.study_date
 ```
 
 **Thay đổi:**
-- ✅ Added: `s.conditional_subjects` trong SELECT để hiển thị môn tiên quyết
-- ✅ Added: `AND s.id NOT IN (...)` để loại bỏ môn đã học đạt
-- ✅ Logic: Chỉ loại bỏ môn có điểm **KHÔNG PHẢI 'F' hoặc 'I'** (tức là đã đạt)
-- ✅ Giữ lại: Môn có điểm F (Fail) hoặc I (Incomplete) để sinh viên có thể học lại
+-    Added: `s.conditional_subjects` trong SELECT để hiển thị môn tiên quyết
+-    Added: `AND s.id NOT IN (...)` để loại bỏ môn đã học đạt
+-    Logic: Chỉ loại bỏ môn có điểm **KHÔNG PHẢI 'F' hoặc 'I'** (tức là đã đạt)
+-    Giữ lại: Môn có điểm F (Fail) hoặc I (Incomplete) để sinh viên có thể học lại
 
 ### 2. Cập nhật Response Handler (chatbot_routes.py)
 
@@ -86,11 +86,11 @@ elif intent == "class_registration_suggestion":
 
 | Tình huống | Có xuất hiện trong gợi ý? |
 |-----------|---------------------------|
-| Môn đã đăng ký, chưa học | ✅ CÓ |
-| Môn đã đăng ký, đã học đạt (A, B, C, D) | ❌ KHÔNG |
-| Môn đã đăng ký, học không đạt (F) | ✅ CÓ (để học lại) |
-| Môn đã đăng ký, chưa hoàn thành (I) | ✅ CÓ (để hoàn thành) |
-| Môn chưa đăng ký | ❌ KHÔNG |
+| Môn đã đăng ký, chưa học |    CÓ |
+| Môn đã đăng ký, đã học đạt (A, B, C, D) |   KHÔNG |
+| Môn đã đăng ký, học không đạt (F) |    CÓ (để học lại) |
+| Môn đã đăng ký, chưa hoàn thành (I) |    CÓ (để hoàn thành) |
+| Môn chưa đăng ký |   KHÔNG |
 
 ## Benefits
 

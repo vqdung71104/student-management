@@ -86,12 +86,12 @@ def test_full_description():
         print(f"Status Code: {response.status_code}")
         
         if response.status_code in [200, 201]:
-            print("✅ Success!")
+            print("   Success!")
             result = response.json()
             print(f"Created scholarship ID: {result.get('id')}")
             print(f"Description saved length: {len(result.get('description', ''))}")
         else:
-            print("❌ Failed!")
+            print("  Failed!")
             print(f"Error: {response.text}")
             
     except Exception as e:

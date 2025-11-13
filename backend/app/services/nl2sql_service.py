@@ -19,7 +19,7 @@ class NL2SQLService:
         Args:
             model_path: Path to fine-tuned ViT5 model (optional)
         """
-        print("🔄 Initializing NL2SQL Service...")
+        print("   Initializing NL2SQL Service...")
         
         self.training_data = self._load_training_data()
         self.schema = self.training_data.get("schema", {})
@@ -36,7 +36,7 @@ class NL2SQLService:
         if model_path:
             self._load_vit5_model(model_path)
         
-        print(f"✅ NL2SQL Service initialized with {len(self.examples)} examples")
+        print(f"   NL2SQL Service initialized with {len(self.examples)} examples")
         print(f"   ViT5 Model: {'Loaded' if self.has_vit5 else 'Not loaded (using rule-based fallback)'}")
     
     def _load_training_data(self) -> Dict:
@@ -51,7 +51,7 @@ class NL2SQLService:
             with open(data_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"⚠️ Training data not found at {data_path}")
+            print(f"   Training data not found at {data_path}")
             return {"schema": {}, "training_examples": []}
     
     def _build_intent_sql_map(self) -> Dict[str, List[Dict]]:
@@ -85,12 +85,12 @@ class NL2SQLService:
                 print("   Using CPU")
             
             self.has_vit5 = True
-            print("✅ ViT5 model loaded successfully")
+            print("   ViT5 model loaded successfully")
             
         except ImportError:
-            print("⚠️ transformers library not installed. Using rule-based fallback.")
+            print("   transformers library not installed. Using rule-based fallback.")
         except Exception as e:
-            print(f"⚠️ Failed to load ViT5 model: {e}")
+            print(f"   Failed to load ViT5 model: {e}")
     
     def _normalize_question(self, question: str) -> str:
         """Normalize question for better matching"""
@@ -308,14 +308,14 @@ class NL2SQLService:
         Returns:
             Dict containing SQL query, parameters, and metadata
         """
-        print(f"🔍 NL2SQL generate_sql called:")
-        print(f"   Question: {question}")
-        print(f"   Intent: {intent}")
-        print(f"   Student ID: {student_id}")
+        print(f"  NL2SQL generate_sql called:")
+        print(f"  Question: {question}")
+        print(f"  Intent: {intent}")
+        print(f"  Student ID: {student_id}")
         
         # Extract entities from question
         entities = self._extract_entities(question)
-        print(f"   Entities: {entities}")
+        print(f"  Entities: {entities}")
         
         # If ViT5 model is available, use it
         if self.has_vit5:
@@ -424,7 +424,7 @@ class NL2SQLService:
                 sql_template = sql_template.replace("{student_id}", str(student_id))
             else:
                 # If student_id is required but not provided, return error
-                print(f"⚠️ student_id is required but not provided for intent: {intent}")
+                print(f"   student_id is required but not provided for intent: {intent}")
                 return {
                     "sql": None,
                     "method": "rule_based",
@@ -494,15 +494,15 @@ if __name__ == "__main__":
         ]
         
         print("\n" + "="*70)
-        print("🧪 TESTING NL2SQL SERVICE")
+        print("   TESTING NL2SQL SERVICE")
         print("="*70)
         
         for question, intent, student_id in test_cases:
             result = await service.generate_sql(question, intent, student_id)
             
-            print(f"\n💬 Question: \"{question}\"")
-            print(f"🎯 Intent: {intent}")
-            print(f"📊 SQL: {result.get('sql', 'None')}")
+            print(f"\n   Question: \"{question}\"")
+            print(f"   Intent: {intent}")
+            print(f"   SQL: {result.get('sql', 'None')}")
             print(f"🔧 Method: {result.get('method')}")
             if result.get('entities'):
                 print(f"🏷️  Entities: {result['entities']}")

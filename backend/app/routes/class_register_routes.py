@@ -7,7 +7,7 @@ from app.schemas.class_register_schema import ClassRegisterCreate, ClassRegister
 
 router = APIRouter(prefix="/class-registers", tags=["Class Registers"])
 
-# ✅ Create class register
+#    Create class register
 @router.post("/", response_model=ClassRegisterResponse)
 def create_class_register(register_data: ClassRegisterCreate, db: Session = Depends(get_db)):
     db_register = ClassRegister(**register_data.dict())
@@ -16,12 +16,12 @@ def create_class_register(register_data: ClassRegisterCreate, db: Session = Depe
     db.refresh(db_register)
     return db_register
 
-# ✅ Get all class registers
+#    Get all class registers
 @router.get("/", response_model=list[ClassRegisterResponse])
 def get_class_registers(db: Session = Depends(get_db)):
     return db.query(ClassRegister).all()
 
-# ✅ Get class register by ID
+#    Get class register by ID
 @router.get("/{register_id}", response_model=ClassRegisterResponse)
 def get_class_register(register_id: int, db: Session = Depends(get_db)):
     register = db.query(ClassRegister).filter(ClassRegister.id == register_id).first()
@@ -29,13 +29,13 @@ def get_class_register(register_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Class register not found")
     return register
 
-# ✅ Get class registers by student database ID (internal ID)
+#    Get class registers by student database ID (internal ID)
 @router.get("/student/{student_id}", response_model=list[ClassRegisterResponse])
 def get_class_registers_by_student_db_id(student_id: int, db: Session = Depends(get_db)):
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_id).all()
     return registers
 
-# ✅ Get class registers by student MSSV
+#    Get class registers by student MSSV
 @router.get("/student-mssv/{student_id}", response_model=List[ClassRegisterResponse])
 def get_class_registers_by_student_mssv(student_id: str, db: Session = Depends(get_db)):
     """Get all class registers for a student by student_id (MSSV)"""
@@ -55,13 +55,13 @@ def get_class_registers_by_student_id(student_db_id: int, db: Session = Depends(
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_db_id).all()
     return registers
 
-# ✅ Get class registers by class ID
+#    Get class registers by class ID
 @router.get("/class/{class_id}", response_model=list[ClassRegisterResponse])
 def get_class_registers_by_class(class_id: int, db: Session = Depends(get_db)):
     registers = db.query(ClassRegister).filter(ClassRegister.class_id == class_id).all()
     return registers
 
-# ✅ Update class register
+#    Update class register
 @router.put("/{register_id}", response_model=ClassRegisterResponse)
 def update_class_register(register_id: int, register_update: ClassRegisterUpdate, db: Session = Depends(get_db)):
     register = db.query(ClassRegister).filter(ClassRegister.id == register_id).first()
@@ -75,7 +75,7 @@ def update_class_register(register_id: int, register_update: ClassRegisterUpdate
     db.refresh(register)
     return register
 
-# ✅ Delete class register
+#    Delete class register
 @router.delete("/{register_id}")
 def delete_class_register(register_id: int, db: Session = Depends(get_db)):
     register = db.query(ClassRegister).filter(ClassRegister.id == register_id).first()

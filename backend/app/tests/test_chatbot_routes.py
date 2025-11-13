@@ -21,14 +21,14 @@ def print_separator(char="=", length=70):
 async def test_rasa_classifier_for_chatbot():
     """Test Rasa classifier với các messages điển hình của chatbot"""
     print_separator("=")
-    print("🧪 TESTING RASA CLASSIFIER FOR CHATBOT ROUTES")
+    print("   TESTING RASA CLASSIFIER FOR CHATBOT ROUTES")
     print_separator("=")
     
     try:
         # Initialize classifier (như trong chatbot_routes.py)
-        print("\n📋 Initializing Rasa Intent Classifier...")
+        print("\n   Initializing Rasa Intent Classifier...")
         intent_classifier = RasaIntentClassifier()
-        print("✅ Classifier initialized successfully")
+        print("   Classifier initialized successfully")
         
         # Test messages
         test_cases = [
@@ -69,7 +69,7 @@ async def test_rasa_classifier_for_chatbot():
             },
         ]
         
-        print(f"\n📋 Testing {len(test_cases)} messages...\n")
+        print(f"\n   Testing {len(test_cases)} messages...\n")
         
         correct_predictions = 0
         high_confidence_count = 0
@@ -92,9 +92,9 @@ async def test_rasa_classifier_for_chatbot():
             
             if is_correct:
                 correct_predictions += 1
-                status = "✅"
+                status = "  "
             else:
-                status = "❌"
+                status = " "
             
             if is_high_confidence:
                 high_confidence_count += 1
@@ -120,7 +120,7 @@ async def test_rasa_classifier_for_chatbot():
         
         # Summary
         print_separator("=")
-        print("📊 SUMMARY")
+        print("   SUMMARY")
         print_separator("=")
         accuracy = (correct_predictions / len(test_cases)) * 100
         high_conf_rate = (high_confidence_count / len(test_cases)) * 100
@@ -130,13 +130,13 @@ async def test_rasa_classifier_for_chatbot():
         
         # Get stats
         stats = intent_classifier.get_stats()
-        print(f"\n📊 Classifier Stats:")
+        print(f"\n   Classifier Stats:")
         print(f"   Total intents: {stats['total_intents']}")
         print(f"   Method: {stats['method']}")
         print(f"   Has Rasa: {stats['has_rasa']}")
         
         # Test get_intent_friendly_name for all common intents
-        print(f"\n📝 Intent Friendly Names:")
+        print(f"\n   Intent Friendly Names:")
         common_intents = [
             "greeting", "thanks", "registration_guide",
             "subject_registration_suggestion", "class_registration_suggestion",
@@ -150,14 +150,14 @@ async def test_rasa_classifier_for_chatbot():
         print_separator("=")
         
         if accuracy >= 70:
-            print("✅ TEST PASSED: Accuracy >= 70%")
+            print("   TEST PASSED: Accuracy >= 70%")
         else:
-            print(f"⚠️  TEST WARNING: Accuracy {accuracy:.1f}% < 70%")
+            print(f"    TEST WARNING: Accuracy {accuracy:.1f}% < 70%")
         
         print_separator("=")
         
     except Exception as e:
-        print(f"\n❌ Test failed with error: {e}")
+        print(f"\n  Test failed with error: {e}")
         import traceback
         traceback.print_exc()
 
@@ -165,7 +165,7 @@ async def test_rasa_classifier_for_chatbot():
 async def test_intents_list():
     """Test getting intents list (như endpoint /intents)"""
     print_separator("=")
-    print("🧪 TESTING INTENTS LIST ENDPOINT")
+    print("   TESTING INTENTS LIST ENDPOINT")
     print_separator("=")
     
     try:
@@ -180,7 +180,7 @@ async def test_intents_list():
                 "examples": intent["patterns"][:3]
             })
         
-        print(f"\n📋 Total intents: {len(intents_list)}\n")
+        print(f"\n   Total intents: {len(intents_list)}\n")
         
         for i, intent_info in enumerate(intents_list[:5], 1):  # Show first 5
             print(f"{i}. Tag: {intent_info['tag']}")
@@ -192,11 +192,11 @@ async def test_intents_list():
             print(f"... and {len(intents_list) - 5} more intents")
         
         print_separator("=")
-        print("✅ Intents list retrieved successfully")
+        print("   Intents list retrieved successfully")
         print_separator("=")
         
     except Exception as e:
-        print(f"\n❌ Test failed: {e}")
+        print(f"\n  Test failed: {e}")
         import traceback
         traceback.print_exc()
 
@@ -211,7 +211,7 @@ async def main():
     await test_intents_list()
     
     print("\n" + "="*70)
-    print("✅ ALL TESTS COMPLETED")
+    print("   ALL TESTS COMPLETED")
     print("="*70)
 
 
@@ -219,8 +219,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n\n⚠️ Tests interrupted by user")
+        print("\n\n   Tests interrupted by user")
     except Exception as e:
-        print(f"\n\n❌ Fatal error: {e}")
+        print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()

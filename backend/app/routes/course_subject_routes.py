@@ -6,7 +6,7 @@ from app.schemas.course_subject_schema import CourseSubjectCreate, CourseSubject
 
 router = APIRouter(prefix="/course-subjects", tags=["Course Subjects"])
 
-# ✅ Create course + course_subjects từ request phức tạp
+#    Create course + course_subjects từ request phức tạp
 @router.post("/", response_model=list[CourseSubjectResponse])
 def create_course_with_subjects(request_data: dict, db: Session = Depends(get_db)):
     # 1. Tạo course mới
@@ -50,13 +50,13 @@ def create_course_with_subjects(request_data: dict, db: Session = Depends(get_db
     return created_course_subjects
 
 
-# ✅ Get all course subjects
+#    Get all course subjects
 @router.get("/", response_model=list[CourseSubjectResponse])
 def get_course_subjects(db: Session = Depends(get_db)):
     return db.query(CourseSubject).all()
 
 
-# ✅ Get course subject by ID
+#    Get course subject by ID
 @router.get("/{course_subject_id}", response_model=CourseSubjectResponse)
 def get_course_subject(course_subject_id: int, db: Session = Depends(get_db)):
     course_subject = db.query(CourseSubject).filter(CourseSubject.id == course_subject_id).first()
@@ -65,7 +65,7 @@ def get_course_subject(course_subject_id: int, db: Session = Depends(get_db)):
     return course_subject
 
 
-# ✅ Update course subject
+#    Update course subject
 @router.put("/{course_subject_id}", response_model=CourseSubjectResponse)
 def update_course_subject(course_subject_id: int, course_subject_update: CourseSubjectUpdate, db: Session = Depends(get_db)):
     course_subject = db.query(CourseSubject).filter(CourseSubject.id == course_subject_id).first()
@@ -80,7 +80,7 @@ def update_course_subject(course_subject_id: int, course_subject_update: CourseS
     return course_subject
 
 
-# ✅ Delete course subject
+#    Delete course subject
 @router.delete("/{course_subject_id}")
 def delete_course_subject(course_subject_id: int, db: Session = Depends(get_db)):
     course_subject = db.query(CourseSubject).filter(CourseSubject.id == course_subject_id).first()
