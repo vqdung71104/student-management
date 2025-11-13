@@ -99,21 +99,21 @@ def test_scholarship_creation():
         
         if response.status_code == 200 or response.status_code == 201:
             result = response.json()
-            print("✅ Tạo scholarship thành công!")
+            print("   Tạo scholarship thành công!")
             print(f"ID: {result.get('id')}")
             print(f"Title: {result.get('title')}")
             print(f"Description length: {len(result.get('description', ''))}")
             print("Description preview:", result.get('description', '')[:200] + "...")
             return result.get('id')
         else:
-            print("❌ Lỗi khi tạo scholarship:")
+            print("  Lỗi khi tạo scholarship:")
             print(f"Status: {response.status_code}")
             print(f"Response: {response.text}")
             
     except requests.exceptions.RequestException as e:
-        print(f"❌ Lỗi kết nối: {e}")
+        print(f"  Lỗi kết nối: {e}")
     except Exception as e:
-        print(f"❌ Lỗi không mong muốn: {e}")
+        print(f"  Lỗi không mong muốn: {e}")
 
 def test_scholarship_retrieval(scholarship_id):
     """Test lấy thông tin scholarship và kiểm tra description"""
@@ -123,24 +123,24 @@ def test_scholarship_retrieval(scholarship_id):
         
         if response.status_code == 200:
             result = response.json()
-            print("✅ Lấy thông tin scholarship thành công!")
+            print("   Lấy thông tin scholarship thành công!")
             print(f"Description được lưu đầy đủ: {len(result.get('description', '')) == len(test_description)}")
             
             # So sánh nội dung
             saved_desc = result.get('description', '')
             if saved_desc == test_description:
-                print("✅ Nội dung description được lưu chính xác!")
+                print("   Nội dung description được lưu chính xác!")
             else:
-                print("❌ Nội dung description bị thay đổi:")
+                print("  Nội dung description bị thay đổi:")
                 print("Original length:", len(test_description))
                 print("Saved length:", len(saved_desc))
                 
         else:
-            print(f"❌ Lỗi khi lấy scholarship: {response.status_code}")
+            print(f"  Lỗi khi lấy scholarship: {response.status_code}")
             print(response.text)
             
     except Exception as e:
-        print(f"❌ Lỗi: {e}")
+        print(f"  Lỗi: {e}")
 
 if __name__ == "__main__":
     print("🚀 Bắt đầu test lưu trữ văn bản dài...")

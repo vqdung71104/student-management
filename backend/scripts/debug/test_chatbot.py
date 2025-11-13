@@ -18,16 +18,16 @@ load_dotenv()
 async def test_chatbot():
     """Test các câu hỏi mẫu với chatbot"""
     
-    print("🤖 Testing Chatbot Intent Classification with Google Gemini\n")
+    print("   Testing Chatbot Intent Classification with Google Gemini\n")
     print("=" * 70)
     
     # Initialize classifier
     try:
         classifier = IntentClassifier()
-        print("✅ Intent Classifier initialized successfully!")
-        print(f"✅ Loaded {len(classifier.intents.get('intents', []))} intents\n")
+        print("   Intent Classifier initialized successfully!")
+        print(f"   Loaded {len(classifier.intents.get('intents', []))} intents\n")
     except Exception as e:
-        print(f"❌ Error initializing classifier: {e}")
+        print(f"  Error initializing classifier: {e}")
         return
     
     # Test messages
@@ -36,7 +36,7 @@ async def test_chatbot():
         "Trời đẹp quá",  # Unknown intent
     ]
     
-    print("📝 Testing messages:\n")
+    print("   Testing messages:\n")
     
     for i, message in enumerate(test_messages, 1):
         print(f"{i}. User: \"{message}\"")
@@ -63,20 +63,20 @@ async def test_chatbot():
             print(f"   [Intent: {intent}, Confidence: {confidence}]")
             
         except Exception as e:
-            print(f"   ❌ Error: {e}")
+            print(f"     Error: {e}")
         
         print()
     
     print("=" * 70)
-    print("✅ Test completed!")
+    print("   Test completed!")
 
 
 if __name__ == "__main__":
     # Check if API key exists
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key or api_key == "your_google_api_key_here":
-        print("❌ ERROR: GOOGLE_API_KEY chưa được cấu hình trong .env file")
-        print("📝 Vui lòng:")
+        print("  ERROR: GOOGLE_API_KEY chưa được cấu hình trong .env file")
+        print("   Vui lòng:")
         print("   1. Truy cập: https://aistudio.google.com/app/api-keys")
         print("   2. Tạo API key")
         print("   3. Thêm vào backend/.env: GOOGLE_API_KEY=your_key_here")

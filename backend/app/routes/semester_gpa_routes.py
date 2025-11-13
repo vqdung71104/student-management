@@ -6,7 +6,7 @@ from app.schemas.semester_gpa_schema import SemesterGPACreate, SemesterGPAUpdate
 
 router = APIRouter(prefix="/semester-gpa", tags=["Semester GPA"])
 
-# ✅ Create semester GPA
+#    Create semester GPA
 @router.post("/", response_model=SemesterGPAResponse)
 def create_semester_gpa(semester_gpa_data: SemesterGPACreate, db: Session = Depends(get_db)):
     db_semester_gpa = SemesterGPA(**semester_gpa_data.dict())
@@ -15,12 +15,12 @@ def create_semester_gpa(semester_gpa_data: SemesterGPACreate, db: Session = Depe
     db.refresh(db_semester_gpa)
     return db_semester_gpa
 
-# ✅ Get all semester GPAs
+#    Get all semester GPAs
 @router.get("/", response_model=list[SemesterGPAResponse])
 def get_semester_gpas(db: Session = Depends(get_db)):
     return db.query(SemesterGPA).all()
 
-# ✅ Get semester GPA by ID
+#    Get semester GPA by ID
 @router.get("/{semester_gpa_id}", response_model=SemesterGPAResponse)
 def get_semester_gpa(semester_gpa_id: int, db: Session = Depends(get_db)):
     semester_gpa = db.query(SemesterGPA).filter(SemesterGPA.id == semester_gpa_id).first()
@@ -28,7 +28,7 @@ def get_semester_gpa(semester_gpa_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Semester GPA not found")
     return semester_gpa
 
-# ✅ Update semester GPA
+#    Update semester GPA
 @router.put("/{semester_gpa_id}", response_model=SemesterGPAResponse)
 def update_semester_gpa(semester_gpa_id: int, semester_gpa_update: SemesterGPAUpdate, db: Session = Depends(get_db)):
     semester_gpa = db.query(SemesterGPA).filter(SemesterGPA.id == semester_gpa_id).first()
@@ -42,7 +42,7 @@ def update_semester_gpa(semester_gpa_id: int, semester_gpa_update: SemesterGPAUp
     db.refresh(semester_gpa)
     return semester_gpa
 
-# ✅ Delete semester GPA
+#    Delete semester GPA
 @router.delete("/{semester_gpa_id}")
 def delete_semester_gpa(semester_gpa_id: int, db: Session = Depends(get_db)):
     semester_gpa = db.query(SemesterGPA).filter(SemesterGPA.id == semester_gpa_id).first()

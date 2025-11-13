@@ -314,11 +314,11 @@ const Schedule = () => {
                 {`${classItem.class_name} - ${classItem.subject_id}`}
               </h3>
               <div className="space-y-1 text-sm text-gray-600">
-                <div>📅 {daysOfWeekFull[classItem.day_of_week]}</div>
+                <div>   {daysOfWeekFull[classItem.day_of_week]}</div>
                 <div>🕐 {formatTime(classItem.study_time_start)} - {formatTime(classItem.study_time_end)}</div>
                 <div>📍 {classItem.classroom}</div>
-                <div>👨‍🏫 {classItem.teacher_name}</div>
-                <div>📚 Tuần {classItem.study_week}</div>
+                <div>👨‍   {classItem.teacher_name}</div>
+                <div>   Tuần {classItem.study_week}</div>
               </div>
             </div>
           ))}

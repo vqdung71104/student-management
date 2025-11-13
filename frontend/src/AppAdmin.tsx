@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import './assets/css/main.css'
 import './assets/css/component.css'
 import './assets/css/chatbot.css'
-import ScholarshipManagement from './pages/admin/ScholarshipManagement'
 
 interface AppAdminProps {
   onLogout: () => void
@@ -136,7 +135,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 }`}
                 onClick={() => showAdminPage('dashboard')}
               >
-                📊 {t.dashboard}
+                   {t.dashboard}
               </button>
 
               {/* Student Management Dropdown */}
@@ -157,16 +156,16 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 {studentMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showAdminPage('student-create')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ➕ {t.create}
+                       {t.create}
                     </button>
                     <button onClick={() => showAdminPage('student-update')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      ✏️ {t.update}
+                         {t.update}
                     </button>
                     <button onClick={() => showAdminPage('student-delete')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🗑️ {t.delete}
+                        {t.delete}
                     </button>
                     <button onClick={() => showAdminPage('student-list')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📋 {t.get}
+                         {t.get}
                     </button>
                   </div>
                 )}
@@ -182,7 +181,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                   }`}
                   onClick={() => setSubjectMenuOpen(!subjectMenuOpen)}
                 >
-                  <span>📚 {t.subjectManagement}</span>
+                  <span>   {t.subjectManagement}</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -190,10 +189,10 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 {subjectMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showAdminPage('schedule-update')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📅 {t.updateSchedule}
+                         {t.updateSchedule}
                     </button>
                     <button onClick={() => showAdminPage('subjects-upload')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      📄 {t.updateSubjects}
+                         {t.updateSubjects}
                     </button>
                   </div>
                 )}
@@ -209,7 +208,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                   }`}
                   onClick={() => setInfoManagementMenuOpen(!infoManagementMenuOpen)}
                 >
-                  <span>📋 {t.infoManagement}</span>
+                  <span>   {t.infoManagement}</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -223,7 +222,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                       }} 
                       className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left"
                     >
-                      🎓 {t.scholarshipManagement}
+                         {t.scholarshipManagement}
                     </button>
                     <button 
                       onClick={() => {
@@ -233,7 +232,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                       }} 
                       className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left"
                     >
-                      🏢 {t.internshipManagement}
+                         {t.internshipManagement}
                     </button>
                     <button 
                       onClick={() => {
@@ -243,7 +242,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                       }} 
                       className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left"
                     >
-                      📝 {t.projectManagement}
+                         {t.projectManagement}
                     </button>
                   </div>
                 )}
@@ -259,7 +258,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                   }`}
                   onClick={() => setSettingsMenuOpen(!settingsMenuOpen)}
                 >
-                  <span>⚙️ {t.settings}</span>
+                  <span> {t.settings}</span>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -267,10 +266,10 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 {settingsMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showAdminPage('language-settings')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🌐 {t.languageSettings}
+                       {t.languageSettings}
                     </button>
                     <button onClick={() => showAdminPage('change-password')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                      🔐 {t.changePassword}
+                       {t.changePassword}
                     </button>
                   </div>
                 )}
@@ -285,7 +284,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 }`}
                 onClick={toggleChatbot}
               >
-                🤖 {t.chatbotSupport}
+                 {t.chatbotSupport}
               </button>
             </div>
 
@@ -294,7 +293,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
               onClick={onLogout}
               className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 font-medium"
             >
-              🚪 {t.logout}
+                 {t.logout}
             </button>
           </div>
         </div>
@@ -555,7 +554,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
               </div>
               
               <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="text-sm font-medium text-blue-800 mb-2">🔐 Thông tin đăng nhập tự động</h3>
+                <h3 className="text-sm font-medium text-blue-800 mb-2">   Thông tin đăng nhập tự động</h3>
                 <p className="text-sm text-blue-700">
                   Khi tạo sinh viên mới, hệ thống sẽ tự động tạo tài khoản đăng nhập với:
                 </p>
@@ -564,7 +563,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                   <li><strong>Mật khẩu mặc định:</strong> 123456</li>
                 </ul>
                 <p className="text-xs text-blue-600 mt-2">
-                  ℹ️ Sinh viên có thể đổi mật khẩu sau khi đăng nhập lần đầu.
+                     Sinh viên có thể đổi mật khẩu sau khi đăng nhập lần đầu.
                 </p>
               </div>
 
@@ -814,7 +813,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
           <h2 className="text-2xl font-bold mb-6">{t.create} {language === 'vi' ? 'Sinh viên' : 'Student'}</h2>
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-              <h3 className="text-sm font-medium text-blue-800 mb-2">📧 {language === 'vi' ? 'Thông báo tài khoản' : 'Account Information'}</h3>
+              <h3 className="text-sm font-medium text-blue-800 mb-2"> {language === 'vi' ? 'Thông báo tài khoản' : 'Account Information'}</h3>
               <p className="text-sm text-blue-700">
                 {language === 'vi' 
                   ? 'Tài khoản đăng nhập sẽ được tạo tự động với email sinh viên và mật khẩu mặc định: 123456'
@@ -955,7 +954,10 @@ function AppAdmin({ onLogout }: AppAdminProps) {
 
         {/* Scholarship Management Page */}
         <div className={`page ${currentPage === 'scholarship-management' ? '' : 'hidden'}`}>
-          <ScholarshipManagement />
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-bold mb-4">Quản lý học bổng</h2>
+            <p className="text-gray-600">Tính năng đang phát triển...</p>
+          </div>
         </div>
 
         {/* Internship Management Page (Placeholder) */}

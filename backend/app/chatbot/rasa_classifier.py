@@ -22,7 +22,7 @@ class RasaIntentClassifier:
         Args:
             config_path: Path to rasa config file (optional)
         """
-        print("🔄 Initializing Rasa NLU classifier...")
+        print("   Initializing Rasa NLU classifier...")
         
         # Load config
         if config_path is None:
@@ -63,7 +63,7 @@ class RasaIntentClassifier:
             "low_confidence": 0.25
         })
         
-        print(f"✅ Rasa classifier initialized with {len(self.intents.get('intents', []))} intents")
+        print(f"   Rasa classifier initialized with {len(self.intents.get('intents', []))} intents")
     
     def _load_config(self, config_path: str) -> Dict:
         """Load Rasa configuration từ file JSON"""
@@ -71,7 +71,7 @@ class RasaIntentClassifier:
             with open(config_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"⚠️ Config file not found at {config_path}, using default config")
+            print(f"   Config file not found at {config_path}, using default config")
             return self._get_default_config()
     
     def _get_default_config(self) -> Dict:
@@ -104,7 +104,7 @@ class RasaIntentClassifier:
             with open(intents_path, "r", encoding="utf-8-sig") as f:
                 return json.load(f)
         except FileNotFoundError:
-            print(f"⚠️ Intents file not found at {intents_path}")
+            print(f"   Intents file not found at {intents_path}")
             return {"intents": []}
     
     def _initialize_rasa_components(self):
@@ -160,14 +160,14 @@ class RasaIntentClassifier:
                 if models:
                     latest_model = os.path.join(model_dir, sorted(models)[-1])
                     self.interpreter = Interpreter.load(latest_model)
-                    print("✅ Rasa model loaded successfully")
+                    print("   Rasa model loaded successfully")
                 else:
                     self._train_rasa_model(training_data_path, rasa_config_path, model_dir)
             else:
                 self._train_rasa_model(training_data_path, rasa_config_path, model_dir)
                 
         except ImportError:
-            print("⚠️ Rasa not installed. Using fallback similarity-based classification.")
+            print("   Rasa not installed. Using fallback similarity-based classification.")
             self.has_rasa = False
             self._initialize_fallback()
     
@@ -190,7 +190,7 @@ class RasaIntentClassifier:
         from rasa.nlu.model import Interpreter
         self.interpreter = Interpreter.load(model_directory)
         
-        print("✅ Rasa model trained successfully")
+        print("   Rasa model trained successfully")
     
     def _convert_to_rasa_format(self) -> Dict:
         """Convert intents.json to Rasa NLU training format"""
@@ -291,7 +291,7 @@ class RasaIntentClassifier:
         """Initialize enhanced fallback similarity-based classifier"""
         from collections import Counter
         
-        print("📋 Initializing enhanced fallback classifier...")
+        print("   Initializing enhanced fallback classifier...")
         
         self.intent_vectors = {}
         self.intent_keywords = {}
@@ -341,7 +341,7 @@ class RasaIntentClassifier:
                 keywords.update(words)
             self.intent_keywords[tag] = keywords
         
-        print(f"✅ Enhanced fallback classifier initialized with augmented patterns")
+        print(f"   Enhanced fallback classifier initialized with augmented patterns")
     
     def _fallback_classify(self, message: str) -> Dict:
         """Enhanced fallback classification using multiple features and cosine similarity"""
@@ -490,7 +490,7 @@ class RasaIntentClassifier:
                 return self._fallback_classify(message)
                 
         except Exception as e:
-            print(f"❌ Error during classification: {e}")
+            print(f"  Error during classification: {e}")
             # Fallback to simple classification
             return self._fallback_classify(message)
     
@@ -518,7 +518,7 @@ class RasaIntentClassifier:
                 return [(score["intent"], score["score"]) for score in result.get("all_scores", [])]
                 
         except Exception as e:
-            print(f"❌ Error getting similarities: {e}")
+            print(f"  Error getting similarities: {e}")
             return []
     
     def train(self, force_retrain: bool = False):
@@ -529,7 +529,7 @@ class RasaIntentClassifier:
             force_retrain: If True, force retraining even if model exists
         """
         if not self.has_rasa:
-            print("⚠️ Rasa not installed. Cannot train model.")
+            print("   Rasa not installed. Cannot train model.")
             return
         
         print("🏋️ Training Rasa model...")
@@ -626,19 +626,19 @@ if __name__ == "__main__":
         ]
         
         print("\n" + "="*70)
-        print("🧪 TESTING RASA CLASSIFIER")
+        print("   TESTING RASA CLASSIFIER")
         print("="*70)
         
         for message in test_messages:
             result = await classifier.classify_intent(message)
-            print(f"\n💬 Message: \"{message}\"")
-            print(f"🎯 Intent: {result['intent']}")
-            print(f"📊 Confidence: {result['confidence']} ({result['confidence_score']:.4f})")
+            print(f"\n   Message: \"{message}\"")
+            print(f"   Intent: {result['intent']}")
+            print(f"   Confidence: {result['confidence']} ({result['confidence_score']:.4f})")
             print(f"🔧 Method: {result['method']}")
         
         # Print stats
         print("\n" + "="*70)
-        print("📊 CLASSIFIER STATS")
+        print("   CLASSIFIER STATS")
         print("="*70)
         stats = classifier.get_stats()
         for key, value in stats.items():

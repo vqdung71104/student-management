@@ -242,42 +242,42 @@ const StudentDashboard = () => {
             onClick={() => navigate('/student/schedule')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <div className="text-2xl mb-2">📅</div>
+            <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Thời khóa biểu</p>
           </button>
           <button 
             onClick={() => navigate('/student/grades')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <div className="text-2xl mb-2">📊</div>
+            <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Xem điểm</p>
           </button>
           <button 
             onClick={() => navigate('/student/curriculum')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <div className="text-2xl mb-2">📖</div>
+            <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Chương trình đào tạo</p>
           </button>
           <button 
             onClick={() => navigate('/student/subject-registration')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
           >
-            <div className="text-2xl mb-2">📚</div>
+            <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Đăng ký học phần</p>
           </button>
           <button 
             onClick={() => navigate('/student/class-registration')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors"
           >
-            <div className="text-2xl mb-2">🏫</div>
+            <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Đăng ký lớp</p>
           </button>
           <button 
             onClick={() => navigate('/student/forms')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
-            <div className="text-2xl mb-2">📄</div>
+            <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Biểu mẫu</p>
           </button>
         </div>
@@ -289,7 +289,7 @@ const StudentDashboard = () => {
         <div className="space-y-4">
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h3 className="text-sm font-medium text-blue-900 mb-1">
-              📢 Thông báo đăng ký học kỳ 2024.1
+                Thông báo đăng ký học kỳ 2024.1
             </h3>
             <p className="text-sm text-blue-800 mb-2">
               Thời gian đăng ký từ 15/01 đến 30/01/2024. Sinh viên vui lòng đăng ký theo đúng thời gian quy định.
@@ -298,7 +298,7 @@ const StudentDashboard = () => {
           </div>
           <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
             <h3 className="text-sm font-medium text-green-900 mb-1">
-              🎓 Học bổng khuyến khích học tập
+                 Học bổng khuyến khích học tập
             </h3>
             <p className="text-sm text-green-800 mb-2">
               Mở đăng ký học bổng cho sinh viên có kết quả học tập xuất sắc trong học kỳ vừa qua.

@@ -102,10 +102,10 @@ python -m app.services.nl2sql_service
 
 Output:
 ```
-🧪 TESTING NL2SQL SERVICE
-💬 Question: "xem điểm"
-🎯 Intent: grade_view
-📊 SQL: SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = 1
+   TESTING NL2SQL SERVICE
+   Question: "xem điểm"
+   Intent: grade_view
+   SQL: SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = 1
 🔧 Method: rule_based
 ```
 

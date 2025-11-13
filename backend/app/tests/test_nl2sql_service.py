@@ -125,13 +125,13 @@ async def test_entity_extraction():
         print(f"       Expected: {expected_entities}")
         print(f"       Extracted: {extracted}")
         if not is_correct:
-            print(f"       ❌ MISMATCH")
+            print(f"         MISMATCH")
         print()
     
     accuracy = (correct / total) * 100
     
     print("=" * 80)
-    print(f"📊 Entity Extraction Accuracy: {correct}/{total} ({accuracy:.2f}%)")
+    print(f"   Entity Extraction Accuracy: {correct}/{total} ({accuracy:.2f}%)")
     print("=" * 80)
     
     return accuracy
@@ -185,7 +185,7 @@ async def test_sql_generation():
         if is_correct:
             print(f"       ✓ All expected patterns found")
         else:
-            print(f"       ❌ Missing patterns: {missing}")
+            print(f"         Missing patterns: {missing}")
         
         # Show SQL (truncated)
         sql_preview = sql[:200] + "..." if len(sql) > 200 else sql
@@ -196,8 +196,8 @@ async def test_sql_generation():
     avg_time = total_time / total
     
     print("=" * 80)
-    print(f"📊 SQL Generation Accuracy: {correct}/{total} ({accuracy:.2f}%)")
-    print(f"⚡ Average Generation Time: {avg_time:.2f}ms")
+    print(f"   SQL Generation Accuracy: {correct}/{total} ({accuracy:.2f}%)")
+    print(f"   Average Generation Time: {avg_time:.2f}ms")
     print("=" * 80)
     
     return accuracy, avg_time
@@ -259,7 +259,7 @@ async def test_sql_customization():
         print()
     
     accuracy = (correct / len(test_cases)) * 100
-    print(f"📊 Customization Accuracy: {correct}/{len(test_cases)} ({accuracy:.2f}%)")
+    print(f"   Customization Accuracy: {correct}/{len(test_cases)} ({accuracy:.2f}%)")
     
     return accuracy
 
@@ -355,7 +355,7 @@ async def test_performance():
     avg_time = total_time / len(questions)
     qps = len(questions) / (total_time / 1000)
     
-    print(f"\n📊 Performance Metrics:")
+    print(f"\n   Performance Metrics:")
     print(f"   Total queries: {len(questions)}")
     print(f"   Total time: {total_time:.2f}ms")
     print(f"   Average time per query: {avg_time:.2f}ms")
@@ -365,7 +365,7 @@ async def test_performance():
 
 
 if __name__ == "__main__":
-    print("\n🧪 Starting NL2SQL Service Tests\n")
+    print("\n   Starting NL2SQL Service Tests\n")
     
     # Run tests
     entity_acc = asyncio.run(test_entity_extraction())
@@ -378,13 +378,13 @@ if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("FINAL SUMMARY")
     print("=" * 80)
-    print(f"\n📊 Accuracy Metrics:")
+    print(f"\n   Accuracy Metrics:")
     print(f"   Entity Extraction: {entity_acc:.2f}%")
     print(f"   SQL Generation: {sql_acc:.2f}%")
     print(f"   SQL Customization: {custom_acc:.2f}%")
     
-    print(f"\n⚡ Performance Metrics:")
+    print(f"\n   Performance Metrics:")
     print(f"   SQL Generation Time: {sql_time:.2f}ms")
     print(f"   Overall Performance: {perf_time:.2f}ms/query")
     
-    print("\n✅ All tests completed!")
+    print("\n   All tests completed!")

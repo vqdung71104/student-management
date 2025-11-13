@@ -28,9 +28,9 @@ def print_separator(char="=", length=70):
 def print_result(message: str, result: Dict, time_taken: float = None):
     """Pretty print classification result"""
     print_separator()
-    print(f"💬 Message: \"{message}\"")
-    print(f"🎯 Intent: {result['intent']}")
-    print(f"📊 Confidence: {result['confidence']}")
+    print(f"   Message: \"{message}\"")
+    print(f"   Intent: {result['intent']}")
+    print(f"   Confidence: {result['confidence']}")
     print(f"🔢 Confidence Score: {result['confidence_score']:.4f}")
     print(f"🔧 Method: {result['method']}")
     if time_taken:
@@ -38,7 +38,7 @@ def print_result(message: str, result: Dict, time_taken: float = None):
     
     # Print top 3 alternatives if available
     if 'all_scores' in result and result['all_scores']:
-        print(f"\n📋 Top 3 alternatives:")
+        print(f"\n   Top 3 alternatives:")
         for i, score_data in enumerate(result['all_scores'][:3], 1):
             print(f"   {i}. {score_data['intent']}: {score_data['score']:.4f}")
     
@@ -48,18 +48,18 @@ def print_result(message: str, result: Dict, time_taken: float = None):
 async def test_basic_classification():
     """Test basic classification với các message phổ biến"""
     print_separator("=")
-    print("🧪 TEST 1: BASIC CLASSIFICATION")
+    print("   TEST 1: BASIC CLASSIFICATION")
     print_separator("=")
     
     try:
         classifier = RasaIntentClassifier()
     except Exception as e:
-        print(f"❌ Failed to initialize Rasa classifier: {e}")
+        print(f"  Failed to initialize Rasa classifier: {e}")
         return
     
     # Print classifier stats
     stats = classifier.get_stats()
-    print("\n📊 Classifier Statistics:")
+    print("\n   Classifier Statistics:")
     print(f"   Total intents: {stats['total_intents']}")
     print(f"   Has Rasa: {stats['has_rasa']}")
     print(f"   Method: {stats['method']}")
@@ -80,7 +80,7 @@ async def test_basic_classification():
         "Cảm ơn bạn nhé",
     ]
     
-    print(f"\n📋 Testing {len(test_messages)} messages...\n")
+    print(f"\n   Testing {len(test_messages)} messages...\n")
     
     results = []
     total_time = 0
@@ -102,7 +102,7 @@ async def test_basic_classification():
     
     # Summary
     print_separator("=")
-    print("📊 SUMMARY")
+    print("   SUMMARY")
     print_separator("=")
     print(f"Total messages: {len(test_messages)}")
     print(f"Total time: {total_time:.3f}s")
@@ -122,13 +122,13 @@ async def test_basic_classification():
 async def test_edge_cases():
     """Test với các edge cases"""
     print_separator("=")
-    print("🧪 TEST 2: EDGE CASES")
+    print("   TEST 2: EDGE CASES")
     print_separator("=")
     
     try:
         classifier = RasaIntentClassifier()
     except Exception as e:
-        print(f"❌ Failed to initialize Rasa classifier: {e}")
+        print(f"  Failed to initialize Rasa classifier: {e}")
         return
     
     edge_cases = [
@@ -142,7 +142,7 @@ async def test_edge_cases():
         "Tạm biệt",  # Goodbye
     ]
     
-    print(f"\n📋 Testing {len(edge_cases)} edge cases...\n")
+    print(f"\n   Testing {len(edge_cases)} edge cases...\n")
     
     for i, message in enumerate(edge_cases, 1):
         print(f"\n{i}. Testing: \"{message}\"")
@@ -159,13 +159,13 @@ async def test_edge_cases():
 async def test_all_intents():
     """Test với ít nhất một message từ mỗi intent"""
     print_separator("=")
-    print("🧪 TEST 3: COVERAGE TEST (ALL INTENTS)")
+    print("   TEST 3: COVERAGE TEST (ALL INTENTS)")
     print_separator("=")
     
     try:
         classifier = RasaIntentClassifier()
     except Exception as e:
-        print(f"❌ Failed to initialize Rasa classifier: {e}")
+        print(f"  Failed to initialize Rasa classifier: {e}")
         return
     
     # Test messages covering different intents
@@ -197,9 +197,9 @@ async def test_all_intents():
             
             if is_correct:
                 correct_predictions += 1
-                status = "✅"
+                status = "  "
             else:
-                status = "❌"
+                status = " "
             
             print(f"   {status} \"{message}\"")
             print(f"      Expected: {expected_intent}")
@@ -207,7 +207,7 @@ async def test_all_intents():
     
     # Accuracy summary
     print_separator("=")
-    print("📊 ACCURACY SUMMARY")
+    print("   ACCURACY SUMMARY")
     print_separator("=")
     accuracy = correct_predictions / total_predictions * 100 if total_predictions > 0 else 0
     print(f"Correct predictions: {correct_predictions}/{total_predictions}")
@@ -217,13 +217,13 @@ async def test_all_intents():
 async def test_similarity_scores():
     """Test lấy similarity scores với tất cả intents"""
     print_separator("=")
-    print("🧪 TEST 4: SIMILARITY SCORES")
+    print("   TEST 4: SIMILARITY SCORES")
     print_separator("=")
     
     try:
         classifier = RasaIntentClassifier()
     except Exception as e:
-        print(f"❌ Failed to initialize Rasa classifier: {e}")
+        print(f"  Failed to initialize Rasa classifier: {e}")
         return
     
     test_messages = [
@@ -233,11 +233,11 @@ async def test_similarity_scores():
     ]
     
     for message in test_messages:
-        print(f"\n💬 Message: \"{message}\"")
+        print(f"\n   Message: \"{message}\"")
         
         similarities = classifier.get_all_similarities(message)
         
-        print(f"📊 Top 5 similar intents:")
+        print(f"   Top 5 similar intents:")
         for i, (intent, score) in enumerate(similarities[:5], 1):
             bar_length = int(score * 40)
             bar = "█" * bar_length + "░" * (40 - bar_length)
@@ -247,13 +247,13 @@ async def test_similarity_scores():
 async def test_performance():
     """Test hiệu năng với nhiều message"""
     print_separator("=")
-    print("🧪 TEST 5: PERFORMANCE TEST")
+    print("   TEST 5: PERFORMANCE TEST")
     print_separator("=")
     
     try:
         classifier = RasaIntentClassifier()
     except Exception as e:
-        print(f"❌ Failed to initialize Rasa classifier: {e}")
+        print(f"  Failed to initialize Rasa classifier: {e}")
         return
     
     # Generate test messages
@@ -275,7 +275,7 @@ async def test_performance():
     total_time = time.time() - start_time
     avg_time = total_time / len(test_messages)
     
-    print(f"\n📊 Performance Results:")
+    print(f"\n   Performance Results:")
     print(f"   Total messages: {len(test_messages)}")
     print(f"   Total time: {total_time:.3f}s")
     print(f"   Average time: {avg_time:.4f}s per message")
@@ -304,12 +304,12 @@ async def run_all_tests():
         try:
             await test_func()
         except Exception as e:
-            print(f"\n❌ Test failed with error: {e}")
+            print(f"\n  Test failed with error: {e}")
             import traceback
             traceback.print_exc()
     
     print("\n\n" + "="*70)
-    print("✅ ALL TESTS COMPLETED")
+    print("   ALL TESTS COMPLETED")
     print("="*70)
 
 
@@ -345,8 +345,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n\n⚠️ Tests interrupted by user")
+        print("\n\n   Tests interrupted by user")
     except Exception as e:
-        print(f"\n\n❌ Fatal error: {e}")
+        print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()

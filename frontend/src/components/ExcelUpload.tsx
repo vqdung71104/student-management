@@ -387,7 +387,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
               ) : (
                 <div>
                   <div className="text-green-600 mb-2">
-                    ✅ File đã chọn: {file.name}
+                       File đã chọn: {file.name}
                   </div>
                   <button
                     onClick={() => fileInputRef.current?.click()}
@@ -420,7 +420,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
           {/* Preview Data */}
           {preview.length > 0 && (
             <div className="mb-6">
-              <h4 className="text-lg font-semibold mb-3">📋 Xem trước dữ liệu (10 dòng đầu)</h4>
+              <h4 className="text-lg font-semibold mb-3">   Xem trước dữ liệu (10 dòng đầu)</h4>
               <div className="overflow-x-auto max-h-64 border rounded-lg">
                 <table className="min-w-full bg-white text-xs">
                   <thead className="bg-gray-50 sticky top-0">

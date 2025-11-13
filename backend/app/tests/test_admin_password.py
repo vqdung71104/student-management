@@ -15,10 +15,10 @@ def test_admin_password_change():
     
     print(f"Admin Password Change Status: {response.status_code}")
     if response.status_code == 200:
-        print("✅ Admin password change successful")
+        print("   Admin password change successful")
         print(f"Response: {response.json()}")
     else:
-        print("❌ Admin password change failed")
+        print("  Admin password change failed")
         print(f"Error: {response.text}")
 
 def test_admin_login_old_password():
@@ -32,10 +32,10 @@ def test_admin_login_old_password():
     
     print(f"Login Status: {response.status_code}")
     if response.status_code == 200:
-        print("✅ Login successful with old password")
+        print("   Login successful with old password")
         print(f"Response: {response.json()}")
     else:
-        print("❌ Login failed with old password")
+        print("  Login failed with old password")
         print(f"Error: {response.text}")
 
 def test_admin_login_new_password():
@@ -49,10 +49,10 @@ def test_admin_login_new_password():
     
     print(f"Login Status: {response.status_code}")
     if response.status_code == 200:
-        print("✅ Login successful with new password")
+        print("   Login successful with new password")
         print(f"Response: {response.json()}")
     else:
-        print("❌ Login failed with new password")
+        print("  Login failed with new password")
         print(f"Error: {response.text}")
 
 if __name__ == "__main__":

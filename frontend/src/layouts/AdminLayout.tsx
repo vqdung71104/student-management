@@ -74,7 +74,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   }`}
                   onClick={() => navigateTo('/admin')}
                 >
-                  <span>📊</span>
+                  <span>  </span>
                   <span className="hidden lg:inline">{t.dashboard}</span>
                 </button>
 
@@ -102,7 +102,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     onMouseEnter={() => setSubjectMenuOpen(true)}
                     onMouseLeave={() => setSubjectMenuOpen(true)}
                   >
-                    <span>📚</span>
+                    <span>  </span>
                     <span className="hidden lg:inline">{t.subjectManagement}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -115,10 +115,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                       onMouseLeave={() => setSubjectMenuOpen(false)}
                     >
                       <button onClick={() => navigateTo('/admin/schedule-update')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📅 {t.updateSchedule}
+                           {t.updateSchedule}
                       </button>
                       <button onClick={() => navigateTo('/admin/subjects')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📄 {t.updateSubjects}
+                           {t.updateSubjects}
                       </button>
                     </div>
                   )}
@@ -135,7 +135,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     onMouseEnter={() => setSettingsMenuOpen(true)}
                     onMouseLeave={() => setSettingsMenuOpen(true)}
                   >
-                    <span>⚙️</span>
+                    <span>  </span>
                     <span className="hidden lg:inline">{t.settings}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -148,16 +148,16 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                       onMouseLeave={() => setSettingsMenuOpen(false)}
                     >
                       <button onClick={() => navigateTo('/admin/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        💬 Trả lời phản hồi
+                           Trả lời phản hồi
                       </button>
                       <button onClick={() => navigateTo('/admin/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        ❓ Quản lý FAQ
+                           Quản lý FAQ
                       </button>
                       <button onClick={() => navigateTo('/admin/notifications')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        📢 Quản lý thông báo
+                          Quản lý thông báo
                       </button>
                       <button onClick={() => navigateTo('/admin/change-password')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                        🔐 {t.changePassword}
+                           {t.changePassword}
                       </button>
                     </div>
                   )}
@@ -172,7 +172,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   }`}
                   onClick={toggleChatbot}
                 >
-                  <span>🤖</span>
+                  <span>  </span>
                   <span className="hidden lg:inline">{t.chatbotSupport}</span>
                 </button>
 
@@ -217,7 +217,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               onClick={handleLogoutClick}
               className="h-8 px-3 bg-gray-500 text-white rounded-md hover:bg-gray-400 border border-gray-300 transition-all duration-200 text-xs font-medium flex items-center space-x-1 shadow-sm hover:shadow-md"
             >
-              <span>👤</span>
+              <span>  </span>
               <span className="hidden lg:inline">{t.logout}</span>
             </button>
           </div>
@@ -237,7 +237,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
           <div className="bg-white rounded-lg shadow-xl border border-gray-200 p-6 max-w-sm mx-4">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                <span className="text-orange-600 text-xl">⚠️</span>
+                <span className="text-orange-600 text-xl">  </span>
               </div>
               <h3 className="text-lg font-semibold text-gray-900">Xác nhận đăng xuất</h3>
             </div>

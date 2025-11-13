@@ -269,7 +269,7 @@ async def run_integration_tests():
     print("=" * 80)
     
     pass_rate = (total_passed / len(TEST_SCENARIOS)) * 100
-    print(f"\n📊 Overall Results:")
+    print(f"\n   Overall Results:")
     print(f"   Total tests: {len(TEST_SCENARIOS)}")
     print(f"   Passed: {total_passed}")
     print(f"   Failed: {len(TEST_SCENARIOS) - total_passed}")
@@ -281,7 +281,7 @@ async def run_integration_tests():
     max_time = max(total_times)
     min_time = min(total_times)
     
-    print(f"\n⚡ Performance Statistics:")
+    print(f"\n   Performance Statistics:")
     print(f"   Average response time: {avg_time:.2f}ms")
     print(f"   Min response time: {min_time:.2f}ms")
     print(f"   Max response time: {max_time:.2f}ms")
@@ -295,7 +295,7 @@ async def run_integration_tests():
                     step_times[step_name] = []
                 step_times[step_name].append(step_data["time_ms"])
     
-    print(f"\n📈 Average time per step:")
+    print(f"\n   Average time per step:")
     for step_name, times in step_times.items():
         avg = sum(times) / len(times)
         print(f"   {step_name}: {avg:.2f}ms")
@@ -303,7 +303,7 @@ async def run_integration_tests():
     # Failed tests
     failed = [r for r in results if not r["passed"]]
     if failed:
-        print(f"\n❌ Failed Tests ({len(failed)}):")
+        print(f"\n  Failed Tests ({len(failed)}):")
         for r in failed:
             print(f"   - {r['scenario']['name']}")
             print(f"     Message: {r['scenario']['message']}")
@@ -354,7 +354,7 @@ async def test_concurrent_requests():
     avg_time = sum(r["total_time_ms"] for r in results) / len(results)
     throughput = len(messages) / (total_time / 1000)
     
-    print(f"\n📊 Concurrent Processing Results:")
+    print(f"\n   Concurrent Processing Results:")
     print(f"   Total requests: {len(messages)}")
     print(f"   Successful: {successful}")
     print(f"   Total wall time: {total_time:.2f}ms")
@@ -413,7 +413,7 @@ async def test_error_handling():
 
 
 if __name__ == "__main__":
-    print("\n🧪 Starting Chatbot Integration Tests\n")
+    print("\n   Starting Chatbot Integration Tests\n")
     
     # Run main tests
     summary = asyncio.run(run_integration_tests())
@@ -427,5 +427,5 @@ if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("ALL TESTS COMPLETED")
     print("=" * 80)
-    print(f"\n✅ Overall Pass Rate: {summary['pass_rate']:.2f}%")
-    print(f"⚡ Average Response Time: {summary['avg_time_ms']:.2f}ms")
+    print(f"\n   Overall Pass Rate: {summary['pass_rate']:.2f}%")
+    print(f"   Average Response Time: {summary['avg_time_ms']:.2f}ms")

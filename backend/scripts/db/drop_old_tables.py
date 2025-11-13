@@ -30,15 +30,15 @@ def drop_old_tables():
                 print(f"   Dropping table: {table}")
                 conn.execute(text(f"DROP TABLE IF EXISTS {table}"))
                 conn.commit()
-                print(f"   ✅ Dropped {table}")
+                print(f"      Dropped {table}")
             except Exception as e:
-                print(f"   ⚠️  Could not drop {table}: {e}")
+                print(f"       Could not drop {table}: {e}")
         
         # Re-enable foreign key checks
         conn.execute(text("SET FOREIGN_KEY_CHECKS = 1"))
         conn.commit()
         
-    print("✅ Old tables cleanup completed!")
+    print("   Old tables cleanup completed!")
 
 if __name__ == "__main__":
     drop_old_tables()

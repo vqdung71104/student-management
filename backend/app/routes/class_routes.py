@@ -17,7 +17,7 @@ class TeacherUpdate(BaseModel):
 class TeacherUpdateRequest(BaseModel):
     updates: List[TeacherUpdate]
 
-# ✅ Create class
+#    Create class
 @router.post("/", response_model=ClassResponse)
 def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
     # Convert data to dict and handle special fields
@@ -29,7 +29,7 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
     else:
         class_dict["linked_class_ids"] = ""
     
-    # ❌ XÓA DÒNG NÀY - không cần convert enum nữa
+    #   XÓA DÒNG NÀY - không cần convert enum nữa
     # if class_dict["class_type"]:
     #     class_dict["class_type"] = class_dict["class_type"].value
     
@@ -39,12 +39,12 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
     db.refresh(db_class)
     return db_class
 
-# ✅ Get all classes
+#    Get all classes
 @router.get("/", response_model=list[ClassResponse])
 def get_classes(db: Session = Depends(get_db)):
     return db.query(Class).all()
 
-# ✅ Get class by ID
+#    Get class by ID
 @router.get("/{class_id}", response_model=ClassResponse)
 def get_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
@@ -52,7 +52,7 @@ def get_class(class_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Class not found")
     return class_obj
 
-# ✅ Update class
+#    Update class
 @router.put("/{class_id}", response_model=ClassResponse)
 def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
@@ -66,7 +66,7 @@ def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends
         if key == "linked_class_ids" and value is not None:
             if isinstance(value, list):
                 value = ",".join(value) if value else ""
-        # ❌ XÓA PHẦN NÀY - không cần convert enum nữa
+        #   XÓA PHẦN NÀY - không cần convert enum nữa
         # elif key == "class_type" and value is not None:
         #     value = value.value
         
@@ -76,7 +76,7 @@ def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends
     db.refresh(class_obj)
     return class_obj
 
-# ✅ Delete class
+#    Delete class
 @router.delete("/{class_id}")
 def delete_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
@@ -86,7 +86,7 @@ def delete_class(class_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Class deleted successfully"}
 
-# ✅ Update teachers from Excel
+#    Update teachers from Excel
 @router.post("/update-teachers")
 def update_teachers(request: TeacherUpdateRequest, db: Session = Depends(get_db)):
     """Update teacher names for existing classes based on class_id"""

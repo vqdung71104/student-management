@@ -128,14 +128,14 @@ async def test_intent_classification():
     accuracy = (correct / total) * 100
     avg_time = total_time / total
     
-    print(f"\n📊 Overall Metrics:")
+    print(f"\n   Overall Metrics:")
     print(f"   Total test cases: {total}")
     print(f"   Correct predictions: {correct}")
     print(f"   Incorrect predictions: {total - correct}")
     print(f"   Accuracy: {accuracy:.2f}%")
     print(f"   Average response time: {avg_time:.2f}ms")
     
-    print(f"\n📈 Confidence Distribution:")
+    print(f"\n Confidence Distribution:")
     print(f"   High confidence: {confidence_distribution['high']} ({confidence_distribution['high']/total*100:.1f}%)")
     print(f"   Medium confidence: {confidence_distribution['medium']} ({confidence_distribution['medium']/total*100:.1f}%)")
     print(f"   Low confidence: {confidence_distribution['low']} ({confidence_distribution['low']/total*100:.1f}%)")
@@ -143,7 +143,7 @@ async def test_intent_classification():
     # Show errors
     errors = [r for r in results if not r["correct"]]
     if errors:
-        print(f"\n❌ Errors ({len(errors)}):")
+        print(f"\n  Errors ({len(errors)}):")
         for err in errors:
             print(f"   Message: {err['message']}")
             print(f"   Expected: {err['expected']}, Got: {err['predicted']}")
@@ -151,7 +151,7 @@ async def test_intent_classification():
             print()
     
     # Performance by intent
-    print(f"\n📋 Performance by Intent:")
+    print(f"\n   Performance by Intent:")
     intent_stats = {}
     for r in results:
         intent = r["expected"]
@@ -212,7 +212,7 @@ async def test_edge_cases():
 
 
 if __name__ == "__main__":
-    print("\n🧪 Starting Intent Classification Tests\n")
+    print("\n Starting Intent Classification Tests\n")
     
     # Run main test
     results = asyncio.run(test_intent_classification())
@@ -220,6 +220,6 @@ if __name__ == "__main__":
     # Run edge cases
     asyncio.run(test_edge_cases())
     
-    print("\n✅ All tests completed!")
-    print(f"\n📊 Final Accuracy: {results['accuracy']:.2f}%")
-    print(f"⚡ Average Response Time: {results['avg_time_ms']:.2f}ms")
+    print("\n   All tests completed!")
+    print(f"\n Final Accuracy: {results['accuracy']:.2f}%")
+    print(f"Average Response Time: {results['avg_time_ms']:.2f}ms")

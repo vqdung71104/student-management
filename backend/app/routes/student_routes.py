@@ -9,7 +9,7 @@ import hashlib
 router = APIRouter(prefix="/students", tags=["Students"])
 
 
-# ✅ Create student (chỉ dành cho admin, student sẽ dùng /auth/register)
+#    Create student (chỉ dành cho admin, student sẽ dùng /auth/register)
 @router.post("/", response_model=StudentResponse)
 def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     # Check trùng email
@@ -40,13 +40,13 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
     return db_student
 
 
-# ✅ Get all students
+#    Get all students
 @router.get("/", response_model=list[StudentResponse])
 def get_students(db: Session = Depends(get_db)):
     return db.query(Student).all()
 
 
-# ✅ Get student by id
+#    Get student by id
 @router.get("/{student_id}", response_model=StudentResponse)
 def get_student(student_id: int, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.id == student_id).first()
@@ -55,7 +55,7 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
     return student
 
 
-# ✅ Update student
+#    Update student
 @router.put("/{student_id}", response_model=StudentResponse)
 def update_student(student_id: int, student_update: StudentUpdate, db: Session = Depends(get_db)):
     db_student = db.query(Student).filter(Student.id == student_id).first()
@@ -81,7 +81,7 @@ def update_student(student_id: int, student_update: StudentUpdate, db: Session =
     return db_student
 
 
-# ✅ Delete student
+#    Delete student
 @router.delete("/{student_id}")
 def delete_student(student_id: int, db: Session = Depends(get_db)):
     db_student = db.query(Student).filter(Student.id == student_id).first()
@@ -93,7 +93,7 @@ def delete_student(student_id: int, db: Session = Depends(get_db)):
     return {"detail": "Xóa sinh viên thành công"}
 
 
-# ✅ Get student with detailed academic information
+#    Get student with detailed academic information
 @router.get("/{student_id}/academic-details")
 def get_student_academic_details(student_id: int, db: Session = Depends(get_db)):
     student = db.query(Student).filter(Student.id == student_id).first()

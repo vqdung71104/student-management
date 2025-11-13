@@ -156,7 +156,7 @@ const ChatBot: React.FC = () => {
           >
             <div className="message-content">
               {!message.isUser && (
-                <div className="message-avatar">🤖</div>
+                <div className="message-avatar">  </div>
               )}
               <div className="message-bubble">
                 <p>{message.text}</p>
@@ -164,7 +164,7 @@ const ChatBot: React.FC = () => {
                 <span className="message-time">{formatTime(message.timestamp)}</span>
               </div>
               {message.isUser && (
-                <div className="message-avatar user-avatar">👤</div>
+                <div className="message-avatar user-avatar">  </div>
               )}
             </div>
           </div>
@@ -173,7 +173,7 @@ const ChatBot: React.FC = () => {
         {isLoading && (
           <div className="message-wrapper bot">
             <div className="message-content">
-              <div className="message-avatar">🤖</div>
+              <div className="message-avatar">  </div>
               <div className="message-bubble typing">
                 <div className="typing-indicator">
                   <span></span>

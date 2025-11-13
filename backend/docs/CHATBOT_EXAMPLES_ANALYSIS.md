@@ -633,8 +633,8 @@ Student 1
 │   └── ... (more subjects)
 │
 ├── Learned subjects (learned_subjects)
-│   ├── IT4040 (Grade: A) ❌ Exclude
-│   ├── MI1114 (Grade: B) ❌ Exclude
+│   ├── IT4040 (Grade: A)   Exclude
+│   ├── MI1114 (Grade: B)   Exclude
 │   ├── IT3080 (Grade: F) ✓ Include (failed)
 │   └── ... (14 subjects)
 │

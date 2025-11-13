@@ -13,7 +13,7 @@ def test_admin_otp_reset():
     
     print(f"OTP Request Status: {response.status_code}")
     if response.status_code == 200:
-        print("✅ OTP request successful")
+        print("   OTP request successful")
         print(f"Response: {response.json()}")
         
         # In real scenario, you would get OTP from email
@@ -28,13 +28,13 @@ def test_admin_otp_reset():
         
         print(f"OTP Verification Status: {response2.status_code}")
         if response2.status_code == 200:
-            print("✅ OTP verification successful")
+            print("   OTP verification successful")
             print(f"Response: {response2.json()}")
         else:
-            print("❌ OTP verification failed (as expected)")
+            print("  OTP verification failed (as expected)")
             print(f"Error: {response2.text}")
     else:
-        print("❌ OTP request failed")
+        print("  OTP request failed")
         print(f"Error: {response.text}")
 
 if __name__ == "__main__":

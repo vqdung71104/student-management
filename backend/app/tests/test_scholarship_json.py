@@ -77,17 +77,17 @@ def test_json_encoding():
     try:
         # Test JSON serialization
         json_string = json.dumps(test_data, ensure_ascii=False, indent=2)
-        print("✅ JSON serialization successful")
+        print("   JSON serialization successful")
         print(f"JSON length: {len(json_string)} characters")
         
         # Test JSON deserialization
         parsed_data = json.loads(json_string)
-        print("✅ JSON deserialization successful")
+        print("   JSON deserialization successful")
         
         return json_string
         
     except Exception as e:
-        print(f"❌ JSON error: {e}")
+        print(f"  JSON error: {e}")
         return None
 
 def test_api_call():
@@ -106,14 +106,14 @@ def test_api_call():
         response = requests.post(url, data=json_string.encode('utf-8'), headers=headers)
         
         if response.status_code == 200 or response.status_code == 201:
-            print("✅ API call successful")
+            print("   API call successful")
             print(f"Response: {response.json()}")
         else:
-            print(f"❌ API call failed: {response.status_code}")
+            print(f"  API call failed: {response.status_code}")
             print(f"Response: {response.text}")
             
     except Exception as e:
-        print(f"❌ API call error: {e}")
+        print(f"  API call error: {e}")
 
 if __name__ == "__main__":
     print("Testing JSON encoding and API call...")

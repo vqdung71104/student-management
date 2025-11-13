@@ -52,14 +52,14 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         
         # List of intents that need database query
         data_intents = [
-            "grade_view", "learned_subjects_view", "student_info", "subject_info", 
+            "grade_view", "learned_subjects_view", "subject_info", 
             "class_info", "schedule_view",
             "subject_registration_suggestion", "class_registration_suggestion"
         ]
         
         if intent in data_intents and confidence in ["high", "medium"]:
             try:
-                print(f"🔍 DEBUG: student_id = {message.student_id}, intent = {intent}")
+                print(f" DEBUG: student_id = {message.student_id}, intent = {intent}")
                 
                 # Generate SQL
                 sql_result = await nl2sql_service.generate_sql(
@@ -68,7 +68,7 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                     student_id=message.student_id
                 )
                 
-                print(f"🔍 DEBUG: SQL result = {sql_result}")
+                print(f"DEBUG: SQL result = {sql_result}")
                 
                 sql_query = sql_result.get("sql")
                 
@@ -99,11 +99,11 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                                     item["student_failed_subjects"] = student_result[1]
                                     item["student_warning_level"] = student_result[2]
                         except Exception as e:
-                            print(f"⚠️ Warning: Could not fetch student CPA: {e}")
+                            print(f"   Warning: Could not fetch student CPA: {e}")
                 
             except Exception as e:
                 sql_error = str(e)
-                print(f"⚠️ SQL execution error: {e}")
+                print(f"   SQL execution error: {e}")
         
         # 3. Generate response text
         response_text = _generate_response_text(
@@ -124,7 +124,7 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         )
         
     except Exception as e:
-        print(f"❌ Error in chatbot endpoint: {str(e)}")
+        print(f"  Error in chatbot endpoint: {str(e)}")
         import traceback
         traceback.print_exc()
         

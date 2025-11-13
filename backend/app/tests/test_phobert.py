@@ -23,10 +23,10 @@ load_dotenv(env_path)
 def print_result(method: str, message: str, result: Dict, time_taken: float = None):
     """Pretty print classification result"""
     print(f"\n{'='*70}")
-    print(f"📝 Method: {method}")
-    print(f"💬 Message: \"{message}\"")
-    print(f"🎯 Intent: {result['intent']}")
-    print(f"📊 Confidence: {result['confidence']}")
+    print(f"   Method: {method}")
+    print(f"   Message: \"{message}\"")
+    print(f"   Intent: {result['intent']}")
+    print(f"   Confidence: {result['confidence']}")
     if 'similarity_score' in result:
         print(f"🔢 Similarity Score: {result['similarity_score']:.4f}")
     if time_taken:
@@ -37,13 +37,13 @@ def print_result(method: str, message: str, result: Dict, time_taken: float = No
 async def test_phobert_only():
     """Test PhoBERT classifier"""
     print("\n" + "="*70)
-    print("🧪 TESTING PHOBERT CLASSIFIER")
+    print("   TESTING PHOBERT CLASSIFIER")
     print("="*70)
     
     try:
         classifier = PhoBERTIntentClassifier()
     except Exception as e:
-        print(f"❌ Failed to initialize PhoBERT: {e}")
+        print(f"  Failed to initialize PhoBERT: {e}")
         return
     
     test_messages = [
@@ -61,7 +61,7 @@ async def test_phobert_only():
         "Cảm ơn bạn nhé",
     ]
     
-    print(f"\n📋 Testing {len(test_messages)} messages...\n")
+    print(f"\n   Testing {len(test_messages)} messages...\n")
     
     import time
     for i, message in enumerate(test_messages, 1):
@@ -83,13 +83,13 @@ async def test_phobert_only():
 async def test_hybrid_classifier():
     """Test Hybrid classifier"""
     print("\n" + "="*70)
-    print("🧪 TESTING HYBRID CLASSIFIER (PhoBERT + Gemini)")
+    print("   TESTING HYBRID CLASSIFIER (PhoBERT + Gemini)")
     print("="*70)
     
     try:
         classifier = HybridIntentClassifier(use_phobert=True, use_gemini=True)
     except Exception as e:
-        print(f"❌ Failed to initialize Hybrid classifier: {e}")
+        print(f"  Failed to initialize Hybrid classifier: {e}")
         return
     
     test_messages = [
@@ -104,7 +104,7 @@ async def test_hybrid_classifier():
         "Hôm nay trời đẹp quá",  # Unknown
     ]
     
-    print(f"\n📋 Testing {len(test_messages)} messages...\n")
+    print(f"\n   Testing {len(test_messages)} messages...\n")
     
     import time
     for i, message in enumerate(test_messages, 1):
@@ -124,7 +124,7 @@ async def test_hybrid_classifier():
 async def test_comparison():
     """So sánh PhoBERT vs Gemini vs Hybrid"""
     print("\n" + "="*70)
-    print("🔬 COMPARISON: PhoBERT vs Gemini vs Hybrid")
+    print("   COMPARISON: PhoBERT vs Gemini vs Hybrid")
     print("="*70)
     
     # Initialize classifiers
@@ -133,7 +133,7 @@ async def test_comparison():
         gemini = IntentClassifier()
         hybrid = HybridIntentClassifier(use_phobert=True, use_gemini=True)
     except Exception as e:
-        print(f"❌ Failed to initialize classifiers: {e}")
+        print(f"  Failed to initialize classifiers: {e}")
         return
     
     test_messages = [
@@ -145,14 +145,14 @@ async def test_comparison():
     import time
     for message in test_messages:
         print(f"\n{'='*70}")
-        print(f"💬 Testing: \"{message}\"")
+        print(f"   Testing: \"{message}\"")
         print(f"{'='*70}")
         
         # PhoBERT
         start = time.time()
         phobert_result = await phobert.classify_intent(message)
         phobert_time = time.time() - start
-        print(f"\n🤖 PhoBERT:")
+        print(f"\n   PhoBERT:")
         print(f"   Intent: {phobert_result['intent']}")
         print(f"   Confidence: {phobert_result['confidence']}")
         print(f"   Similarity: {phobert_result['similarity_score']:.4f}")
@@ -178,7 +178,7 @@ async def test_comparison():
         print(f"   Time: {hybrid_time:.3f}s")
         
         # Summary
-        print(f"\n📊 Summary:")
+        print(f"\n   Summary:")
         print(f"   Agreement: PhoBERT={phobert_result['intent']}, "
               f"Gemini={gemini_result['intent']}, "
               f"Hybrid={hybrid_result['intent']}")
@@ -194,7 +194,7 @@ async def main():
     print("🚀"*35)
     
     while True:
-        print("\n📋 Choose test mode:")
+        print("\n   Choose test mode:")
         print("1. Test PhoBERT only")
         print("2. Test Hybrid (PhoBERT + Gemini)")
         print("3. Compare all methods")
@@ -212,7 +212,7 @@ async def main():
             print("\n👋 Goodbye!")
             break
         else:
-            print("❌ Invalid choice!")
+            print("  Invalid choice!")
 
 
 if __name__ == "__main__":

@@ -15,11 +15,11 @@ from app.chatbot.rasa_classifier import RasaIntentClassifier
 async def test_basic():
     """Test basic NL2SQL"""
     print("\n" + "="*70)
-    print("🧪 TEST NL2SQL SERVICE")
+    print("   TEST NL2SQL SERVICE")
     print("="*70)
     
     # Initialize
-    print("\n1️⃣ Initializing services...")
+    print("\n   Initializing services...")
     nl2sql = NL2SQLService()
     classifier = RasaIntentClassifier()
     
@@ -52,7 +52,7 @@ async def test_basic():
         intent = intent_result['intent']
         confidence = intent_result['confidence']
         
-        print(f"✅ Intent: {intent} ({confidence})")
+        print(f"   Intent: {intent} ({confidence})")
         
         # Generate SQL
         sql_result = await nl2sql.generate_sql(
@@ -70,14 +70,14 @@ async def test_basic():
         print(f"Entities: {entities}")
         
         if sql:
-            print(f"\n✅ SQL Generated:")
+            print(f"\n   SQL Generated:")
             print(f"   {sql}")
             
             # Check if {student_id} is still in SQL
             if "{student_id}" in sql:
-                print(f"\n❌ ERROR: {{student_id}} not replaced!")
+                print(f"\n  ERROR: {{student_id}} not replaced!")
         else:
-            print(f"\n⚠️ No SQL generated")
+            print(f"\n   No SQL generated")
             if error:
                 print(f"   Error: {error}")
 

@@ -195,13 +195,13 @@ const StudentsManagement = () => {
             onClick={() => setShowUploadModal(true)}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
           >
-            📊 Upload Excel
+               Upload Excel
           </button>
           <button 
             onClick={openCreateModal}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
-            ➕ Thêm sinh viên
+               Thêm sinh viên
           </button>
         </div>
       </div>
@@ -276,19 +276,19 @@ const StudentsManagement = () => {
                       onClick={() => openViewModal(student)}
                       className="text-blue-600 hover:text-blue-900"
                     >
-                      👁️ Xem
+                         Xem
                     </button>
                     <button 
                       onClick={() => openEditModal(student)}
                       className="text-yellow-600 hover:text-yellow-900"
                     >
-                      ✏️ Sửa
+                         Sửa
                     </button>
                     <button 
                       onClick={() => handleDeleteStudent(student.id)}
                       className="text-red-600 hover:text-red-900"
                     >
-                      🗑️ Xóa
+                        Xóa
                     </button>
                   </td>
                 </tr>

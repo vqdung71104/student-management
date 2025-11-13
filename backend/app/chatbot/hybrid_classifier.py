@@ -31,25 +31,25 @@ class HybridIntentClassifier:
         
         if self.use_phobert:
             try:
-                print("🔄 Initializing PhoBERT classifier...")
+                print("   Initializing PhoBERT classifier...")
                 self.phobert_classifier = PhoBERTIntentClassifier()
-                print("✅ PhoBERT classifier ready")
+                print("   PhoBERT classifier ready")
             except Exception as e:
-                print(f"⚠️ PhoBERT initialization failed: {e}")
+                print(f"   PhoBERT initialization failed: {e}")
                 self.use_phobert = False
         
         if self.use_gemini:
             try:
-                print("🔄 Initializing Gemini classifier...")
+                print("   Initializing Gemini classifier...")
                 self.gemini_classifier = IntentClassifier()
-                print("✅ Gemini classifier ready")
+                print("   Gemini classifier ready")
             except Exception as e:
-                print(f"⚠️ Gemini initialization failed: {e}")
+                print(f"   Gemini initialization failed: {e}")
                 self.use_gemini = False
         
         # Strategy configuration
         self.strategy = self._determine_strategy()
-        print(f"🎯 Using strategy: {self.strategy}")
+        print(f"   Using strategy: {self.strategy}")
     
     def _determine_strategy(self) -> str:
         """Xác định strategy dựa trên classifiers available"""
