@@ -115,15 +115,17 @@
       "patterns": [
         "xem cpa",
         "xem gpa",
+        "điểm của tôi",
+        "tôi muốn xem điểm",
+        "xem điểm học kỳ 20231",
         "điểm trung bình",
         "còn nợ bao nhiêu môn",
         "còn nợ mấy tín chỉ",
-        "thông tin học vụ",
-        "kết quả học tập tổng quan",
+        "kết quả học tập",
         "xem cpa của tôi",
         "tôi còn nợ bao nhiêu môn"
       ],
-      "description": "Xem điểm CPA, GPA và thông tin học vụ tổng quan"
+      "description": "Xem tổng điểm CPA, GPA"
     },
     {
       "tag": "learned_subjects_view",

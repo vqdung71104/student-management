@@ -231,26 +231,41 @@ class NL2SQLService:
         
         # Replace class_id if found
         if 'class_id' in entities:
+            # Match and preserve prefix (c. or nothing)
+            def replace_class_id(match):
+                prefix = match.group(1) or ''
+                return f"{prefix}class_id = '{entities['class_id']}'"
+            
             sql = re.sub(
-                r"c\.class_id = '\d+'",
-                f"c.class_id = '{entities['class_id']}'",
+                r"(c\.)?class_id = '\d+'",
+                replace_class_id,
                 sql
             )
         
         # Replace subject_id if found
         if 'subject_id' in entities:
+            # Match and preserve prefix (s. or nothing)
+            def replace_subject_id(match):
+                prefix = match.group(1) or ''
+                return f"{prefix}subject_id = '{entities['subject_id']}'"
+            
             sql = re.sub(
-                r"s\.subject_id = '[A-Z]{2,4}\d{4}[A-Z]?'",
-                f"s.subject_id = '{entities['subject_id']}'",
+                r"(s\.)?subject_id = '[A-Z]{2,4}\d{4}[A-Z]?'",
+                replace_subject_id,
                 sql
             )
         
         # Replace subject_name if found
         if 'subject_name' in entities:
             subject_name = entities['subject_name']
+            # Match and preserve prefix (s. or nothing)
+            def replace_subject_name(match):
+                prefix = match.group(1) or ''
+                return f"{prefix}subject_name LIKE '%{subject_name}%'"
+            
             sql = re.sub(
-                r"s\.subject_name LIKE '%[^']+%'",
-                f"s.subject_name LIKE '%{subject_name}%'",
+                r"(s\.)?subject_name LIKE '%[^']+%'",
+                replace_subject_name,
                 sql
             )
         
