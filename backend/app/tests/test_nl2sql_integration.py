@@ -9,7 +9,7 @@ import os
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, backend_dir)
 
-from app.chatbot.rasa_classifier import RasaIntentClassifier
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
 
 
@@ -21,7 +21,7 @@ async def test_nl2sql_basic():
     
     # Initialize services
     print("\n   Initializing services...")
-    intent_classifier = RasaIntentClassifier()
+    intent_classifier = TfidfIntentClassifier()
     nl2sql_service = NL2SQLService()
     
     test_cases = [
@@ -115,7 +115,7 @@ async def test_entity_extraction():
     print("="*70)
     
     nl2sql_service = NL2SQLService()
-    intent_classifier = RasaIntentClassifier()
+    intent_classifier = TfidfIntentClassifier()
     
     test_cases = [
         {
@@ -193,7 +193,7 @@ async def test_sql_customization():
     print("="*70)
     
     nl2sql_service = NL2SQLService()
-    intent_classifier = RasaIntentClassifier()
+    intent_classifier = TfidfIntentClassifier()
     
     test_cases = [
         {
@@ -257,7 +257,7 @@ async def test_full_workflow():
     print("   TEST 4: FULL WORKFLOW SIMULATION")
     print("="*70)
     
-    intent_classifier = RasaIntentClassifier()
+    intent_classifier = TfidfIntentClassifier()
     nl2sql_service = NL2SQLService()
     
     test_messages = [
@@ -368,3 +368,4 @@ if __name__ == "__main__":
         print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()
+

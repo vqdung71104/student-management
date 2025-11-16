@@ -13,7 +13,7 @@ backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__
 sys.path.insert(0, backend_dir)
 
 from dotenv import load_dotenv
-from app.chatbot.rasa_classifier import RasaIntentClassifier
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 
 # Load environment variables từ backend/.env
 env_path = os.path.join(backend_dir, '.env')
@@ -52,7 +52,7 @@ async def test_basic_classification():
     print_separator("=")
     
     try:
-        classifier = RasaIntentClassifier()
+        classifier = TfidfIntentClassifier()
     except Exception as e:
         print(f"  Failed to initialize Rasa classifier: {e}")
         return
@@ -126,7 +126,7 @@ async def test_edge_cases():
     print_separator("=")
     
     try:
-        classifier = RasaIntentClassifier()
+        classifier = TfidfIntentClassifier()
     except Exception as e:
         print(f"  Failed to initialize Rasa classifier: {e}")
         return
@@ -163,7 +163,7 @@ async def test_all_intents():
     print_separator("=")
     
     try:
-        classifier = RasaIntentClassifier()
+        classifier = TfidfIntentClassifier()
     except Exception as e:
         print(f"  Failed to initialize Rasa classifier: {e}")
         return
@@ -221,7 +221,7 @@ async def test_similarity_scores():
     print_separator("=")
     
     try:
-        classifier = RasaIntentClassifier()
+        classifier = TfidfIntentClassifier()
     except Exception as e:
         print(f"  Failed to initialize Rasa classifier: {e}")
         return
@@ -251,7 +251,7 @@ async def test_performance():
     print_separator("=")
     
     try:
-        classifier = RasaIntentClassifier()
+        classifier = TfidfIntentClassifier()
     except Exception as e:
         print(f"  Failed to initialize Rasa classifier: {e}")
         return
@@ -350,3 +350,4 @@ if __name__ == "__main__":
         print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()
+

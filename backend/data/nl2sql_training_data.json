@@ -252,8 +252,36 @@
       "parameters": []
     },
     {
+      "intent": "class_info",
+      "question": "cho tôi thông tin các lớp Giải tích 1",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Giải tích 1%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "thông tin các lớp môn học Giải tích 1",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Giải tích 1%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "các lớp môn Nhập môn An toàn thông tin",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Nhập môn An toàn thông tin%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "các lớp học phần Lập trình mạng",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Lập trình mạng%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
       "intent": "subject_info",
-      "question": "thông tin học phần Giải tích",
+      "question": "thông tin học phần Giải tích 2",
       "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.conditional_subjects, s.english_subject_name FROM subjects s WHERE s.subject_name LIKE '%Giải tích%'",
       "requires_auth": false,
       "parameters": []

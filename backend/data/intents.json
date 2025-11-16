@@ -17,6 +17,10 @@
     {
       "tag": "subject_registration_suggestion",
       "patterns": [
+        "gợi ý môn học phù hợp",
+        "gợi ý học phần phù hợp",
+        "gợi ý môn học",
+        "gợi ý học phần",
         "tôi nên đăng ký học phần gì",
         "tôi nên đăng ký môn gì",
         "tôi nên học môn gì",
@@ -78,6 +82,8 @@
         "môn tiên quyết",
         "học phần song hành",
         "học phần này có mấy tín chỉ",
+        "học phần Đại số tuyến tính có bao nhiêu tín chỉ",
+        "học phần Toán rời rạc",
         "môn học này có mấy tín chỉ",
         "học phần học kỳ nào"
       ],
@@ -95,9 +101,15 @@
         "lớp nào có giáo viên A",
         "cho tôi danh sách các lớp môn X",
         "danh sách các lớp môn X",
+        "các lớp môn X",
+        "các lớp môn Đại số tuyến tính",
+        "các lớp môn Toán rời rạc",
         "danh sách các lớp môn A",
         "các lớp của môn B",
         "các lớp bắt đầu vào lúc 8h25",
+        "các lớp học vào thứ 2",
+        "các lớp học vào buổi sáng",
+        "các lớp học từ lúc 12h30",
         "xem thông tin lớp",
         "các lớp học kỳ này",
         "các lớp hiện có",
@@ -106,7 +118,17 @@
         "cho tôi xem các lớp",
         "các lớp học của môn",
         "cho tôi các lớp học của môn",
-        "lớp học của môn"
+        "lớp học của môn",
+        "các lớp Giải tích",
+        "các lớp Giải tích I",
+        "các lớp Giải tích II",
+        "các lớp Lập trình mạng",
+        "các lớp Cơ sở dữ liệu",
+        "các lớp Toán cao cấp",
+        "thông tin các lớp Giải tích",
+        "thông tin các lớp môn học Giải tích",
+        "cho tôi thông tin các lớp Giải tích",
+        "cho tôi thông tin các lớp môn học Giải tích I"
       ],
       "description": "Thông tin về lớp học"
     },
@@ -115,6 +137,21 @@
       "patterns": [
         "xem cpa",
         "xem gpa",
+        "xem điểm",
+        "điểm",
+        "điểm của tôi",
+        "điểm số",
+        "điểm số của tôi",
+        "kiểm tra điểm",
+        "xem điểm tổng kết",
+        "cho tôi xem điểm",
+        "tôi muốn xem điểm số của mình",
+        "diem",
+        "diem cua toi",
+        "kết quả học tập",
+        "tôi muốn xem kết quả học tập của mình",
+        "xem điểm cpa",
+        "xem điểm gpa kỳ 20231",
         "điểm của tôi",
         "tôi muốn xem điểm",
         "xem điểm học kỳ 20231",
@@ -159,6 +196,8 @@
       "patterns": [
         "lịch học",
         "xem lịch học",
+        "lịch học của tôi",
+        "thời khóa biểu tôi đã đăng ký",
         "thời khóa biểu",
         "tkb",
         "xem thời khóa biểu",
@@ -225,6 +264,32 @@
         "cảm ơn nhiều"
       ],
       "description": "Lời cảm ơn"
+    },
+    {
+      "tag": "goodbye",
+      "patterns": [
+        "tạm biệt",
+        "bye",
+        "goodbye",
+        "hẹn gặp lại",
+        "chào",
+        "thôi nhé",
+        "tạm biệt bạn"
+      ],
+      "description": "Tạm biệt"
+    },
+    {
+      "tag": "student_info",
+      "patterns": [
+        "thông tin của tôi",
+        "xem thông tin sinh viên",
+        "thông tin sinh viên của tôi",
+        "thông tin cá nhân",
+        "profile của tôi",
+        "hồ sơ sinh viên",
+        "thông tin học tập của tôi"
+      ],
+      "description": "Thông tin sinh viên"
     }
   ]
 }

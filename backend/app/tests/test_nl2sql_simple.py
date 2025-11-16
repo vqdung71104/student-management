@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app.services.nl2sql_service import NL2SQLService
-from app.chatbot.rasa_classifier import RasaIntentClassifier
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 
 
 async def test_basic():
@@ -21,7 +21,7 @@ async def test_basic():
     # Initialize
     print("\n   Initializing services...")
     nl2sql = NL2SQLService()
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     # Test cases
     test_cases = [
@@ -84,3 +84,4 @@ async def test_basic():
 
 if __name__ == "__main__":
     asyncio.run(test_basic())
+

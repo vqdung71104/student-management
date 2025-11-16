@@ -10,7 +10,7 @@ import os
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, backend_dir)
 
-from app.chatbot.rasa_classifier import RasaIntentClassifier
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 
 
 def print_separator(char="=", length=70):
@@ -27,7 +27,7 @@ async def test_rasa_classifier_for_chatbot():
     try:
         # Initialize classifier (như trong chatbot_routes.py)
         print("\n   Initializing Rasa Intent Classifier...")
-        intent_classifier = RasaIntentClassifier()
+        intent_classifier = TfidfIntentClassifier()
         print("   Classifier initialized successfully")
         
         # Test messages
@@ -169,7 +169,7 @@ async def test_intents_list():
     print_separator("=")
     
     try:
-        classifier = RasaIntentClassifier()
+        classifier = TfidfIntentClassifier()
         
         # Simulate the /intents endpoint logic
         intents_list = []
@@ -224,3 +224,4 @@ if __name__ == "__main__":
         print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()
+

@@ -3,7 +3,7 @@ Chatbot Routes - API endpoints cho chatbot with NL2SQL
 """
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from app.chatbot.rasa_classifier import RasaIntentClassifier
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
 from app.schemas.chatbot_schema import (
     ChatMessage, 
@@ -18,8 +18,8 @@ from sqlalchemy import text
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
-# Initialize Rasa NLU intent classifier and NL2SQL service
-intent_classifier = RasaIntentClassifier()
+# Initialize TF-IDF intent classifier and NL2SQL service
+intent_classifier = TfidfIntentClassifier()
 nl2sql_service = NL2SQLService()
 
 

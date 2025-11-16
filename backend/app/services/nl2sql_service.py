@@ -118,22 +118,45 @@ class NL2SQLService:
         
         # Extract subject names (e.g., "Giải tích 1", "Đại số", "Lý thuyết điều khiển tự động")
         # Try to extract after keywords, match until end of string or special words
+        # Ordered by specificity - more specific patterns first
         subject_patterns = [
-            r'các lớp của môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'các lớp của học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'lớp của môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'lớp của học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'lớp của hoc của học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'các lớp môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'các lớp học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'các lớp ([A-Z]{2,4}\d{4}[A-Z]?|[A-ZĐĂÂÊÔƠƯ][a-zđăâêôơư]+(?:\s+[a-zđăâêôơư]+)*(?:\s+\d+)?)(?:\s*$|,|\?|\.)',
-            r'môn ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'học phần ([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            # Patterns with "của môn" or "của học phần"
+            r'(?:các lớp|lớp|thông tin lớp|thông tin các lớp)\s+của\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'(?:các lớp|lớp|thông tin lớp|thông tin các lớp)\s+của\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            
+            # Patterns without "của" - "các lớp môn/học phần [name]"
+            r'(?:các lớp|thông tin các lớp)\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'(?:các lớp|thông tin các lớp)\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            
+            # Patterns "lớp môn/học phần [name]" (singular)
+            r'lớp\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'lớp\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            
+            # Patterns "các lớp [name]" - direct subject name after "các lớp"
+            # Match Vietnamese proper noun: capital letter + any chars till end (e.g., "Giải tích I", "Mác - Lênin")
+            r'(?:các lớp|cho tôi các lớp|thông tin các lớp)\s+([A-ZĐĂÂÊÔƠƯ].+)$',
+            
+            # Generic patterns - last resort
+            r'môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
         ]
+        
+        # Stop words that should NOT be captured as subject names
+        stop_words = ['gì', 'nào', 'nào đó', 'nào phù hợp', 'nào tốt', 'nào hay']
+        
         for pattern in subject_patterns:
             match = re.search(pattern, question, re.IGNORECASE)
             if match:
                 extracted = match.group(1).strip()
+                
+                # Skip if extracted is a stop word or contains only stop words
+                if extracted.lower() in stop_words:
+                    continue
+                if any(stop in extracted.lower() for stop in ['gì', 'nào']):
+                    # Only skip if it's JUST the stop word, not part of a real subject name
+                    if len(extracted.split()) <= 2:
+                        continue
+                
                 # Check if it's a subject_id (already extracted above)
                 if not re.match(r'^[A-Z]{2,4}\d{4}[A-Z]?$', extracted):
                     entities['subject_name'] = extracted
