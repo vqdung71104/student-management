@@ -10,7 +10,7 @@ import os
 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, backend_dir)
 
-from app.chatbot.rasa_classifier import RasaIntentClassifier
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 
 
 async def example_1_basic_usage():
@@ -20,7 +20,7 @@ async def example_1_basic_usage():
     print("="*70)
     
     # Initialize classifier
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     # Classify a single message
     message = "Tôi muốn đăng ký môn học"
@@ -39,7 +39,7 @@ async def example_2_batch_processing():
     print("EXAMPLE 2: BATCH PROCESSING")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     messages = [
         "Xin chào!",
@@ -63,7 +63,7 @@ async def example_3_similarity_analysis():
     print("EXAMPLE 3: SIMILARITY ANALYSIS")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     message = "Tôi muốn hỏi về việc đăng ký lớp học"
     
@@ -86,7 +86,7 @@ async def example_4_confidence_levels():
     print("EXAMPLE 4: CONFIDENCE LEVELS")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     test_cases = [
         ("Xin chào!", "Expected: High confidence for greeting"),
@@ -120,7 +120,7 @@ async def example_5_stats_and_config():
     print("EXAMPLE 5: STATS AND CONFIGURATION")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     # Get statistics
     stats = classifier.get_stats()
@@ -148,7 +148,7 @@ async def example_6_error_handling():
     print("EXAMPLE 6: ERROR HANDLING")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     edge_cases = [
         "",  # Empty string
@@ -180,7 +180,7 @@ async def example_7_comparison_messages():
     print("EXAMPLE 7: COMPARING SIMILAR MESSAGES")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     # Messages with subtle differences
     message_groups = [
@@ -216,7 +216,7 @@ async def example_8_real_conversation():
     print("EXAMPLE 8: REAL CONVERSATION SIMULATION")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     conversation = [
         ("Student", "Xin chào!"),
@@ -247,7 +247,7 @@ async def example_9_performance_test():
     print("EXAMPLE 9: PERFORMANCE TEST")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     import time
     
@@ -286,7 +286,7 @@ async def example_10_custom_thresholds():
     print("EXAMPLE 10: THRESHOLD IMPACT")
     print("="*70)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     # Test message with medium confidence
     message = "Có lớp học nào không?"
@@ -389,3 +389,4 @@ if __name__ == "__main__":
         print(f"\n\n  Fatal error: {e}")
         import traceback
         traceback.print_exc()
+

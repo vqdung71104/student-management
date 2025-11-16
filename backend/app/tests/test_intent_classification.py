@@ -6,7 +6,7 @@ import sys
 import time
 sys.path.insert(0, 'C:/Users/Admin/student-management/backend')
 
-from app.chatbot.rasa_classifier import RasaIntentClassifier
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 import asyncio
 
 
@@ -76,7 +76,7 @@ async def test_intent_classification():
     
     # Initialize classifier
     print("\n[1] Initializing classifier...")
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     # Test each case
     print(f"\n[2] Testing {len(TEST_CASES)} cases...")
@@ -179,7 +179,7 @@ async def test_edge_cases():
     print("EDGE CASES TEST")
     print("=" * 80)
     
-    classifier = RasaIntentClassifier()
+    classifier = TfidfIntentClassifier()
     
     edge_cases = [
         # Typos
@@ -223,3 +223,4 @@ if __name__ == "__main__":
     print("\n   All tests completed!")
     print(f"\n Final Accuracy: {results['accuracy']:.2f}%")
     print(f"Average Response Time: {results['avg_time_ms']:.2f}ms")
+
