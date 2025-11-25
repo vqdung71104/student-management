@@ -1,10 +1,11 @@
 """
-Chatbot Routes - API endpoints cho chatbot with NL2SQL
+Chatbot Routes - API endpoints cho chatbot with NL2SQL and Rule Engine
 """
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
+from app.services.chatbot_service import ChatbotService
 from app.schemas.chatbot_schema import (
     ChatMessage, 
     ChatResponse, 
@@ -39,25 +40,60 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         - **sql**: SQL query đã thực thi (nếu có)
     """
     try:
+        # Initialize chatbot service
+        chatbot_service = ChatbotService(db)
+        
         # 1. Phân loại intent
         intent_result = await intent_classifier.classify_intent(message.message)
         
         intent = intent_result["intent"]
         confidence = intent_result["confidence"]
         
-        # 2. Generate SQL and fetch data if applicable
+        # 2. Check if intent uses Rule Engine
+        rule_engine_intents = ["subject_registration_suggestion", "class_registration_suggestion"]
+        
+        if intent in rule_engine_intents and confidence in ["high", "medium"]:
+            # Use Rule Engine for intelligent suggestions
+            if intent == "subject_registration_suggestion":
+                result = await chatbot_service.process_subject_suggestion(
+                    student_id=message.student_id,
+                    question=message.message
+                )
+                return ChatResponseWithData(
+                    text=result["text"],
+                    intent=result["intent"],
+                    confidence=result["confidence"],
+                    data=result.get("data"),
+                    sql=None,
+                    sql_error=result.get("error")
+                )
+            
+            elif intent == "class_registration_suggestion":
+                result = await chatbot_service.process_class_suggestion(
+                    student_id=message.student_id,
+                    question=message.message
+                )
+                return ChatResponseWithData(
+                    text=result["text"],
+                    intent=result["intent"],
+                    confidence=result["confidence"],
+                    data=result.get("data"),
+                    sql=None,
+                    sql_error=result.get("error")
+                )
+        
+        # 3. Use NL2SQL for other data intents
         data = None
         sql_query = None
         sql_error = None
         
-        # List of intents that need database query
-        data_intents = [
+        # List of intents that need database query via NL2SQL
+        nl2sql_intents = [
             "grade_view", "learned_subjects_view", "subject_info", 
-            "class_info", "schedule_view",
-            "subject_registration_suggestion", "class_registration_suggestion"
+            "class_info", "schedule_view"
         ]
         
-        if intent in data_intents and confidence in ["high", "medium"]:
+        if intent in nl2sql_intents and confidence in ["high", "medium"]:
             try:
                 print(f" DEBUG: student_id = {message.student_id}, intent = {intent}")
                 
@@ -85,27 +121,11 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                     else:
                         data = []
                     
-                    # For class_registration_suggestion, add student CPA info
-                    if intent == "class_registration_suggestion" and message.student_id:
-                        try:
-                            student_result = db.execute(text(
-                                "SELECT cpa, failed_subjects_number, warning_level FROM students WHERE id = :student_id"
-                            ), {"student_id": message.student_id}).fetchone()
-                            
-                            if student_result:
-                                # Add student info to each class suggestion
-                                for item in data:
-                                    item["student_cpa"] = student_result[0]
-                                    item["student_failed_subjects"] = student_result[1]
-                                    item["student_warning_level"] = student_result[2]
-                        except Exception as e:
-                            print(f"   Warning: Could not fetch student CPA: {e}")
-                
             except Exception as e:
                 sql_error = str(e)
                 print(f"   SQL execution error: {e}")
         
-        # 3. Generate response text
+        # 4. Generate response text
         response_text = _generate_response_text(
             intent, 
             confidence, 
@@ -176,16 +196,6 @@ def _generate_response_text(
             return f"Danh sách lớp học (tìm thấy {len(data)} lớp):"
         elif intent == "schedule_view":
             return f"Các môn/lớp bạn đã đăng ký (tìm thấy {len(data)} lớp):"
-        elif intent == "subject_registration_suggestion":
-            return f"Gợi ý các học phần nên đăng ký (tìm thấy {len(data)} học phần):"
-        elif intent == "class_registration_suggestion":
-            # Add CPA info if available
-            cpa_info = ""
-            if len(data) > 0 and "student_cpa" in data[0]:
-                cpa = data[0]["student_cpa"]
-                warning = data[0].get("student_warning_level", "")
-                cpa_info = f" (CPA của bạn: {cpa:.2f}, {warning})"
-            return f"Gợi ý các lớp học nên đăng ký (tìm thấy {len(data)} lớp){cpa_info}:"
     
     # Default response
     intent_friendly_name = classifier.get_intent_friendly_name(intent)
