@@ -260,6 +260,13 @@
     },
     {
       "intent": "class_info",
+      "question": "thông tin lớp Kỹ thuật điện",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Kỹ thuật điện%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
       "question": "thông tin các lớp môn học Giải tích 1",
       "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Giải tích 1%'",
       "requires_auth": false,

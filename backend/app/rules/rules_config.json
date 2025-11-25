@@ -1,0 +1,121 @@
+{
+  "credit_limits": {
+    "min_credits": 8,
+    "max_credits_normal": 28,
+    "max_credits_warning": 18,
+    "improvement_threshold": 20
+  },
+  "subject_categories": {
+    "political_subjects": [
+      "SSH1111",
+      "SSH1121",
+      "SSH1131",
+      "SSH1141",
+      "SSH1151",
+      "EM1170"
+    ],
+    "physical_education_subjects": [
+      "PE2102",
+      "PE2202",
+      "PE2302",
+      "PE2402",
+      "PE2502",
+      "PE2101",
+      "PE2151",
+      "PE2201",
+      "PE2301",
+      "PE2401",
+      "PE2501",
+      "PE2601",
+      "PE2701",
+      "PE2801",
+      "PE2901",
+      "PE1024",
+      "PE1015",
+      "PE2261",
+      "PE2020",
+      "PE2021",
+      "PE2022",
+      "PE2023",
+      "PE2024",
+      "PE2025",
+      "PE2026",
+      "PE2027",
+      "PE2028",
+      "PE2029",
+      "PE1010",
+      "PE1020",
+      "PE1030",
+      "PE2010",
+      "PE2011",
+      "PE2012",
+      "PE2013",
+      "PE2014",
+      "PE2015",
+      "PE2016",
+      "PE2017",
+      "PE2018",
+      "PE2019"
+    ],
+    "supplementary_subjects": [
+      "CH2021",
+      "ME3123",
+      "ME3124",
+      "EM1010",
+      "EM1180",
+      "ED3280",
+      "ED3220",
+      "ET3262",
+      "TEX3123"
+    ]
+  },
+  "requirements": {
+    "political_required": 6,
+    "pe_required": 4,
+    "supplementary_required": 3
+  },
+  "grade_thresholds": {
+    "fast_track_cpa": 3.4,
+    "improvement_grades": [
+      "D",
+      "D+",
+      "C"
+    ],
+    "failed_grade": "F"
+  },
+  "rule_priorities": {
+    "failed_retake": 1,
+    "semester_match": 2,
+    "political": 3,
+    "physical_education": 4,
+    "supplementary": 5,
+    "fast_track": 6,
+    "grade_improvement": 7
+  },
+  "grade_conversion": {
+    "F": 0.0,
+    "D": 1.0,
+    "D+": 1.5,
+    "C": 2.0,
+    "C+": 2.5,
+    "B": 3.0,
+    "B+": 3.5,
+    "A": 4.0,
+    "A+": 4.0
+  },
+  "semester_periods": {
+    "semester_1": {
+      "months": [9, 10, 11, 12, 1],
+      "suffix": "1"
+    },
+    "semester_2": {
+      "months": [2, 3, 4, 5, 6, 7],
+      "suffix": "2"
+    },
+    "semester_3": {
+      "months": [8],
+      "suffix": "3",
+      "is_supplementary": true
+    }
+  }
+}

@@ -121,20 +121,23 @@ class NL2SQLService:
         # Ordered by specificity - more specific patterns first
         subject_patterns = [
             # Patterns with "của môn" or "của học phần"
-            r'(?:các lớp|lớp|thông tin lớp|thông tin các lớp)\s+của\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'(?:các lớp|lớp|thông tin lớp|thông tin các lớp)\s+của\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'(?:các lớp|lớp|thông tin lớp|thông tin các lớp|danh sách lớp)\s+của\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'(?:các lớp|lớp|thông tin lớp|thông tin các lớp|danh sách lớp)\s+của\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
             
             # Patterns without "của" - "các lớp môn/học phần [name]"
-            r'(?:các lớp|thông tin các lớp)\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
-            r'(?:các lớp|thông tin các lớp)\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'(?:các lớp|thông tin các lớp|danh sách lớp|danh sách các lớp)\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            r'(?:các lớp|thông tin các lớp|danh sách lớp|danh sách các lớp)\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
             
             # Patterns "lớp môn/học phần [name]" (singular)
             r'lớp\s+môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
             r'lớp\s+học phần\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
             
+            # Patterns "thông tin lớp [name]" - direct subject name
+            r'thông tin\s+lớp\s+([A-ZĐĂÂÊÔƠƯ][^,\?\.]+?)(?:\s*$|,|\?|\.)',
+            
             # Patterns "các lớp [name]" - direct subject name after "các lớp"
             # Match Vietnamese proper noun: capital letter + any chars till end (e.g., "Giải tích I", "Mác - Lênin")
-            r'(?:các lớp|cho tôi các lớp|thông tin các lớp)\s+([A-ZĐĂÂÊÔƠƯ].+)$',
+            r'(?:các lớp|cho tôi các lớp|thông tin các lớp|danh sách các lớp)\s+([A-ZĐĂÂÊÔƠƯ].+?)(?:\s*$|,|\?|\.)',
             
             # Generic patterns - last resort
             r'môn(?:\s+học)?\s+([A-Z]{2,4}\d{4}[A-Z]?|[^,\?\.]+?)(?:\s*$|,|\?|\.)',
@@ -203,8 +206,14 @@ class NL2SQLService:
         if not intent_examples:
             return None
         
+        # Extract entities to understand query structure
+        entities = self._extract_entities(question)
+        has_subject_name = 'subject_name' in entities
+        has_subject_id = 'subject_id' in entities
+        has_class_id = 'class_id' in entities
+        
         # Key phrases to boost matching for class queries
-        class_keywords = ['các lớp', 'lớp', 'danh sách lớp', 'xem lớp']
+        class_keywords = ['các lớp', 'lớp', 'danh sách lớp', 'xem lớp', 'thông tin lớp']
         subject_keywords = ['môn', 'học phần', 'của môn', 'của học phần']
         
         # Calculate similarity with each example
@@ -234,6 +243,23 @@ class NL2SQLService:
                 if keyword in normalized_q and keyword in example_q:
                     score += 0.1
                     break
+            
+            # IMPORTANT: Penalize mismatched query types
+            # If user asks about subject_name but example uses class_id, reduce score
+            example_sql = example.get('sql', '')
+            if has_subject_name or has_subject_id:
+                # User is asking by subject, prefer templates with subject filters
+                if "subject_name LIKE" in example_sql or "subject_id =" in example_sql:
+                    score += 0.3  # Boost templates that filter by subject
+                elif "class_id =" in example_sql:
+                    score -= 0.5  # Penalize templates that only filter by class_id
+            
+            if has_class_id:
+                # User is asking by class_id, prefer templates with class_id
+                if "class_id =" in example_sql:
+                    score += 0.3
+                else:
+                    score -= 0.2
             
             if score > best_score:
                 best_score = score
@@ -290,6 +316,30 @@ class NL2SQLService:
                 r"(s\.)?subject_name LIKE '%[^']+%'",
                 replace_subject_name,
                 sql
+            )
+        else:
+            # IMPORTANT: If no subject_name entity was extracted, remove the WHERE clause with subject_name
+            # This prevents using the hardcoded example subject name (e.g., "Giải tích")
+            # Remove standalone WHERE condition with subject_name
+            sql = re.sub(
+                r"WHERE\s+(s\.)?subject_name\s+LIKE\s+'%[^']+%'\s*$",
+                "",
+                sql,
+                flags=re.IGNORECASE
+            )
+            # Remove subject_name condition from WHERE with other conditions (keep other conditions)
+            sql = re.sub(
+                r"(WHERE\s+.+?)\s+AND\s+(s\.)?subject_name\s+LIKE\s+'%[^']+%'",
+                r"\1",
+                sql,
+                flags=re.IGNORECASE
+            )
+            # Remove subject_name as first condition in WHERE with AND
+            sql = re.sub(
+                r"WHERE\s+(s\.)?subject_name\s+LIKE\s+'%[^']+%'\s+AND\s+",
+                "WHERE ",
+                sql,
+                flags=re.IGNORECASE
             )
         
         # Customize by study days
