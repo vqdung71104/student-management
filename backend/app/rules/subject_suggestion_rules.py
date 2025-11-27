@@ -722,77 +722,92 @@ class SubjectSuggestionRuleEngine:
     def format_suggestion_response(self, suggestion_result: Dict) -> str:
         """
         Format suggestion result into human-readable text
-        
+
         Args:
             suggestion_result: Result from suggest_subjects()
-        
+
         Returns:
             Formatted text response
         """
         response = []
-        
+
         # Header
-        response.append("📚 GỢI Ý ĐĂNG KÝ HỌC PHẦN")
-        response.append("=" * 60)
-        
-        # Student info
-        response.append(f"\n📊 Thông tin sinh viên:")
-        response.append(f"  • Kỳ học hiện tại: {suggestion_result['current_semester']}")
-        response.append(f"  • Đang ở kỳ thứ: {suggestion_result['student_semester_number']}")
-        response.append(f"  • CPA: {suggestion_result['student_cpa']:.2f}")
-        response.append(f"  • Mức cảnh báo: {suggestion_result['warning_level']}")
-        
-        # Credit limits
-        response.append(f"\n📋 Giới hạn tín chỉ:")
-        response.append(f"  • Tối thiểu: {suggestion_result['min_credits_required']} tín chỉ")
-        response.append(f"  • Tối đa: {suggestion_result['max_credits_allowed']} tín chỉ")
-        response.append(f"  • Tổng gợi ý: {suggestion_result['total_credits']} tín chỉ")
-        
-        status = "✅ Đủ" if suggestion_result['meets_minimum'] else "❌ Chưa đủ"
-        response.append(f"  • Trạng thái: {status}")
-        
+        response.append("🎓 **GỢI Ý ĐĂNG KÝ HỌC PHẦN**")
+        response.append("=" * 50)
+
+        # Student info section
+        response.append("\n**📊 THÔNG TIN SINH VIÊN**")
+        response.append(f"• Kỳ học hiện tại: {suggestion_result['current_semester']} \n")
+        response.append(f"• Đang ở kỳ thứ: {suggestion_result['student_semester_number']}\n")
+        response.append(f"• CPA hiện tại: {suggestion_result['student_cpa']:.2f}\n")
+        response.append(f"• Mức cảnh báo: {suggestion_result['warning_level']}\n")
+
+        # Credit limits section
+        response.append("\n**📋 GIỚI HẠN TÍN CHỈ**")
+        response.append(f"• Tín chỉ tối thiểu: {suggestion_result['min_credits_required']} TC\n")
+        response.append(f"• Tín chỉ tối đa: {suggestion_result['max_credits_allowed']} TC\n")
+        response.append(f"• Tổng tín chỉ gợi ý: {suggestion_result['total_credits']} TC\n")
+
+        status = "✅ ĐẠT YÊU CẦU" if suggestion_result['meets_minimum'] else "⚠️ CHƯA ĐẠT YÊU CẦU"
+        response.append(f"• Trạng thái: {status}\n")
+
         # Suggested subjects by priority
+        response.append("\n**📚 DANH SÁCH MÔN HỌC ĐƯỢC GỢI Ý**")
+
         summary = suggestion_result['summary']
-        
+
         if summary['failed_retake']:
-            response.append(f"\n🔴 PRIORITY 1: Học lại môn điểm F ({len(summary['failed_retake'])} môn)")
-            for subj in summary['failed_retake']:
-                response.append(f"  • {subj['subject_id']} - {subj['subject_name']} ({subj['credits']} TC)")
-        
+            response.append("\n**🔴 ƯU TIÊN CAO NHẤT: Môn học lại (điểm F)**")
+            response.append("Các môn bạn cần học lại do không đạt:")
+            for i, subj in enumerate(summary['failed_retake'], 1):
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
+
         if summary['semester_match']:
-            response.append(f"\n🟢 PRIORITY 2: Môn đúng kỳ học ({len(summary['semester_match'])} môn)")
-            for subj in summary['semester_match']:
-                response.append(f"  • {subj['subject_id']} - {subj['subject_name']} ({subj['credits']} TC)")
-        
+            response.append("\n**🟢 ƯU TIÊN 2: Môn đúng lộ trình**")
+            response.append("Các môn nên học trong kỳ này theo lộ trình:")
+            for i, subj in enumerate(summary['semester_match'], 1):
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
+
         if summary['political']:
-            response.append(f"\n🟡 PRIORITY 3: Môn triết/chính trị ({len(summary['political'])} môn)")
-            for subj in summary['political']:
-                response.append(f"  • {subj['subject_id']} - {subj['subject_name']} ({subj['credits']} TC)")
-        
+            response.append("\n**🟡 ƯU TIÊN 3: Môn chính trị**")
+            response.append("Các môn chính trị bắt buộc:")
+            for i, subj in enumerate(summary['political'], 1):
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
+
         if summary['physical_education']:
-            response.append(f"\n🟠 PRIORITY 4: Môn thể chất ({len(summary['physical_education'])} môn)")
-            for subj in summary['physical_education']:
-                response.append(f"  • {subj['subject_id']} - {subj['subject_name']} ({subj['credits']} TC)")
-        
+            response.append("\n**🏃 ƯU TIÊN 4: Môn thể chất**")
+            response.append("Các môn giáo dục thể chất:")
+            for i, subj in enumerate(summary['physical_education'], 1):
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
+
         if summary['supplementary']:
-            response.append(f"\n🔵 PRIORITY 5: Môn bổ trợ ({len(summary['supplementary'])} môn)")
-            for subj in summary['supplementary']:
-                response.append(f"  • {subj['subject_id']} - {subj['subject_name']} ({subj['credits']} TC)")
-        
+            response.append("\n**🔵 ƯU TIÊN 5: Môn bổ trợ**")
+            response.append("Các môn bổ trợ kiến thức:")
+            for i, subj in enumerate(summary['supplementary'], 1):
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
+
         if summary['fast_track']:
-            response.append(f"\n⚡ PRIORITY 6: Học nhanh (CPA > {self.FAST_TRACK_CPA}) ({len(summary['fast_track'])} môn)")
-            for subj in summary['fast_track']:
-                response.append(f"  • {subj['subject_id']} - {subj['subject_name']} ({subj['credits']} TC)")
-        
+            response.append("\n**⚡ ƯU TIÊN 6: Học nhanh**")
+            response.append(f"Các môn học nhanh (dành cho sinh viên CPA > {self.FAST_TRACK_CPA}):")
+            for i, subj in enumerate(summary['fast_track'], 1):
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
+
         if summary['grade_improvement']:
-            response.append(f"\n🔧 PRIORITY 7: Cải thiện điểm ({len(summary['grade_improvement'])} môn)")
-            for subj in summary['grade_improvement']:
+            response.append("\n**📈 ƯU TIÊN 7: Cải thiện điểm**")
+            response.append("Các môn nên học lại để cải thiện điểm:")
+            for i, subj in enumerate(summary['grade_improvement'], 1):
                 orig_grade = subj.get('original_grade', '?')
-                response.append(f"  • {subj['subject_id']} - {subj['subject_name']} ({subj['credits']} TC) - Điểm hiện tại: {orig_grade}")
-        
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} TC) - Điểm hiện tại: {orig_grade}")
+
         # Total summary
-        response.append(f"\n📌 TỔNG KẾT:")
-        response.append(f"  • Tổng số môn gợi ý: {len(suggestion_result['suggested_subjects'])} môn")
-        response.append(f"  • Tổng tín chỉ: {suggestion_result['total_credits']} TC")
-        
+        response.append("\n**📊 TỔNG KẾT**")
+        response.append(f"• **Tổng số môn học:** {len(suggestion_result['suggested_subjects'])} môn")
+        response.append(f"• **Tổng số tín chỉ:** {suggestion_result['total_credits']} TC")
+
+        if not suggestion_result['meets_minimum']:
+            response.append("\n**💡 LỜI KHUYÊN**")
+            response.append(f"Bạn cần đăng ký thêm ít nhất {suggestion_result['min_credits_required'] - suggestion_result['total_credits']} tín chỉ nữa để đạt yêu cầu tối thiểu.")
+
+        response.append("\n**Chúc bạn một kỳ học thành công! 🎉**")
+
         return "\n".join(response)
