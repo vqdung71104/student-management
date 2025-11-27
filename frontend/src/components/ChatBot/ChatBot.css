@@ -139,6 +139,23 @@
   margin: 0;
   font-size: 15px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.message-text {
+  font-size: 15px;
+  line-height: 1.6;
+  word-wrap: break-word;
+}
+
+.message-text strong {
+  font-weight: 600;
+}
+
+.message-text .bullet-item {
+  margin: 4px 0;
+  padding-left: 8px;
 }
 
 .message-time {

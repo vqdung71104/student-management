@@ -106,6 +106,17 @@ const ChatBot: React.FC = () => {
     });
   };
 
+  // Format message text with basic markdown support
+  const formatMessageText = (text: string): string => {
+    return text
+      // Convert **bold** to <strong>
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      // Convert line breaks to <br/>
+      .replace(/\n/g, '<br/>')
+      // Convert bullet points • to proper list items
+      .replace(/^• (.+)$/gm, '<div class="bullet-item">• $1</div>');
+  };
+
   // Render data table if available
   const renderDataTable = (data: any[]) => {
     if (!data || data.length === 0) return null;
@@ -159,7 +170,12 @@ const ChatBot: React.FC = () => {
                 <div className="message-avatar">  </div>
               )}
               <div className="message-bubble">
-                <p>{message.text}</p>
+                <div 
+                  className="message-text"
+                  dangerouslySetInnerHTML={{ 
+                    __html: formatMessageText(message.text) 
+                  }}
+                />
                 {message.data && message.data.length > 0 && renderDataTable(message.data)}
                 <span className="message-time">{formatTime(message.timestamp)}</span>
               </div>
