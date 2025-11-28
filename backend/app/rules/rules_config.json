@@ -3,7 +3,16 @@
     "min_credits": 8,
     "max_credits_normal": 28,
     "max_credits_warning": 18,
-    "improvement_threshold": 20
+    "improvement_threshold": 20,
+    "min_credits_main_semester": 12,
+    "max_credits_main_semester": 24,
+    "max_credits_summer": 8,
+    "min_credits_warning_1": 10,
+    "max_credits_warning_1": 18,
+    "min_credits_warning_2": 8,
+    "max_credits_warning_2": 14,
+    "min_credits_no_foreign_lang": 8,
+    "max_credits_no_foreign_lang": 14
   },
   "subject_categories": {
     "political_subjects": [
