@@ -63,6 +63,21 @@ class SubjectSuggestionRuleEngine:
             self.MAX_CREDITS_WARNING = config['credit_limits']['max_credits_warning']
             self.IMPROVEMENT_THRESHOLD = config['credit_limits']['improvement_threshold']
             
+            # Credit limits by semester type and warning level
+            self.MIN_CREDITS_MAIN_SEMESTER = config['credit_limits'].get('min_credits_main_semester', 12)
+            self.MAX_CREDITS_MAIN_SEMESTER = config['credit_limits'].get('max_credits_main_semester', 24)
+            self.MAX_CREDITS_SUMMER = config['credit_limits'].get('max_credits_summer', 8)
+            
+            # Credit limits for warning levels (main semester)
+            self.MIN_CREDITS_WARNING_1 = config['credit_limits'].get('min_credits_warning_1', 10)
+            self.MAX_CREDITS_WARNING_1 = config['credit_limits'].get('max_credits_warning_1', 18)
+            self.MIN_CREDITS_WARNING_2 = config['credit_limits'].get('min_credits_warning_2', 8)
+            self.MAX_CREDITS_WARNING_2 = config['credit_limits'].get('max_credits_warning_2', 14)
+            
+            # Credit limits for students not meeting foreign language requirements
+            self.MIN_CREDITS_NO_FOREIGN_LANG = config['credit_limits'].get('min_credits_no_foreign_lang', 8)
+            self.MAX_CREDITS_NO_FOREIGN_LANG = config['credit_limits'].get('max_credits_no_foreign_lang', 14)
+            
             # Load grade thresholds
             self.FAST_TRACK_CPA = config['grade_thresholds']['fast_track_cpa']
             self.IMPROVEMENT_GRADES = config['grade_thresholds']['improvement_grades']
@@ -109,6 +124,19 @@ class SubjectSuggestionRuleEngine:
         self.MAX_CREDITS_NORMAL = 28
         self.MAX_CREDITS_WARNING = 18
         self.IMPROVEMENT_THRESHOLD = 20
+        
+        # Credit limits by semester type and warning level
+        self.MIN_CREDITS_MAIN_SEMESTER = 12
+        self.MAX_CREDITS_MAIN_SEMESTER = 24
+        self.MAX_CREDITS_SUMMER = 8
+        
+        self.MIN_CREDITS_WARNING_1 = 10
+        self.MAX_CREDITS_WARNING_1 = 18
+        self.MIN_CREDITS_WARNING_2 = 8
+        self.MAX_CREDITS_WARNING_2 = 14
+        
+        self.MIN_CREDITS_NO_FOREIGN_LANG = 8
+        self.MAX_CREDITS_NO_FOREIGN_LANG = 14
         
         # Grade thresholds
         self.FAST_TRACK_CPA = 3.4
@@ -265,9 +293,84 @@ class SubjectSuggestionRuleEngine:
             'completed_subjects': completed_subjects
         }
     
+    def is_summer_semester(self, semester: str) -> bool:
+        """
+        Check if semester is summer semester (ends with 3)
+        
+        Args:
+            semester: Semester string (e.g., "20243", "20251")
+        
+        Returns:
+            True if summer semester, False otherwise
+        """
+        return semester.endswith('3')
+    
+    def is_final_year(self, student_semester_number: int) -> bool:
+        """
+        Check if student is in final year (semester 7-8)
+        
+        Args:
+            student_semester_number: Current semester number of student
+        
+        Returns:
+            True if final year, False otherwise
+        """
+        return student_semester_number >= 7
+    
+    def get_credit_limits(
+        self, 
+        warning_level: int,
+        current_semester: str,
+        student_semester_number: int,
+        has_foreign_lang_requirement: bool = False
+    ) -> Tuple[int, int]:
+        """
+        Get min/max credits allowed based on regulations
+        
+        Quy định:
+        - Học kỳ chính (1,2): Học lực bình thường 12-24 TC
+        - Học kỳ hè (3): Tối đa 8 TC
+        - Cảnh cáo mức 1: 10-18 TC (học kỳ chính)
+        - Cảnh cáo mức 2: 8-14 TC (học kỳ chính)
+        - Chưa đạt ngoại ngữ: 8-14 TC (học kỳ chính)
+        - Năm cuối (kỳ 7-8): Không áp dụng giới hạn tối thiểu
+        
+        Args:
+            warning_level: Student warning level (0, 1, 2, 3)
+            current_semester: Current semester (e.g., "20251")
+            student_semester_number: Student's current semester number
+            has_foreign_lang_requirement: True if student hasn't met foreign language requirement
+        
+        Returns:
+            Tuple of (min_credits, max_credits)
+        """
+        # Check if summer semester
+        if self.is_summer_semester(current_semester):
+            return (0, self.MAX_CREDITS_SUMMER)
+        
+        # Check if final year - no minimum requirement
+        is_final = self.is_final_year(student_semester_number)
+        
+        # Determine limits based on warning level and foreign language requirement
+        if has_foreign_lang_requirement:
+            min_credits = 0 if is_final else self.MIN_CREDITS_NO_FOREIGN_LANG
+            max_credits = self.MAX_CREDITS_NO_FOREIGN_LANG
+        elif warning_level == 1:
+            min_credits = 0 if is_final else self.MIN_CREDITS_WARNING_1
+            max_credits = self.MAX_CREDITS_WARNING_1
+        elif warning_level >= 2:
+            min_credits = 0 if is_final else self.MIN_CREDITS_WARNING_2
+            max_credits = self.MAX_CREDITS_WARNING_2
+        else:
+            # Normal student
+            min_credits = 0 if is_final else self.MIN_CREDITS_MAIN_SEMESTER
+            max_credits = self.MAX_CREDITS_MAIN_SEMESTER
+        
+        return (min_credits, max_credits)
+    
     def get_max_credits_allowed(self, warning_level: int) -> int:
         """
-        Get maximum credits allowed based on warning level
+        Get maximum credits allowed based on warning level (deprecated - use get_credit_limits)
         
         Args:
             warning_level: Student warning level (0, 1, 2, 3)
@@ -600,10 +703,20 @@ class SubjectSuggestionRuleEngine:
         # Get student data
         student_data = self.get_student_data(student_id)
         
-        # Get max credits allowed
-        max_credits_allowed = max_credits or self.get_max_credits_allowed(
-            student_data['warning_level']
+        # Get credit limits based on new regulations
+        # TODO: Add check for foreign language requirement from database
+        has_foreign_lang_requirement = False  # Placeholder
+        
+        min_credits_required, max_credits_allowed = self.get_credit_limits(
+            warning_level=student_data['warning_level'],
+            current_semester=current_semester,
+            student_semester_number=student_semester_number,
+            has_foreign_lang_requirement=has_foreign_lang_requirement
         )
+        
+        # Override if provided
+        if max_credits is not None:
+            max_credits_allowed = max_credits
         
         # Get available subjects
         available_subjects = self.get_available_subjects(
@@ -704,7 +817,7 @@ class SubjectSuggestionRuleEngine:
                     total_credits += subject['credits']
         
         # Check minimum credits requirement
-        meets_minimum = total_credits >= self.MIN_CREDITS
+        meets_minimum = total_credits >= min_credits_required
         
         return {
             'suggested_subjects': suggested,
@@ -712,7 +825,7 @@ class SubjectSuggestionRuleEngine:
             'current_semester': current_semester,
             'student_semester_number': student_semester_number,
             'max_credits_allowed': max_credits_allowed,
-            'min_credits_required': self.MIN_CREDITS,
+            'min_credits_required': min_credits_required,
             'meets_minimum': meets_minimum,
             'student_cpa': student_data['cpa'],
             'warning_level': student_data['warning_level'],
