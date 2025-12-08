@@ -257,7 +257,7 @@ class ChatbotService:
     
     def _extract_preferences_from_question(self, question: str) -> Dict:
         """
-        Extract class preferences from user's question
+        Extract class preferences from user's question with context-aware negation handling
         
         Args:
             question: User's question
@@ -265,78 +265,159 @@ class ChatbotService:
         Returns:
             Dict with preferences
         """
+        import re
+        
         question_lower = question.lower()
         preferences = {}
         
-        # Time period preferences
-        if any(word in question_lower for word in ['sáng', 'buổi sáng', 'morning']):
-            preferences['time_period'] = 'morning'
-        elif any(word in question_lower for word in ['chiều', 'buổi chiều', 'afternoon']):
-            preferences['time_period'] = 'afternoon'
-        elif any(word in question_lower for word in ['tối', 'buổi tối', 'evening']):
-            preferences['time_period'] = 'evening'
+        # Helper function to check if a pattern has negation before it
+        def has_negation_before(text: str, pattern: str, max_distance: int = 20) -> bool:
+            """Check if pattern is preceded by negation words within max_distance characters"""
+            pattern_pos = text.find(pattern)
+            if pattern_pos == -1:
+                return False
+            
+            # Look back for negation words
+            start_pos = max(0, pattern_pos - max_distance)
+            preceding_text = text[start_pos:pattern_pos]
+            
+            negation_words = ['không', 'tránh', 'chẳng', 'không muốn', 'ko']
+            return any(neg in preceding_text for neg in negation_words)
         
+        # ========== TIME PERIOD PREFERENCES ==========
+        # Check for NEGATIVE time preferences first (more specific)
+        # "không muốn học buổi sáng" → Find afternoon/evening classes
+        
+        avoid_time_periods = []
+        
+        # Morning - check for negation
+        morning_patterns = ['sáng', 'buổi sáng', 'morning']
+        for pattern in morning_patterns:
+            if pattern in question_lower:
+                if has_negation_before(question_lower, pattern):
+                    # "không muốn học buổi sáng" → avoid morning, prefer afternoon/evening
+                    avoid_time_periods.append('morning')
+                    break
+                else:
+                    # "muốn học buổi sáng" → prefer morning
+                    preferences['time_period'] = 'morning'
+                    break
+        
+        # Afternoon
+        afternoon_patterns = ['chiều', 'buổi chiều', 'afternoon']
+        if not preferences.get('time_period'):
+            for pattern in afternoon_patterns:
+                if pattern in question_lower:
+                    if has_negation_before(question_lower, pattern):
+                        avoid_time_periods.append('afternoon')
+                        break
+                    else:
+                        preferences['time_period'] = 'afternoon'
+                        break
+        
+        # Evening
+        evening_patterns = ['tối', 'buổi tối', 'evening']
+        if not preferences.get('time_period'):
+            for pattern in evening_patterns:
+                if pattern in question_lower:
+                    if has_negation_before(question_lower, pattern):
+                        avoid_time_periods.append('evening')
+                        break
+                    else:
+                        preferences['time_period'] = 'evening'
+                        break
+        
+        # If user avoids certain time periods, we need to handle this in filtering
+        # Store as a separate field so ClassSuggestionRuleEngine can filter properly
+        if avoid_time_periods:
+            preferences['avoid_time_periods'] = avoid_time_periods
+        
+        # ========== AVOID EARLY/LATE ==========
         # Avoid early start
-        if any(phrase in question_lower for phrase in ['không muốn học sớm', 'tránh học sớm', 'không học sớm']):
+        if any(phrase in question_lower for phrase in [
+            'không muốn học sớm', 'tránh học sớm', 'không học sớm',
+            'không sớm', 'tránh sớm'
+        ]):
             preferences['avoid_early_start'] = True
         
         # Avoid late end
         if any(phrase in question_lower for phrase in [
             'không muốn học muộn', 'tránh học muộn', 'không học muộn',
             'không muốn học đến', 'kết thúc sớm', 'tan sớm',
-            'không học đến 17', 'không học đến 18', 'không học đến 19'
+            'không học đến 17', 'không học đến 18', 'không học đến 19',
+            'không học buổi tối', 'không học tối'
         ]):
             preferences['avoid_late_end'] = True
         
-        # Prefer specific days (positive preference - "muốn học vào thứ X")
+        # ========== WEEKDAY PREFERENCES ==========
+        # Define day mappings
+        day_mappings = {
+            'thứ 2': 'Monday',
+            'thứ hai': 'Monday',
+            't2': 'Monday',
+            'thứ 3': 'Tuesday',
+            'thứ ba': 'Tuesday',
+            't3': 'Tuesday',
+            'thứ 4': 'Wednesday',
+            'thứ tư': 'Wednesday',
+            't4': 'Wednesday',
+            'thứ 5': 'Thursday',
+            'thứ năm': 'Thursday',
+            't5': 'Thursday',
+            'thứ 6': 'Friday',
+            'thứ sáu': 'Friday',
+            't6': 'Friday',
+            'thứ 7': 'Saturday',
+            'thứ bảy': 'Saturday',
+            't7': 'Saturday',
+            'chủ nhật': 'Sunday',
+            'cn': 'Sunday'
+        }
+        
         prefer_days = []
-        if any(phrase in question_lower for phrase in ['muốn học vào thứ 2', 'học vào thứ 2', 'thứ 2', 'học thứ 2']):
-            if 'không' not in question_lower and 'tránh' not in question_lower:
-                prefer_days.append('Monday')
-        if any(phrase in question_lower for phrase in ['muốn học vào thứ 3', 'học vào thứ 3', 'học thứ 3']):
-            if 'không' not in question_lower and 'tránh' not in question_lower:
-                prefer_days.append('Tuesday')
-        if any(phrase in question_lower for phrase in ['muốn học vào thứ 4', 'học vào thứ 4', 'học thứ 4']):
-            if 'không' not in question_lower and 'tránh' not in question_lower:
-                prefer_days.append('Wednesday')
-        if any(phrase in question_lower for phrase in ['muốn học vào thứ 5', 'học vào thứ 5', 'học thứ 5', 'vào thứ 5']):
-            if 'không' not in question_lower and 'tránh' not in question_lower:
-                prefer_days.append('Thursday')
-        if any(phrase in question_lower for phrase in ['muốn học vào thứ 6', 'học vào thứ 6', 'học thứ 6']):
-            if 'không' not in question_lower and 'tránh' not in question_lower:
-                prefer_days.append('Friday')
-        if any(phrase in question_lower for phrase in ['muốn học vào thứ 7', 'học vào thứ 7', 'học thứ 7']):
-            if 'không' not in question_lower and 'tránh' not in question_lower:
-                prefer_days.append('Saturday')
-        if any(phrase in question_lower for phrase in ['muốn học chủ nhật', 'học chủ nhật']):
-            if 'không' not in question_lower and 'tránh' not in question_lower:
-                prefer_days.append('Sunday')
+        avoid_days = []
+        
+        for day_pattern, english_day in day_mappings.items():
+            if day_pattern in question_lower:
+                # Check context around this day mention
+                # Look for positive indicators
+                positive_contexts = [
+                    f'học vào {day_pattern}',
+                    f'vào {day_pattern}',
+                    f'học {day_pattern}',
+                    f'muốn {day_pattern}',
+                    f'{day_pattern}'  # Just mentioning the day
+                ]
+                
+                # Look for negative indicators (more specific first)
+                negative_contexts = [
+                    f'không học {day_pattern}',
+                    f'tránh {day_pattern}',
+                    f'không {day_pattern}',
+                    f'ko {day_pattern}',
+                    f'không muốn học {day_pattern}',
+                    f'không muốn {day_pattern}'
+                ]
+                
+                # Check negative first (more specific)
+                is_negative = any(neg_ctx in question_lower for neg_ctx in negative_contexts)
+                
+                if is_negative:
+                    avoid_days.append(english_day)
+                else:
+                    # Check if it's in a positive context
+                    is_positive = any(pos_ctx in question_lower for pos_ctx in positive_contexts)
+                    if is_positive:
+                        prefer_days.append(english_day)
         
         if prefer_days:
-            preferences['prefer_days'] = prefer_days
-        
-        # Avoid specific days (negative preference - "không muốn học thứ X")
-        avoid_days = []
-        if any(phrase in question_lower for phrase in ['không học thứ 7', 'tránh thứ 7', 'không thứ 7']):
-            avoid_days.append('Saturday')
-        if any(phrase in question_lower for phrase in ['không học chủ nhật', 'tránh chủ nhật', 'không chủ nhật']):
-            avoid_days.append('Sunday')
-        if any(phrase in question_lower for phrase in ['không học thứ 2', 'tránh thứ 2']):
-            avoid_days.append('Monday')
-        if any(phrase in question_lower for phrase in ['không học thứ 3', 'tránh thứ 3']):
-            avoid_days.append('Tuesday')
-        if any(phrase in question_lower for phrase in ['không học thứ 4', 'tránh thứ 4']):
-            avoid_days.append('Wednesday')
-        if any(phrase in question_lower for phrase in ['không học thứ 5', 'tránh thứ 5']):
-            avoid_days.append('Thursday')
-        if any(phrase in question_lower for phrase in ['không học thứ 6', 'tránh thứ 6']):
-            avoid_days.append('Friday')
+            preferences['prefer_days'] = list(set(prefer_days))  # Remove duplicates
         
         if avoid_days:
-            preferences['avoid_days'] = avoid_days
+            preferences['avoid_days'] = list(set(avoid_days))  # Remove duplicates
         
-        # Continuous classes preference
-        if any(phrase in question_lower for phrase in ['học liên tục', 'liên tục']):
+        # ========== CONTINUOUS CLASSES ==========
+        if any(phrase in question_lower for phrase in ['học liên tục', 'liên tục', 'học dồn']):
             preferences['prefer_continuous'] = True
         
         return preferences

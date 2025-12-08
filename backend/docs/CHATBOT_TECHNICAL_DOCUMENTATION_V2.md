@@ -851,13 +851,14 @@ Trích xuất thông tin cụ thể từ câu hỏi để:
 
 ### 5.4. Extracted Entities
 
-| Entity Type | Ví dụ | Regex Pattern |
+| Entity Type | Ví dụ | Regex Pattern / Logic |
 |-------------|-------|---------------|
 | `subject_id` | "IT4040", "MI1114" | `\b([A-Z]{2,4}\d{4}[A-Z]?)\b` |
 | `subject_name` | "Giải tích I", "Lập trình mạng" | Multiple patterns (see below) |
 | `class_id` | "161084" | `\blớp\s+(\d{6})\b` |
 | `study_days` | ["Monday", "Friday"] | Day name mapping |
-| `time_period` | "morning", "afternoon" | "sáng", "chiều", "trưa" |
+| `time_period` | "morning", "afternoon" | "sáng", "chiều", "trưa" (positive) |
+| `avoid_time_periods` ⭐ | ["morning"], ["afternoon"] | Context-aware negation + time keywords (negative) |
 
 ### 5.5. Subject Name Extraction Patterns
 
