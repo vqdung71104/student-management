@@ -65,9 +65,30 @@
         "các lớp học vào thứ 2 và thứ 4",
         "danh sách lớp nên đăng ký",
         "gợi ý lớp cho tôi",
-        "gợi ý lớp học cho tôi"
+        "gợi ý lớp học cho tôi",
+        "tôi không muốn học muộn",
+        "tôi không muốn học đến 17h",
+        "tôi không muốn học đến 18h",
+        "các lớp kết thúc sớm",
+        "các lớp tan sớm",
+        "tôi muốn học sáng",
+        "tôi muốn học buổi chiều",
+        "tôi không muốn học sớm",
+        "tôi không muốn học thứ 7",
+        "các lớp không học thứ 7",
+        "gợi ý lớp kỳ sau",
+        "tôi nên đăng ký các lớp nào kỳ sau",
+        "tôi muốn học vào thứ 5",
+        "tôi muốn học vào thứ 2",
+        "tôi muốn học vào thứ 3 và thứ 5",
+        "các lớp học vào thứ 6",
+        "gợi ý lớp học vào thứ 4",
+        "lớp nào học vào thứ 2",
+        "tôi muốn học môn tiếng nhật",
+        "gợi ý lớp tiếng anh",
+        "lớp nào của môn lập trình mạng"
       ],
-      "description": "Gợi ý đăng ký lớp học phù hợp"
+      "description": "Gợi ý đăng ký lớp học phù hợp với preferences"
     },
     {
       "tag": "subject_info",

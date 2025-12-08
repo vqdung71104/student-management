@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import warning from 'antd/es/_util/warning'
 
 const StudentDashboard = () => {
   const { userInfo } = useAuth()
@@ -9,7 +10,7 @@ const StudentDashboard = () => {
     currentCPA: 0,
     totalCredits: 0,
     completedSubjects: 0,
-    upcomingExams: 0
+    warning_level: 0
   })
   const [recentGrades, setRecentGrades] = useState<Array<{subject: string, grade: string}>>([])
   const [upcomingSchedule, setUpcomingSchedule] = useState<Array<{subject: string, time: string, room: string, day: string}>>([])
@@ -24,13 +25,14 @@ const StudentDashboard = () => {
         if (response.ok) {
           const data = await response.json()
           console.log('Academic details data:', data) // Debug log
+          console.log('overall_gpa: ',data.overall_gpa)
           
           setQuickStats({
-            currentCPA: data.cpa || 0,
+            currentCPA: data.overall_gpa || 0,
             totalCredits: data.total_credits || 0,
             completedSubjects: data.learned_subjects?.length || 0,
-            upcomingExams: 0 // Tạm thời để 0, có thể cập nhật sau
-          })
+            warning_level: data.warning_level || 0,
+          });
 
           // Lấy điểm gần đây (3 môn cuối)
           const recentGradesData = data.learned_subjects
@@ -165,8 +167,8 @@ const StudentDashboard = () => {
               </svg>
             </div>
             <div className="ml-4">
-              <p className="text-sm text-gray-600">Kỳ thi sắp tới</p>
-              <p className="text-2xl font-bold text-gray-900">{quickStats.upcomingExams}</p>
+              <p className="text-sm text-gray-600">Mức cảnh cáo</p>
+              <p className="text-2xl font-bold text-gray-900">{quickStats.warning_level}</p>
             </div>
           </div>
         </div>

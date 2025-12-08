@@ -1,0 +1,73 @@
+{
+  "time_preferences": {
+    "morning_start": "06:00",
+    "morning_end": "12:00",
+    "afternoon_start": "12:00",
+    "afternoon_end": "18:00",
+    "evening_start": "18:00",
+    "evening_end": "22:00"
+  },
+  "thresholds": {
+    "early_start": "08:00",
+    "late_end": "17:00",
+    "continuous_gap_minutes": 30,
+    "min_daily_hours": 5.0
+  },
+  "scoring_weights": {
+    "time_period_match": 15,
+    "teacher_preference": 20,
+    "early_start": 10,
+    "late_start": 10,
+    "avoid_late_end": 5,
+    "no_avoided_days": 5,
+    "high_availability": 5
+  },
+  "preference_questions": {
+    "time_period": {
+      "question": "Bạn muốn học vào buổi nào?",
+      "options": [
+        {"value": "morning", "label": "Sáng (6:00-12:00)"},
+        {"value": "afternoon", "label": "Chiều (12:00-18:00)"},
+        {"value": "evening", "label": "Tối (18:00-22:00)"},
+        {"value": "any", "label": "Không quan tâm"}
+      ]
+    },
+    "avoid_early_start": {
+      "question": "Bạn có muốn tránh các lớp học sớm (trước 8:00) không?",
+      "type": "boolean"
+    },
+    "avoid_late_end": {
+      "question": "Bạn có muốn tránh các lớp kết thúc muộn (sau 17:00) không?",
+      "type": "boolean"
+    },
+    "avoid_days": {
+      "question": "Bạn muốn tránh học vào ngày nào trong tuần?",
+      "type": "multi_select",
+      "options": [
+        {"value": "Monday", "label": "Thứ 2"},
+        {"value": "Tuesday", "label": "Thứ 3"},
+        {"value": "Wednesday", "label": "Thứ 4"},
+        {"value": "Thursday", "label": "Thứ 5"},
+        {"value": "Friday", "label": "Thứ 6"},
+        {"value": "Saturday", "label": "Thứ 7"},
+        {"value": "Sunday", "label": "Chủ nhật"}
+      ]
+    },
+    "maximize_free_days": {
+      "question": "Bạn có muốn tối đa hóa số ngày nghỉ (để dành thời gian thực tập) không?",
+      "type": "boolean"
+    },
+    "prefer_continuous": {
+      "question": "Bạn có muốn học nhiều lớp liên tục trong một buổi không?",
+      "type": "boolean"
+    },
+    "preferred_teachers": {
+      "question": "Bạn có muốn chọn giáo viên cụ thể không? (Nhập tên giáo viên, cách nhau bởi dấu phẩy)",
+      "type": "text"
+    }
+  },
+  "redis_cache": {
+    "ttl_seconds": 3600,
+    "key_prefix": "class_preferences:"
+  }
+}

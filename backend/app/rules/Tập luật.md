@@ -722,6 +722,471 @@ Order của checks:
 
 ---
 
-**Document Version:** 2.0  
-**Last Updated:** November 28, 2025  
+## 📋 TẬP LUẬT ĐĂNG KÝ LỚP HỌC (CLASS REGISTRATION RULES)
+
+### 🎯 Tổng quan
+
+Hệ thống **Class Registration Rule Engine** giúp sinh viên tìm lớp học phù hợp dựa trên **nhu cầu cá nhân** về:
+
+- ⏰ Thời gian học (sáng/chiều/tối, sớm/muộn)
+- 📅 Ngày học trong tuần (tránh thứ 7, tránh ngày cụ thể)
+- 👨‍🏫 Giáo viên ưa thích
+- 🏢 Phòng học/vị trí
+- 📊 Tối ưu lịch học (học liên tục, nghỉ nhiều ngày)
+
+### 🔄 Quy trình tương tác
+
+```
+┌─────────────────────────────────────────┐
+│  1. User: "Tôi muốn đăng ký lớp"        │
+│     Intent: class_registration_suggest  │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  2. Chatbot hỏi về preferences:         │
+│     - Muốn học buổi nào?                │
+│     - Tránh học sớm không?              │
+│     - Tránh học thứ mấy?                │
+│     - Muốn học liên tục không?          │
+│     - Có giáo viên ưa thích không?      │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  3. Lưu preferences vào Redis Cache     │
+│     Key: class_preferences:{student_id} │
+│     TTL: 1 hour                         │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  4. Get suggested subjects              │
+│     (từ subject_suggestion_rules)       │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  5. Get available classes               │
+│     (từ database classes table)         │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  6. Apply filters:                      │
+│     - Time preference filter            │
+│     - Weekday preference filter         │
+│     - Teacher filter                    │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  7. Rank classes by scoring:            │
+│     - Time match: +15 points            │
+│     - Teacher match: +20 points         │
+│     - Early/late preference: +10        │
+│     - No avoided days: +5               │
+│     - High availability: +5             │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  8. Calculate schedule metrics:         │
+│     - Study days per week               │
+│     - Free days                         │
+│     - Continuous sessions               │
+│     - Intensive days (>5h)              │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│  9. Format & return suggestions         │
+└─────────────────────────────────────────┘
+```
+
+### 📝 Các tiêu chí lọc (Filters)
+
+#### 1. **Time Period Filter** - Lọc theo buổi học
+
+```python
+IF time_period == 'morning':
+    THEN chỉ giữ lớp có 06:00 <= study_time_start < 12:00
+ELIF time_period == 'afternoon':
+    THEN chỉ giữ lớp có 12:00 <= study_time_start < 18:00
+ELIF time_period == 'evening':
+    THEN chỉ giữ lớp có 18:00 <= study_time_start < 22:00
+```
+
+**Cách áp dụng:**
+- User chọn "Tôi muốn học buổi sáng"
+- Filter loại bỏ tất cả lớp có `study_time_start >= 12:00`
+
+#### 2. **Early/Late Filter** - Lọc giờ bắt đầu/kết thúc
+
+```python
+IF avoid_early_start == True:
+    THEN loại bỏ lớp có study_time_start < 08:00
+
+IF avoid_late_end == True:
+    THEN loại bỏ lớp có study_time_end > 17:00
+```
+
+**Ví dụ:**
+- Lớp IT3170: 06:45-08:15 → LOẠI BỎ (nếu avoid_early_start)
+- Lớp IT4040: 15:00-17:30 → LOẠI BỎ (nếu avoid_late_end)
+- Lớp IT3080: 09:00-11:00 → GIỮ LẠI
+
+#### 3. **Weekday Filter** - Lọc theo ngày trong tuần
+
+```python
+IF avoid_days = ['Saturday', 'Sunday']:
+    THEN loại bỏ lớp có study_date chứa 'Saturday' hoặc 'Sunday'
+
+IF prefer_days = ['Monday', 'Wednesday', 'Friday']:
+    THEN chỉ giữ lớp có ALL study_date nằm trong prefer_days
+```
+
+**Ví dụ:**
+- Lớp A: study_date = "Monday,Wednesday,Friday" → GIỮ LẠI
+- Lớp B: study_date = "Tuesday,Thursday,Saturday" → LOẠI BỎ (có Saturday)
+
+#### 4. **Teacher Filter** - Lọc theo giáo viên
+
+```python
+IF preferred_teachers = ['Nguyễn Văn A', 'Trần Thị B']:
+    THEN chỉ giữ lớp có teacher_name chứa tên trong danh sách
+```
+
+**Cách áp dụng:**
+- Tìm kiếm không phân biệt hoa thường
+- Cho phép tìm kiếm một phần (partial match)
+- VD: "Nguyễn" sẽ match với "Nguyễn Văn A", "Nguyễn Thị C"
+
+### 🏆 Hệ thống chấm điểm (Scoring)
+
+Mỗi lớp được chấm điểm dựa trên mức độ phù hợp:
+
+```
+Tổng điểm = 
+    + 15 điểm (nếu đúng buổi học mong muốn)
+    + 20 điểm (nếu đúng giáo viên ưa thích)
+    + 10 điểm (nếu phù hợp early/late preference)
+    + 5 điểm (nếu kết thúc trước 17:00)
+    + 5 điểm (không có ngày bị tránh)
+    + 5 điểm (còn nhiều chỗ trống >50%)
+
+Điểm tối đa: 60 điểm
+```
+
+**Ví dụ:**
+
+```
+Lớp IT3170-001:
+- Sáng (08:00-10:00): +15 (đúng buổi)
+- GV: Nguyễn Văn A: +20 (đúng GV)
+- Không học sớm: +10
+- Kết thúc 10:00: +5
+- Thứ 2,4,6: +5 (không có thứ 7)
+- Chỗ trống: 40/50: +5
+→ TỔNG: 60 điểm ⭐⭐⭐⭐⭐
+
+Lớp IT3170-002:
+- Chiều (14:00-16:00): +0 (không đúng buổi)
+- GV: Trần Thị B: +0
+- Kết thúc 16:00: +5
+- Thứ 3,5: +5
+- Chỗ trống: 10/50: +0
+→ TỔNG: 10 điểm ⭐
+```
+
+### 📊 Schedule Metrics - Đánh giá lịch học
+
+Hệ thống tính toán các chỉ số để đánh giá chất lượng lịch học:
+
+#### 1. **Study Days** - Số ngày học
+
+```python
+study_days = số ngày unique có lớp học
+free_days = 7 - study_days
+```
+
+**Ví dụ:**
+- Lớp A: Monday, Wednesday, Friday → 3 ngày → 4 ngày nghỉ
+- Lớp B: Monday, Tuesday, Wednesday, Thursday, Friday → 5 ngày → 2 ngày nghỉ
+
+#### 2. **Continuous Sessions** - Buổi học liên tục
+
+```python
+IF gap giữa 2 lớp <= 30 phút:
+    THEN đếm là "continuous session"
+```
+
+**Ví dụ:**
+```
+Thứ 2:
+- Lớp 1: 08:00-09:30
+- Lớp 2: 09:35-11:05 (gap = 5 phút)
+- Lớp 3: 13:00-14:30 (gap = 115 phút)
+→ 1 continuous session (lớp 1+2)
+```
+
+#### 3. **Intensive Days** - Ngày học tập trung
+
+```python
+IF tổng giờ học trong 1 ngày >= 5 giờ:
+    THEN đếm là "intensive day"
+```
+
+**Ví dụ:**
+```
+Thứ 3:
+- Lớp A: 08:00-10:00 (2h)
+- Lớp B: 10:00-12:00 (2h)
+- Lớp C: 13:00-15:00 (2h)
+→ Tổng = 6h → Intensive day ✅
+```
+
+**Lợi ích:**
+- Dành thời gian cho thực tập
+- Giảm chi phí đi lại
+- Tập trung học hết trong ít ngày
+
+### 🗂️ Redis Cache - Lưu trữ preferences
+
+Để hỗ trợ conversation flow (hỏi từng câu), hệ thống sử dụng **Redis Cache**:
+
+```python
+# Structure
+Key: "class_preferences:{student_id}"
+Value: JSON {
+    "time_period": "morning",
+    "avoid_early_start": true,
+    "avoid_late_end": false,
+    "avoid_days": ["Saturday"],
+    "preferred_teachers": ["Nguyễn Văn A"],
+    "maximize_free_days": true,
+    "prefer_continuous": true,
+    "timestamp": "2025-12-02T10:30:00"
+}
+TTL: 3600 seconds (1 hour)
+```
+
+**Workflow:**
+
+1. **Câu hỏi đầu tiên:** Bạn muốn học buổi nào?
+   - Lưu: `{"time_period": "morning"}`
+
+2. **Câu hỏi thứ 2:** Tránh học sớm không?
+   - Update: `{"time_period": "morning", "avoid_early_start": true}`
+
+3. **Câu hỏi thứ 3:** Tránh ngày nào?
+   - Update: `{"...", "avoid_days": ["Saturday"]}`
+
+4. **Hoàn thành:** Áp dụng tất cả preferences và gợi ý lớp
+
+### 📝 Preference Questions - Các câu hỏi thu thập
+
+Định nghĩa trong `class_rules_config.json`:
+
+```json
+{
+  "preference_questions": {
+    "time_period": {
+      "question": "Bạn muốn học vào buổi nào?",
+      "options": [
+        {"value": "morning", "label": "Sáng"},
+        {"value": "afternoon", "label": "Chiều"},
+        {"value": "evening", "label": "Tối"},
+        {"value": "any", "label": "Không quan tâm"}
+      ]
+    },
+    "avoid_early_start": {
+      "question": "Bạn có muốn tránh học sớm (trước 8:00) không?",
+      "type": "boolean"
+    },
+    ...
+  }
+}
+```
+
+**Chatbot sẽ hỏi theo thứ tự:**
+
+1. Buổi học (morning/afternoon/evening)
+2. Tránh học sớm? (yes/no)
+3. Tránh kết thúc muộn? (yes/no)
+4. Tránh ngày nào? (multi-select)
+5. Tối đa hóa ngày nghỉ? (yes/no)
+6. Học liên tục? (yes/no)
+7. Giáo viên ưa thích? (text input)
+
+### 🛠️ Implementation Details
+
+**File:** `backend/app/rules/class_suggestion_rules.py`
+
+**Main Class:** `ClassSuggestionRuleEngine`
+
+**Key Methods:**
+
+```python
+get_available_classes(student_id, subject_ids) -> List[Dict]
+    # Lấy danh sách lớp available (còn chỗ trống)
+
+filter_by_time_preference(classes, preferences) -> List[Dict]
+    # Lọc theo time_period, avoid_early_start, avoid_late_end
+
+filter_by_weekday_preference(classes, preferences) -> List[Dict]
+    # Lọc theo avoid_days, prefer_days
+
+filter_by_teacher(classes, teacher_names) -> List[Dict]
+    # Lọc theo teacher_name
+
+rank_classes_by_preferences(classes, preferences) -> List[Dict]
+    # Chấm điểm và sắp xếp
+
+calculate_schedule_metrics(classes) -> Dict
+    # Tính study_days, free_days, continuous_sessions, intensive_days
+
+suggest_classes(student_id, subject_ids, preferences) -> Dict
+    # Main method: tổng hợp tất cả
+
+format_class_suggestions(suggestion_result) -> str
+    # Format kết quả thành text
+```
+
+### 📚 Usage Example
+
+```python
+from app.rules import ClassSuggestionRuleEngine
+from app.db.database import SessionLocal
+
+# Initialize
+db = SessionLocal()
+class_engine = ClassSuggestionRuleEngine(db)
+
+# User preferences (từ Redis hoặc input)
+preferences = {
+    'time_period': 'morning',
+    'avoid_early_start': True,
+    'avoid_late_end': True,
+    'avoid_days': ['Saturday', 'Sunday'],
+    'preferred_teachers': ['Nguyễn Văn A'],
+    'maximize_free_days': True,
+    'prefer_continuous': True
+}
+
+# Subject IDs (từ subject_suggestion_rules)
+subject_ids = [101, 102, 103]  # IT3170, IT3080, IT4040
+
+# Get suggestions
+result = class_engine.suggest_classes(
+    student_id=1,
+    subject_ids=subject_ids,
+    preferences=preferences
+)
+
+# Format response
+response_text = class_engine.format_class_suggestions(result)
+print(response_text)
+```
+
+**Output Example:**
+
+```markdown
+🎓 **GỢI Ý LỚP HỌC PHẦN**
+==================================================
+
+📊 **TỔNG QUAN**
+• Tổng số lớp phù hợp: **8** lớp
+• Đã lọc bỏ: 12 lớp không phù hợp
+
+📅 **LỊCH HỌC DỰ KIẾN**
+• Số ngày học: 3 ngày/tuần
+• Số ngày nghỉ: 4 ngày/tuần
+• Số buổi học liên tục: 2 buổi
+• Số ngày học tập trung (>5h): 1 ngày
+
+⚙️ **TIÊU CHÍ ÁP DỤNG**
+• Buổi học: Buổi sáng
+• Tránh học sớm (trước 8:00)
+• Tránh kết thúc muộn (sau 17:00)
+• Tránh các ngày: Thứ 7, Chủ nhật
+• Giáo viên ưu tiên: Nguyễn Văn A
+
+📚 **DANH SÁCH LỚP GỢI Ý**
+
+**1. Thuật toán ứng dụng** (2 TC)
+
+   **Lớp 1:** IT3170-001 - Thuật toán ứng dụng 1
+   • Thời gian: 08:00 - 10:00
+   • Ngày học: Thứ 2, Thứ 4, Thứ 6
+   • Phòng: TC-201
+   • Giảng viên: Nguyễn Văn A
+   • Chỗ trống: 45/50
+   • Phù hợp: Buổi sáng, Teacher: Nguyễn Văn A, No avoided days
+   • Điểm ưu tiên: ⭐ 50/50
+
+   **Lớp 2:** IT3170-002 - Thuật toán ứng dụng 2
+   • Thời gian: 09:00 - 11:00
+   • Ngày học: Thứ 3, Thứ 5
+   • Phòng: TC-305
+   • Giảng viên: Trần Thị B
+   • Chỗ trống: 30/50
+   • Phù hợp: Buổi sáng, Ends before 17:00
+   • Điểm ưu tiên: ⭐ 25/50
+
+**2. Mạng máy tính** (3 TC)
+   ...
+
+**Chúc bạn đăng ký thành công! 🎉**
+```
+
+### 🧪 Testing
+
+**Test File:** `backend/app/tests/test_class_suggestion_rules.py`
+
+```python
+def test_filter_by_time_morning():
+    # Test lọc lớp học buổi sáng
+    
+def test_filter_avoid_early_start():
+    # Test tránh học sớm
+    
+def test_filter_by_weekday():
+    # Test tránh thứ 7
+    
+def test_rank_by_teacher():
+    # Test ưu tiên giáo viên
+    
+def test_calculate_schedule_metrics():
+    # Test tính toán metrics
+```
+
+### ⚠️ Important Notes
+
+1. **Redis Cache TTL:** 1 hour - đủ cho conversation flow
+2. **Scoring Range:** 0-60 điểm (có thể mở rộng)
+3. **Gap Threshold:** 30 phút cho continuous classes
+4. **Intensive Day:** >= 5 giờ học/ngày
+5. **Available Slots:** Chỉ gợi ý lớp còn chỗ trống
+
+### 🔗 Integration với Subject Suggestion
+
+```python
+# Step 1: Get suggested subjects
+subject_result = subject_engine.suggest_subjects(student_id)
+subject_ids = [s['id'] for s in subject_result['suggested_subjects']]
+
+# Step 2: Get preferences from Redis
+preferences = redis_client.get(f"class_preferences:{student_id}")
+
+# Step 3: Get class suggestions
+class_result = class_engine.suggest_classes(
+    student_id, subject_ids, preferences
+)
+```
+
+---
+
+**Document Version:** 3.0  
+**Last Updated:** December 2, 2025  
 **Author:** Student Management System Team
