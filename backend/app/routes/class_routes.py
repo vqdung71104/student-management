@@ -20,6 +20,14 @@ class TeacherUpdateRequest(BaseModel):
 #    Create class
 @router.post("/", response_model=ClassResponse)
 def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
+    # Check if class_id already exists
+    existing_class = db.query(Class).filter(Class.class_id == class_data.class_id).first()
+    if existing_class:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Class with class_id '{class_data.class_id}' already exists"
+        )
+    
     # Convert data to dict and handle special fields
     class_dict = class_data.dict()
     
@@ -29,15 +37,15 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
     else:
         class_dict["linked_class_ids"] = ""
     
-    #   XÓA DÒNG NÀY - không cần convert enum nữa
-    # if class_dict["class_type"]:
-    #     class_dict["class_type"] = class_dict["class_type"].value
-    
-    db_class = Class(**class_dict)
-    db.add(db_class)
-    db.commit()
-    db.refresh(db_class)
-    return db_class
+    try:
+        db_class = Class(**class_dict)
+        db.add(db_class)
+        db.commit()
+        db.refresh(db_class)
+        return db_class
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 #    Get all classes
 @router.get("/", response_model=list[ClassResponse])

@@ -368,7 +368,9 @@ class ClassSuggestionRuleEngine:
         Filter classes by time preferences
         
         Preferences:
-            - time_period: 'morning', 'afternoon', 'evening', or 'any'
+            - time_period: 'morning', 'afternoon', 'evening', or 'any' (POSITIVE preference)
+            - avoid_time_periods: List of periods to avoid (NEGATIVE preference)
+              e.g., ['morning'] means "không muốn học buổi sáng" → filter out morning classes
             - avoid_early_start: bool
             - avoid_late_end: bool
         
@@ -378,18 +380,24 @@ class ClassSuggestionRuleEngine:
         filtered = []
         
         time_period = preferences.get('time_period', 'any')
+        avoid_time_periods = preferences.get('avoid_time_periods', [])
         avoid_early = preferences.get('avoid_early_start', False)
         avoid_late = preferences.get('avoid_late_end', False)
         
         for cls in classes:
             start_time = cls['study_time_start']
             end_time = cls['study_time_end']
+            class_period = self.get_time_period(start_time)
             
-            # Check time period
-            if time_period != 'any':
-                class_period = self.get_time_period(start_time)
-                if class_period != time_period:
-                    continue
+            # Check NEGATIVE time period filter first (more restrictive)
+            # "không muốn học buổi sáng" → avoid_time_periods = ['morning']
+            if avoid_time_periods and class_period in avoid_time_periods:
+                continue  # Skip this class
+            
+            # Check POSITIVE time period filter
+            # "muốn học buổi chiều" → time_period = 'afternoon'
+            if time_period != 'any' and class_period != time_period:
+                continue
             
             # Check early start
             if avoid_early and self.is_early_start(start_time):
@@ -630,12 +638,20 @@ class ClassSuggestionRuleEngine:
         end_time = cls['study_time_end']
         study_days = set(self.parse_study_days(cls['study_date']))
         
-        # Time period violation
+        # Time period violation - POSITIVE preference
+        # "muốn học buổi chiều" → preferred_period = 'afternoon'
         time_period = self.get_time_period(start_time)
         preferred_period = preferences.get('time_period', 'any')
         if preferred_period != 'any' and time_period != preferred_period:
             violations += 1
             violation_list.append(f'Not {preferred_period} class (is {time_period})')
+        
+        # Avoid time periods violation - NEGATIVE preference
+        # "không muốn học buổi sáng" → avoid_time_periods = ['morning']
+        avoid_time_periods = preferences.get('avoid_time_periods', [])
+        if avoid_time_periods and time_period in avoid_time_periods:
+            violations += 1
+            violation_list.append(f'Has avoided time period: {time_period}')
         
         # Early start violation
         if preferences.get('avoid_early_start', False) and self.is_early_start(start_time):
@@ -826,7 +842,7 @@ class ClassSuggestionRuleEngine:
         preference_filtered = absolute_filtered.copy()
         
         # Filter by time preference
-        if 'time_period' in preferences or 'avoid_early_start' in preferences:
+        if 'time_period' in preferences or 'avoid_early_start' in preferences or 'avoid_time_periods' in preferences:
             preference_filtered = self.filter_by_time_preference(
                 preference_filtered,
                 preferences

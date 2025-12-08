@@ -122,6 +122,43 @@ Hướng dẫn về hệ thống NL2SQL:
 
 ---
 
+### 6. Preference Extraction ⭐ NEW
+**File**: [PREFERENCE_EXTRACTION.md](./PREFERENCE_EXTRACTION.md)
+
+Tài liệu về context-aware negation detection và active negative filtering:
+- **Context-Aware Negation**: Kiểm tra phủ định trong cửa sổ 20 ký tự
+- **Positive vs Negative Preferences**: `time_period` vs `avoid_time_periods`
+- **Active Negative Filtering**: Loại bỏ tích cực thay vì bỏ qua
+- **Filter Priority**: Negative filters applied FIRST
+- **Bug Fixes**: Global negation check → Context-aware
+- **Test Coverage**: 16/16 tests passing
+
+Examples:
+```
+"không muốn học buổi sáng" → avoid_time_periods: ['morning']
+"không muốn học thứ 5" → avoid_days: ['Thursday']
+"không sáng, học thứ 5" → both extracted correctly
+```
+
+**Phù hợp cho**: Developers làm việc với preference extraction và class filtering
+
+---
+
+### 7. Chatbot Flow Documentation
+**File**: [app/rules/docs/CHATBOT_FLOW.md](../app/rules/docs/CHATBOT_FLOW.md)
+
+Tài liệu chi tiết về luồng xử lý chatbot:
+- Intent classification flow
+- Subject suggestion flow
+- Class suggestion flow (với preferences)
+- Preference extraction table
+- Test cases (6+ scenarios)
+- Recent updates log
+
+**Phù hợp cho**: Developers cần hiểu end-to-end flow
+
+---
+
 ##  Test Files
 
 ### Trong thư mục `app/tests/`
@@ -274,7 +311,11 @@ python app/tests/test_chatbot_integration.py
 7. **class_info** - Thông tin lớp học
 8. **schedule_view** - Lịch học đã đăng ký
 9. **subject_registration_suggestion** - Gợi ý môn đăng ký
-10. **class_registration_suggestion** - Gợi ý lớp đăng ký
+10. **class_registration_suggestion** - Gợi ý lớp đăng ký ⭐ **With Smart Preferences**
+    - Time preferences: "muốn học sáng", "không muốn học chiều"
+    - Day preferences: "muốn học thứ 5", "không học thứ 7"
+    - Context-aware negation detection
+    - Active negative filtering
 
 ---
 
@@ -345,6 +386,18 @@ print(result)
 
 ---
 
+##  Recent Updates
+
+### December 8, 2025
+- ✅ **Context-Aware Negation Detection**: Fixed global negation bug
+- ✅ **Active Negative Filtering**: Added `avoid_time_periods` field
+- ✅ **Filter Priority**: Negative filters applied before positive filters
+- ✅ **Bug Fix**: `avoid_time_periods` now properly checked in `suggest_classes()`
+- ✅ **Test Coverage**: 16/16 tests passing for preference extraction
+- 📄 **New Documentation**: [PREFERENCE_EXTRACTION.md](./PREFERENCE_EXTRACTION.md)
+
+---
+
 ##  Contributors
 
 - AI/ML Team: Intent classification, NL2SQL
@@ -357,4 +410,4 @@ print(result)
 
 Internal documentation for Student Management System.
 
-**Last updated**: November 13, 2025
+**Last updated**: December 8, 2025

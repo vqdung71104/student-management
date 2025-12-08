@@ -380,11 +380,18 @@ const ScheduleManagement = () => {
     
     try {
       const successCount = await createClassesFromExcel(excelData)
-      alert(`Đã tạo thành công ${successCount}/${excelData.length} lớp học`)
-      fetchClasses() // Refresh the list
+      
+      // Refresh the list
+      await fetchClasses()
+      
+      // Show success message only if all succeeded
+      if (successCount === excelData.length) {
+        alert(`✅ Tạo thành công tất cả ${successCount} lớp học!`)
+      }
+      // Error details are already shown in createClassesFromExcel function
     } catch (error) {
       console.error('Error creating classes:', error)
-      alert('Có lỗi xảy ra khi tạo lớp học')
+      alert('❌ Có lỗi xảy ra khi tạo lớp học. Vui lòng kiểm tra console (F12) để biết chi tiết.')
     } finally {
       setCreateLoading(false)
     }
@@ -428,6 +435,7 @@ const ScheduleManagement = () => {
 
   const createClassesFromExcel = async (excelData: any[]): Promise<number> => {
     let successCount = 0
+    const errors: { class_code: string, reason: string }[] = []
     
     // First, get all subjects to map subject_code to subject_id
     let subjectsMap: { [key: string]: number } = {}
@@ -444,12 +452,44 @@ const ScheduleManagement = () => {
       console.error('Error fetching subjects:', error)
     }
     
-    for (const row of excelData) {
+    // Check for existing classes to avoid duplicates
+    let existingClassIds: Set<string> = new Set()
+    try {
+      const classesResponse = await fetch('http://localhost:8000/api/classes/')
+      if (classesResponse.ok) {
+        const existingClasses = await classesResponse.json()
+        existingClassIds = new Set(existingClasses.map((c: any) => c.class_id))
+      }
+    } catch (error) {
+      console.error('Error fetching existing classes:', error)
+    }
+    
+    console.log(` Starting bulk upload: ${excelData.length} classes`)
+    console.log(` Found ${existingClassIds.size} existing classes in database`)
+    
+    for (let i = 0; i < excelData.length; i++) {
+      const row = excelData[i]
+      const classCode = row.class_code || `Row_${i + 1}`
+      
       try {
+        // Validation 1: Check duplicate class_id
+        if (existingClassIds.has(row.class_code)) {
+          errors.push({ class_code: classCode, reason: '❌ Duplicate: Class ID already exists' })
+          console.warn(`⚠️ Skipping ${classCode}: Already exists in database`)
+          continue
+        }
+        
+        // Validation 2: Check required fields
+        if (!row.class_code || !row.subject_name || !row.subject_code) {
+          errors.push({ class_code: classCode, reason: '❌ Missing required fields (class_code, subject_name, subject_code)' })
+          console.warn(`⚠️ Skipping ${classCode}: Missing required fields`)
+          continue
+        }
+        
         // Map subject_code to subject_id, create new subject if not found
         let subjectId = subjectsMap[row.subject_code]
         if (!subjectId) {
-          console.warn(`Subject not found for code: ${row.subject_code}, creating new subject...`)
+          console.warn(`⚠️ Subject not found for code: ${row.subject_code}, creating new subject...`)
           subjectId = await createSubjectIfNotExists(row.subject_code, row.subject_name)
           subjectsMap[row.subject_code] = subjectId // Cache for future use
         }
@@ -457,23 +497,23 @@ const ScheduleManagement = () => {
         // Map Excel fields to API fields according to ClassCreate schema
         const classData = {
           // Required fields mapped from Excel
-          class_id: row.class_code || '',
-          class_name: row.subject_name || '',
-          subject_id: subjectId, // Use mapped or newly created subject ID
+          class_id: row.class_code,
+          class_name: row.subject_name,
+          subject_id: subjectId,
           
           // Optional fields mapped from Excel
           linked_class_ids: row.class_code_attached ? [row.class_code_attached] : [],
           class_type: row.class_type || '',
           classroom: row.room || '',
-          study_date: row.day_of_week_converted || '', // Use converted day name (Monday, Tuesday, etc.)
-          study_time_start: row.study_time_start || '', // Already in hh:mm format
-          study_time_end: row.study_time_end || '', // Already in hh:mm format
+          study_date: row.day_of_week_converted || '',
+          study_time_start: row.study_time_start || '',
+          study_time_end: row.study_time_end || '',
           max_student_number: parseInt(row.max_students) || 30,
-          teacher_name: row.teacher_name || '', // Leave empty as requested
-          study_week: row.study_weeks || [] // Already parsed as number array
+          teacher_name: row.teacher_name || '',
+          study_week: row.study_weeks || []
         }
 
-        console.log('Creating class with data:', classData)
+        console.log(`📤 [${i + 1}/${excelData.length}] Creating class: ${classCode}`)
 
         const response = await fetch('http://localhost:8000/api/classes/', {
           method: 'POST',
@@ -485,14 +525,44 @@ const ScheduleManagement = () => {
 
         if (response.ok) {
           successCount++
-          console.log(`Successfully created class: ${row.class_code}`)
+          existingClassIds.add(row.class_code) // Add to set to prevent duplicates in same batch
+          console.log(`✅ [${i + 1}/${excelData.length}] Success: ${classCode}`)
         } else {
           const errorText = await response.text()
-          console.error(`Failed to create class ${row.class_code}:`, errorText)
+          let errorReason = '❌ Server error'
+          
+          try {
+            const errorJson = JSON.parse(errorText)
+            errorReason = `❌ ${errorJson.detail || errorText}`
+          } catch {
+            errorReason = `❌ ${errorText.substring(0, 100)}`
+          }
+          
+          errors.push({ class_code: classCode, reason: errorReason })
+          console.error(`❌ [${i + 1}/${excelData.length}] Failed: ${classCode} - ${errorReason}`)
         }
       } catch (error) {
-        console.error(`Error creating class ${row.class_code}:`, error)
+        const errorMsg = error instanceof Error ? error.message : String(error)
+        errors.push({ class_code: classCode, reason: `❌ Exception: ${errorMsg}` })
+        console.error(`❌ [${i + 1}/${excelData.length}] Exception: ${classCode}`, error)
       }
+    }
+    
+    // Display detailed summary
+    console.log(`\n📊 Upload Summary:`)
+    console.log(`✅ Success: ${successCount}/${excelData.length}`)
+    console.log(`❌ Failed: ${errors.length}/${excelData.length}`)
+    
+    if (errors.length > 0) {
+      console.log(`\n❌ Failed Classes:`)
+      errors.forEach((err, idx) => {
+        console.log(`  ${idx + 1}. ${err.class_code}: ${err.reason}`)
+      })
+      
+      // Show alert with error details
+      const errorSummary = errors.slice(0, 10).map(e => `• ${e.class_code}: ${e.reason}`).join('\n')
+      const remainingErrors = errors.length > 10 ? `\n... và ${errors.length - 10} lỗi khác` : ''
+      alert(`⚠️ Hoàn thành với lỗi!\n\n✅ Tạo thành công: ${successCount}/${excelData.length}\n❌ Thất bại: ${errors.length}\n\nChi tiết lỗi:\n${errorSummary}${remainingErrors}\n\nXem console (F12) để biết chi tiết đầy đủ.`)
     }
     
     return successCount
