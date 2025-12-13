@@ -137,17 +137,17 @@ def test_avoid_time_periods():
     """Test avoid time periods - should find OTHER periods"""
     service = ChatbotService(db=MagicMock())
     
-    # Test case 14: Avoid morning - should find afternoon/evening
+    # Test case 14: Avoid morning - should find afternoon
     prefs = service._extract_preferences_from_question("không muốn học buổi sáng")
     assert 'avoid_time_periods' in prefs
     assert 'morning' in prefs['avoid_time_periods']
     print(f"✅ Test 14 passed: Avoid morning - {prefs}")
     
-    # Test case 15: Avoid evening
-    prefs = service._extract_preferences_from_question("tôi không học buổi tối")
+    # Test case 15: Avoid afternoon
+    prefs = service._extract_preferences_from_question("tôi không học buổi chiều")
     assert 'avoid_time_periods' in prefs
-    assert 'evening' in prefs['avoid_time_periods']
-    print(f"✅ Test 15 passed: Avoid evening - {prefs}")
+    assert 'afternoon' in prefs['avoid_time_periods']
+    print(f"✅ Test 15 passed: Avoid afternoon - {prefs}")
     
     # Test case 16: Prefer afternoon (positive)
     prefs = service._extract_preferences_from_question("tôi muốn học buổi chiều")

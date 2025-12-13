@@ -1,14 +1,12 @@
 {
   "time_preferences": {
-    "morning_start": "06:00",
-    "morning_end": "12:00",
-    "afternoon_start": "12:00",
-    "afternoon_end": "18:00",
-    "evening_start": "18:00",
-    "evening_end": "22:00"
+    "morning_start": "06:45",
+    "morning_end": "11:45",
+    "afternoon_start": "12:30",
+    "afternoon_end": "17:30"
   },
   "thresholds": {
-    "early_start": "08:00",
+    "early_start": "08:25",
     "late_end": "17:00",
     "continuous_gap_minutes": 30,
     "min_daily_hours": 5.0
@@ -26,18 +24,17 @@
     "time_period": {
       "question": "Bạn muốn học vào buổi nào?",
       "options": [
-        {"value": "morning", "label": "Sáng (6:00-12:00)"},
-        {"value": "afternoon", "label": "Chiều (12:00-18:00)"},
-        {"value": "evening", "label": "Tối (18:00-22:00)"},
+        {"value": "morning", "label": "Sáng (6:45-11:45)"},
+        {"value": "afternoon", "label": "Chiều (12:30-17:30)"},
         {"value": "any", "label": "Không quan tâm"}
       ]
     },
     "avoid_early_start": {
-      "question": "Bạn có muốn tránh các lớp học sớm (trước 8:00) không?",
+      "question": "Bạn có muốn tránh các lớp học sớm (trước 8:25) không?",
       "type": "boolean"
     },
     "avoid_late_end": {
-      "question": "Bạn có muốn tránh các lớp kết thúc muộn (sau 17:00) không?",
+      "question": "Bạn có muốn tránh các lớp kết thúc muộn (sau 16:00) không?",
       "type": "boolean"
     },
     "avoid_days": {
@@ -49,8 +46,7 @@
         {"value": "Wednesday", "label": "Thứ 4"},
         {"value": "Thursday", "label": "Thứ 5"},
         {"value": "Friday", "label": "Thứ 6"},
-        {"value": "Saturday", "label": "Thứ 7"},
-        {"value": "Sunday", "label": "Chủ nhật"}
+        {"value": "Saturday", "label": "Thứ 7"}
       ]
     },
     "maximize_free_days": {

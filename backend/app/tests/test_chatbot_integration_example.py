@@ -284,9 +284,8 @@ class ChatbotIntegrationTester:
             # Bước 6: Extract Time Period
             self.print_step_header(6, "Extract Time Period")
             self.print_substep(f"Danh sách keyword thời gian:")
-            self.print_substep(f"\"sáng\" → morning (07:00-11:00)", 1)
-            self.print_substep(f"\"chiều\" → afternoon (13:00-17:00)", 1)
-            self.print_substep(f"\"tối\" → evening (18:00-21:00)", 1)
+            self.print_substep(f"\"sáng\" → morning (06:45-11:45)", 1)
+            self.print_substep(f"\"chiều\" → afternoon (12:30-17:30)", 1)
             time_period = entities.get("time_period")
             if time_period:
                 self.print_substep(f"✓ Input chứa keyword → \"{time_period}\"", 0)

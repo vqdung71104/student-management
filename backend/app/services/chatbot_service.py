@@ -105,15 +105,15 @@ class ChatbotService:
         subject_id: Optional[str] = None
     ) -> Dict:
         """
-        Process class suggestion request with intelligent filtering
+        Process class suggestion request with interactive preference collection
         
         This method is ONLY called when intent = "class_registration_suggestion"
-        It extracts user preferences from the question and applies smart filtering:
-        - Time preferences (morning/afternoon/evening)
-        - Avoid early start / late end
-        - Avoid specific days (Saturday, Sunday, etc.)
-        - Teacher preferences
-        - Continuous classes
+        
+        NEW FLOW:
+        1. Check if there's an active conversation state
+        2. If yes, parse user response and update preferences
+        3. If preferences incomplete, ask next question
+        4. If preferences complete, generate class suggestions (3-5 per subject)
         
         Args:
             student_id: Student ID
@@ -121,9 +121,12 @@ class ChatbotService:
             subject_id: Optional specific subject ID to filter
         
         Returns:
-            Dict with text response and class suggestions
+            Dict with text response and class suggestions OR next question
         """
         try:
+            from app.services.conversation_state import get_conversation_manager
+            from app.services.preference_service import PreferenceCollectionService
+            
             print(f"🎯 [CLASS_SUGGESTION] Processing for student {student_id}")
             print(f"📝 [CLASS_SUGGESTION] Question: {question}")
             
@@ -137,33 +140,154 @@ class ChatbotService:
                     "requires_auth": True
                 }
             
-            # Extract preferences from question
-            preferences = self._extract_preferences_from_question(question)
-            print(f"⚙️ [CLASS_SUGGESTION] Extracted preferences: {preferences}")
+            # Initialize services
+            conv_manager = get_conversation_manager()
+            pref_service = PreferenceCollectionService()
+            
+            # Check for active conversation
+            state = conv_manager.get_state(student_id)
+            
+            if state and state.stage == 'collecting':
+                # User is answering a preference question
+                print(f"🔄 [CONVERSATION] Continuing conversation for student {student_id}")
+                print(f"📋 [CONVERSATION] Current question: {state.current_question.key if state.current_question else None}")
+                
+                # Parse user response
+                if state.current_question:
+                    state.preferences = pref_service.parse_user_response(
+                        response=question,
+                        question_key=state.current_question.key,
+                        current_preferences=state.preferences
+                    )
+                    state.questions_asked.append(state.current_question.key)
+                    print(f"✅ [CONVERSATION] Updated preferences: {state.preferences.dict()}")
+                
+                # Check if preferences are complete
+                if state.preferences.is_complete():
+                    print(f"✨ [CONVERSATION] Preferences complete! Generating suggestions...")
+                    state.stage = 'completed'
+                    conv_manager.save_state(state)
+                    
+                    # Generate class suggestions
+                    return await self._generate_class_suggestions_with_preferences(
+                        student_id=student_id,
+                        preferences=state.preferences,
+                        subject_id=subject_id
+                    )
+                else:
+                    # Ask next question
+                    next_question = pref_service.get_next_question(state.preferences)
+                    state.current_question = next_question
+                    conv_manager.save_state(state)
+                    
+                    return {
+                        "text": next_question.question,
+                        "intent": "class_registration_suggestion",
+                        "confidence": "high",
+                        "data": None,
+                        "conversation_state": "collecting",
+                        "question_type": next_question.type,
+                        "question_options": next_question.options
+                    }
+            
+            else:
+                # New conversation - extract initial preferences
+                print(f"🆕 [CONVERSATION] Starting new preference collection")
+                
+                initial_preferences = pref_service.extract_initial_preferences(question)
+                print(f"⚙️ [INITIAL] Extracted preferences: {initial_preferences.dict()}")
+                
+                # Create new conversation state
+                from app.services.conversation_state import ConversationState
+                import uuid
+                state = ConversationState(
+                    student_id=student_id,
+                    session_id=str(uuid.uuid4()),
+                    intent='class_registration_suggestion'
+                )
+                state.preferences = initial_preferences
+                
+                # Check if preferences are already complete
+                if state.preferences.is_complete():
+                    print(f"✨ [INITIAL] Preferences already complete from initial question!")
+                    state.stage = 'completed'
+                    conv_manager.save_state(state)
+                    
+                    # Generate class suggestions immediately
+                    return await self._generate_class_suggestions_with_preferences(
+                        student_id=student_id,
+                        preferences=state.preferences,
+                        subject_id=subject_id
+                    )
+                else:
+                    # Start collecting missing preferences
+                    state.stage = 'collecting'
+                    next_question = pref_service.get_next_question(state.preferences)
+                    state.current_question = next_question
+                    conv_manager.save_state(state)
+                    
+                    # Show what we extracted + ask first question
+                    extracted_summary = ""
+                    if any([
+                        initial_preferences.day.prefer_days,
+                        initial_preferences.day.avoid_days,
+                        initial_preferences.time.time_period,
+                        initial_preferences.time.avoid_time_periods
+                    ]):
+                        extracted_summary = f"\n\n✅ Tôi đã hiểu một số sở thích từ câu hỏi của bạn:\n{pref_service.format_preference_summary(initial_preferences)}\n"
+                    
+                    return {
+                        "text": f"Để gợi ý chính xác nhất, tôi cần biết thêm về sở thích của bạn.{extracted_summary}\n{next_question.question}",
+                        "intent": "class_registration_suggestion",
+                        "confidence": "high",
+                        "data": None,
+                        "conversation_state": "collecting",
+                        "question_type": next_question.type,
+                        "question_options": next_question.options
+                    }
+        
+        except Exception as e:
+            print(f"❌ [CLASS_SUGGESTION] Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "text": f"⚠️ Có lỗi xảy ra: {str(e)}",
+                "intent": "class_registration_suggestion",
+                "confidence": "high",
+                "data": None
+            }
+    
+    async def _generate_class_suggestions_with_preferences(
+        self,
+        student_id: int,
+        preferences,
+        subject_id: Optional[str] = None
+    ) -> Dict:
+        """
+        Generate class suggestions with collected preferences
+        Return 3-5 classes per subject
+        """
+        try:
+            from app.services.preference_service import PreferenceCollectionService
+            pref_service = PreferenceCollectionService()
+            
+            print(f"🎯 [GENERATING] Creating suggestions with preferences")
+            print(f"📋 [PREFERENCES] {preferences.dict()}")
+            
+            # Convert preferences to dict for rule engine
+            preferences_dict = preferences.to_dict()
+            print(f"⚙️ [CLASS_SUGGESTION] Preferences dict: {preferences_dict}")
             
             # First, get subject suggestions from rule engine
             subject_result = self.subject_rule_engine.suggest_subjects(student_id)
             
             # Get list of suggested subjects
             suggested_subjects = subject_result['suggested_subjects']
+            print(f"📊 [SUBJECT_SUGGESTION] Total subjects from rule engine: {len(suggested_subjects)}")
+            print(f"📊 [SUBJECT_SUGGESTION] Total credits: {subject_result.get('total_credits', 0)}")
+            print(f"📊 [SUBJECT_SUGGESTION] Max credits allowed: {subject_result.get('max_credits_allowed', 0)}")
             
-            # Extract specific subject from question if not provided
-            if not subject_id:
-                subject_keyword = self._extract_subject_from_question(question)
-                if subject_keyword:
-                    print(f"📚 [CLASS_SUGGESTION] Extracted subject keyword: {subject_keyword}")
-                    # Try to find matching subject in suggested_subjects
-                    for subj in suggested_subjects:
-                        subj_id = subj.get('subject_id', '')
-                        subj_name = subj.get('subject_name', '').lower()
-                        # Match by ID prefix or name
-                        if (subj_id.startswith(subject_keyword) or 
-                            subject_keyword.lower() in subj_name):
-                            subject_id = subj_id
-                            print(f"✅ [CLASS_SUGGESTION] Matched to subject: {subject_id}")
-                            break
-            
-            # Filter by subject_id if found
+            # Filter by subject_id if provided
             if subject_id:
                 original_count = len(suggested_subjects)
                 suggested_subjects = [
@@ -179,74 +303,140 @@ class ChatbotService:
                         "data": None
                     }
                 print(f"🔍 [CLASS_SUGGESTION] Filtered from {original_count} to {len(suggested_subjects)} subjects")
-            else:
-                # Limit to top 5 subjects
-                suggested_subjects = suggested_subjects[:5]
+            # NOTE: Không limit số môn, sử dụng tất cả môn mà rule engine gợi ý
+            # để đảm bảo đủ số tín chỉ theo max_credits_allowed
+            
+            total_suggested_credits = sum(subj.get('credits', 0) for subj in suggested_subjects)
+            print(f"📚 [CLASS_SUGGESTION] Using {len(suggested_subjects)} subjects ({total_suggested_credits} credits)")
             
             # Get subject IDs
             subject_ids = [subj['id'] for subj in suggested_subjects]
             
-            # Use ClassSuggestionRuleEngine to get smart suggestions with preferences
-            class_suggestion_result = self.class_rule_engine.suggest_classes(
-                student_id=student_id,
-                subject_ids=subject_ids,
-                preferences=preferences,
-                registered_classes=[],  # TODO: Get from database
-                min_suggestions=5
+            # NEW: Get 3-5 classes per subject for combination generation
+            classes_by_subject = {}
+            
+            # Import preference filter for early pruning
+            from app.services.preference_filter import PreferenceFilter
+            pref_filter = PreferenceFilter()
+            
+            for subj in suggested_subjects:
+                # Get classes for this specific subject
+                subject_classes = self.class_rule_engine.suggest_classes(
+                    student_id=student_id,
+                    subject_ids=[subj['id']],
+                    preferences=preferences_dict,
+                    registered_classes=[],
+                    min_suggestions=3  # Get at least 3 classes
+                )
+                
+                # Apply preference filter BEFORE combination (Early Pruning Optimization)
+                all_classes = subject_classes['suggested_classes']
+                print(f"📚 [SUBJECT {subj['subject_id']}] Got {len(all_classes)} classes before filtering")
+                
+                # Filter by preferences to reduce combination space
+                filtered_classes = pref_filter.filter_by_preferences(
+                    classes=all_classes,
+                    preferences=preferences_dict,
+                    strict=False  # Soft filter to keep some diversity
+                )
+                
+                # Take top 3-5 classes after filtering
+                subject_suggested = filtered_classes[:5]
+                print(f"  ✅ After preference filter: {len(subject_suggested)} classes")
+                
+                # Get filter statistics
+                if len(all_classes) > 0:
+                    stats = pref_filter.get_filter_stats(len(all_classes), len(filtered_classes))
+                    print(f"  📊 Filter efficiency: {stats['efficiency_gain']}")
+                
+                # Store by subject_id for combination generation
+                classes_by_subject[subj['subject_id']] = subject_suggested
+            
+            # Generate schedule combinations
+            from app.services.schedule_combination_service import ScheduleCombinationGenerator
+            combo_generator = ScheduleCombinationGenerator()
+            
+            print(f"🔄 [COMBINATIONS] Generating schedule combinations...")
+            combinations = combo_generator.generate_combinations(
+                classes_by_subject=classes_by_subject,
+                preferences=preferences_dict,
+                max_combinations=100
             )
             
-            suggested_classes = class_suggestion_result['suggested_classes']
+            # Return top 3 combinations
+            top_combinations = combinations[:3]
+            print(f"✅ [COMBINATIONS] Returning top {len(top_combinations)} combinations")
             
             # Add priority reasons from subject suggestions
             subject_reasons = {subj['subject_id']: subj.get('priority_reason', '') 
                               for subj in suggested_subjects}
             
-            # Format classes for response
-            classes = []
-            for cls in suggested_classes:
-                classes.append({
-                    "class_id": cls['class_id'],
-                    "class_name": cls['class_name'],
-                    "classroom": cls['classroom'],
-                    "study_date": cls['study_date'],
-                    "study_time_start": cls['study_time_start'].strftime('%H:%M') if hasattr(cls.get('study_time_start'), 'strftime') else str(cls.get('study_time_start', '')),
-                    "study_time_end": cls['study_time_end'].strftime('%H:%M') if hasattr(cls.get('study_time_end'), 'strftime') else str(cls.get('study_time_end', '')),
-                    "teacher_name": cls.get('teacher_name', ''),
-                    "subject_id": cls.get('subject_id', ''),
-                    "subject_name": cls.get('subject_name', ''),
-                    "credits": cls.get('credits', 0),
-                    "registered_students": cls.get('registered_count', 0),
-                    "max_students": cls.get('max_students', 0),
-                    "seats_available": cls.get('available_slots', 0),
-                    "priority_reason": subject_reasons.get(cls.get('subject_id', ''), ''),
-                    "preference_score": cls.get('preference_score', 0),
-                    "violation_count": cls.get('violation_count', 0),
-                    "violations": cls.get('violations', []),
-                    "fully_satisfies": cls.get('fully_satisfies_preferences', False)
+            # Format combinations for response
+            formatted_combinations = []
+            
+            for idx, combo in enumerate(top_combinations, 1):
+                formatted_classes = []
+                
+                for cls in combo['classes']:
+                    formatted_classes.append({
+                        "class_id": cls['class_id'],
+                        "class_name": cls['class_name'],
+                        "classroom": cls['classroom'],
+                        "study_date": cls['study_date'],
+                        "study_week": cls.get('study_week', []),  # Add study_week field
+                        "study_time_start": cls['study_time_start'].strftime('%H:%M') if hasattr(cls.get('study_time_start'), 'strftime') else str(cls.get('study_time_start', '')),
+                        "study_time_end": cls['study_time_end'].strftime('%H:%M') if hasattr(cls.get('study_time_end'), 'strftime') else str(cls.get('study_time_end', '')),
+                        "teacher_name": cls.get('teacher_name', ''),
+                        "subject_id": cls.get('subject_id', ''),
+                        "subject_name": cls.get('subject_name', ''),
+                        "credits": cls.get('credits', 0),
+                        "registered_students": cls.get('registered_count', 0),
+                        "max_students": cls.get('max_students', 0),
+                        "seats_available": cls.get('available_slots', 0),
+                        "priority_reason": subject_reasons.get(cls.get('subject_id', ''), ''),
+                    })
+                
+                formatted_combinations.append({
+                    "combination_id": idx,
+                    "score": combo['score'],
+                    "recommended": idx == 1,  # First is recommended
+                    "classes": formatted_classes,
+                    "metrics": combo['metrics']
                 })
             
-            # Format response text
-            text_response = self._format_class_suggestions(
-                classes, 
+            # Format response text with combinations
+            preference_summary = pref_service.format_preference_summary(preferences)
+            text_response = self._format_schedule_combinations(
+                formatted_combinations,
                 suggested_subjects,
-                subject_result
+                subject_result,
+                preference_summary
             )
+            
+            # Clear conversation state after generating suggestions
+            from app.services.conversation_state import get_conversation_manager
+            get_conversation_manager().delete_state(student_id)
             
             return {
                 "text": text_response,
                 "intent": "class_registration_suggestion",
                 "confidence": "high",
-                "data": classes,
+                "data": formatted_combinations,
                 "metadata": {
                     "total_subjects": len(suggested_subjects),
-                    "total_classes": len(classes),
+                    "total_combinations": len(top_combinations),
                     "student_cpa": subject_result['student_cpa'],
-                    "current_semester": subject_result['current_semester']
+                    "current_semester": subject_result['current_semester'],
+                    "preferences_applied": preferences_dict
                 },
-                "rule_engine_used": True
+                "rule_engine_used": True,
+                "conversation_state": "completed"
             }
             
         except Exception as e:
+            print(f"❌ [GENERATING] Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {
                 "text": f"❌ Xin lỗi, đã xảy ra lỗi khi gợi ý lớp học: {str(e)}",
                 "intent": "class_registration_suggestion",
@@ -286,7 +476,7 @@ class ChatbotService:
         
         # ========== TIME PERIOD PREFERENCES ==========
         # Check for NEGATIVE time preferences first (more specific)
-        # "không muốn học buổi sáng" → Find afternoon/evening classes
+        # "không muốn học buổi sáng" → Find afternoon classes
         
         avoid_time_periods = []
         
@@ -295,7 +485,7 @@ class ChatbotService:
         for pattern in morning_patterns:
             if pattern in question_lower:
                 if has_negation_before(question_lower, pattern):
-                    # "không muốn học buổi sáng" → avoid morning, prefer afternoon/evening
+                    # "không muốn học buổi sáng" → avoid morning, prefer afternoon
                     avoid_time_periods.append('morning')
                     break
                 else:
@@ -315,17 +505,7 @@ class ChatbotService:
                         preferences['time_period'] = 'afternoon'
                         break
         
-        # Evening
-        evening_patterns = ['tối', 'buổi tối', 'evening']
-        if not preferences.get('time_period'):
-            for pattern in evening_patterns:
-                if pattern in question_lower:
-                    if has_negation_before(question_lower, pattern):
-                        avoid_time_periods.append('evening')
-                        break
-                    else:
-                        preferences['time_period'] = 'evening'
-                        break
+        
         
         # If user avoids certain time periods, we need to handle this in filtering
         # Store as a separate field so ClassSuggestionRuleEngine can filter properly
@@ -479,6 +659,169 @@ class ChatbotService:
         
         return None
     
+    def _format_class_suggestions_with_preferences(
+        self,
+        classes: List[Dict],
+        subjects: List[Dict],
+        subject_result: Dict,
+        preference_summary: str
+    ) -> str:
+        """
+        Format class suggestions with preference summary
+        
+        Args:
+            classes: List of available classes (3-5 per subject)
+            subjects: List of suggested subjects
+            subject_result: Result from rule engine
+            preference_summary: Formatted preference summary
+        
+        Returns:
+            Formatted text response with preferences
+        """
+        response = []
+        
+        # Header
+        response.append("🎯 GỢI Ý LỚP HỌC THÔNG MINH")
+        response.append("=" * 60)
+        
+        # Student info
+        response.append(f"\n📊 Thông tin sinh viên:")
+        response.append(f"  • Kỳ học: {subject_result['current_semester']}")
+        response.append(f"  • CPA: {subject_result['student_cpa']:.2f}")
+        
+        # Show collected preferences
+        response.append(f"\n{preference_summary}")
+        
+        if not classes:
+            response.append("\n⚠️ Hiện tại không có lớp nào thỏa mãn tất cả tiêu chí của bạn.")
+            response.append("\nCác môn được gợi ý:")
+            for subj in subjects:
+                response.append(f"  • {subj['subject_id']} - {subj['subject_name']}")
+            return "\n".join(response)
+        
+        # Group classes by subject
+        classes_by_subject = {}
+        for cls in classes:
+            subj_id = cls['subject_id']
+            if subj_id not in classes_by_subject:
+                classes_by_subject[subj_id] = []
+            classes_by_subject[subj_id].append(cls)
+        
+        response.append(f"\n📚 Tìm thấy {len(classes)} lớp từ {len(classes_by_subject)} môn:")
+        response.append("")
+        
+        # Show classes grouped by subject
+        for idx, subj in enumerate(subjects, 1):
+            subj_id = subj['subject_id']
+            subj_classes = classes_by_subject.get(subj_id, [])
+            
+            if not subj_classes:
+                continue
+            
+            response.append(f"{idx}. {subj_id} - {subj['subject_name']} ({subj['credits']} TC)")
+            if subj.get('priority_reason'):
+                response.append(f"   💡 {subj['priority_reason']}")
+            
+            response.append(f"   Có {len(subj_classes)} lớp phù hợp:")
+            
+            for cls in subj_classes:
+                badge = "✅" if cls.get('fully_satisfies', False) else "⚠️"
+                response.append(f"   {badge} {cls['class_id']}: {cls['study_date']} {cls['study_time_start']}-{cls['study_time_end']}")
+                response.append(f"      📍 Phòng {cls['classroom']} - {cls['teacher_name'] if cls['teacher_name'] else 'Chưa có GV'}")
+                response.append(f"      👥 {cls['seats_available']} chỗ trống / {cls['max_students']}")
+                
+                # Show violations if any
+                if cls.get('violations'):
+                    for violation in cls['violations']:
+                        response.append(f"      ⚠️ {violation}")
+            
+            response.append("")
+        
+        response.append("💡 Ghi chú:")
+        response.append("   ✅ = Thỏa mãn hoàn toàn tiêu chí")
+        response.append("   ⚠️ = Có vi phạm tiêu chí nhưng vẫn khả dụng")
+        
+        return "\n".join(response)
+    
+    def _format_schedule_combinations(
+        self,
+        combinations: List[Dict],
+        subjects: List[Dict],
+        subject_result: Dict,
+        preference_summary: str
+    ) -> str:
+        """
+        Format schedule combinations with metrics and recommendations
+        
+        Args:
+            combinations: List of schedule combinations
+            subjects: List of suggested subjects
+            subject_result: Result from rule engine
+            preference_summary: Formatted preference summary
+        
+        Returns:
+            Formatted text response
+        """
+        response = []
+        
+        # Header
+        response.append("🎯 GỢI Ý LỊCH HỌC THÔNG MINH")
+        response.append("=" * 60)
+        
+        # Student info
+        response.append(f"\n📊 Thông tin sinh viên:")
+        response.append(f"  • Kỳ học: {subject_result['current_semester']}")
+        response.append(f"  • CPA: {subject_result['student_cpa']:.2f}")
+        
+        # Show collected preferences
+        response.append(f"\n{preference_summary}")
+        
+        if not combinations:
+            response.append("\n⚠️ Không tìm thấy lịch học nào thỏa mãn tất cả tiêu chí.")
+            response.append("Vui lòng thử lại với tiêu chí linh hoạt hơn.")
+            return "\n".join(response)
+        
+        response.append(f"\n✨ Đã tạo {len(combinations)} phương án lịch học tối ưu:\n")
+        
+        # Show each combination
+        for combo in combinations:
+            badge = "🔵" if combo['combination_id'] == 1 else "🟢" if combo['combination_id'] == 2 else "🟡"
+            recommended = " ⭐ KHUYÊN DÙNG" if combo['recommended'] else ""
+            
+            response.append(f"{badge} PHƯƠNG ÁN {combo['combination_id']} (Điểm: {combo['score']:.0f}/100){recommended}")
+            
+            # Metrics
+            m = combo['metrics']
+            response.append(f"  📊 Tổng quan:")
+            response.append(f"    • {m['total_classes']} môn học - {m['total_credits']} tín chỉ")
+            response.append(f"    • Học {m['study_days']} ngày/tuần (Nghỉ {m['free_days']} ngày)")
+            response.append(f"    • Trung bình {m['average_daily_hours']:.1f} giờ/ngày")
+            if m.get('earliest_start') and m.get('latest_end'):
+                response.append(f"    • Giờ học: {m['earliest_start']} - {m['latest_end']}")
+            if m['continuous_study_days'] > 0:
+                response.append(f"    • {m['continuous_study_days']} ngày học liên tục (>5h)")
+            
+            response.append(f"\n  📚 Danh sách lớp:")
+            
+            # Group by subject for display
+            for cls in combo['classes']:
+                response.append(f"    • {cls['subject_id']} - {cls['subject_name']} ({cls['credits']} TC)")
+                response.append(f"      📍 Lớp {cls['class_id']}: {cls['study_date']} {cls['study_time_start']}-{cls['study_time_end']}")
+                response.append(f"      🏫 Phòng {cls['classroom']} - {cls['teacher_name'] if cls['teacher_name'] else 'TBA'}")
+                response.append(f"      👥 {cls['seats_available']}/{cls['max_students']} chỗ trống")
+                
+                if cls.get('priority_reason'):
+                    response.append(f"      💡 {cls['priority_reason']}")
+            
+            response.append("")
+        
+        response.append("💡 Lưu ý:")
+        response.append("  • ⭐ = Phương án được khuyên dùng nhất")
+        response.append("  • Tất cả phương án đều KHÔNG XUNG ĐỘT thời gian")
+        response.append("  • Mỗi môn chỉ có 1 lớp trong phương án")
+        
+        return "\n".join(response)
+    
     def _format_class_suggestions(
         self,
         classes: List[Dict],
@@ -486,7 +829,7 @@ class ChatbotService:
         subject_result: Dict
     ) -> str:
         """
-        Format class suggestions into human-readable text
+        Format class suggestions into human-readable text (legacy method)
         
         Args:
             classes: List of available classes

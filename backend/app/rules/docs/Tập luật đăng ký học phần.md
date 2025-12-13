@@ -810,25 +810,23 @@ Hệ thống **Class Registration Rule Engine** giúp sinh viên tìm lớp họ
 
 ```python
 IF time_period == 'morning':
-    THEN chỉ giữ lớp có 06:00 <= study_time_start < 12:00
+    THEN chỉ giữ lớp có 06:45 <= study_time_start < 11:45
 ELIF time_period == 'afternoon':
-    THEN chỉ giữ lớp có 12:00 <= study_time_start < 18:00
-ELIF time_period == 'evening':
-    THEN chỉ giữ lớp có 18:00 <= study_time_start < 22:00
+    THEN chỉ giữ lớp có 12:30 <= study_time_start < 17:30
 ```
 
 **Cách áp dụng:**
 - User chọn "Tôi muốn học buổi sáng"
-- Filter loại bỏ tất cả lớp có `study_time_start >= 12:00`
+- Filter loại bỏ tất cả lớp có `study_time_start >= 12:30`
 
 #### 2. **Early/Late Filter** - Lọc giờ bắt đầu/kết thúc
 
 ```python
 IF avoid_early_start == True:
-    THEN loại bỏ lớp có study_time_start < 08:00
+    THEN loại bỏ lớp có study_time_start < 08:25
 
 IF avoid_late_end == True:
-    THEN loại bỏ lớp có study_time_end > 17:00
+    THEN loại bỏ lớp có study_time_end > 16:00
 ```
 
 **Ví dụ:**
@@ -871,7 +869,7 @@ Tổng điểm =
     + 15 điểm (nếu đúng buổi học mong muốn)
     + 20 điểm (nếu đúng giáo viên ưa thích)
     + 10 điểm (nếu phù hợp early/late preference)
-    + 5 điểm (nếu kết thúc trước 17:00)
+    + 5 điểm (nếu kết thúc trước 16:00)
     + 5 điểm (không có ngày bị tránh)
     + 5 điểm (còn nhiều chỗ trống >50%)
 
@@ -996,12 +994,11 @@ TTL: 3600 seconds (1 hour)
       "options": [
         {"value": "morning", "label": "Sáng"},
         {"value": "afternoon", "label": "Chiều"},
-        {"value": "evening", "label": "Tối"},
         {"value": "any", "label": "Không quan tâm"}
       ]
     },
     "avoid_early_start": {
-      "question": "Bạn có muốn tránh học sớm (trước 8:00) không?",
+      "question": "Bạn có muốn tránh học sớm (trước 8:25) không?",
       "type": "boolean"
     },
     ...
@@ -1011,7 +1008,7 @@ TTL: 3600 seconds (1 hour)
 
 **Chatbot sẽ hỏi theo thứ tự:**
 
-1. Buổi học (morning/afternoon/evening)
+1. Buổi học (morning/afternoon)
 2. Tránh học sớm? (yes/no)
 3. Tránh kết thúc muộn? (yes/no)
 4. Tránh ngày nào? (multi-select)

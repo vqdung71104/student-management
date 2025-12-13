@@ -814,9 +814,8 @@ Trích xuất thông tin cụ thể từ câu hỏi để:
 │  BƯỚC 6: Extract Time Period                                │
 │                                                             │
 │  Search for time keywords:                                  │
-│    - "sáng" → morning (7:00-11:00)                          │
-│    - "chiều" → afternoon (13:00-17:00)                      │
-│    - "tối" → evening (18:00-21:00)                          │
+│    - "sáng" → morning (06:45-11:45)                          │
+│    - "chiều" → afternoon (12:30-17:30)                      │
 │                                                             │
 │  Found: None                                                │
 │                                                             │

@@ -110,7 +110,7 @@ async def test_clear_preferences():
     await MessageQueueService.update_class_preferences(
         student_id=student_id,
         preference_key='time_period',
-        preference_value='evening',
+        preference_value='morning',
         step='in_progress'
     )
     
