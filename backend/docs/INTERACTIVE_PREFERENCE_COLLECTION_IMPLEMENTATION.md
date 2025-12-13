@@ -38,16 +38,43 @@ preferences = {
 }
 ```
 
-**PreferenceQuestion** - 5 CÂU HỎI (Updated Dec 12, 2025):
+**PreferenceQuestion** - 5 CÂU HỎI (Updated Dec 13, 2025):
+
+**4-STATE SYSTEM:** Each preference has 4 possible states:
+- **active**: Has preference (prefer_days, prefer_early_start) → Apply positive filter
+- **passive**: Wants to avoid (avoid_days, avoid_late_end) → Apply negative filter  
+- **none**: No information → **Must ask question**
+- **not_important**: User said "Không quan trọng" → **Skip filter/sort**
+
 1. **day**: "📅 Bạn thích học vào những ngày nào trong tuần?" (multi_choice)
    - Hỗ trợ format compact: "thứ 2,3,4" hoặc "t2,3,4"
    - Hỗ trợ format đầy đủ: "Thứ 2, Thứ 3, Thứ 4"
+   - **4 states**: prefer_days, avoid_days, none, is_not_important
+
 2. **time**: "⏰ Bạn muốn học sớm hay học muộn?" (single_choice)
-   - Học sớm: Ưu tiên lớp có `study_time_start` nhỏ hơn (soft filter - sort)
-   - Học muộn: Ưu tiên lớp có `study_time_end` lớn hơn (soft filter - sort)
+   - 1. Học sớm → `prefer_early_start=True`
+   - 2. Học muộn → `prefer_late_start=True`
+   - 3. Không quan trọng → `is_not_important=True` (skip time scoring)
+   - **4 states**: prefer_early_start, prefer_late_start, none, is_not_important
+
 3. **continuous**: "📚 Bạn thích học liên tục nhiều lớp trong 1 buổi không?" (single_choice)
-   - Úu tiên schedule có nhiều lớp liên tiếp trong cùng buổi
+   - 1. Có → `prefer_continuous=True`
+   - 2. Không → `prefer_continuous=False`
+   - 3. Không quan trọng → `is_not_important=True` (skip continuous scoring)
+   - **Parsing fix**: Check "không quan trọng" BEFORE "không" alone
+   - **4 states**: prefer_continuous=True, False, none, is_not_important
+
 4. **free_days**: "🗓️ Bạn thích học ít ngày nhất có thể không?" (single_choice)
+   - 1. Có → `prefer_free_days=True`
+   - 2. Không → `prefer_free_days=False`
+   - 3. Không quan trọng → `is_not_important=True` (skip free_days scoring)
+   - **Parsing fix**: Check "không quan trọng" BEFORE "không" alone
+   - **4 states**: prefer_free_days=True, False, none, is_not_important
+
+5. **specific**: "🎯 Bạn còn yêu cầu nào cụ thể không?" (free_text) **[NOW REQUIRED]**
+   - Parse class IDs (e.g., "161322"), teacher names
+   - "không" → Mark as answered with no requirements
+   - **specific_class_ids = HARD FILTER** (ALL combinations must include these classes)
    - Tối đa hóa số ngày nghỉ trong tuần
 5. **specific**: "🎯 Bạn còn yêu cầu nào cụ thể không?" (free_text)
    - Giáo viên yêu thích, mã lớp cụ thể, khoảng thời gian
@@ -383,8 +410,115 @@ POST /api/chatbot/ask
 
 ---
 
-**Version:** 2.0  
+## Major Updates (December 13, 2025)
+
+### 🆕 4-State Preference System
+
+**Schema Changes:**
+```python
+# Each preference type now has is_not_important flag
+class TimePreference(BaseModel):
+    prefer_early_start: bool = False
+    prefer_late_start: bool = False
+    is_not_important: bool = False  # NEW
+
+class DayPreference(BaseModel):
+    prefer_days: List[str] = Field(default_factory=list)
+    avoid_days: List[str] = Field(default_factory=list)
+    is_not_important: bool = False  # NEW
+
+class ContinuousPreference(BaseModel):  # SPLIT from pattern
+    prefer_continuous: bool = False
+    is_not_important: bool = False
+
+class FreeDaysPreference(BaseModel):  # SPLIT from pattern
+    prefer_free_days: bool = False
+    is_not_important: bool = False
+```
+
+**Completion Check:**
+```python
+# is_complete() - criteria is complete if answered OR marked not_important
+has_time_pref = bool(
+    self.time.prefer_early_start or
+    self.time.prefer_late_start or
+    self.time.is_not_important  # NEW - "không quan trọng" = complete!
+)
+```
+
+### 🆕 5 Independent Criteria (Split Pattern)
+
+**Previous:** 4 questions (day, time, pattern, specific)  
+**Current:** 5 questions (day, time, **continuous**, **free_days**, specific)
+
+**Why:** Continuous and free_days are independent preferences that can have different is_not_important states
+
+### 🆕 Fixed Parsing Logic - "không" vs "không quan trọng"
+
+**Bug:** "không quan trọng" was matched as option 2 instead of option 3
+
+**Fix:**
+```python
+# preference_service.py - parse_user_response()
+
+# CORRECT ORDER: Check full phrase FIRST
+if '3' in response or 'không quan trọng' in response:
+    is_not_important = True  # Option 3
+elif '1' in response or 'có' in response:
+    prefer_continuous = True  # Option 1
+elif '2' in response or ('không' in response and 'quan trọng' not in response):
+    prefer_continuous = False  # Option 2 - safeguarded
+```
+
+### 🆕 Specific Requirements = Required + Hard Filter
+
+**Changes:**
+1. **Question 5 is now REQUIRED** (must ask after question 4)
+2. **specific_class_ids = HARD FILTER** (not soft preference)
+3. **ALL combinations must include specified classes**
+
+**Implementation:**
+```python
+# schedule_combination_service.py
+
+# Filter classes by specific_class_ids
+if specific_class_ids:
+    required_classes = [cls for cls in classes if cls['class_id'] in specific_class_ids]
+    if required_classes:
+        # ONLY use required classes
+        subject_classes.append(required_classes)
+
+# Verify each combination contains ALL required classes
+if specific_class_ids:
+    combo_class_ids = [cls['class_id'] for cls in combo]
+    if not all(req_id in combo_class_ids for req_id in specific_class_ids):
+        continue  # Skip combination
+```
+
+### 🆕 Skip Filtering for not_important Preferences
+
+**Logic:**
+```python
+# class_suggestion_rules.py
+if not preferences.get('day_is_not_important', False):
+    # Apply day filtering
+
+# schedule_combination_service.py  
+if not preferences.get('time_is_not_important', False):
+    # Apply time scoring
+    
+if not preferences.get('continuous_is_not_important', False):
+    # Apply continuous scoring
+
+if not preferences.get('free_days_is_not_important', False):
+    # Apply free_days scoring
+```
+
+---
+
+**Version:** 3.0  
 **Implemented:** December 12-13, 2025  
-**Status:** ✅ Phase 1 & 2 Complete + Critical Fixes Applied
-**Test Coverage:** 17 test cases (100% passing)
+**Status:** ✅ Phase 1 & 2 Complete + 4-State System + 5 Criteria + Hard Filter  
+**Test Coverage:** 17 test cases (100% passing)  
+**Breaking Changes:** Schema updated, question flow changed (5 questions), parsing improved  
 **Next:** Production deployment with Redis

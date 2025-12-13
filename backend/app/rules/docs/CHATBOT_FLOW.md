@@ -567,6 +567,216 @@ if prefer_days and not all(day in prefer_days for day in study_days):
 
 ---
 
-**Document Version:** 2.1  
-**Last Updated:** December 8, 2025  
-**Status:** ✅ Implemented & Documented & Updated & Bug Fixed
+## 🆕 Major Updates (December 13, 2025)
+
+### 10. **4-State Preference System** ⭐ CRITICAL ARCHITECTURE CHANGE
+
+**Previous (2 states):**
+- Active: Has preference (prefer_days, prefer_early_start)
+- None: No information
+
+**Current (4 states):**
+1. **active**: User has clear preference → Apply positive filter
+   - Example: "muốn học sớm" → `prefer_early_start=True`
+2. **passive**: User wants to avoid → Apply negative filter
+   - Example: "không muốn học muộn" → `avoid_late_end=True`
+3. **none**: No information yet → **Must ask question**
+4. **not_important**: User said "Không quan trọng" → **Skip filter/sort**
+   - Example: "3. không quan trọng" → `is_not_important=True`
+
+**Implementation:**
+```python
+# preference_schema.py
+class TimePreference(BaseModel):
+    prefer_early_start: bool = False     # active
+    prefer_late_start: bool = False      # active
+    is_not_important: bool = False       # not_important
+
+# Check completion
+has_time_pref = bool(
+    self.time.prefer_early_start or      # active
+    self.time.prefer_late_start or       # active
+    self.time.is_not_important           # not_important → complete!
+)
+```
+
+**Filtering Logic:**
+```python
+# Skip filtering if marked as not important
+if not preferences.get('time_is_not_important', False):
+    # Apply time-based scoring
+    if preferences.get('prefer_early_start'):
+        score += 10
+```
+
+### 11. **5 Independent Criteria** (Split Pattern into Continuous + Free Days)
+
+**Previous (4 questions):**
+1. Day preference
+2. Time preference  
+3. **Pattern preference** (continuous + free_days together)
+4. Specific requirements
+
+**Current (5 questions):**
+1. Day preference
+2. Time preference
+3. **Continuous preference** (học liên tục)
+4. **Free days preference** (tối đa hóa ngày nghỉ)
+5. Specific requirements (**NOW REQUIRED**)
+
+**Schema Changes:**
+```python
+# OLD
+class SchedulePatternPreference(BaseModel):
+    prefer_continuous: bool = False
+    prefer_free_days: bool = False
+    is_not_important: bool = False
+
+# NEW - Split into 2 independent classes
+class ContinuousPreference(BaseModel):
+    prefer_continuous: bool = False
+    is_not_important: bool = False
+
+class FreeDaysPreference(BaseModel):
+    prefer_free_days: bool = False
+    is_not_important: bool = False
+
+class CompletePreference(BaseModel):
+    time: TimePreference
+    day: DayPreference
+    continuous: ContinuousPreference      # Separate
+    free_days: FreeDaysPreference         # Separate
+    specific: SpecificRequirement
+```
+
+### 12. **Fixed Parsing Logic** - "không" vs "không quan trọng"
+
+**Bug:** "không quan trọng" was matched as option 2 (không) instead of option 3
+
+**Root Cause:**
+```python
+# WRONG - checks "không" before "không quan trọng"
+elif '2' in response or 'không' in response:  # Matches both!
+    prefer_continuous = False
+else:
+    is_not_important = True  # Never reached!
+```
+
+**Fix:** Check option 3 FIRST
+```python
+# CORRECT - check full phrase first
+if '3' in response or 'không quan trọng' in response:
+    is_not_important = True  # Option 3
+elif '1' in response or 'có' in response:
+    prefer_continuous = True  # Option 1
+elif '2' in response or ('không' in response and 'quan trọng' not in response):
+    prefer_continuous = False  # Option 2 - with safeguard
+```
+
+**Files Updated:**
+- `preference_service.py` - parse_user_response() for both 'continuous' and 'free_days'
+
+### 13. **Specific Requirements = REQUIRED + HARD FILTER** ⭐ HIGHEST PRIORITY
+
+**Previous:**
+- Question 5 (specific) was optional
+- Specific requirements were soft filters (sorting preference)
+
+**Current:**
+- **Question 5 is REQUIRED** - must ask after question 4
+- **Specific class IDs = HARD FILTER** (mandatory, not optional)
+- **ALL combinations MUST include specified classes**
+
+**Changes:**
+
+A. **Make Question 5 Required:**
+```python
+# preference_schema.py - is_complete()
+has_specific_answered = bool(
+    self.specific.preferred_teachers or
+    self.specific.specific_class_ids or
+    self.specific.specific_times
+)
+return has_day_pref and has_time_pref and has_continuous_pref and has_free_days_pref and has_specific_answered
+```
+
+B. **Handle "không" Response:**
+```python
+# preference_service.py
+if 'không' in response_lower and len(response_lower) < 15:
+    # Mark as answered with no requirements
+    current_preferences.specific.specific_times = {'answered': 'no_requirements'}
+```
+
+C. **Hard Filter Implementation:**
+```python
+# schedule_combination_service.py - generate_combinations()
+
+# Step 1: Filter classes by specific_class_ids
+specific_class_ids = preferences.get('specific_class_ids', [])
+for subject_id, classes in classes_by_subject.items():
+    if specific_class_ids:
+        required_classes = [cls for cls in classes if cls['class_id'] in specific_class_ids]
+        if required_classes:
+            # ONLY use required classes for this subject
+            subject_classes.append(required_classes)
+
+# Step 2: Verify each combination contains ALL required classes
+for combo in all_combinations:
+    if specific_class_ids:
+        combo_class_ids = [cls['class_id'] for cls in combo]
+        if not all(req_id in combo_class_ids for req_id in specific_class_ids):
+            continue  # Skip - missing required class
+```
+
+**Example Flow:**
+```
+User: "gợi ý lớp"
+Bot: Câu 1 - Ngày học? → "thứ 2,3,5"
+Bot: Câu 2 - Sớm/muộn? → "học sớm"
+Bot: Câu 3 - Liên tục? → "không" → prefer_continuous=False ✅
+Bot: Câu 4 - Ngày nghỉ? → "không quan trọng" → is_not_important=True ✅
+Bot: Câu 5 - Yêu cầu cụ thể? → "lớp 161322" → specific_class_ids=['161322'] ✅
+
+Generate combinations:
+  1. ✅ Use ONLY class 161322 for that subject (hard filter)
+  2. ✅ Verify ALL combinations contain class 161322
+  3. ✅ Filter time conflicts
+  4. ✅ Score by other preferences
+  
+Result: Every combination includes class 161322! 🎯
+```
+
+### 14. **Improved is_not_important Handling**
+
+**Exports to dict:**
+```python
+result['time_is_not_important'] = self.time.is_not_important
+result['day_is_not_important'] = self.day.is_not_important
+result['continuous_is_not_important'] = self.continuous.is_not_important
+result['free_days_is_not_important'] = self.free_days.is_not_important
+```
+
+**Skip filtering when not_important:**
+```python
+# class_suggestion_rules.py
+if preferences.get('day_is_not_important', False):
+    return classes  # Skip day filtering
+
+# schedule_combination_service.py
+if not preferences.get('time_is_not_important', False):
+    # Apply time scoring
+    
+if not preferences.get('continuous_is_not_important', False):
+    # Apply continuous scoring
+
+if not preferences.get('free_days_is_not_important', False):
+    # Apply free_days scoring
+```
+
+---
+
+**Document Version:** 3.0  
+**Last Updated:** December 13, 2025  
+**Status:** ✅ 4-State System + 5 Criteria + Hard Filter + All Bugs Fixed  
+**Breaking Changes:** Schema updated, question flow changed, filtering logic improved

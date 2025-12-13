@@ -8,7 +8,8 @@ from app.schemas.preference_schema import (
     CompletePreference, 
     TimePreference, 
     DayPreference, 
-    SchedulePatternPreference,
+    ContinuousPreference,
+    FreeDaysPreference,
     SpecificRequirement,
     PREFERENCE_QUESTIONS,
     PreferenceQuestion
@@ -61,9 +62,10 @@ class PreferenceCollectionService:
         day_pref = self._extract_day_preferences(question_lower)
         preferences.day = day_pref
         
-        # Extract pattern preferences
-        pattern_pref = self._extract_pattern_preferences(question_lower)
-        preferences.pattern = pattern_pref
+        # Extract continuous and free_days preferences
+        continuous_pref, free_days_pref = self._extract_pattern_preferences(question_lower)
+        preferences.continuous = continuous_pref
+        preferences.free_days = free_days_pref
         
         # Extract specific requirements
         specific_req = self._extract_specific_requirements(question_lower)
@@ -145,22 +147,23 @@ class PreferenceCollectionService:
         
         return day_pref
     
-    def _extract_pattern_preferences(self, question: str) -> SchedulePatternPreference:
-        """Extract schedule pattern preferences"""
-        pattern_pref = SchedulePatternPreference()
+    def _extract_pattern_preferences(self, question: str) -> tuple[ContinuousPreference, FreeDaysPreference]:
+        """Extract continuous and free_days preferences separately"""
+        continuous_pref = ContinuousPreference()
+        free_days_pref = FreeDaysPreference()
         
         # Continuous study
         if any(keyword in question for keyword in ['liên tục', 'học dồn', 'nhiều lớp 1 buổi']):
             if any(neg in question for neg in ['không', 'tránh']):
-                pattern_pref.prefer_continuous = False
+                continuous_pref.prefer_continuous = False
             else:
-                pattern_pref.prefer_continuous = True
+                continuous_pref.prefer_continuous = True
         
         # Free days
         if any(keyword in question for keyword in ['nghỉ nhiều', 'ít ngày', 'học ít ngày', 'tối đa hóa ngày nghỉ']):
-            pattern_pref.prefer_free_days = True
+            free_days_pref.prefer_free_days = True
         
-        return pattern_pref
+        return continuous_pref, free_days_pref
     
     def _extract_specific_requirements(self, question: str) -> SpecificRequirement:
         """Extract specific requirements"""
@@ -223,6 +226,13 @@ class PreferenceCollectionService:
         if question_key == 'day':
             # Parse day preference
             # User can say: "Thứ 2, Thứ 3, Thứ 5" or "T2, T3, T5" or "thứ 2,3,4" or "không thích thứ 7"
+            # Or "Không quan trọng" / "3" (option 3)
+            
+            # Check for "not important" response
+            if any(phrase in response_lower for phrase in ['không quan trọng', 'ko quan trọng', 'không đề cập']):
+                current_preferences.day.is_not_important = True
+                return current_preferences
+            
             has_negation = any(neg in response_lower for neg in ['không', 'tránh', 'ko'])
             
             # First, try to parse compact format: "thứ 2,3,4" or "t2,3,4"
@@ -256,7 +266,7 @@ class PreferenceCollectionService:
                             current_preferences.day.prefer_days.append(en_day)
         
         elif question_key == 'time':
-            # Parse time preference (CHỈ SET prefer_early_start hoặc prefer_late_start)
+            # Parse time preference (CHẺ SET prefer_early_start hoặc prefer_late_start)
             if '1' in response_lower or 'sớm' in response_lower or 'học sớm' in response_lower:
                 current_preferences.time.prefer_early_start = True
                 current_preferences.time.prefer_late_start = False  # Clear opposite
@@ -264,68 +274,50 @@ class PreferenceCollectionService:
                 current_preferences.time.prefer_late_start = True
                 current_preferences.time.prefer_early_start = False  # Clear opposite
             else:
-                # Option 3: không quan trọng - set cả hai là False
+                # Option 3: không quan trọng - set flag
+                current_preferences.time.is_not_important = True
                 current_preferences.time.prefer_early_start = False
                 current_preferences.time.prefer_late_start = False
         
         elif question_key == 'continuous':
             # Parse continuous preference
-            if '1' in response_lower or 'có' in response_lower or 'liên tục' in response_lower:
-                current_preferences.pattern.prefer_continuous = True
-            elif '2' in response_lower or 'không' in response_lower or 'khoảng nghỉ' in response_lower:
-                current_preferences.pattern.prefer_continuous = False
-            # Option 3: không quan trọng - do nothing
+            # CHECK OPTION 3 FIRST (before checking 'không' alone)
+            if '3' in response_lower or 'không quan trọng' in response_lower or 'ko quan trọng' in response_lower:
+                # Option 3: không quan trọng
+                current_preferences.continuous.is_not_important = True
+            elif '1' in response_lower or 'có' in response_lower or 'liên tục' in response_lower:
+                current_preferences.continuous.prefer_continuous = True
+            elif '2' in response_lower or ('không' in response_lower and 'quan trọng' not in response_lower) or 'khoảng nghỉ' in response_lower:
+                # Option 2: không muốn học liên tục
+                current_preferences.continuous.prefer_continuous = False
         
         elif question_key == 'free_days':
             # Parse free days preference
-            if '1' in response_lower or 'có' in response_lower or 'tối đa' in response_lower or 'nghỉ' in response_lower:
-                current_preferences.pattern.prefer_free_days = True
-            elif '2' in response_lower or 'không' in response_lower or 'đều' in response_lower:
-                current_preferences.pattern.prefer_free_days = False
-            # Option 3: không quan trọng - do nothing
+            # CHECK OPTION 3 FIRST (before checking 'không' alone)
+            if '3' in response_lower or 'không quan trọng' in response_lower or 'ko quan trọng' in response_lower:
+                # Option 3: không quan trọng
+                current_preferences.free_days.is_not_important = True
+            elif '1' in response_lower or 'có' in response_lower or 'tối đa' in response_lower or 'nghỉ' in response_lower:
+                current_preferences.free_days.prefer_free_days = True
+            elif '2' in response_lower or ('không' in response_lower and 'quan trọng' not in response_lower) or 'đều' in response_lower:
+                # Option 2: không muốn tối đa hóa ngày nghỉ
+                current_preferences.free_days.prefer_free_days = False
         
         elif question_key == 'specific':
             # Parse specific requirements
-            if response_lower in ['không', 'ko', 'không có', 'none', 'no']:
-                # User has no specific requirements
-                pass
-            else:
-                # Extract specific requirements from text
-                specific = self._extract_specific_requirements(response)
-                if specific.preferred_teachers:
-                    current_preferences.specific.preferred_teachers.extend(specific.preferred_teachers)
-                if specific.specific_class_ids:
-                    current_preferences.specific.specific_class_ids.extend(specific.specific_class_ids)
-                if specific.specific_times:
-                    current_preferences.specific.specific_times = specific.specific_times
-        
-        elif question_key == 'continuous':
-            # Parse continuous preference
-            if '1' in response_lower or 'có' in response_lower or 'liên tục' in response_lower:
-                current_preferences.pattern.prefer_continuous = True
-            elif '2' in response_lower or 'không' in response_lower or 'khoảng nghỉ' in response_lower:
-                current_preferences.pattern.prefer_continuous = False
-            # Option 3: không quan trọng - do nothing
-        
-        elif question_key == 'free_days':
-            # Parse free days preference
-            if '1' in response_lower or 'có' in response_lower or 'tối đa' in response_lower or 'nghỉ' in response_lower:
-                current_preferences.pattern.prefer_free_days = True
-            elif '2' in response_lower or 'không' in response_lower or 'đều' in response_lower:
-                current_preferences.pattern.prefer_free_days = False
-            # Option 3: không quan trọng - do nothing
-        
-        elif question_key == 'specific':
-            # Parse specific requirements
-            if 'không' in response_lower and len(response_lower) < 10:
-                # User said "không" - no specific requirements
-                pass
+            if 'không' in response_lower and len(response_lower) < 15:
+                # User said "không" - mark as answered but no requirements
+                # Set a placeholder to indicate question was answered
+                current_preferences.specific.specific_times = {'answered': 'no_requirements'}
             else:
                 specific = self._extract_specific_requirements(response_lower)
                 if specific.preferred_teachers:
                     current_preferences.specific.preferred_teachers.extend(specific.preferred_teachers)
                 if specific.specific_class_ids:
                     current_preferences.specific.specific_class_ids.extend(specific.specific_class_ids)
+                # If no specific found but user responded, mark as answered
+                if not specific.preferred_teachers and not specific.specific_class_ids:
+                    current_preferences.specific.specific_times = {'answered': 'no_requirements'}
         
         return current_preferences
     
@@ -361,11 +353,17 @@ class PreferenceCollectionService:
         if preferences.time.prefer_late_start:
             lines.append("⏰ Ưu tiên: Học muộn")
         
-        # Pattern preferences
-        if preferences.pattern.prefer_continuous:
+        # Continuous preference
+        if preferences.continuous.prefer_continuous:
             lines.append("📚 Ưu tiên: Học liên tục nhiều lớp trong 1 buổi")
-        if preferences.pattern.prefer_free_days:
+        elif preferences.continuous.is_not_important:
+            lines.append("📚 Học liên tục: Không quan trọng")
+        
+        # Free days preference
+        if preferences.free_days.prefer_free_days:
             lines.append("🗓️ Ưu tiên: Tối đa hóa ngày nghỉ")
+        elif preferences.free_days.is_not_important:
+            lines.append("🗓️ Ngày nghỉ: Không quan trọng")
         
         # Specific requirements
         if preferences.specific.preferred_teachers:

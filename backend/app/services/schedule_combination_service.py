@@ -33,15 +33,35 @@ class ScheduleCombinationGenerator:
         """
         print(f"🔄 [COMBINATIONS] Generating combinations from {len(classes_by_subject)} subjects")
         
+        # Step 0: Extract specific required class IDs (HARD FILTER - HIGHEST PRIORITY)
+        specific_class_ids = preferences.get('specific_class_ids', [])
+        if specific_class_ids:
+            print(f"  🎯 [SPECIFIC] Required class IDs: {specific_class_ids}")
+        
         # Step 1: Get candidate classes per subject
         subject_classes = []
         subject_ids = []
         
         for subject_id, classes in classes_by_subject.items():
             if classes:
-                subject_classes.append(classes)
-                subject_ids.append(subject_id)
-                print(f"  📚 {subject_id}: {len(classes)} classes")
+                # If specific class IDs are required, ensure at least one is in this subject
+                if specific_class_ids:
+                    # Check if any required class belongs to this subject
+                    required_classes = [cls for cls in classes if cls['class_id'] in specific_class_ids]
+                    if required_classes:
+                        # ONLY use required classes for this subject
+                        subject_classes.append(required_classes)
+                        subject_ids.append(subject_id)
+                        print(f"  🎯 {subject_id}: Using {len(required_classes)} REQUIRED classes (out of {len(classes)})")
+                    else:
+                        # Use all classes for subjects without specific requirements
+                        subject_classes.append(classes)
+                        subject_ids.append(subject_id)
+                        print(f"  📚 {subject_id}: {len(classes)} classes")
+                else:
+                    subject_classes.append(classes)
+                    subject_ids.append(subject_id)
+                    print(f"  📚 {subject_id}: {len(classes)} classes")
         
         if not subject_classes:
             return []
@@ -60,16 +80,25 @@ class ScheduleCombinationGenerator:
         for combo in all_combinations:
             checked_count += 1
             
+            combo_list = list(combo)
+            
+            # HARD FILTER: If specific class IDs required, verify ALL are present
+            if specific_class_ids:
+                combo_class_ids = [cls['class_id'] for cls in combo_list]
+                if not all(req_id in combo_class_ids for req_id in specific_class_ids):
+                    # Skip this combination - missing required class
+                    continue
+            
             # Check time conflicts
-            if not self.has_time_conflicts(list(combo)):
-                valid_combinations.append(list(combo))
+            if not self.has_time_conflicts(combo_list):
+                valid_combinations.append(combo_list)
                 # Stop if we have enough valid combinations
                 if len(valid_combinations) >= max_combinations:
                     break
             else:
                 # Keep first 10 conflicted combinations as backup
                 if len(conflict_combinations) < 10:
-                    conflict_combinations.append(list(combo))
+                    conflict_combinations.append(combo_list)
             
             # Safety limit to avoid infinite loop
             if checked_count >= max_to_check:
@@ -79,9 +108,13 @@ class ScheduleCombinationGenerator:
         print(f"  ✅ Checked {checked_count} combinations")
         print(f"  ✅ Valid combinations (no conflicts): {len(valid_combinations)}")
         
-        # If no valid combinations found, use conflicted ones as fallback
+        # If no valid combinations found
         if not valid_combinations:
-            print(f"  ⚠️ No valid combinations found, returning combinations with conflicts marked")
+            if specific_class_ids:
+                print(f"  ❌ No valid combinations with required classes {specific_class_ids}")
+                print(f"  💡 Suggestion: Required classes may have time conflicts with other subjects")
+            else:
+                print(f"  ⚠️ No valid combinations found, returning combinations with conflicts marked")
             valid_combinations = conflict_combinations[:10]
         
         # Step 4: Score and rank
@@ -247,19 +280,21 @@ class ScheduleCombinationGenerator:
         
         metrics = self.calculate_schedule_metrics(classes)
         
-        # === PREFERENCE: Free days (weight: 20) ===
-        if preferences.get('prefer_free_days'):
-            # More free days = higher score
-            # 4 free days = +20, 3 = +15, 2 = +10, etc.
-            score += metrics['free_days'] * 5
+        # === PREFERENCE: Free days (weight: 20) (skip if free_days_is_not_important) ===
+        if not preferences.get('free_days_is_not_important', False):
+            if preferences.get('prefer_free_days'):
+                # More free days = higher score
+                # 4 free days = +20, 3 = +15, 2 = +10, etc.
+                score += metrics['free_days'] * 5
         
-        # === PREFERENCE: Continuous study (weight: 20) ===
-        if preferences.get('prefer_continuous'):
-            # More continuous days = higher score
-            score += metrics['continuous_study_days'] * 5
-        elif preferences.get('prefer_continuous') == False:
-            # Penalty for continuous days if user doesn't want them
-            score -= metrics['continuous_study_days'] * 3
+        # === PREFERENCE: Continuous study (weight: 20) (skip if continuous_is_not_important) ===
+        if not preferences.get('continuous_is_not_important', False):
+            if preferences.get('prefer_continuous'):
+                # More continuous days = higher score
+                score += metrics['continuous_study_days'] * 5
+            elif preferences.get('prefer_continuous') == False:
+                # Penalty for continuous days if user doesn't want them
+                score -= metrics['continuous_study_days'] * 3
         
         # === PREFERENCE: Time period (weight: 15) ===
         time_period = preferences.get('time_period')
@@ -280,40 +315,42 @@ class ScheduleCombinationGenerator:
             )
             score -= violating_classes * 5  # Penalty per violation
         
-        # === PREFERENCE: Days (weight: 15) ===
-        prefer_days = preferences.get('prefer_days', [])
-        if prefer_days:
-            matching_days = 0
-            for cls in classes:
-                days = self._parse_study_days(cls['study_date'])
-                if any(day in prefer_days for day in days):
-                    matching_days += 1
-            match_rate = matching_days / len(classes) if classes else 0
-            score += match_rate * 15
+        # === PREFERENCE: Days (weight: 15) (skip if day_is_not_important) ===
+        if not preferences.get('day_is_not_important', False):
+            prefer_days = preferences.get('prefer_days', [])
+            if prefer_days:
+                matching_days = 0
+                for cls in classes:
+                    days = self._parse_study_days(cls['study_date'])
+                    if any(day in prefer_days for day in days):
+                        matching_days += 1
+                match_rate = matching_days / len(classes) if classes else 0
+                score += match_rate * 15
+            
+            avoid_days = preferences.get('avoid_days', [])
+            if avoid_days:
+                violating_classes = 0
+                for cls in classes:
+                    days = self._parse_study_days(cls['study_date'])
+                    if any(day in avoid_days for day in days):
+                        violating_classes += 1
+                score -= violating_classes * 5
         
-        avoid_days = preferences.get('avoid_days', [])
-        if avoid_days:
-            violating_classes = 0
-            for cls in classes:
-                days = self._parse_study_days(cls['study_date'])
-                if any(day in avoid_days for day in days):
-                    violating_classes += 1
-            score -= violating_classes * 5
-        
-        # === PREFERENCE: Early/Late start (weight: 10) ===
-        if preferences.get('prefer_early_start'):
-            # Earlier average start = higher score
-            all_starts = [self._parse_time(cls['study_time_start']) for cls in classes]
-            avg_start_minutes = sum(self._time_to_minutes(t) for t in all_starts) / len(all_starts)
-            # 7:00 = 420min → score+10, 12:00 = 720min → score+0
-            score += max(0, (720 - avg_start_minutes) / 300 * 10)
-        
-        if preferences.get('prefer_late_start'):
-            # Later average start = higher score
-            all_starts = [self._parse_time(cls['study_time_start']) for cls in classes]
-            avg_start_minutes = sum(self._time_to_minutes(t) for t in all_starts) / len(all_starts)
-            # 13:00 = 780min → score+10, 7:00 = 420min → score+0
-            score += max(0, (avg_start_minutes - 420) / 360 * 10)
+        # === PREFERENCE: Early/Late start (weight: 10) (skip if time_is_not_important) ===
+        if not preferences.get('time_is_not_important', False):
+            if preferences.get('prefer_early_start'):
+                # Earlier average start = higher score
+                all_starts = [self._parse_time(cls['study_time_start']) for cls in classes]
+                avg_start_minutes = sum(self._time_to_minutes(t) for t in all_starts) / len(all_starts)
+                # 7:00 = 420min → score+10, 12:00 = 720min → score+0
+                score += max(0, (720 - avg_start_minutes) / 300 * 10)
+            
+            if preferences.get('prefer_late_start'):
+                # Later average start = higher score
+                all_starts = [self._parse_time(cls['study_time_start']) for cls in classes]
+                avg_start_minutes = sum(self._time_to_minutes(t) for t in all_starts) / len(all_starts)
+                # 13:00 = 780min → score+10, 7:00 = 420min → score+0
+                score += max(0, (avg_start_minutes - 420) / 360 * 10)
         
         # === BONUS: Available slots (weight: 5) ===
         # More available slots = better (less crowded)

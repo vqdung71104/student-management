@@ -17,17 +17,19 @@
 
 ### ✅ Đã hoàn thành
 
-#### 1. Complete Preference Schema
+#### 1. Complete Preference Schema (Updated Dec 13, 2025)
 **File:** `app/schemas/preference_schema.py`
 
-Bao gồm 4 nhóm preferences:
-- **Time Preferences:** time_period, avoid_time_periods, prefer_early_start, prefer_late_start, avoid_early_start, avoid_late_end
-- **Day Preferences:** prefer_days, avoid_days
-- **Schedule Pattern:** prefer_continuous, prefer_free_days
-- **Specific Requirements:** preferred_teachers, specific_class_ids, specific_times
+Bao gồm 5 nhóm preferences (4-STATE SYSTEM):
+- **Time Preferences:** time_period, avoid_time_periods, prefer_early_start, prefer_late_start, avoid_early_start, avoid_late_end, **is_not_important**
+- **Day Preferences:** prefer_days, avoid_days, **is_not_important**
+- **Continuous Preference:** prefer_continuous, **is_not_important** (SPLIT from pattern)
+- **Free Days Preference:** prefer_free_days, **is_not_important** (SPLIT from pattern)
+- **Specific Requirements (REQUIRED):** preferred_teachers, specific_class_ids (HARD FILTER), specific_times
 
 **Tính năng:**
 - Pydantic models để validate
+- 4 states: active, passive, none, not_important
 - `is_complete()`: Kiểm tra đủ preferences chưa
 - `get_missing_preferences()`: Liệt kê preferences còn thiếu
 - `to_dict()`: Convert sang format rule engine
@@ -1358,12 +1360,117 @@ Tài liệu này mô tả TOÀN BỘ flow class suggestion từ intent detection
 
 ---
 
-**Status:** ✅ ALL 5 PHASES COMPLETE + CRITICAL FIXES APPLIED  
+**Status:** ✅ ALL 5 PHASES COMPLETE + CRITICAL FIXES + 4-STATE SYSTEM  
 **Last Updated:** December 13, 2025  
-**Version:** 2.1  
+**Version:** 3.0  
 **Developer:** GitHub Copilot + Student Management Team  
 **Test Results:** ALL 23 TESTS PASSED ✅ (17 conflict detection + 6 previous)  
 **Performance:** 93.6% combination reduction, 15.6x speedup, **100% conflict-free combinations**  
 **Production Ready:** Redis state management, Beautiful response formatting, Robust conflict detection  
-**Frontend Ready:** Structured data with 14 fields/class, 10 metrics/combination  
-**Conflict Detection:** 3-step validation (week + day + time) with comprehensive test coverage
+**Frontend Ready:** Structured data with 15 fields/class (added study_week), 10 metrics/combination  
+**Conflict Detection:** 3-step validation (week + day + time) with comprehensive test coverage  
+
+---
+
+## 🆕 Phase 6: 4-State Preference System (December 13, 2025)
+
+### Architecture Enhancement
+
+**Previous (2 states):**
+- active: Has preference
+- none: No information
+
+**Current (4 states):**
+1. **active**: User has preference → Apply positive filter/sort
+2. **passive**: User wants to avoid → Apply negative filter
+3. **none**: No information → Must ask question
+4. **not_important**: User said "Không quan trọng" → **Skip filter/sort**
+
+### Implementation
+
+**Schema Changes:**
+```python
+# Added is_not_important to all preference types
+class TimePreference(BaseModel):
+    prefer_early_start: bool = False
+    prefer_late_start: bool = False
+    is_not_important: bool = False  # NEW
+
+class DayPreference(BaseModel):
+    prefer_days: List[str] = Field(default_factory=list)
+    avoid_days: List[str] = Field(default_factory=list)
+    is_not_important: bool = False  # NEW
+
+class ContinuousPreference(BaseModel):  # SPLIT from pattern
+    prefer_continuous: bool = False
+    is_not_important: bool = False
+
+class FreeDaysPreference(BaseModel):  # SPLIT from pattern
+    prefer_free_days: bool = False
+    is_not_important: bool = False
+
+class CompletePreference(BaseModel):
+    time: TimePreference
+    day: DayPreference
+    continuous: ContinuousPreference  # Separate from pattern
+    free_days: FreeDaysPreference     # Separate from pattern
+    specific: SpecificRequirement     # NOW REQUIRED
+```
+
+**Key Changes:**
+1. ✅ Split SchedulePatternPreference → ContinuousPreference + FreeDaysPreference
+2. ✅ 5 independent criteria (was 4): day, time, continuous, free_days, specific
+3. ✅ Question 5 (specific) is now REQUIRED
+4. ✅ specific_class_ids = HARD FILTER (must include in all combinations)
+5. ✅ Fixed parsing: Check "không quan trọng" BEFORE "không"
+
+**Filtering Logic:**
+```python
+# Skip filtering if marked as not important
+if not preferences.get('time_is_not_important', False):
+    # Apply time-based scoring
+    if preferences.get('prefer_early_start'):
+        score += 10
+
+if not preferences.get('day_is_not_important', False):
+    # Apply day filtering
+    
+if not preferences.get('continuous_is_not_important', False):
+    # Apply continuous scoring
+    
+if not preferences.get('free_days_is_not_important', False):
+    # Apply free_days scoring
+```
+
+**Hard Filter for Specific Requirements:**
+```python
+# schedule_combination_service.py
+specific_class_ids = preferences.get('specific_class_ids', [])
+
+if specific_class_ids:
+    # Only use required classes
+    required_classes = [cls for cls in classes if cls['class_id'] in specific_class_ids]
+    
+    # Verify ALL combinations contain required classes
+    if not all(req_id in combo_class_ids for req_id in specific_class_ids):
+        continue  # Skip combination
+```
+
+**Benefits:**
+1. ✅ User can skip irrelevant criteria ("Không quan trọng")
+2. ✅ Reduces unnecessary filtering overhead
+3. ✅ More flexible preference collection
+4. ✅ Specific requirements have highest priority (hard filter)
+5. ✅ Better parsing accuracy (no confusion between "không" and "không quan trọng")
+
+**Files Modified:**
+- `app/schemas/preference_schema.py` - Added is_not_important, split pattern
+- `app/services/preference_service.py` - Fixed parsing order, handle 5 questions
+- `app/rules/class_suggestion_rules.py` - Skip filtering for not_important
+- `app/services/schedule_combination_service.py` - Skip scoring, hard filter for specific
+- `app/services/chatbot_service.py` - Added study_week to response (15 fields)
+
+**Breaking Changes:**
+- Schema structure changed (5 separate criteria)
+- Question flow updated (now 5 questions)
+- Parsing logic improved (correct option detection)

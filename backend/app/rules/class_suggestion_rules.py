@@ -427,6 +427,10 @@ class ClassSuggestionRuleEngine:
         Returns:
             Filtered list of classes
         """
+        # If day preference is marked as not important, skip filtering
+        if preferences.get('day_is_not_important', False):
+            return classes
+        
         filtered = []
         
         avoid_days = set(preferences.get('avoid_days', []))
@@ -722,21 +726,22 @@ class ClassSuggestionRuleEngine:
             cls['violation_count'] = violation_count
             cls['violations'] = violation_list
             
-            # Time-based scoring
+            # Time-based scoring (skip if time_is_not_important)
             start_time = cls['study_time_start']
             end_time = cls['study_time_end']
             
-            if preferences.get('prefer_early_start') and self.is_early_start(start_time):
-                score += 10
-                reasons.append('Starts early')
-            
-            if preferences.get('prefer_late_start') and not self.is_early_start(start_time):
-                score += 10
-                reasons.append('Starts late')
-            
-            if not self.is_late_end(end_time):
-                score += 5
-                reasons.append('Ends before 17:00')
+            if not preferences.get('time_is_not_important', False):
+                if preferences.get('prefer_early_start') and self.is_early_start(start_time):
+                    score += 10
+                    reasons.append('Starts early')
+                
+                if preferences.get('prefer_late_start') and not self.is_early_start(start_time):
+                    score += 10
+                    reasons.append('Starts late')
+                
+                if not self.is_late_end(end_time):
+                    score += 5
+                    reasons.append('Ends before 17:00')
             
             # Time period scoring
             time_period = self.get_time_period(start_time)
@@ -745,12 +750,13 @@ class ClassSuggestionRuleEngine:
                 score += 15
                 reasons.append(f'{time_period.capitalize()} class')
             
-            # Weekday scoring
-            study_days = self.parse_study_days(cls['study_date'])
-            avoid_days = set(preferences.get('avoid_days', []))
-            if not any(day in avoid_days for day in study_days):
-                score += 5
-                reasons.append('No avoided days')
+            # Weekday scoring (skip if day_is_not_important)
+            if not preferences.get('day_is_not_important', False):
+                study_days = self.parse_study_days(cls['study_date'])
+                avoid_days = set(preferences.get('avoid_days', []))
+                if not any(day in avoid_days for day in study_days):
+                    score += 5
+                    reasons.append('No avoided days')
             
             # Teacher preference
             preferred_teachers = preferences.get('preferred_teachers', [])
@@ -849,12 +855,13 @@ class ClassSuggestionRuleEngine:
                 preferences
             )
         
-        # Filter by weekday preference
-        if 'avoid_days' in preferences or 'prefer_days' in preferences:
-            preference_filtered = self.filter_by_weekday_preference(
-                preference_filtered,
-                preferences
-            )
+        # Filter by weekday preference (skip if not important)
+        if not preferences.get('day_is_not_important', False):
+            if 'avoid_days' in preferences or 'prefer_days' in preferences:
+                preference_filtered = self.filter_by_weekday_preference(
+                    preference_filtered,
+                    preferences
+                )
         
         # Filter by teacher
         if preferences.get('preferred_teachers'):
