@@ -99,7 +99,6 @@ User Response
 | "tôi muốn học chiều" | `time_period: 'afternoon'` |
 | **"tôi không muốn học buổi sáng"** ⭐ | `avoid_time_periods: ['morning']` |
 | **"không muốn học buổi chiều"** ⭐ | `avoid_time_periods: ['afternoon']` |
-| **"tránh học buổi tối"** ⭐ | `avoid_time_periods: ['evening']` |
 | "tôi không muốn học sớm" | `avoid_early_start: True` |
 | "tôi không muốn học thứ 7" | `avoid_days: ['Saturday']` |
 | "tôi không muốn học thứ 2" | `avoid_days: ['Monday']` |
@@ -252,10 +251,10 @@ class ClassSuggestionRuleEngine:
         2. One class per subject
         
         PREFERENCE RULES (can be violated):
-        - time_period (morning/afternoon/evening) - POSITIVE preference
+        - time_period (morning/afternoon) - POSITIVE preference
         - avoid_time_periods (['morning'], ['afternoon'], etc.) - NEGATIVE preference ⭐
-        - avoid_early_start (< 08:00)
-        - avoid_late_end (> 17:00)
+        - avoid_early_start (< 08:25)
+        - avoid_late_end (> 16:00)
         - avoid_days (Saturday, Sunday, etc.) - NEGATIVE preference
         - prefer_days (Monday, Tuesday, etc.) - POSITIVE preference ⭐
         - preferred_teachers
@@ -413,7 +412,7 @@ for cls in classes:
 - ✅ Extract: `{avoid_time_periods: ['afternoon'], avoid_days: ['Thursday']}`, subject: 'SSH1131'
 - ✅ Filter OUT afternoon classes (negative filter FIRST)
 - ✅ Filter OUT Thursday classes (negative filter FIRST)
-- ✅ Result: ONLY morning/evening classes on Mon/Tue/Wed/Fri/Sat/Sun
+- ✅ Result: ONLY morning classes on Mon/Tue/Wed/Fri/Sat
 - ❌ NO afternoon classes should appear
 - ❌ NO Thursday classes should appear
 

@@ -117,11 +117,127 @@ const ChatBot: React.FC = () => {
       .replace(/^• (.+)$/gm, '<div class="bullet-item">• $1</div>');
   };
 
-  // Render data table if available
+  // Render class schedule combinations (for class suggestion intent)
+  const renderClassCombinations = (data: any[]) => {
+    if (!data || data.length === 0) return null;
+
+    return (
+      <div className="class-combinations">
+        {data.map((combination, idx) => (
+          <div key={idx} className="combination-card">
+            {/* Combination Header */}
+            <div className="combination-header">
+              <div className="combination-title">
+                {combination.recommended && <span className="badge recommended">⭐ KHUYÊN DÙNG</span>}
+                <span className="badge-number">Phương án {combination.combination_id || idx + 1}</span>
+                {combination.score && (
+                  <span className="combination-score">Điểm: {combination.score}/100</span>
+                )}
+              </div>
+            </div>
+
+            {/* Metrics Summary */}
+            {combination.metrics && (
+              <div className="metrics-summary">
+                <div className="metric-item">
+                  <span className="metric-label">📚 Tổng:</span>
+                  <span className="metric-value">
+                    {combination.metrics.total_classes} môn - {combination.metrics.total_credits} TC
+                  </span>
+                </div>
+                <div className="metric-item">
+                  <span className="metric-label">📅 Lịch:</span>
+                  <span className="metric-value">
+                    Học {combination.metrics.study_days} ngày/tuần
+                  </span>
+                </div>
+                <div className="metric-item">
+                  <span className="metric-label">⏰ Giờ học:</span>
+                  <span className="metric-value">
+                    {combination.metrics.earliest_start} - {combination.metrics.latest_end}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Classes Table */}
+            {combination.classes && combination.classes.length > 0 && (
+              <div className="classes-table-container">
+                <table className="classes-table">
+                  <thead>
+                    <tr>
+                      <th>Mã lớp</th>
+                      <th>Tên lớp</th>
+                      <th>Thời gian</th>
+                      <th>Ngày học</th>
+                      <th>Tuần học</th>
+                      <th>Phòng</th>
+                      <th>Giáo viên</th>
+                      <th>Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {combination.classes.map((cls: any, clsIdx: number) => {
+                      // Debug: Log class data to see study_week
+                      if (clsIdx === 0) {
+                        console.log('Class data:', cls);
+                        console.log('study_week:', cls.study_week, 'Type:', typeof cls.study_week, 'IsArray:', Array.isArray(cls.study_week));
+                      }
+                      
+                      return (
+                        <tr key={clsIdx}>
+                          <td className="class-id">{cls.class_id || '-'}</td>
+                          <td className="class-name">{cls.class_name || cls.subject_name || '-'}</td>
+                          <td className="class-time">
+                            {cls.study_time_start && cls.study_time_end 
+                              ? `${cls.study_time_start} - ${cls.study_time_end}`
+                              : '-'}
+                          </td>
+                          <td className="class-days">{cls.study_date || '-'}</td>
+                          <td className="class-weeks">
+                            {cls.study_week && Array.isArray(cls.study_week) && cls.study_week.length > 0
+                              ? cls.study_week.join(', ') 
+                              : '-'}
+                          </td>
+                          <td className="class-room">{cls.classroom || '-'}</td>
+                          <td className="class-teacher">{cls.teacher_name || '-'}</td>
+                          <td className="class-note">
+                            {cls.priority_reason || 'Không'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Render data table if available (for other intents)
   const renderDataTable = (data: any[]) => {
     if (!data || data.length === 0) return null;
 
     const columns = Object.keys(data[0]);
+
+    // Helper function to safely render cell content
+    const renderCellContent = (value: any): string => {
+      if (value === null || value === undefined) return '-';
+      if (typeof value === 'object') {
+        // If it's an array, join with commas
+        if (Array.isArray(value)) {
+          return value.map(item => 
+            typeof item === 'object' ? JSON.stringify(item) : String(item)
+          ).join(', ');
+        }
+        // If it's an object, stringify it
+        return JSON.stringify(value);
+      }
+      return String(value);
+    };
 
     return (
       <div className="data-table-container">
@@ -137,7 +253,7 @@ const ChatBot: React.FC = () => {
             {data.map((row, idx) => (
               <tr key={idx}>
                 {columns.map((col) => (
-                  <td key={col}>{row[col]}</td>
+                  <td key={col}>{renderCellContent(row[col])}</td>
                 ))}
               </tr>
             ))}
@@ -176,7 +292,11 @@ const ChatBot: React.FC = () => {
                     __html: formatMessageText(message.text) 
                   }}
                 />
-                {message.data && message.data.length > 0 && renderDataTable(message.data)}
+                {message.data && message.data.length > 0 && (
+                  message.intent === 'class_registration_suggestion' 
+                    ? renderClassCombinations(message.data)
+                    : renderDataTable(message.data)
+                )}
                 <span className="message-time">{formatTime(message.timestamp)}</span>
               </div>
               {message.isUser && (

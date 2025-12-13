@@ -43,7 +43,29 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         # Initialize chatbot service
         chatbot_service = ChatbotService(db)
         
-        # 1. Phân loại intent
+        # CRITICAL: Check for active conversation state BEFORE intent classification
+        # If user is in the middle of answering preference questions, skip intent classification
+        from app.services.conversation_state import get_conversation_manager
+        conv_manager = get_conversation_manager()
+        state = conv_manager.get_state(message.student_id)
+        
+        if state and state.stage == 'collecting':
+            # User is answering a preference question - directly process as class_registration_suggestion
+            print(f"🔄 [ROUTE] Active conversation detected for student {message.student_id}, skipping intent classification")
+            result = await chatbot_service.process_class_suggestion(
+                student_id=message.student_id,
+                question=message.message
+            )
+            return ChatResponseWithData(
+                text=result["text"],
+                intent=result["intent"],
+                confidence=result["confidence"],
+                data=result.get("data"),
+                sql=None,
+                sql_error=result.get("error")
+            )
+        
+        # 1. Phân loại intent (only if NOT in active conversation)
         intent_result = await intent_classifier.classify_intent(message.message)
         
         intent = intent_result["intent"]

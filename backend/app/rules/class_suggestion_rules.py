@@ -3,14 +3,14 @@ Class Registration Suggestion Rule Engine
 Rule-Based System (RBS) for suggesting classes based on student preferences
 
 Student Preferences:
-1. Time preference: early/late start, morning/afternoon/evening
+1. Time preference: early/late start, morning/afternoon
 2. Study schedule: continuous classes, maximize free days
 3. Weekday preference: avoid specific days (e.g., no Saturday)
 4. Teacher preference: specific teacher selection
 5. Room preference: specific building/location
 
 Rule-Based Filtering:
-- Filter by study time (morning/afternoon/evening)
+- Filter by study time (morning/afternoon)
 - Filter by study days (avoid specific weekdays)
 - Filter by teacher name
 - Sort by schedule optimization (continuous classes, free days)
@@ -29,16 +29,14 @@ class ClassSuggestionRuleEngine:
     """Rule-Based System for Class Registration Suggestions"""
     
     # Time periods definition
-    MORNING_START = time(6, 0)
-    MORNING_END = time(12, 0)
-    AFTERNOON_START = time(12, 0)
-    AFTERNOON_END = time(18, 0)
-    EVENING_START = time(18, 0)
-    EVENING_END = time(22, 0)
+    MORNING_START = time(6, 45)
+    MORNING_END = time(11, 45)
+    AFTERNOON_START = time(12, 30)
+    AFTERNOON_END = time(17, 30)
     
     # Early/late thresholds
-    EARLY_START_THRESHOLD = time(8, 0)  # Classes starting before 8:00 are "early"
-    LATE_END_THRESHOLD = time(17, 0)    # Classes ending after 17:00 are "late"
+    EARLY_START_THRESHOLD = time(8, 25)  # Classes starting before 8:25 are "early"
+    LATE_END_THRESHOLD = time(16, 0)    # Classes ending after 16:00 are "late"
     
     # Continuous class threshold (in minutes)
     CONTINUOUS_CLASS_GAP = 30  # Max 30 minutes gap between classes
@@ -81,15 +79,15 @@ class ClassSuggestionRuleEngine:
             
             # Load time preferences
             time_pref = config.get('time_preferences', {})
-            self.MORNING_START = self._parse_time(time_pref.get('morning_start', '06:00'))
-            self.MORNING_END = self._parse_time(time_pref.get('morning_end', '12:00'))
-            self.AFTERNOON_START = self._parse_time(time_pref.get('afternoon_start', '12:00'))
-            self.AFTERNOON_END = self._parse_time(time_pref.get('afternoon_end', '18:00'))
+            self.MORNING_START = self._parse_time(time_pref.get('morning_start', '06:45'))
+            self.MORNING_END = self._parse_time(time_pref.get('morning_end', '11:45'))
+            self.AFTERNOON_START = self._parse_time(time_pref.get('afternoon_start', '12:30'))
+            self.AFTERNOON_END = self._parse_time(time_pref.get('afternoon_end', '17:30'))
             
             # Load thresholds
             thresholds = config.get('thresholds', {})
-            self.EARLY_START_THRESHOLD = self._parse_time(thresholds.get('early_start', '08:00'))
-            self.LATE_END_THRESHOLD = self._parse_time(thresholds.get('late_end', '17:00'))
+            self.EARLY_START_THRESHOLD = self._parse_time(thresholds.get('early_start', '08:25'))
+            self.LATE_END_THRESHOLD = self._parse_time(thresholds.get('late_end', '16:00'))
             self.CONTINUOUS_CLASS_GAP = thresholds.get('continuous_gap_minutes', 30)
             self.MIN_DAILY_HOURS = thresholds.get('min_daily_hours', 5.0)
             
@@ -163,16 +161,21 @@ class ClassSuggestionRuleEngine:
         
         classes = []
         for row in result:
-            # Parse study_week from JSON
+            # Parse study_week from JSON - KEEP AS LIST for conflict detection
             study_week_data = row[7]  # This is JSON from database
             if study_week_data:
-                # If it's already a list (from JSON), convert to comma-separated string
+                # Keep as list for conflict detection logic
                 if isinstance(study_week_data, list):
-                    study_weeks_str = ','.join(str(w) for w in study_week_data)
+                    study_week_list = study_week_data
                 else:
-                    study_weeks_str = str(study_week_data)
+                    # Parse string to list if needed
+                    try:
+                        import json
+                        study_week_list = json.loads(study_week_data) if isinstance(study_week_data, str) else [study_week_data]
+                    except:
+                        study_week_list = []
             else:
-                study_weeks_str = 'all'
+                study_week_list = []  # Empty means no specific weeks
             
             # Convert timedelta to time if needed
             study_time_start = row[5]
@@ -199,7 +202,7 @@ class ClassSuggestionRuleEngine:
                 'study_date': row[4],
                 'study_time_start': study_time_start,
                 'study_time_end': study_time_end,
-                'study_weeks': study_weeks_str,  # Study weeks as string (e.g., "1,3,5,7,9" or "all")
+                'study_week': study_week_list,  # Study week as LIST for conflict detection
                 'teacher_name': row[8],
                 'max_students': row[9],
                 'subject_id': row[10],
@@ -256,20 +259,18 @@ class ClassSuggestionRuleEngine:
     
     def get_time_period(self, study_time: time) -> str:
         """
-        Determine time period (morning/afternoon/evening)
+        Determine time period (morning/afternoon)
         
         Args:
             study_time: Time object
         
         Returns:
-            'morning', 'afternoon', or 'evening'
+            'morning' or 'afternoon'
         """
         if self.MORNING_START <= study_time < self.MORNING_END:
             return 'morning'
         elif self.AFTERNOON_START <= study_time < self.AFTERNOON_END:
             return 'afternoon'
-        else:
-            return 'evening'
     
     def is_early_start(self, study_time_start: time) -> bool:
         """Check if class starts early"""
@@ -332,9 +333,9 @@ class ClassSuggestionRuleEngine:
         if not common_days:
             return False
         
-        # Get study weeks
-        weeks1 = self.parse_study_weeks(class1.get('study_weeks', 'all'))
-        weeks2 = self.parse_study_weeks(class2.get('study_weeks', 'all'))
+        # Get study weeks (now expecting LIST from data)
+        weeks1 = set(class1.get('study_week', []) or [])
+        weeks2 = set(class2.get('study_week', []) or [])
         
         # Check if they share any study week
         common_weeks = weeks1.intersection(weeks2)
@@ -368,7 +369,7 @@ class ClassSuggestionRuleEngine:
         Filter classes by time preferences
         
         Preferences:
-            - time_period: 'morning', 'afternoon', 'evening', or 'any' (POSITIVE preference)
+            - time_period: 'morning', 'afternoon', or 'any' (POSITIVE preference)
             - avoid_time_periods: List of periods to avoid (NEGATIVE preference)
               e.g., ['morning'] means "không muốn học buổi sáng" → filter out morning classes
             - avoid_early_start: bool
@@ -792,7 +793,7 @@ class ClassSuggestionRuleEngine:
         2. One class per subject only
         
         PREFERENCE RULES (can be violated if not enough suggestions):
-        - Time period (morning/afternoon/evening)
+        - Time period (morning/afternoon)
         - Avoid early start / late end
         - Avoid specific days
         - Teacher preference
@@ -950,12 +951,12 @@ class ClassSuggestionRuleEngine:
         if prefs:
             lines.append("⚙️ **TIÊU CHÍ ÁP DỤNG**")
             if prefs.get('time_period') and prefs['time_period'] != 'any':
-                period_map = {'morning': 'Buổi sáng', 'afternoon': 'Buổi chiều', 'evening': 'Buổi tối'}
+                period_map = {'morning': 'Buổi sáng', 'afternoon': 'Buổi chiều'}
                 lines.append(f"• Buổi học: {period_map.get(prefs['time_period'], prefs['time_period'])}")
             if prefs.get('avoid_early_start'):
-                lines.append("• Tránh học sớm (trước 8:00)")
+                lines.append("• Tránh học sớm (trước 8:25)")
             if prefs.get('avoid_late_end'):
-                lines.append("• Tránh kết thúc muộn (sau 17:00)")
+                lines.append("• Tránh kết thúc muộn (sau 16:00)")
             if prefs.get('avoid_days'):
                 days_vi = [self.WEEKDAY_VI.get(d, d) for d in prefs['avoid_days']]
                 lines.append(f"• Tránh các ngày: {', '.join(days_vi)}")

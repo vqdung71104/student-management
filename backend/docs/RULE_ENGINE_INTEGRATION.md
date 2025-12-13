@@ -470,7 +470,7 @@ def rule_8_filter_prerequisite_check(self, subjects, student_data):
 {
   "personalization": {
     "learning_style": "fast/normal/slow",
-    "preferred_study_time": "morning/afternoon/evening"
+    "preferred_study_time": "morning/afternoon"
   }
 }
 ```

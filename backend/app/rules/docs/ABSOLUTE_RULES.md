@@ -201,7 +201,7 @@ def filter_one_class_per_subject(candidates, registered):
    - Loại bỏ lớp trùng môn
 
 2. **Bước 2**: Lọc theo tiêu chí ưu tiên (PREFERENCE RULES)
-   - Buổi học (morning/afternoon/evening)
+   - Buổi học (morning/afternoon)
    - Tránh học sớm/muộn
    - Tránh ngày cụ thể
    - Giáo viên ưu tiên
@@ -270,7 +270,7 @@ Các vi phạm được đếm như sau:
 
 | Vi phạm | Mô tả | Điểm phạt |
 |---------|-------|-----------|
-| Wrong time period | Không đúng buổi học (morning/afternoon/evening) | +1 |
+| Wrong time period | Không đúng buổi học (morning/afternoon) | +1 |
 | Early start | Học sớm hơn 08:00 | +1 |
 | Late end | Kết thúc muộn hơn 17:00 | +1 |
 | Avoided day | Mỗi ngày bị tránh | +1/day |

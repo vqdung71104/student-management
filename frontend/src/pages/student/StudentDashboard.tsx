@@ -61,6 +61,12 @@ const StudentDashboard = () => {
                 if (classResponse.ok) {
                   const classData = await classResponse.json()
                   
+                  // Check if subject_id exists before fetching
+                  if (!classData.subject_id) {
+                    console.warn('Class has no subject_id:', classData)
+                    return null
+                  }
+                  
                   const subjectResponse = await fetch(`http://localhost:8000/api/subjects/${classData.subject_id}`)
                   if (subjectResponse.ok) {
                     const subjectData = await subjectResponse.json()

@@ -175,9 +175,7 @@ def _extract_preferences_from_question(self, question: str) -> Dict:
         'sáng': 'morning',
         'buổi sáng': 'morning',
         'chiều': 'afternoon',
-        'buổi chiều': 'afternoon',
-        'tối': 'evening',
-        'buổi tối': 'evening'
+        'buổi chiều': 'afternoon'
     }
     
     for pattern, period in time_patterns.items():
@@ -309,8 +307,8 @@ def test_avoid_time_periods():
     assert 'time_period' not in result or result['time_period'] is None
     
     # Test 15: Multiple avoid
-    result = extract_preferences("không muốn học buổi tối, học đến muộn")
-    assert result['avoid_time_periods'] == ['evening']
+    result = extract_preferences("không muốn học buổi chiều, học đến muộn")
+    assert result['avoid_time_periods'] == ['afternoon']
     assert result['avoid_late_end'] == True
     
     # Test 16: Positive still works

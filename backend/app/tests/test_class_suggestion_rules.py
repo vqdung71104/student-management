@@ -305,7 +305,7 @@ if __name__ == "__main__":
     print("1. ❌ NO SCHEDULE CONFLICT: Classes must not overlap in time on same day/week")
     print("2. ❌ ONE CLASS PER SUBJECT: Cannot register multiple classes for same subject")
     print("\n📝 PREFERENCE RULES (can be violated if needed):")
-    print("- Time period (morning/afternoon/evening)")
+    print("- Time period (morning/afternoon)")
     print("- Avoid early start / late end")
     print("- Avoid specific days")
     print("- Teacher preference")
