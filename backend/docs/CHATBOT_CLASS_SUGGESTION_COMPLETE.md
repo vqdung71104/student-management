@@ -1134,6 +1134,43 @@ if state.timestamp + timedelta(hours=1) < datetime.now():
 
 ---
 
-**Last Updated:** December 12, 2025  
-**Version:** 2.0  
-**Author:** GitHub Copilot + Student Management Team
+## 🆕 Critical Updates (December 13, 2025)
+
+### Architecture Changes
+
+**1. 4-State Preference System**
+- active → passive → none → **not_important** (NEW)
+- "Không quan trọng" = skip filtering/scoring entirely
+- All preference types now have `is_not_important` flag
+
+**2. 5 Independent Criteria**
+- Split SchedulePatternPreference into:
+  - ContinuousPreference (học liên tục)
+  - FreeDaysPreference (tối đa hóa ngày nghỉ)
+- Each has independent is_not_important state
+
+**3. Specific Requirements = Hard Filter**
+- Question 5 is REQUIRED
+- specific_class_ids = HIGHEST PRIORITY (must include in all combinations)
+- All combinations verified to contain specified classes
+
+**4. Fixed Parsing Bug**
+- Check "không quan trọng" before "không"
+- Prevents misclassification of option 3 as option 2
+
+**5. Schema Updates**
+```python
+class CompletePreference(BaseModel):
+    time: TimePreference              # is_not_important added
+    day: DayPreference                # is_not_important added
+    continuous: ContinuousPreference  # NEW - split from pattern
+    free_days: FreeDaysPreference     # NEW - split from pattern
+    specific: SpecificRequirement     # NOW REQUIRED
+```
+
+---
+
+**Last Updated:** December 13, 2025  
+**Version:** 3.0  
+**Author:** GitHub Copilot + Student Management Team  
+**Breaking Changes:** Schema, question flow, filtering logic all updated

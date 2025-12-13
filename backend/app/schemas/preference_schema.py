@@ -13,18 +13,26 @@ class TimePreference(BaseModel):
     prefer_late_start: bool = False   # Học muộn (start late, end late)
     avoid_early_start: bool = False   # Tránh học sớm
     avoid_late_end: bool = False      # Tránh học muộn
+    is_not_important: bool = False    # User said "Không quan trọng"
 
 
 class DayPreference(BaseModel):
     """Day-related preferences"""
     prefer_days: List[str] = Field(default_factory=list)  # ['Monday', 'Tuesday']
     avoid_days: List[str] = Field(default_factory=list)   # ['Saturday', 'Sunday']
+    is_not_important: bool = False    # User said "Không quan trọng"
 
 
-class SchedulePatternPreference(BaseModel):
-    """Schedule pattern preferences"""
+class ContinuousPreference(BaseModel):
+    """Continuous study preference"""
     prefer_continuous: bool = False   # Học liên tục nhiều lớp 1 buổi (>5h/day)
+    is_not_important: bool = False    # User said "Không quan trọng"
+
+
+class FreeDaysPreference(BaseModel):
+    """Free days preference"""
     prefer_free_days: bool = False    # Tối đa hóa ngày nghỉ
+    is_not_important: bool = False    # User said "Không quan trọng"
 
 
 class SpecificRequirement(BaseModel):
@@ -35,10 +43,11 @@ class SpecificRequirement(BaseModel):
 
 
 class CompletePreference(BaseModel):
-    """Complete preference set for class suggestion"""
+    """Complete preference set for class suggestion (5 CRITERIA)"""
     time: TimePreference = Field(default_factory=TimePreference)
     day: DayPreference = Field(default_factory=DayPreference)
-    pattern: SchedulePatternPreference = Field(default_factory=SchedulePatternPreference)
+    continuous: ContinuousPreference = Field(default_factory=ContinuousPreference)
+    free_days: FreeDaysPreference = Field(default_factory=FreeDaysPreference)
     specific: SpecificRequirement = Field(default_factory=SpecificRequirement)
     
     def to_dict(self) -> Dict:
@@ -54,16 +63,22 @@ class CompletePreference(BaseModel):
         result['prefer_late_start'] = self.time.prefer_late_start
         result['avoid_early_start'] = self.time.avoid_early_start
         result['avoid_late_end'] = self.time.avoid_late_end
+        result['time_is_not_important'] = self.time.is_not_important
         
         # Day preferences
         if self.day.prefer_days:
             result['prefer_days'] = self.day.prefer_days
         if self.day.avoid_days:
             result['avoid_days'] = self.day.avoid_days
+        result['day_is_not_important'] = self.day.is_not_important
         
-        # Pattern preferences
-        result['prefer_continuous'] = self.pattern.prefer_continuous
-        result['prefer_free_days'] = self.pattern.prefer_free_days
+        # Continuous preference
+        result['prefer_continuous'] = self.continuous.prefer_continuous
+        result['continuous_is_not_important'] = self.continuous.is_not_important
+        
+        # Free days preference
+        result['prefer_free_days'] = self.free_days.prefer_free_days
+        result['free_days_is_not_important'] = self.free_days.is_not_important
         
         # Specific requirements
         if self.specific.preferred_teachers:
@@ -76,42 +91,83 @@ class CompletePreference(BaseModel):
         return result
     
     def is_complete(self) -> bool:
-        """Check if all required preferences are collected (5 PREFERENCES)"""
-        # Required: day, time, and at least one pattern preference
-        has_day_pref = bool(self.day.prefer_days or self.day.avoid_days)
+        """Check if all required preferences are collected (5 CRITERIA)
+        
+        Each preference can be in 4 states:
+        - active: Has preference set (prefer_days, prefer_early_start, etc)
+        - passive: Has avoidance set (avoid_days, etc)
+        - not_important: User said "Không quan trọng"
+        - none: Not answered yet
+        
+        Complete = all 5 categories have moved from 'none' state
+        """
+        # 1. Check day preference: has answer OR marked not important
+        has_day_pref = bool(
+            self.day.prefer_days or 
+            self.day.avoid_days or 
+            self.day.is_not_important
+        )
+        
+        # 2. Check time preference: has answer OR marked not important
         has_time_pref = bool(
             self.time.prefer_early_start or
-            self.time.prefer_late_start
-        )
-        has_pattern_pref = bool(
-            self.pattern.prefer_continuous or
-            self.pattern.prefer_free_days
+            self.time.prefer_late_start or
+            self.time.is_not_important
         )
         
-        # Consider complete if we have day + time + pattern
-        # Specific requirements are optional
-        return has_day_pref and has_time_pref and has_pattern_pref
+        # 3. Check continuous preference: has answer OR marked not important
+        has_continuous_pref = bool(
+            self.continuous.prefer_continuous or
+            self.continuous.is_not_important
+        )
+        
+        # 4. Check free_days preference: has answer OR marked not important
+        has_free_days_pref = bool(
+            self.free_days.prefer_free_days or
+            self.free_days.is_not_important
+        )
+        
+        # 5. Check specific requirements: at least answered (even if "không")
+        has_specific_answered = bool(
+            self.specific.preferred_teachers or
+            self.specific.specific_class_ids or
+            self.specific.specific_times
+        )
+        
+        # Consider complete if we have all 5 criteria answered
+        # Note: specific is now REQUIRED (must ask question 5)
+        return has_day_pref and has_time_pref and has_continuous_pref and has_free_days_pref and has_specific_answered
     
     def get_missing_preferences(self) -> List[str]:
-        """Get list of missing preference categories (5 CÂU HỎI)"""
+        """Get list of missing preference categories (only 'none' state)
+        
+        Returns categories that are not:
+        - set (active/passive)
+        - marked as not_important
+        """
         missing = []
         
-        # Check day preference
-        if not (self.day.prefer_days or self.day.avoid_days):
+        # 1. Check day preference: missing if no answer AND not marked as not important
+        if not (self.day.prefer_days or self.day.avoid_days or self.day.is_not_important):
             missing.append('day')
         
-        # Check time preference
-        if not (self.time.prefer_early_start or self.time.prefer_late_start):
+        # 2. Check time preference: missing if no answer AND not marked as not important
+        if not (self.time.prefer_early_start or self.time.prefer_late_start or self.time.is_not_important):
             missing.append('time')
         
-        # Check pattern preferences
-        if not (self.pattern.prefer_continuous or self.pattern.prefer_free_days):
-            missing.append('pattern')
-
-        #if not (self.specific.preferred_teachers or
-        #        self.specific.specific_class_ids or
-        #        self.specific.specific_times):
-        #    missing.append('specific')
+        # 3. Check continuous preference: missing if no answer AND not marked as not important
+        if not (self.continuous.prefer_continuous or self.continuous.is_not_important):
+            missing.append('continuous')
+        
+        # 4. Check free_days preference: missing if no answer AND not marked as not important
+        if not (self.free_days.prefer_free_days or self.free_days.is_not_important):
+            missing.append('free_days')
+        
+        # 5. Check specific requirements: missing if not answered at all
+        if not (self.specific.preferred_teachers or
+                self.specific.specific_class_ids or
+                self.specific.specific_times):
+            missing.append('specific')
         
         return missing
 

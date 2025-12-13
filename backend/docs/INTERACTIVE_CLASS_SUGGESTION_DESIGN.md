@@ -567,6 +567,30 @@ Bot: [Extract: time_period='afternoon', avoid_days=['Saturday']]
 
 ---
 
-**Version:** 1.0  
+## 🆕 Updates (December 13, 2025)
+
+### 1. 4-State Preference System
+- Added **is_not_important** state to all preference types
+- Each criterion can be: active, passive, none, or not_important
+- "Không quan trọng" response skips filtering/scoring for that criterion
+
+### 2. 5 Independent Criteria (Split Pattern)
+- **Previous:** 4 questions (day, time, pattern, specific)
+- **Current:** 5 questions (day, time, continuous, free_days, specific)
+- Continuous and free_days now have separate is_not_important flags
+
+### 3. Specific Requirements = Required + Hard Filter
+- Question 5 is now **REQUIRED** (must ask after question 4)
+- `specific_class_ids` = **HARD FILTER** (not soft preference)
+- ALL combinations MUST include specified classes
+
+### 4. Fixed Parsing Logic
+- Check "không quan trọng" BEFORE "không" alone
+- Prevents option 3 being matched as option 2
+
+---
+
+**Version:** 2.0  
 **Created:** December 12, 2025  
-**Status:** 📋 Design Phase
+**Updated:** December 13, 2025  
+**Status:** ✅ Implemented + 4-State System + 5 Criteria + Hard Filter

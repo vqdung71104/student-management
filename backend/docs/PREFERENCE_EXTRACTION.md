@@ -362,7 +362,67 @@ def test_complex_sentences():
 
 ---
 
-**Version:** 1.0  
-**Last Updated:** December 8, 2025  
-**Status:** ✅ Implemented & Tested  
-**Test Coverage:** 16/16 tests passing
+## 🆕 Updates (December 13, 2025)
+
+### 4-State Preference System
+
+Added **4th state: not_important** to preference system:
+
+| State | Description | Action |
+|-------|-------------|--------|
+| **active** | Has preference (prefer_days, prefer_early_start) | Apply positive filter/sort |
+| **passive** | Wants to avoid (avoid_days, avoid_late_end) | Apply negative filter |
+| **none** | No information yet | Must ask question |
+| **not_important** | User said "Không quan trọng" | **Skip filter/sort entirely** |
+
+**Schema:**
+```python
+class TimePreference(BaseModel):
+    prefer_early_start: bool = False     # active
+    prefer_late_start: bool = False      # active
+    is_not_important: bool = False       # NEW - not_important state
+```
+
+**Parsing:**
+```python
+# When user responds to time question:
+if '3' in response or 'không quan trọng' in response:
+    preference.time.is_not_important = True  # Don't filter/sort by time
+elif '1' in response or 'sớm' in response:
+    preference.time.prefer_early_start = True
+elif '2' in response or 'muộn' in response:
+    preference.time.prefer_late_start = True
+```
+
+**Filtering:**
+```python
+# Skip filtering if marked as not important
+if not preferences.get('time_is_not_important', False):
+    # Apply time-based scoring
+    if preferences.get('prefer_early_start'):
+        score += 10
+# Else: Don't score at all (neutral)
+```
+
+### Fixed Parsing Bug: "không" vs "không quan trọng"
+
+**Previous Bug:**
+- "không quan trọng" was matched as option 2 ("không") instead of option 3
+- Caused by checking "không" before checking full phrase "không quan trọng"
+
+**Fix:** Check option 3 FIRST
+```python
+# CORRECT order
+if '3' in response or 'không quan trọng' in response:
+    is_not_important = True  # Option 3
+elif '2' in response or ('không' in response and 'quan trọng' not in response):
+    prefer = False  # Option 2 - with safeguard
+```
+
+---
+
+**Version:** 2.0  
+**Last Updated:** December 13, 2025  
+**Status:** ✅ Implemented & Tested + 4-State System Added  
+**Test Coverage:** 16/16 tests passing + New parsing logic verified  
+**Breaking Changes:** Added is_not_important field to all preference types

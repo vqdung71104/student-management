@@ -111,3 +111,37 @@ elif intent == "class_registration_suggestion":
 - [ ] Consider thêm logic check điều kiện tiên quyết (conditional_subjects)
 - [ ] Có thể thêm filter theo CPA threshold nếu cần
 - [ ] Train ViT5 model với updated training data (optional)
+
+---
+
+## 🆕 Updates (December 13, 2025)
+
+### Preference System Enhanced
+
+Class suggestion logic now supports **4-state preference system**:
+- **active**: Apply positive filter (prefer_early_start=True)
+- **passive**: Apply negative filter (avoid_days=['Saturday'])
+- **none**: Must ask question
+- **not_important**: Skip filtering entirely (user said "Không quan trọng")
+
+### Filtering Priority
+1. **Absolute filters** (registration requirements, grade requirements)
+2. **Hard filters** (specific_class_ids - NEW: must include in all combinations)
+3. **Negative filters** (avoid_*) if not is_not_important
+4. **Positive filters** (prefer_*) if not is_not_important
+
+### Schema Updates
+```python
+# All preference types now have is_not_important flag
+class TimePreference:
+    prefer_early_start: bool
+    prefer_late_start: bool
+    is_not_important: bool  # NEW
+
+class DayPreference:
+    prefer_days: List[str]
+    avoid_days: List[str]
+    is_not_important: bool  # NEW
+```
+
+**Version:** 2.0 (Updated December 13, 2025)
