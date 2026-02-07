@@ -1,0 +1,1047 @@
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{vietnam}
+\usepackage[top=2cm, bottom=2cm, left=3cm, right=2cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{titlesec}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage[table,xcdraw]{xcolor} % Để tô màu bảng
+\usepackage{tabularx}             % Để bảng tự giãn độ rộng
+\usepackage{multirow}             % Để gộp dòng
+\usepackage{enumitem}             % Để định dạng danh sách trong bảng
+\usepackage{longtable} % Thêm gói này vào phần khai báo (Preamble)
+\usepackage[table,xcdraw]{xcolor}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{xltabular} % Gói quan trọng nhất để ngắt trang và tự căn lề
+\usepackage{multirow}
+
+
+% Cấu hình tiêu đề chương
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries}{\chaptername\ \thechapter}{10pt}{\Huge}
+\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+
+\begin{document}
+
+% --- TRANG BÌA ---
+\begin{titlepage}
+    \begin{center}
+        \textbf{ĐẠI HỌC BÁCH KHOA HÀ NỘI}  \\
+       \textbf{TRƯỜNG CÔNG NGHỆ THÔNG TIN VÀ TRUYỀN THÔNG}  \\
+        \vspace{1cm}
+        ****************************************** \\
+        \vspace{1.5cm}
+        \includegraphics[width=0.4\textwidth]{ảnh latex/hust_logo.png} \\ 
+        \vspace{1.5cm}
+        {\Huge \textbf{BÁO CÁO GR2}}\\
+        \vspace{0.5cm}
+        {\Large \textbf{Đề tài: Xây dựng chatbot hỗ trợ học tập}}  \\
+        \vfill
+        \begin{flushleft}
+            \textbf{Giảng viên hướng dẫn:} TS. Trần Đình Khang \\
+            \textbf{Sinh viên thực hiện:} Vũ Quang Dũng\\
+            \textbf{MSSV:} 20225818 \\
+            \textbf{Lớp:} Việt Nhật 01 -K67
+        \end{flushleft}
+    \end{center}
+\end{titlepage}
+
+% --- MỤC LỤC ---
+\tableofcontents
+\newpage
+
+% --- CHƯƠNG 1 ---
+\chapter{Giới thiệu đề tài}
+\section{Đặt vấn đề và tổng quan đề tài}
+Đối với Đại học Bách khoa Hà Nội, kể từ khi bước sang năm 2 trong chương trình học của mình, các sinh viên bắt đầu tự đăng ký môn học và lớp học cho từng kỳ học và chịu trách nhiệm cho quá trình đăng ký của mình. Trong quá trình đăng ký của sinh viên sẽ gồm hai giai đoạn: đăng ký học phần và đăng ký lớp. 
+
+\textbf{Giai đoạn 1} - đăng ký học phần cho kì tiếp theo sẽ diễn ra từ khá sớm, thường sẽ cách vài tháng trước khi kì học mới diễn ra, ngay sau khi nhà trường có danh sách học phần sẽ mở trong kì. 
+
+\textbf{Giai đoạn 2} - đăng ký lớp sẽ diễn ra trước hi kì học mới bắt đầu khoảng một tháng, sau khi có thời khóa biểu chính thức. Sinh viên sẽ có hai đợt đăng ký trong giai đoạn này. 
+
+\begin{itemize}
+    \item \textbf{Đăng ký lớp:} Sinh viên được phép đăng ký các lớp học trong các học phần đã được đăng ký trong giai đoạn 1[cite: 22]. Riêng sinh viên một số chương trình tiên tiến (CTTT) sẽ được đăng ký sớm hơn khoảng 4-7 ngày so với sinh viên các chương trình khác.
+    \item \textbf{Đăng ký điều chỉnh:} Sinh viên có thể đăng ký các lớp học trong toàn bộ các học phần mở của kỳ học đó.
+\end{itemize}
+
+Sau khi giai đoạn 2 kết thúc, sinh viên hoàn tất quá trình đăng ký của mình. Những sinh viên không đăng ký đủ số tín chỉ tối thiểu của kì học sẽ được các cán bộ phụ trách xếp vào các lớp còn thiếu tương ứng với chương trình đào tạo của sinh viên. 
+
+
+
+Hệ thống chatbot hỗ trợ đăng ký học tập sẽ đóng vai trò như một nhà tư vấn, hỗ trợ sinh viên trong cả hai giai đoạn đăng ký. Trước và trong giai đoạn 1, hệ thống đưa ra các phân tích và gợi ý về việc chọn lựa các học phần sao cho phù hợp với chương trình đào tạo, thành tích học tập và nhu cầu cá nhân của sinh viên. Hệ thống cũng có thể đưa ra một số gợi ý về thời khóa biểu các lớp học dựa trên thời khóa biểu tạm thời. Từ khi có thời khóa biểu chính thức và trong giai đoạn 2, hệ thống sẽ giúp sinh viên đưa ra thời khóa biểu phù hợp dựa trên các học phần sinh viên đã đăng ký, dựa trên các sở thích về lịch học, giáo viên hay nhu cầu học cùng bạn bè của sinh viên. 
+
+
+\section{Mục tiêu và phạm vi đề tài}
+Đề tài “Xây dựng hệ thống hỗ trợ đăng ký học tập cho sinh viên” được xây dựng hướng tới mục tiêu hỗ trợ sinh viên đưa ra các phương án đăng ký học phần và đăng ký lớp phù hợp với từng sinh viên, tăng tính cá nhân hóa trong việc hỗ trợ sinh viên đăng ký học tập, nâng cao hiệu quả và năng suất học tập của sinh viên trong suốt kỳ học.
+Các mục tiêu cụ thể của đề tài bao gồm: 
+\begin{itemize}
+    \item Xây dựng hệ thống website dễ sử dụng, giao diện thân thiện, đáp ứng nhu cầu sử dụng nhanh, hiệu quả của sinh viên.
+    \item Cá nhân hóa và cụ thể hóa lời khuyên cho sinh viên khi đăng ký học phần và đăng ký lớp.
+    \item Hỗ trợ khả năng mở rộng, có thể tích hợp các tính năng khác giúp ích cho hoạt động đăng ký học tập và các hoạt động liên quan đến học tập nói chung cho sinh viên trong tương lai.
+\end{itemize}
+
+Phạm vi thực hiện của đề tài tập trung vào phát triển website với các chức năng chính:
+\begin{itemize}
+    \item Truy vấn, kiểm tra thông tin học tập của từng sinh viên.
+    \item Xây dựng thời khóa biểu tạm thời.
+    \item Sinh viên trao đổi với chatbot về các vấn đề liên quan đến đăng ký học tập, gợi ý các học phần, lớp học cần đăng ký.
+    \item Quản lý tài khoản sinh viên.
+    \item Quản lý thông tin học tập của sinh viên.
+    \item Quản lý thông tin học phần, lớp mở.
+\end{itemize}
+Thông qua hệ thống này, đề tài hướng đến khắc phục các hạn chế hiện nay trong việc đăng ký học tập, giúp tăng hiệu quả trong việc học tập của sinh viên.
+
+\section{Định hướng giải pháp}
+Để đạt được các mục tiêu trên, đồ án lựa chọn định hướng phát triển hệ thống website hỗ trợ đăng ký học tập dựa trên các công nghệ hiện đại như ReactJS cho giao diện người dùng, FastAPI cho phía backend. Đây là những công nghệ phổ biến, dễ triển khai, đáp ứng tốt yêu cầu về quản lý thông tin tập trung và truy cập đa người dùng.
+
+
+Giải pháp của đồ án là xây dựng website có đầy đủ chức năng như quản lý học phần, lớp học, thông tin học tập của sinh viên, chatbot trao đổi với sinh viên và xây dựng thời khóa biểu theo mong muốn.
+
+
+Đóng góp chính của đồ án là phát triển nền tảng hỗ trợ đăng ký học tập hiệu quả, kết quả đạt được là hệ thống có khả năng sử dụng thực tế, dễ dàng mở rộng và tích hợp thêm các chức năng mới nhằm đáp ứng nhu cầu ngày càng tăng cao của sinh viên.
+
+
+\section{Bố cục đồ án}
+Phần còn lại của báo cáo đồ án tốt nghiệp này được tổ chức như sau: 
+
+Chương 2: Khảo sát và phân tích yêu cầu: Trình bày tổng quan các vấn đề liên quan đến việc đăng ký học tập của sinh viên và các chức năng, yêu cầu chức năng của hệ thống.
+
+ Chương 3: Công nghệ sử dụng: Giới thiệu và phân tích các công nghệ, công cụ hiện đại phục vụ phát triển hệ thống, các tiêu chí lựa chọn công nghệ này và phương pháp tiếp cận kiến trúc hệ thống, lý do lựa chọn mô hình phát triển.
+
+ Chương 4: Thiết kế, triển khai và đánh giá: Phân tích và thiết kế hệ thống hỗ trợ đăng ký học tập, đồng thời trình bày các bước triển khai giao diện người dùng, thiết kế cơ sở dữ liệu và tích hợp các chức năng chính.
+
+ Chương 5: Kết luận và hướng phát triển: Trình bày kết quả thực nghiệm, đưa ra kết luận và hướng phát triển, mở rộng trong tương lai. 
+
+
+% --- CHƯƠNG 2 ---
+\chapter{Phân tích đề tài}
+\section{Khảo sát hiện trạng}
+Trong nhiều năm qua, sinh viên gặp khó khăn trong cả 2 giai đoạn đăng ký học phần và đăng ký lớp. Việc đăng ký học tập của sinh viên đang gặp nhiều khó khăn do nhu cầu cá nhân hóa trong việc lựa chọn môn học và lớp học. Sinh viên phải đối mặt với nhiều vấn đề như:
+\begin{itemize}
+    \item Trượt môn: Nhiều sinh viên do lơ là, chểnh mảng trong học tập, hoặc vì một số lý do khách quan như sức khỏe, nên bị trượt môn và phải học lại. Những sinh viên này cần học lại môn sớm nhất có thể để tránh bị nâng mức cảnh báo.
+    \item Mong muốn học cải thiện: Một số sinh viên tuy không trượt môn nhưng điểm số của một số môn thấp hơn so với mong muốn hay điểm tích lũy CPA còn thiếu một chút để có thể nâng mức xếp loại học lực. Những sinh viên này mong muốn học cải thiện một số môn học nhất định hoặc những môn điểm kém, nhưng không biết có nên học cải thiện hay không và nên học môn nào.
+    \item Nhu cầu học vượt: Một số sinh viên muốn tốt nghiệp sớm hoặc học các môn có kiến thức phù hợp với mục tiêu đi làm hoặc thực tập, vì vậy các bạn muốn đăng ký học trước một số môn của kì sau.
+    \item Vướng các hoạt động khác: Đời sống của các bạn sinh viên không chỉ có học trên ghế nhà trường mà các bạn còn muốn sắp xếp thời gian học nhiều kỹ năng bên ngoài, tham gia các hoạt động tình nguyện, các bộ môn năng khiếu, thể thao hay tham gia hoạt động của đoàn, trường, câu lạc bộ, kiếm điểm rèn luyện và thực tập, đi làm thêm. Vì vậy, lịch học cần phân bổ hợp lý theo từng nhu cầu cá nhân.
+    \item Thời khóa biểu không tối ưu: Nhiều sinh viên khi đăng ký được lớp rồi lại thấy không hài lòng với thời khóa biểu. Một số lý do kể đến như là một ngày học quá nhiều môn, gây quá tải trong ngày học; một ngày có quá ít môn, dẫn đến phải di chuyển nhiều lần từ nhà đến trường; không thích các thầy cô dạy môn đó; không được học cùng bạn, khoảng cách di chuyển giữa các phòng học lớn trong khi thời gian nghỉ ít; thời gian nghỉ giữa các tiết quá ngắn hoặc quá dài; lượng kiến thức trong một kỳ quá nặng hoặc quá nhẹ, số tin chỉ quá ít hoặc quá nhiều, quá ít hoặc quá nhiều môn chuyên ngành, các môn học theo sát chương trình chuẩn, còn nhiều môn nợ chưa được đăng kí, không thích môn thể chất hoặc bổ trợ đã chọn.
+    \item Chưa có chức năng xếp thời khóa biểu: Sinh viên vẫn phải truy cập trang web ngoài nhà trường để tự xếp thời khóa biểu thủ công, tuy nhiên trang web ngoài không cho biết số sinh viên đã đăng ký trong lớp, không cho biết điều kiện học phần và một số thông tin khác, khiến sinh viên cần mở nhiều tab một lúc cho nhiều ứng dụng để xem các thông tin khác nhau, từ đó xếp thời khóa biểu cho riêng mình.
+\end{itemize}
+Vì vậy, hệ thống sẽ tổng hợp các nhu cầu cá nhân cũng như thành tích học tập (mức cảnh cáo, các môn trượt) để đưa ra các gợi ý lựa chọn hợp lý nhất cho sinh viên.
+
+\section{Tổng quan chức năng}
+\subsection{Biểu đồ usecase tổng quát}
+Biểu đồ usecase tổng quát mô tả quan hệ giữa các tác nhân với các chức năng chính của hệ thống. Các tác nhân tham gia vào hệ thống bao gồm: 
+
+\begin{itemize}
+    \item Admin: Quản lý tài khoản sinh viên, giáo viên, quản lý thông tin học phần, lớp mở.
+    \item Sinh viên: Cập nhật thông tin các môn học đã học, trao đổi với chatbot về giải pháp đăng ký học tập.
+\end{itemize}	
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_tong_quat.png}
+    \caption{Biểu đồ usecase tổng quát}
+\end{figure}
+
+\subsection{Biểu đồ usecase phân rã}
+    \textbf{Biểu đồ 1: Theo dõi thông tin học tập}
+
+
+Sinh viên theo dõi thông tin về điểm số các môn đã học, các môn đã trượt, các môn điểm kém cần cải thiện, các môn học nhanh hoặc chậm hơn so với chương trình đào tạo chuẩn, các học phần bắt buộc, các môn chưa học còn lại trong chương trình.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_theo_doi_ket_qua_hoc_tap.png}
+    \caption{Biểu đồ usecase Theo dõi thông tin học tập}
+\end{figure}
+
+\textbf{Biểu đồ 2: Xây dựng thời khóa biểu mẫu}
+
+
+Sinh viên có thể chọn các môn muốn học kỳ tới, hệ thống sẽ tự động trực quan thời khóa biểu đó cho sinh viên, đồng thời đảm bảo sinh viên không thể chọn các lớp trùng học phần hoặc trùng thời gian để tránh sai sót trong việc đăng ký lớp.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_xay_dung_thoi_khoa_bieu_mau.png}
+    \caption{Biểu đồ usecase Xây dựng thời khóa biểu mẫu}
+\end{figure}
+\textbf{Biểu đồ 3: Trao đổi với chatbot}
+
+Sinh viên có thể trao đổi với hệ thống chatbot để được đưa ra những tư vấn về các học phần và lớp học nên học dựa theo điểm số, các môn chưa học, tình trạng nợ môn và cảnh cáo học tập của sinh viên đó. [cite: 91]
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_trao_doi_voi_chatbot.png}
+    \caption{Biểu đồ phân rã usecase Trao đổi với chatbot}
+\end{figure}
+
+\textbf{Biểu đồ 4: Quản lý tài khoản sinh viên}
+
+Admin có thể theo dõi, thêm, cập nhật, xóa tài khoản cho các sinh viên. [cite: 94]
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_quan_ly_tai_khoan_sinh_vien.png}
+    \caption{Biểu đồ phân rã usecase Quản lý tài khoản sinh viên}
+\end{figure}
+
+\textbf{Biểu đồ 5: Quản lý danh sách học phần}
+
+Admin theo dõi, kiểm soát thông tin về các học phần trong chương trình đào tạo của từng ngành học. [cite: 97]
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_quan_ly_danh_sanh_hoc_phan.png}
+    \caption{Biểu đồ phân rã usecase Quản lý danh sách học phần}
+\end{figure}
+
+\textbf{Biểu đồ 6: Quản lý danh sách lớp mở}
+
+Admin theo dõi, cập nhật thông tin các lớp sẽ được mở trong học kỳ mới. [cite: 100]
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_quan_ly_danh_sach_lop_mo.png}
+    \caption{Biểu đồ phân rã usecase Quản lý danh sách lớp mở}
+\end{figure}
+
+\textbf{Biểu đồ 7: Cập nhật điểm}
+
+Sinh viên cập nhật danh sách điểm của mình lên hệ thống làm cơ sở để hệ thống đưa ra gợi ý đăng ký học tập cho sinh viên. [cite: 103]
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/usecase_cap_nhat_diem.png}
+    \caption{Biểu đồ phân rã usecase Cập nhật điểm}
+\end{figure}
+
+\subsection{Quy trình nghiệp vụ}
+Quy trình cập nhật điểm số
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{ảnh latex/quy_trinh_cap_nhat_diem_so.png}
+\end{figure}
+Quy trình quản lý tài khoản sinh viên
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{ảnh latex/quy_trinh_quan_ly_tai_khoan_sinh_vien.png}
+\end{figure}
+Quy trình quản lý danh sách lớp mở
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{ảnh latex/quy_trinh_cap_nhat_lop.png}
+\end{figure}
+
+
+\subsection{Đặc tả chức năng}
+\subsubsection{Đặc tả usecase: Xem thông tin học tập}
+
+\begin{table}[H]
+\renewcommand{\arraystretch}{1.4}
+\centering
+\begin{tabularx}{\textwidth}{|>{\columncolor[HTML]{C6E0B4}}l|l|l|X|}
+\hline
+\textbf{Mã Use case} & UC001 & \textbf{Tên Use case} & Xem thông tin học tập \\ \hline
+\textbf{Tác nhân} & \multicolumn{3}{l|}{Sinh viên} \\ \hline
+\textbf{Tiền điều kiện} & \multicolumn{3}{l|}{Sinh viên đã được cấp tài khoản và đăng nhập thành công vào hệ thống} \\ \hline
+ & \multicolumn{3}{g|}{} \\ \pagecolor{white} % Reset màu cho dòng tiêu đề phụ
+ & \cellcolor[HTML]{F8CBAD}\textbf{STT} & \cellcolor[HTML]{F8CBAD}\textbf{Thực hiện bởi} & \cellcolor[HTML]{F8CBAD}\textbf{Hành động} \\ \cline{2-4} 
+\textbf{Luồng sự kiện} & 1. & Hệ thống & hiển thị màn hình chính gồm các mục: 
+ \begin{itemize}[leftmargin=*, nosep]
+     \item Xem kết quả học tập
+     \item Xem chương trình đào tạo
+ \end{itemize} \\ \cline{2-4} 
+\textbf{chính} & 2. & Sinh viên & chọn một trong các mục cần xem \\ \cline{2-4} 
+\textbf{(Thành công)} & 3. & Hệ thống & kiểm tra tính khả dụng của dữ liệu \\ \cline{2-4} 
+ & 4. & Hệ thống & hiển thị thông tin tương ứng với danh mục đã chọn \\ \hline
+ & \multicolumn{3}{g|}{} \\ 
+\textbf{Luồng sự kiện} & \cellcolor[HTML]{F8CBAD}\textbf{STT} & \cellcolor[HTML]{F8CBAD}\textbf{Thực hiện bởi} & \cellcolor[HTML]{F8CBAD}\textbf{Hành động} \\ \cline{2-4} 
+\textbf{thay thế} & 3a. & Hệ thống & nếu dữ liệu không khả dụng, thông báo: hệ thống đang bảo trì, vui lòng thử lại sau ít phút \\ \hline
+\textbf{Hậu điều kiện} & \multicolumn{3}{l|}{Không có thay đổi dữ liệu sau khi xem thông tin} \\ \hline
+\end{tabularx}
+\caption{Đặc tả usecase Xem thông tin học tập}
+\end{table}
+
+
+
+\subsubsection{Đặc tả usecase: Xây dựng thời khóa biểu mẫu}
+
+\begin{table}[H]
+\renewcommand{\arraystretch}{1.4}
+\centering
+\begin{tabularx}{\textwidth}{|>{\columncolor[HTML]{C6E0B4}}l|l|l|X|}
+\hline
+\textbf{Mã Use case} & UC002 & \textbf{Tên Use case} & Xây dựng thời khóa biểu mẫu \\ \hline
+\textbf{Tác nhân} & \multicolumn{3}{l|}{Sinh viên} \\ \hline
+\textbf{Tiền điều kiện} & \multicolumn{3}{p{13cm}|}{Sinh viên đã được cấp tài khoản và đăng nhập thành công vào hệ thống} \\ \hline
+ & \multicolumn{3}{l|}{} \\
+ & \cellcolor[HTML]{F8CBAD}\textbf{STT} & \cellcolor[HTML]{F8CBAD}\textbf{Thực hiện bởi} & \cellcolor[HTML]{F8CBAD}\textbf{Hành động} \\ \cline{2-4} 
+\textbf{Luồng sự kiện} & 1. & Hệ thống & hiển thị màn hình chính \\ \cline{2-4} 
+\textbf{chính} & 2. & Sinh viên & chọn mục Xem thời khóa biểu \\ \cline{2-4} 
+\textbf{(Thành công)} & 3. & Hệ thống & hiển thị màn hình Xem thời khóa biểu với danh sách lớp đã đăng ký và danh sách lớp khả dụng cho kỳ mới \\ \cline{2-4} 
+ & 4. & Sinh viên & chọn lớp học muốn đăng ký và đăng ký hoặc chọn lớp đã có trong danh sách đã đăng ký để xóa \\ \cline{2-4} 
+\multirow{-7}{*}{\textbf{}} & 5. & Hệ thống & cập nhật lớp vào thời khóa biểu theo tuần hiển thị ra cho sinh viên \\ \hline
+ & \multicolumn{3}{l|}{} \\
+\textbf{Luồng sự kiện} & \cellcolor[HTML]{F8CBAD}\textbf{STT} & \cellcolor[HTML]{F8CBAD}\textbf{Thực hiện bởi} & \cellcolor[HTML]{F8CBAD}\textbf{Hành động} \\ \cline{2-4} 
+\textbf{thay thế} & 3a. & Hệ thống & nếu dữ liệu không khả dụng, thông báo: hệ thống đang bảo trì, vui lòng thử lại sau ít phút \\ \hline
+\textbf{Hậu điều kiện} & \multicolumn{3}{l|}{Không có thay đổi dữ liệu sau khi xem thông tin} \\ \hline
+\end{tabularx}
+\caption{Đặc tả usecase Xây dựng thời khóa biểu mẫu}
+\end{table}
+
+\subsubsection{Đặc tả usecase: Hỏi chatbot tư vấn}
+
+\begin{table}[H]
+\renewcommand{\arraystretch}{1.4} % Giãn dòng để bảng dễ đọc
+\centering
+\begin{tabularx}{\textwidth}{|>{\columncolor[HTML]{C6E0B4}}l|l|l|X|}
+\hline
+\textbf{Mã Use case} & UC003 & \textbf{Tên Use case} & Hỏi chatbot tư vấn \\ \hline
+\textbf{Tác nhân} & \multicolumn{3}{l|}{Sinh viên} \\ \hline
+\textbf{Tiền điều kiện} & \multicolumn{3}{p{13cm}|}{Sinh viên đã được cấp tài khoản và đăng nhập thành công vào hệ thống} \\ \hline
+ & \multicolumn{3}{l|}{} \\
+ & \cellcolor[HTML]{F8CBAD}\textbf{STT} & \cellcolor[HTML]{F8CBAD}\textbf{Thực hiện bởi} & \cellcolor[HTML]{F8CBAD}\textbf{Hành động} \\ \cline{2-4} 
+\textbf{Luồng sự kiện} & 1. & Hệ thống & hiển thị hộp thoại chatbot \\ \cline{2-4} 
+\textbf{chính} & 2. & Sinh viên & ấn vào biểu tượng hộp thoại để chatbot hiện lên \\ \cline{2-4} 
+\textbf{(Thành công)} & 3. & Sinh viên & đặt câu hỏi cho chatbot \\ \cline{2-4} 
+\multirow{-6}{*}{\textbf{}} & 4. & Hệ thống & trả lời câu hỏi cho sinh viên \\ \hline
+ & \multicolumn{3}{l|}{} \\
+\textbf{Luồng sự kiện} & \cellcolor[HTML]{F8CBAD}\textbf{STT} & \cellcolor[HTML]{F8CBAD}\textbf{Thực hiện bởi} & \cellcolor[HTML]{F8CBAD}\textbf{Hành động} \\ \cline{2-4} 
+\textbf{thay thế} & & & \\ \hline
+\textbf{Hậu điều kiện} & \multicolumn{3}{l|}{Không có thay đổi dữ liệu sau khi xem thông tin} \\ \hline
+\end{tabularx}
+\caption{Đặc tả usecase Hỏi chatbot tư vấn}
+\end{table}
+
+\subsubsection{Đặc tả usecase: Thêm tài khoản sinh viên}
+
+% Cấu hình màu sắc (Nếu đã khai báo ở đầu file thì không cần lặp lại)
+\definecolor{lightgreen}{HTML}{C6E0B4}
+\definecolor{lightorange}{HTML}{F8CBAD}
+
+% --- BẢNG UC004: THÊM TÀI KHOẢN SINH VIÊN ---
+\renewcommand{\arraystretch}{1.4}
+\begin{xltabular}{\textwidth}{|>{\columncolor{lightgreen}\bfseries}l|l|l|X|}
+\caption{Đặc tả usecase Thêm tài khoản sinh viên} \label{tab:uc004} \\
+\hline
+\rowcolor{lightgreen} Mã Use case & UC004 & Tên Use case & Thêm tài khoản sinh viên \\ \hline
+Tác nhân & \multicolumn{3}{l|}{Admin} \\ \hline
+Tiền điều kiện & \multicolumn{3}{l|}{Admin đăng nhập vào hệ thống} \\ \hline
+
+\endhead 
+
+% Luồng sự kiện chính
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện chính (Thành công)}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 1. & Hệ thống & hiển thị màn hình chính với nút Thêm tài khoản sinh viên \\ \cline{2-4}
+ & 2. & Admin & ấn nút Thêm tài khoản sinh viên \\ \cline{2-4}
+ & 3. & Hệ thống & hiển thị giao diện với các nút Upload file excel, Thêm thủ công và danh sách sinh viên đã tạo. \\ \cline{2-4}
+ & 4a. & Admin & chọn Upload file excel \\ \cline{2-4}
+ & 5a. & Hệ thống & hiển thị giao diện chọn file trong máy \\ \cline{2-4}
+ & 6a. & Admin & chọn file Danh sách sinh viên, sau đó ấn Tạo \\ \cline{2-4}
+ & 7a. & Hệ thống & cập nhật danh sách sinh viên và tự động cấp tài khoản cho các sinh viên trong danh sách \\ \cline{2-4}
+ & 4b. & Admin & chọn Thêm thủ công \\ \cline{2-4}
+ & 5b. & Hệ thống & hiển thị form điền thông tin sinh viên cần tạo \\ \cline{2-4}
+ & 6b. & Admin & điền thông tin rồi ấn Tạo \\ \cline{2-4}
+ & 7b. & Hệ thống & cập nhật danh sách sinh viên và tự động cấp tài khoản cho sinh viên mới tạo \\ \cline{2-4}
+ & 4c. & Admin & chọn tài khoản cần sửa \\ \cline{2-4}
+ & 5c. & Hệ thống & hiển thị thông tin tài khoản cần sửa \\ \cline{2-4}
+ & 6c. & Admin & điền thông tin mới rồi ấn Sửa \\ \cline{2-4}
+ & 7c. & Hệ thống & cập nhật danh sách sinh viên \\ \cline{2-4}
+ & 4d. & Admin & chọn tài khoản cần xóa \\ \cline{2-4}
+ & 5d. & Hệ thống & hiển thị hộp thoại xác nhận \\ \cline{2-4}
+ & 6d. & Admin & xác nhận xóa tài khoản \\ \cline{2-4}
+ & 7d. & Hệ thống & cập nhật danh sách sinh viên \\ \hline
+
+% Luồng sự kiện thay thế
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện thay thế}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 6a.1 & Admin & nếu file không đúng định dạng, thông báo “File không đúng định dạng” và yêu cầu chọn lại \\ \cline{2-4}
+ & 6a.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6b.1 & Admin & nếu điền không đủ hoặc sai định dạng thông tin sinh viên, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6b.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6c.1 & Admin & nếu điền không đủ hoặc sai định dạng thông tin sinh viên, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6c.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6d.1 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \hline
+
+\rowcolor{lightgreen} Hậu điều kiện & \multicolumn{3}{l|}{Thêm danh sách sinh viên trên database và cấp tài khoản cho sinh viên mới thêm.} \\ \hline
+\end{xltabular}
+
+\subsubsection{Đặc tả usecase: Cập nhật điểm}
+
+\definecolor{lightgreen}{HTML}{C6E0B4}
+\definecolor{lightorange}{HTML}{F8CBAD}
+
+\begin{xltabular}{\textwidth}{|>{\columncolor{lightgreen}\bfseries}l|l|l|X|}
+\caption{Đặc tả usecase Cập nhật điểm} \label{tab:uc005} \\
+\hline
+\rowcolor{lightgreen} Mã Use case & UC005 & Tên Use case & Cập nhật điểm \\ \hline
+Tác nhân & \multicolumn{3}{l|}{Sinh viên} \\ \hline
+Tiền điều kiện & \multicolumn{3}{l|}{Sinh viên đăng nhập vào hệ thống} \\ \hline
+
+\endhead 
+
+% Luồng sự kiện chính
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện chính (Thành công)}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 1. & Hệ thống & hiển thị màn hình chính với nút Xem điểm \\ \cline{2-4}
+ & 2. & Sinh viên & ấn nút Xem điểm \\ \cline{2-4}
+ & 3. & Hệ thống & hiển thị giao diện với các nút Upload file excel, Thêm môn học \\ \cline{2-4}
+ & 4a. & Sinh viên & chọn Upload file excel \\ \cline{2-4}
+ & 5a. & Hệ thống & hiển thị giao diện chọn file trong máy \\ \cline{2-4}
+ & 6a. & Sinh viên & chọn file điểm số, sau đó ấn Tạo \\ \cline{2-4}
+ & 7a. & Hệ thống & cập nhật danh sách các môn đã học \\ \cline{2-4}
+ & 4b. & Sinh viên & chọn Thêm môn học \\ \cline{2-4}
+ & 5b. & Hệ thống & hiển thị form điền thông tin môn học đã học cần tạo \\ \cline{2-4}
+ & 6b. & Sinh viên & điền thông tin rồi ấn Tạo \\ \cline{2-4}
+ & 7b. & Hệ thống & cập nhật danh sách môn học \\ \cline{2-4}
+ & 4c. & Sinh viên & chọn môn học cần xóa \\ \cline{2-4}
+ & 5c. & Hệ thống & hiển thị thông báo xác nhận \\ \cline{2-4}
+ & 6c. & Sinh viên & xác nhận xóa môn học \\ \cline{2-4}
+ & 7c. & Hệ thống & cập nhật danh sách môn học đã học \\ \hline
+
+% Luồng sự kiện thay thế
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện thay thế}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 6a.1 & Sinh viên & nếu file không đúng định dạng, thông báo “File không đúng định dạng” và yêu cầu chọn lại \\ \cline{2-4}
+ & 6a.2 & Sinh viên & nếu sinh viên chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6b.1 & Sinh viên & nếu điền không đủ hoặc sai định dạng, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6b.2 & Sinh viên & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6c.1 & Sinh viên & nếu điền không đủ hoặc sai định dạng, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6c.2 & Sinh viên & nếu sinh viên chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6d.1 & Sinh viên & nếu sinh viên chọn Cancel, quay về 3 \\ \hline
+
+\rowcolor{lightgreen} Hậu điều kiện & \multicolumn{3}{X|}{Cập nhật danh sách các môn đã học của sinh viên vào database và hiển thị lên giao diện.} \\ \hline
+\end{xltabular}
+
+\subsubsection{Đặc tả usecase: Cập nhật danh sách lớp mở}
+
+\definecolor{lightgreen}{HTML}{C6E0B4}
+\definecolor{lightorange}{HTML}{F8CBAD}
+
+\begin{xltabular}{\textwidth}{|>{\columncolor{lightgreen}\bfseries}l|l|l|X|}
+\caption{Đặc tả usecase Cập nhật danh sách lớp mở} \label{tab:uc006} \\
+\hline
+\rowcolor{lightgreen} Mã Use case & UC006 & Tên Use case & Cập nhật danh sách lớp mở \\ \hline
+Tác nhân & \multicolumn{3}{l|}{Admin} \\ \hline
+Tiền điều kiện & \multicolumn{3}{l|}{Admin đăng nhập vào hệ thống} \\ \hline
+
+\endhead 
+
+% Luồng sự kiện chính
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện chính (Thành công)}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 1. & Hệ thống & hiển thị màn hình chính với nút Cập nhật danh sách lớp mở \\ \cline{2-4}
+ & 2. & Admin & ấn nút Cập nhật danh sách lớp mở \\ \cline{2-4}
+ & 3. & Hệ thống & hiển thị giao diện với các nút Upload file excel, Thêm thủ công và danh sách lớp đã tạo. \\ \cline{2-4}
+ & 4a. & Admin & chọn Upload file excel \\ \cline{2-4}
+ & 5a. & Hệ thống & hiển thị giao diện chọn file trong máy \\ \cline{2-4}
+ & 6a. & Admin & chọn file Danh sách lớp mở, sau đó ấn Tạo \\ \cline{2-4}
+ & 7a. & Hệ thống & cập nhật danh sách lớp \\ \cline{2-4}
+ & 4b. & Admin & chọn Thêm thủ công \\ \cline{2-4}
+ & 5b. & Hệ thống & hiển thị form điền thông tin lớp \\ \cline{2-4}
+ & 6b. & Admin & điền thông tin rồi ấn Tạo \\ \cline{2-4}
+ & 7b. & Hệ thống & cập nhật danh sách lớp \\ \cline{2-4}
+ & 4c. & Admin & chọn lớp cần sửa \\ \cline{2-4}
+ & 5c. & Hệ thống & hiển thị thông tin lớp cần sửa \\ \cline{2-4}
+ & 6c. & Admin & điền thông tin mới rồi ấn Sửa \\ \cline{2-4}
+ & 7c. & Hệ thống & cập nhật danh sách lớp \\ \cline{2-4}
+ & 4d. & Admin & chọn lớp cần xóa \\ \cline{2-4}
+ & 5d. & Hệ thống & hiển thị hộp thoại xác nhận \\ \cline{2-4}
+ & 6d. & Admin & xác nhận xóa lớp \\ \cline{2-4}
+ & 7d. & Hệ thống & cập nhật danh sách lớp \\ \hline
+
+% Luồng sự kiện thay thế
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện thay thế}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 6a.1 & Admin & nếu file không đúng định dạng, thông báo “File không đúng định dạng” và yêu cầu chọn lại \\ \cline{2-4}
+ & 6a.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6b.1 & Admin & nếu điền không đủ hoặc sai định dạng thông tin lớp, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6b.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6c.1 & Admin & nếu điền không đủ hoặc sai định dạng thông tin lớp, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6c.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6d.1 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \hline
+
+\rowcolor{lightgreen} Hậu điều kiện & \multicolumn{3}{X|}{Thêm danh sách lớp trên database.} \\ \hline
+\end{xltabular}
+
+
+\subsubsection{Đặc tả usecase: Cập nhật danh sách học phần}
+
+\definecolor{lightgreen}{HTML}{C6E0B4}
+\definecolor{lightorange}{HTML}{F8CBAD}
+
+\begin{xltabular}{\textwidth}{|>{\columncolor{lightgreen}\bfseries}l|l|l|X|}
+\caption{Đặc tả usecase Cập nhật danh sách học phần mở} \label{tab:uc006} \\
+\hline
+\rowcolor{lightgreen} Mã Use case & UC006 & Tên Use case & Cập nhật danh sách học phần \\ \hline
+Tác nhân & \multicolumn{3}{l|}{Admin} \\ \hline
+Tiền điều kiện & \multicolumn{3}{l|}{Admin đăng nhập vào hệ thống} \\ \hline
+
+\endhead 
+
+% Luồng sự kiện chính
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện chính (Thành công)}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 1. & Hệ thống & hiển thị màn hình chính với nút Cập nhật danh sách học phần \\ \cline{2-4}
+ & 2. & Admin & ấn nút Cập nhật danh sách học phần \\ \cline{2-4}
+ & 3. & Hệ thống & hiển thị giao diện với các nút Upload file excel, Thêm thủ công và danh sách học phần đã tạo. \\ \cline{2-4}
+ & 4a. & Admin & chọn Upload file excel \\ \cline{2-4}
+ & 5a. & Hệ thống & hiển thị giao diện chọn file trong máy \\ \cline{2-4}
+ & 6a. & Admin & chọn file Danh sách học phần, sau đó ấn Tạo \\ \cline{2-4}
+ & 7a. & Hệ thống & cập nhật danh sách học phần \\ \cline{2-4}
+ & 4b. & Admin & chọn Thêm thủ công \\ \cline{2-4}
+ & 5b. & Hệ thống & hiển thị form điền thông tin học phần \\ \cline{2-4}
+ & 6b. & Admin & điền thông tin rồi ấn Tạo \\ \cline{2-4}
+ & 7b. & Hệ thống & cập nhật danh sách học phần \\ \cline{2-4}
+ & 4c. & Admin & chọn học phần cần sửa \\ \cline{2-4}
+ & 5c. & Hệ thống & hiển thị thông tin học phần cần sửa \\ \cline{2-4}
+ & 6c. & Admin & điền thông tin mới rồi ấn Sửa \\ \cline{2-4}
+ & 7c. & Hệ thống & cập nhật danh sách học phần \\ \cline{2-4}
+ & 4d. & Admin & chọn học phần cần xóa \\ \cline{2-4}
+ & 5d. & Hệ thống & hiển thị hộp thoại xác nhận \\ \cline{2-4}
+ & 6d. & Admin & xác nhận xóa học phần \\ \cline{2-4}
+ & 7d. & Hệ thống & cập nhật danh sách học phần \\ \hline
+
+% Luồng sự kiện thay thế
+\rowcolor{lightgreen} \multicolumn{4}{|l|}{\textbf{Luồng sự kiện thay thế}} \\ \hline
+\rowcolor{lightorange} & \textbf{STT} & \textbf{Thực hiện bởi} & \textbf{Hành động} \\ \hline
+ & 6a.1 & Admin & nếu file không đúng định dạng, thông báo “File không đúng định dạng” và yêu cầu chọn lại \\ \cline{2-4}
+ & 6a.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6b.1 & Admin & nếu điền không đủ hoặc sai định dạng thông tin lớp, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6b.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6c.1 & Admin & nếu điền không đủ hoặc sai định dạng thông tin lớp, thông báo lỗi và yêu cầu điền đủ \\ \cline{2-4}
+ & 6c.2 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \cline{2-4}
+ & 6d.1 & Admin & nếu Admin chọn Cancel, quay về 3 \\ \hline
+
+\rowcolor{lightgreen} Hậu điều kiện & \multicolumn{3}{X|}{Thêm danh sách học phần trên database.} \\ \hline
+\end{xltabular}
+
+
+
+\section{Yêu cầu phi chức năng}
+% \section{Yêu cầu phi chức năng}
+
+\subsection{Hiệu năng}
+\begin{itemize}
+    \item \textbf{Thời gian phản hồi:} Giao diện người dùng cần phản hồi trong vòng 2 giây với mỗi thao tác, các thao tác cần xử lý file (danh sách sinh viên, danh sách học phần, danh sách lớp học) cần phản hồi nhanh chóng tùy vào kích thước file.
+    \item \textbf{Xử lý đồng thời:} Hệ thống có thể hỗ trợ tối thiểu 10000 yêu cầu đồng thời mà không ảnh hưởng đến hiệu suất.
+\end{itemize}
+
+\subsection{Tính sẵn sàng và phục hồi}
+\begin{itemize}
+    \item \textbf{Tính sẵn sàng:} Hệ thống hoạt động 24/7, thời gian ngừng hoạt động không quá 1 giờ mỗi tháng.
+    \item \textbf{Khả năng phục hồi:} Có thể sao lưu dữ liệu hàng ngày và khôi phục khi có sự cố. Dữ liệu được lưu trữ tối thiểu 5 năm.
+\end{itemize}
+
+\subsection{Bảo mật}
+\begin{itemize}
+    \item \textbf{Xác thực và phân quyền:} Hệ thống yêu cầu đăng nhập bằng tài khoản riêng, phân quyền theo vai trò.
+    \item \textbf{Mã hóa dữ liệu:} Thông tin nhạy cảm được mã hóa khi lưu trữ và truyền tải.
+    \item \textbf{Ghi nhật ký hệ thống:} Ghi lại các hành động quan trọng như đăng nhập, cập nhật, truy xuất dữ liệu.
+\end{itemize}
+
+\subsection{Khả năng mở rộng}
+\begin{itemize}
+    \item \textbf{Kiến trúc linh hoạt:} Cho phép mở rộng dễ dàng theo số lượng người dùng và các module chức năng mới.
+\end{itemize}
+
+\subsection{Tính khả dụng}
+\begin{itemize}
+    \item \textbf{Giao diện thân thiện:} Giao diện dễ sử dụng cho cả sinh viên và admin.
+    \item \textbf{Hỗ trợ nền tảng web:} Hệ thống hoạt động tốt trên trình duyệt web.
+\end{itemize}
+
+\subsection{Độ tin cậy}
+\begin{itemize}
+    \item \textbf{Toàn vẹn dữ liệu:} Hệ thống đảm bảo dữ liệu được xử lý chính xác, không trùng lặp, không mất mát.
+    \item \textbf{Kiểm thử toàn diện:} Trước khi triển khai, hệ thống phải được kiểm thử nghiêm ngặt để đảm bảo độ tin cậy.
+\end{itemize}
+
+\subsection{Tương thích}
+\begin{itemize}
+    \item \textbf{Trình duyệt phổ biến:} Hệ thống hoạt động tốt trên Chrome, Firefox, Safari và Edge.
+    \item \textbf{Thiết bị di động:} Hỗ trợ giao diện responsive trên Android và iOS.
+\end{itemize}
+
+\subsection{Khả năng bảo trì}
+\begin{itemize}
+    \item \textbf{Kiến trúc rõ ràng:} Mã nguồn được tổ chức dễ hiểu, dễ nâng cấp và bảo trì.
+    \item \textbf{Cập nhật linh hoạt:} Hệ thống có thể cập nhật chức năng hoặc sửa lỗi mà không làm gián đoạn dịch vụ.
+\end{itemize}
+
+% --- CHƯƠNG 3 ---
+\chapter{Công nghệ sử dụng}
+
+\section{Kiến trúc hệ thống}
+Dự án được xây dựng dựa trên mô hình \textbf{Kiến trúc 3 tầng (Three-tier Architecture)}, đảm bảo tính tách biệt giữa giao diện người dùng, logic xử lý và lưu trữ dữ liệu.
+\begin{itemize}
+    \item \textbf{Tầng Giao diện (Frontend):} Sử dụng React kết hợp TypeScript, đảm bảo giao diện trực quan, phản hồi nhanh và an toàn về kiểu dữ liệu. Giao tiếp với Backend thông qua các RESTful API.
+    \item \textbf{Tầng Xử lý (Backend):} Sử dụng framework FastAPI (Python). Đây là trung tâm điều phối, nơi chứa các dịch vụ lõi như Chatbot Engine (TF-IDF + Word2Vec), NL2SQL Service và Rule Engine để xử lý logic nghiệp vụ đào tạo.
+    \item \textbf{Tầng Dữ liệu (Database):} Sử dụng hệ quản trị cơ sở dữ liệu MySQL 8.0 với cấu trúc gồm 14 bảng quan hệ chặt chẽ.
+\end{itemize}
+
+\section{Công nghệ backend}
+\subsection{Web Framework: FastAPI}
+FastAPI được lựa chọn nhờ hiệu năng vượt trội dựa trên tiêu chuẩn ASGI.
+\begin{itemize}
+    \item \textbf{Đặc điểm:} Hỗ trợ lập trình bất đồng bộ (async/await), giúp hệ thống xử lý nhiều yêu cầu đồng thời mà không nghẽn mạch.
+    \item \textbf{Ưu điểm:} Tự động tạo tài liệu API tương tác (Swagger UI), giúp việc kiểm thử và tích hợp giữa Frontend và Backend trở nên dễ dàng.
+\end{itemize}
+
+\subsection{Tương tác Cơ sở dữ liệu (ORM): SQLAlchemy}
+Thay vì viết các câu lệnh SQL thuần túy, dự án sử dụng SQLAlchemy để quản lý dữ liệu dưới dạng đối tượng (Object-Relational Mapping).
+\begin{itemize}
+    \item \textbf{Quản lý quan hệ:} Xử lý phức hợp các mối quan hệ 1-N (Sinh viên - Môn đã học) và N-N thông qua các bảng trung gian.
+    \item \textbf{Driver kết nối:} Sử dụng PyMySQL 1.0.2 làm cầu nối giữa ngôn ngữ Python và hệ quản trị MySQL.
+\end{itemize}
+
+\subsection{Xác thực và Bảo mật}
+Hệ thống chú trọng bảo mật thông tin sinh viên thông qua các công nghệ:
+\begin{itemize}
+    \item \textbf{JWT (JSON Web Tokens):} Sử dụng thư viện python-jose và PyJWT để cấp phát token sau khi đăng nhập, duy trì trạng thái phiên làm việc an toàn.
+    \item \textbf{Mã hóa mật khẩu:} Kết hợp passlib và bcrypt để băm (hash) mật khẩu trước khi lưu trữ, chống lại các cuộc tấn công đánh cắp dữ liệu.
+    \item \textbf{OTP Verification:} Hệ thống tích hợp dịch vụ gửi mã OTP qua Email để xác thực tài khoản và khôi phục mật khẩu.
+\end{itemize}
+
+\section{Công nghệ chatbot}
+\subsection{Bộ phân loại ý định (Intent Classification)}
+Hệ thống sử dụng cơ chế lai để nhận diện yêu cầu của người dùng:
+\begin{itemize}
+    \item \textbf{TF-IDF (Scikit-learn):} Đánh giá mức độ quan trọng của từ ngữ trong từ ngữ câu hỏi. Ma trận kết quả (1071 patterns x 855 features) giúp xác định từ khóa đặc trưng cho từng Intent.
+    \item \textbf{Word2Vec (Gensim):} Chuyển đổi từ ngữ thành vector 150 chiều. Word2Vec giúp chatbot hiểu được ngữ nghĩa của các từ đồng nghĩa hoặc các câu hỏi ngắn dựa trên ngữ cảnh (context window là 7 từ).
+    \item \textbf{Độ tương đồng Cosine (NumPy):} Sử dụng các phép toán ma trận của NumPy để tính góc giữa vector câu hỏi và vector mẫu. Giá trị gần 1 cho thấy sự tương đồng cao.
+\end{itemize}
+
+\subsection{Dịch vụ NL2SQL (Natural Language to SQL)}
+Chuyển đổi câu hỏi ngôn ngữ tự nhiên thành truy vấn cơ sở dữ liệu:
+\begin{itemize}
+    \item \textbf{Cơ chế:} Kết hợp Regex (Regular Expressions) để trích xuất thực thể (Mã sinh viên, Mã môn học) và Template Matching với 45 mẫu SQL có sẵn.
+    \item \textbf{Quy trình:} Nhận diện Intent $\rightarrow$ Trích xuất tham số $\rightarrow$ Điền tham số vào Template SQL $\rightarrow$ Thực thi và trả về kết quả.
+\end{itemize}
+
+\subsection{Rule Engine (Bộ quy tắc nghiệp vụ)}
+Được thiết kế để đưa ra các tư vấn chính xác về học tập:
+\begin{itemize}
+    \item \textbf{Subject Suggestion:} Logic để gợi ý môn học dựa trên: số tín chỉ tối thiểu/tối đa, môn trượt, môn cải thiện và lộ trình của từng ngành học.
+    \item \textbf{Class Suggestion:} Tự động phát hiện xung đột lịch học (time conflict) và sắp xếp các tổ hợp lớp phù hợp với sở thích người dùng (thứ tự ưu tiên sáng/chiều, ngày nghỉ).
+\end{itemize}
+
+\subsection{Công cụ sinh tổ hợp itertools.product}
+\begin{itemize}
+    \item \textbf{itertools.product()} là một hàm cực kỳ hữu ích trong Python thuộc module itertools, dùng để tạo ra \textbf{tích Đề-các (Cartesian product)} của các iterables đầu vào. Nó tương đương với việc lồng các vòng lặp for.
+    \item Khi dùng với product, itertools hoạt động tốt hơn với dữ liệu lớn, dễ mở rộng, thêm iterable mới, tạo kết quả ngắn gọn, dễ đọc.
+    \item Được sử dụng để tạo các combination - một thời khóa biểu được gợi ý cho sinh viên với các lớp thuộc các học phần đã gợi ý, tạo thành thời khóa biểu chuẩn cho sinh viên.
+    \item Công cụ itertools.product không tính toán/tạo tất cả giá trị ngay lập tức, chỉ tính toán giá trị khi thực sự cần, lưu trữ trạng thái để tiếp tục từ nơi dừng, giúp tiết kiệm bộ nhớ và thời gian tính toán.
+\end{itemize}
+
+\section{Công nghệ frontend}
+\subsection{Framework và Ngôn ngữ}
+\begin{itemize}
+    \item \textbf{React 19.1.0:} Sử dụng kiến trúc Component và Hooks giúp mã nguồn dễ bảo trì và tái sử dụng.
+    \item \textbf{TypeScript 5.8.3:} Bổ sung kiểm soát kiểu dữ liệu nghiêm ngặt, giảm thiểu lỗi runtime trong quá trình phát triển.
+\end{itemize}
+
+\subsection{Giao diện và Trực quan hóa dữ liệu}
+\begin{itemize}
+    \item \textbf{Ant Design 5.27.3:} Thư viện UI components chuyên nghiệp cho các hệ thống quản lý (Bảng biểu, Form, Layout).
+    \item \textbf{Tailwind CSS:} Tối ưu hóa giao diện phản hồi (Responsive) trên nhiều thiết bị.
+    \item \textbf{Chart.js:} Trực quan hóa kết quả học tập của sinh viên thông qua biểu đồ đường (diễn biến CPA) và biểu đồ tròn (phân bổ tín chỉ).
+\end{itemize}
+
+\section{Cơ sở dữ liệu}
+Hệ thống sử dụng \textbf{MySQL 8.0} với cấu trúc 14 bảng chính. Các bảng quan trọng bao gồm:
+\begin{itemize}
+    \item \textbf{students:} Lưu trữ thông tin định danh và chương trình học.
+    \item \textbf{subjects \& classes:} Thông tin về học phần và các lớp học mở trong kỳ.
+    \item \textbf{learned\_subjects:} Lưu trữ lịch sử điểm số để tính toán CPA/GPA.
+    \item \textbf{courses:} Quản lý khung chương trình đào tạo của từng ngành/khóa.
+\end{itemize}
+
+\section{Công cụ phát triển và kiểm thử}
+\begin{itemize}
+    \item \textbf{Vite:} Build tool thế hệ mới cho Frontend, giúp tăng tốc độ nạp trang trong quá trình phát triển.
+    \item \textbf{Pytest:} Framework kiểm thử mạnh mẽ cho Python, được sử dụng để viết Unit Test cho các logic tính toán điểm số và gợi ý môn học.
+    \item \textbf{Uvicorn:} ASGI server hiệu năng cao phục vụ cho việc triển khai ứng dụng Backend.
+\end{itemize}
+
+% --- CHƯƠNG 4 ---
+\chapter{Thiết kế và triển khai hệ thống chatbot}
+
+\section{Phát triển cơ sở dữ liệu}
+Xây dựng nền tảng lưu trữ dữ liệu bền vững và nhất quán.
+\begin{itemize}
+    \item \textbf{Thiết kế cấu trúc (Database Design):} Thiết kế hệ thống gồm \textbf{14 bảng} chính (students, subjects, classes, learned\_subjects, course\_subjects, v.v.)[cite: 188, 235].
+    \begin{itemize}
+        \item Xác định các mối quan hệ thực thể: \textbf{1-N} (Một lớp thuộc về một môn) và \textbf{N-N} (Sinh viên và các môn học trong chương trình đào tạo)[cite: 249].
+        \item Thiết lập hệ thống khóa ngoại (Foreign Keys) và các ràng buộc dữ liệu (Constraints) để đảm bảo tính toàn vẹn[cite: 250].
+    \end{itemize}
+    \item \textbf{Khởi tạo dữ liệu mẫu (Data Population):}
+    \begin{itemize}
+        \item Xây dựng 10 tệp JSON (sample\_*.json) chứa dữ liệu mẫu về sinh viên, môn học, điểm số.
+        \item Phát triển script \texttt{populate\_data.py} để tự động đổ dữ liệu vào MySQL, giúp rút ngắn thời gian thiết lập môi trường thử nghiệm[cite: 253].
+    \end{itemize}
+\end{itemize}
+
+\section{Phát triển backend}
+Sử dụng FastAPI làm khung xương để xây dựng các API xử lý logic[cite: 255].
+\begin{itemize}
+    \item \textbf{Thiết lập cấu trúc Project:} Chia tách rõ ràng giữa Models (SQLAlchemy), Schemas (Pydantic), và Routes (Endpoints)[cite: 256].
+    \item \textbf{Xây dựng API Routes:}
+    \begin{itemize}
+        \item Chatbot Routes: Tiếp nhận câu hỏi và điều phối các bộ phận loại[cite: 258].
+        \item CRUD Routes: Triển khai đầy đủ các thao tác Thêm, Đọc, Sửa, Xóa cho 14 tài nguyên hệ thống thông qua \texttt{*\_routes.py}[cite: 259].
+    \end{itemize}
+    \item \textbf{Dịch vụ hỗ trợ (Utilities \& Helpers):}
+    \begin{itemize}
+        \item Grade Calculator: Triển khai logic tính GPA/CPA và xác định mức cảnh báo học tập[cite: 261].
+        \item Email Service: Tích hợp gửi mã OTP xác thực và thông báo qua Email[cite: 262].
+    \end{itemize}
+    \item \textbf{Bảo mật:} Cấu hình môi trường qua tệp \texttt{.env} (Database URL, JWT Secret) và thiết lập kịch bản chạy server bằng Uvicorn[cite: 263].
+\end{itemize}
+
+\section{Phát triển frontend}
+Xây dựng giao diện tương tác hiện đại bằng React và TypeScript[cite: 265].
+\begin{itemize}
+    \item \textbf{Khởi tạo môi trường:} Sử dụng Vite để tối ưu hóa tốc độ phát triển, tích hợp Ant Design và Tailwind CSS[cite: 266].
+    \item \textbf{Phát triển các trang chức năng:}
+    \begin{itemize}
+        \item \textbf{Admin Pages:} Quản lý Sinh viên, Môn học, Lớp học với các tính năng Bảng biểu (Pagination), Modal form, và xuất/nhập Excel (xlsx, docx)[cite: 268].
+        \item \textbf{Student Pages:} Hiển thị hồ sơ cá nhân, lịch học và trực quan hóa điểm số bằng biểu đồ (Chart.js)[cite: 269].
+    \end{itemize}
+    \item \textbf{Thành phần Chatbot UI:} Xây dựng \texttt{ChatBot.tsx} hỗ trợ giao diện chat thời gian thực, quản lý lịch sử trò chuyện và các hiệu ứng phản hồi[cite: 270].
+\end{itemize}
+
+\section{Phát triển chatbot}
+\subsection{Mục tiêu}
+Xây dựng giao diện tương tác hiện đại bằng React và TypeScript[cite: 273].
+\begin{itemize}
+    \item \textbf{Khởi tạo môi trường:} Sử dụng Vite để tối ưu hóa tốc độ phát triển, tích hợp Ant Design và Tailwind CSS[cite: 274].
+    \item \textbf{Phát triển các trang chức năng:}
+    \begin{itemize}
+        \item \textbf{Admin Pages:} Quản lý Sinh viên, Môn học, Lớp học với các tính năng Bảng biểu (Pagination), Modal form, và xuất/nhập Excel (xlsx, docx)[cite: 276].
+        \item \textbf{Student Pages:} Hiển thị hồ sơ cá nhân, lịch học và trực quan hóa điểm số bằng biểu đồ (Chart.js)[cite: 277].
+    \end{itemize}
+    \item \textbf{Thành phần Chatbot UI:} Xây dựng \texttt{ChatBot.tsx} hỗ trợ giao diện chat thời gian thực, quản lý lịch sử trò chuyện và các hiệu ứng phản hồi[cite: 278].
+\end{itemize}
+
+\noindent Có thể trả lời các câu hỏi như:
+\begin{itemize}
+    \item "Em muốn ưu tiên các lớp học buổi sáng, em nên đăng ký lớp nào của môn Giải tích 1?" [cite: 280]
+    \item "Em nên đăng ký những học phần nào cho kỳ này?" [cite: 281]
+    \item "Em nên đăng ký những lớp nào của học kỳ này?" [cite: 282]
+\end{itemize}
+
+Chatbot hoạt động \textbf{dựa trên rule-based}, giúp tăng chính xác trong trích xuất ý định, truy vấn thông tin và đạt tốc độ truy vấn cao[cite: 283].
+\subsection{Kiến trúc tổng thể}
+Chatbot hoạt động dựa trên sự phối hợp của nhiều thành phần công nghệ để đảm bảo tính chính xác và hiệu suất cao.
+
+\begin{table}[H]
+\renewcommand{\arraystretch}{1.5}
+\centering
+\begin{tabularx}{\textwidth}{|>{\bfseries}l|>{\raggedright\arraybackslash}p{4cm}|X|}
+\hline
+\rowcolor[HTML]{EFEFEF} 
+Thành phần & Công nghệ sử dụng & Nhiệm vụ \\ \hline
+Rule-based Engine & JSON rule & Xác định điều kiện học phần, môn tiên quyết, cảnh báo học vụ. \\ \hline
+NL2SQL & Schema DB & Tự động sinh câu lệnh SQL từ ngôn ngữ tự nhiên. \\ \hline
+Database & CSDL đã có (students, subjects, learned\_subjects,...) & Chứa dữ liệu học tập của từng sinh viên và danh sách học phần + lớp học mở từng kỳ. \\ \hline
+Intent classification & TF-IDF, Word2Vec, các hàm lấy keyword và tính điểm từng phần. & Chia câu hỏi thành các token, tính độ matching với intent để phân loại ý định. \\ \hline
+\end{tabularx}
+\caption{Kiến trúc tổng thể hệ thống Chatbot}
+\end{table}
+
+\subsection{Nguyên lý hoạt động}
+
+\begin{enumerate}[leftmargin=*, label=\arabic*.]
+    \item \textbf{Người dùng nhập các câu hỏi cần hỏi cho chatbot} \\
+    Ví dụ: ``Em nên đăng ký lớp học nào cho kỳ tới?''
+    
+    \item \textbf{Phân loại intent}
+    \begin{itemize}
+        \item \textbf{Phân tích intent:} Tạo 1 tập với 14 intents như trong bảng:
+    \end{itemize}
+
+    \begin{table}[H]
+    \centering
+    \begin{tabularx}{0.8\textwidth}{|l|X|}
+    \hline
+    \rowcolor[HTML]{EFEFEF} 
+    \textbf{Intent} & \textbf{Mô tả} \\ \hline
+    grade\_view & Xem điểm CPA/GPA \\ \hline
+    learned\_subjects\_view & Xem danh sách môn đã học \\ \hline
+    schedule\_view & Xem lịch học/TKB \\ \hline
+    student\_info & Thông tin sinh viên \\ \hline
+    class\_info & Thông tin lớp học \\ \hline
+    subject\_info & Thông tin học phần \\ \hline
+    class\_registration\_suggestion & Gợi ý lớp học \\ \hline
+    subject\_registration\_suggestion & Gợi ý môn học \\ \hline
+    registration\_guide & Hướng dẫn đăng ký \\ \hline
+    greeting & Lời chào \\ \hline
+    thanks & Cảm ơn \\ \hline
+    goodbye & Tạm biệt \\ \hline
+    out\_of\_scope & Ngoài phạm vi \\ \hline
+    class\_list & Danh sách lớp học \\ \hline
+    \end{tabularx}
+    \caption{Danh sách các Intent của Chatbot}
+    \end{table}
+
+    \begin{itemize}
+        \item \textbf{Tiền xử lý:} Chuẩn hóa câu hỏi về dạng lowercase, xóa các khoảng trắng dư và tokenize câu hỏi thành các token.
+        \item \textbf{Phân loại:} Dựa theo số điểm cộng từ các cách đánh giá khác nhau:
+        \begin{itemize}
+            \item \textbf{Điểm TF-IDF (40\%):} Vector hóa câu truy vấn rồi tính cosine similarity với mẫu huấn luyện.
+            \item \textbf{Semantic Word2Vec (30\%):} Lấy vector cho từng từ, tạo vector trung bình rồi so với embedding của từng intent.
+            \item \textbf{Keyword (30\%):} Lấy keywords trong câu hỏi, đếm số keywords khớp trong từng intent rồi chuẩn hóa.
+            \item \textbf{Cộng thêm điểm:} Nếu câu hỏi giống mẫu hoàn toàn/một phần/là chuỗi con thì cộng thêm điểm lần lượt là 0,2/ 0,15/ 0,1.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Sinh câu lệnh NL2SQL (truy vấn database)}
+    \begin{itemize}
+        \item \textbf{Entities extraction:} Dùng regex trích xuất \texttt{subject\_id}, \texttt{class\_id}, \texttt{days}, \texttt{time} từ câu hỏi.
+        \item \textbf{Template matching:} Tìm SQL template phù hợp nhất từ 45 examples theo word overlap.
+        \item \textbf{Parameter replacement:} Thay thế \texttt{\{student\_id\}}, \texttt{\{subject\_id\}} bằng giá trị thực.
+        \item \textbf{SQL customization:} Thêm/sửa WHERE clause dựa trên entities.
+    \end{itemize}
+
+    \item \textbf{Dành riêng cho intent gợi ý học phần}
+    \begin{itemize}
+        \item Xây dựng tập luật: Dựa trên quy định của Đại học về giới hạn tín chỉ đăng ký nên sẽ gợi ý đăng ký theo thứ tự ưu tiên: Học lại các môn điểm F $\rightarrow$ Học các môn đúng kỳ học $\rightarrow$ Học các môn triết/chính trị $\rightarrow$ Học các môn thể chất $\rightarrow$ Học các môn bổ trợ $\rightarrow$ Học nhanh (thêm các môn học của kỳ sau nếu điểm CPA cao) $\rightarrow$ Học cải thiện điểm nếu tổng tín chỉ đã đăng ký $<20$.
+        \item Khi gợi ý đăng ký học phần, hệ thống sẽ kiểm tra các học phần có sẵn, sau đó áp dụng bộ lọc cho từng luật bên trên để lựa chọn các học phần cho đến khi hết giới hạn tín chỉ đăng ký.
+        \item \textbf{Tập luật:}
+        \begin{itemize}
+            \item \textbf{Với học kỳ chính:}
+            \begin{itemize}
+                \item Sinh viên mức bình thường: từ 12 đến 24 tín.
+                \item Cảnh báo mức 1: từ 10 đến 18 tín.
+                \item Cảnh báo mức 2 trở lên hoặc chưa đạt ngoại ngữ: 8 đến 14 tín.
+            \end{itemize}
+            \item Năm cuối: không giới hạn tối thiểu.
+            \item Với học kỳ hè: tối đa 9 TC, không giới hạn tối thiểu.
+        \end{itemize}
+        \item \textbf{Luật ưu tiên gợi ý môn học:}
+        \begin{itemize}
+            \item Ưu tiên 1: Học lại môn điểm F (bắt buộc).
+            \item Ưu tiên 2: Môn đúng lộ trình kỳ học (theo learning\_semester trong bảng subject).
+            \item Ưu tiên 3: Môn chính trị (6 môn SSH/EM bắt buộc).
+            \item Ưu tiên 4: Môn thể chất (chọn đủ 4/42 môn PE).
+            \item Ưu tiên 5: Môn bổ trợ (chọn đủ 3/9 môn bổ trợ).
+            \item Ưu tiên 6: Học nhanh (CPA $>3.4$, đăng ký thêm nếu còn tín chỉ).
+            \item Ưu tiên 7: Cải thiện điểm (Điểm D/D+/C/C+, nếu tổng tín chỉ $<=20$).
+        \end{itemize}
+        \item \textbf{Quy trình xử lý:}
+        \begin{itemize}
+            \item Tính số kỳ, CPA, tình trạng cảnh báo, các môn đã học, giới hạn tín chỉ.
+            \item Lọc và gợi ý các môn theo thứ tự ưu tiên.
+            \item Đảm bảo tổng tín chỉ nằm trong giới hạn.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Dành riêng cho intent gợi ý lớp học}
+    \begin{itemize}
+        \item Xây dựng bộ preference để từ đó tạo bộ luật qua input của user.
+        \item Lưu trữ trạng thái hội thoại qua in-memory storage.
+        \item \textbf{Lưu thông tin đã có về:}
+        \begin{itemize}
+            \item Id sinh viên (student\_id)
+            \item Id phiên chat (session\_id)
+            \item intent (ý định)
+            \item stage (giai đoạn hiện tại)
+            \item preference: CompletePreference (kiểm tra đã lấy đủ preference của user chưa)
+            \item questions\_asked: list (các câu hỏi đã hỏi)
+            \item question\_remaining: list (các câu hỏi cần hỏi)
+            \item current\_question: PreferenceQuestion (câu đang hỏi)
+            \item pending\_question: Dict (chi tiết câu hỏi đang chờ)
+            \item time\_stamp: datetime (thời gian cập nhật)
+        \end{itemize}
+        \item Nếu còn thông tin chưa đủ, sẽ hỏi các câu hỏi về ngày học, giờ học (sớm, muộn), học liên tục hay ngắt quãng, các lớp học đặc biệt muốn học,...
+        \item Parse câu trả lời và cập nhật preferences.
+        \item Khi đã đủ thì từ tập luật xây từ preferences, tạo các combination – các tổ hợp lớp học từ các học phần đã đăng ký.
+        \item \textbf{Luật đăng ký lớp:}
+        \begin{itemize}
+            \item \textbf{Luật tuyệt đối (luôn luôn tuân thủ):}
+            \begin{itemize}
+                \item Luật 1: Hai lớp bất kỳ trong 1 combination không được trùng lịch học (cùng tuần, cùng ngày, thời gian chồng lấn).
+                \item Luật 2: Mỗi môn chỉ đăng ký nhiều nhất 1 lớp.
+            \end{itemize}
+            \item \textbf{Luật ưu tiên (cố gắng tuân thủ hết mức có thể, xây dựng từ câu trả lời của sinh viên khi trả lời các câu hỏi có sẵn):}
+            \begin{itemize}
+                \item Chọn thứ trong tuần muốn học.
+                \item Tránh học quá sớm hoặc quá muộn.
+                \item Tối ưu lịch: học liên tục, nhiều ngày nghỉ hoặc ngược lại.
+                \item Ưu tiên 1 mã lớp, giáo viên, giờ học cụ thể.
+            \end{itemize}
+        \end{itemize}
+        \item \textbf{Cách tạo combination – tổ hợp thời khóa biểu gồm các lớp theo từng môn:}
+        \begin{itemize}
+            \item Gom tất cả các lớp khả dụng theo từng môn.
+            \item Dùng \texttt{itertools.product} để sinh ra mọi tổ hợp chọn 1 lớp cho mỗi môn.
+            \item Với mỗi tổ hợp, kiểm tra xung đột lịch giữa các lớp, chỉ giữ lại các combination không có xung đột.
+            \item Tính điểm các combination dựa trên tiêu chí đã chọn ở luật ưu tiên bên trên, sắp xếp các combination theo điểm số giảm dần, trả về top 3 tổ hợp tốt nhất.
+        \end{itemize}
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Kết quả hoạt động}
+
+\subsubsection{Giao diện khi đăng ký và đăng nhập}
+Hệ thống cung cấp giao diện đăng nhập và đăng ký tài khoản trực quan, thân thiện với người dùng, đảm bảo tính bảo mật thông qua việc xác thực tài khoản.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_dang_nhap.png}
+    \caption{Giao diện đăng nhập hệ thống}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_dang_ky.png}
+    \caption{Giao diện đăng ký tài khoản mới}
+\end{figure}
+
+% Nếu ảnh chiếm quá nhiều chỗ, dùng clearpage để đẩy các mục sau sang trang mới
+\clearpage 
+
+\subsubsection{Giao diện khi đăng nhập thành công dưới vai trò sinh viên}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_sinh_vien_main.png} % Đã sửa tên file minh họa
+    \caption{Giao diện khi đăng nhập dưới vai trò sinh viên}
+\end{figure}
+
+\subsubsection{Giao diện khi thêm các học phần đã học}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_hoc_tap.png}
+    \caption{Giao diện khi khi vào tính năng học tập}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_them_hoc_phan_thu_cong.png}
+    \caption{Giao diện khi thêm học phần thủ công}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_them_hoc_phan_excel.png}
+    \caption{Giao diện khi thêm học phần bằng file excel}
+\end{figure}
+
+\clearpage
+
+\subsubsection{Giao diện khi hỏi đáp với chatbot}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_chatbot_cpa.png}
+    \caption{Giao diện khi hỏi chatbot về CPA}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_chatbot_dang_ky_lop.png}
+    \caption{Giao diện khi hỏi chatbot về đăng ký lớp}
+\end{figure}
+
+\subsubsection{Giao diện của admin khi quản lý học phần}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_admin_view_hoc_phan.png}
+    \caption{Giao diện admin xem học phần đã có}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_admin_add_hoc_phan.png}
+    \caption{Giao diện admin thêm học phần mới}
+\end{figure}
+
+\subsubsection{Giao diện của admin khi quản lý lớp}
+% Đã sửa lỗi lồng môi trường figure tại đây
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_quan_ly_tkb.png}
+    \caption{Giao diện admin ở trang quản lý thời khóa biểu}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_admin_them_lop_hoc.png}
+    \caption{Giao diện khi admin thêm danh sách lớp học}
+\end{figure}
+
+
+\chapter{Định hướng cho Đồ án tốt nghiệp}
+
+\begin{enumerate}[label=\arabic*)]
+    \section{Hoàn thiện chatbot}
+    \begin{enumerate}[label=\alph*)]
+        \item \textbf{Bổ sung mô hình LLM}
+        \begin{itemize}
+            \item Áp dụng một mô hình LLM hiện đại, nguồn mở (Ollama, Transformers) để hỗ trợ chatbot nhận diện ngữ cảnh, nhận diện ý định tốt hơn, tăng cường khả năng xử lý các câu hỏi, yêu cầu phức tạp hoặc xử lý đa dạng các cách diễn đạt của sinh viên khi hỏi đáp với chatbot.
+            \item Các mô hình trên đều nhẹ, nguồn mở, cho ra khả năng hoạt động nhanh, ổn định khi có nhiều lượt người truy cập và sử dụng chatbot cùng lúc.
+        \end{itemize}
+        
+        \item \textbf{Tiền xử lý văn bản}
+        \begin{itemize}
+            \item Sử dụng một số thư viện Python để tự động sửa lỗi chính tả, từ vựng trước khi đưa vào LLM, giúp tăng tốc độ và độ chính xác khi xử lý câu hỏi của người dùng. Một số thư viện tốt gồm:
+            \begin{itemize}
+                \item \texttt{Pyspellchecker}: sửa lỗi chính tả tiếng Việt/Anh.
+                \item \texttt{Underthesea}: tách từ, chuẩn hóa tiếng Việt.
+                \item \texttt{Unicode}: chuẩn hóa ký tự đặc biệt.
+            \end{itemize}
+        \end{itemize}
+        
+        \item \textbf{Chuẩn hóa ý định, từ vựng}
+        \begin{itemize}
+            \item Tạo các từ điển synonym (từ đồng nghĩa, cách viết khác) cho các ý định, từ vựng phổ biến (các từ viết tắt thông dụng của giới trẻ, các thứ trong tuần như thứ 2, 3, 4,...).
+            \item Khi nhận input, các cụm từ được viết tắt, từ đồng nghĩa (do thói quen nói chuyện, nhắn tin của đa số bộ phận sinh viên) sẽ được chuẩn hóa cho chatbot.
+        \end{itemize}
+        
+        \item \textbf{So khớp mờ}
+        \begin{itemize}
+            \item Sử dụng thư viện như \texttt{fuzzywuzzy} hoặc \texttt{rapidfuzz} để so khớp ý định, từ khóa, kể cả khi người dùng gõ sai từ (ví dụ gõ ``xuất sắc'' thành ``xuaacs sắc''), giúp chatbot phân loại các trường hợp chọn ý định, truy vấn dữ liệu.
+        \end{itemize}
+        
+        \item \textbf{Cơ chế lưu trữ tin nhắn}
+        \begin{itemize}
+            \item Sử dụng Redis Cache để lưu hội thoại, session, kết quả truy vấn từ trước, giúp tăng tốc độ phản hồi, hỗ trợ người dùng xem lại kết quả chatbot gửi về.
+        \end{itemize}
+    \end{enumerate}
+
+    \section{Hoàn thiện website}
+    \begin{enumerate}[label=\alph*)]
+        \item \textbf{Hoàn thiện các tính năng bổ trợ}
+        \begin{itemize}
+            \item Hoàn thiện các tính năng cho admin như quản lý tài khoản, quản lý học phần và lớp học, giúp thao tác của admin dễ dàng và thuận tiện hơn.
+            \item Hoàn thiện các tính năng cho sinh viên như xây thời khóa biểu (chọn lớp và hiển thị thời khóa biểu theo ngày, giờ) để sinh viên tiện lợi trong việc chọn lớp.
+        \end{itemize}
+        
+        \item \textbf{Hoàn thiện giao diện}
+        \begin{itemize}
+            \item Hoàn thiện giao diện thân thiện, mượt mà, dễ sử dụng cho cả admin và sinh viên.
+        \end{itemize}
+        
+        \item \textbf{Security}
+        \begin{itemize}
+            \item Thực hiện một số biện pháp bảo mật cơ bản, giúp bảo vệ dữ liệu trang web, chống lại các tấn công phổ biến.
+            \begin{itemize}
+                \item Luôn dùng ORM (hiện tại là SQLAlchemy) đảm bảo an toàn dữ liệu SQL, chống tấn công SQL injection.
+                \item Bảo mật session và key: lưu session ở server (Redis, database), thiết lập cookie cho trang web.
+                \item Cấu hình https.
+                \item Giới hạn brute-force: giới hạn số lần đăng nhập sai, có thể sử dụng thêm OTP nếu cần.
+            \end{itemize}
+        \end{itemize}
+        
+        \item \textbf{Deploy}
+        \begin{itemize}
+            \item Build frontend, backend, cấu hình Docker Compose cho cả hai.
+            \item Cấu hình reverse proxy.
+            \item Cài SSL với Certbot.
+            \item Deploy lên VPS/Cloud.
+        \end{itemize}
+    \end{enumerate}
+\end{enumerate}
+\end{document}
