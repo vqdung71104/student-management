@@ -73,3 +73,29 @@ export const getAvailableIntents = async (): Promise<IntentsResponse> => {
 
   return response.json();
 };
+
+/**
+ * Export schedule combination to Excel file
+ */
+export const exportScheduleToExcel = async (
+  combination: any,
+  studentInfo?: any
+): Promise<Blob> => {
+  const response = await fetch(`${API_BASE_URL}/chatbot/export-schedule`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      combination,
+      student_info: studentInfo,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to export schedule to Excel');
+  }
+
+  return response.blob();
+};
+

@@ -2,7 +2,7 @@
  * ChatBot Component - Messenger-style Chat Interface
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { sendMessage } from '../../services/chatbot.service';
+import { sendMessage, exportScheduleToExcel } from '../../services/chatbot.service';
 import type { ChatResponse } from '../../services/chatbot.service';
 import { useAuth } from '../../contexts/AuthContext';
 import './ChatBot.css';
@@ -117,6 +117,31 @@ const ChatBot: React.FC = () => {
       .replace(/^• (.+)$/gm, '<div class="bullet-item">• $1</div>');
   };
 
+  // Handle Excel download
+  const handleDownloadExcel = async (combination: any, index: number) => {
+    try {
+      const blob = await exportScheduleToExcel(combination, {
+        semester: userInfo?.semester,
+        cpa: userInfo?.cpa,
+      });
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Phuong_An_${index}_Lich_Hoc.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+
+      // Cleanup
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading Excel:', error);
+      alert('Có lỗi xảy ra khi tải file Excel. Vui lòng thử lại.');
+    }
+  };
+
   // Render class schedule combinations (for class suggestion intent)
   const renderClassCombinations = (data: any[]) => {
     if (!data || data.length === 0) return null;
@@ -134,6 +159,13 @@ const ChatBot: React.FC = () => {
                   <span className="combination-score">Điểm: {combination.score}/100</span>
                 )}
               </div>
+              <button
+                className="download-excel-btn"
+                onClick={() => handleDownloadExcel(combination, combination.combination_id || idx + 1)}
+                title="Tải file Excel"
+              >
+                📥 Tải Excel
+              </button>
             </div>
 
             {/* Metrics Summary */}
@@ -183,20 +215,20 @@ const ChatBot: React.FC = () => {
                         console.log('Class data:', cls);
                         console.log('study_week:', cls.study_week, 'Type:', typeof cls.study_week, 'IsArray:', Array.isArray(cls.study_week));
                       }
-                      
+
                       return (
                         <tr key={clsIdx}>
                           <td className="class-id">{cls.class_id || '-'}</td>
                           <td className="class-name">{cls.class_name || cls.subject_name || '-'}</td>
                           <td className="class-time">
-                            {cls.study_time_start && cls.study_time_end 
+                            {cls.study_time_start && cls.study_time_end
                               ? `${cls.study_time_start} - ${cls.study_time_end}`
                               : '-'}
                           </td>
                           <td className="class-days">{cls.study_date || '-'}</td>
                           <td className="class-weeks">
                             {cls.study_week && Array.isArray(cls.study_week) && cls.study_week.length > 0
-                              ? cls.study_week.join(', ') 
+                              ? cls.study_week.join(', ')
                               : '-'}
                           </td>
                           <td className="class-room">{cls.classroom || '-'}</td>
@@ -229,7 +261,7 @@ const ChatBot: React.FC = () => {
       if (typeof value === 'object') {
         // If it's an array, join with commas
         if (Array.isArray(value)) {
-          return value.map(item => 
+          return value.map(item =>
             typeof item === 'object' ? JSON.stringify(item) : String(item)
           ).join(', ');
         }
@@ -286,14 +318,14 @@ const ChatBot: React.FC = () => {
                 <div className="message-avatar">  </div>
               )}
               <div className="message-bubble">
-                <div 
+                <div
                   className="message-text"
-                  dangerouslySetInnerHTML={{ 
-                    __html: formatMessageText(message.text) 
+                  dangerouslySetInnerHTML={{
+                    __html: formatMessageText(message.text)
                   }}
                 />
                 {message.data && message.data.length > 0 && (
-                  message.intent === 'class_registration_suggestion' 
+                  message.intent === 'class_registration_suggestion'
                     ? renderClassCombinations(message.data)
                     : renderDataTable(message.data)
                 )}

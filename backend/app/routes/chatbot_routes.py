@@ -253,3 +253,57 @@ async def get_available_intents():
             status_code=500,
             detail=f"Lỗi lấy danh sách intent: {str(e)}"
         )
+
+
+@router.post("/export-schedule")
+async def export_schedule_to_excel(request_data: dict):
+    """
+    Export schedule combination to Excel file
+    
+    Request body:
+    {
+        "combination": { ... },  // Combination data from chatbot response
+        "student_info": { ... }  // Student info for header (optional)
+    }
+    
+    Returns:
+        Excel file (.xlsx) as StreamingResponse
+    """
+    try:
+        from fastapi.responses import StreamingResponse
+        from app.services.excel_export_service import ExcelExportService
+        
+        combination = request_data.get("combination")
+        student_info = request_data.get("student_info", {})
+        
+        if not combination:
+            raise HTTPException(
+                status_code=400,
+                detail="Missing combination data"
+            )
+        
+        # Generate Excel file
+        excel_service = ExcelExportService()
+        excel_file = excel_service.generate_excel(combination, student_info)
+        
+        # Create filename
+        combination_id = combination.get('combination_id', 1)
+        filename = f"Phuong_An_{combination_id}_Lich_Hoc.xlsx"
+        
+        # Return as streaming response
+        return StreamingResponse(
+            excel_file,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}"
+            }
+        )
+        
+    except Exception as e:
+        print(f"❌ [EXCEL_EXPORT] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Lỗi xuất file Excel: {str(e)}"
+        )
