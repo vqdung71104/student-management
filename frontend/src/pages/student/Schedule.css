@@ -1,0 +1,258 @@
+/* Timetable Container */
+.timetable-container {
+    min-width: 800px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+/* Header */
+.timetable-header {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-bottom: 2px solid #5a67d8;
+}
+
+.time-column-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.day-header {
+    padding: 16px 8px;
+    text-align: center;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.day-header:last-child {
+    border-right: none;
+}
+
+.day-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Grid */
+.timetable-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(7, 1fr);
+    position: relative;
+}
+
+/* Time Column */
+.time-column {
+    background: #f8f9fa;
+    border-right: 2px solid #e2e8f0;
+}
+
+.time-slot {
+    height: 60px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #4a5568;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: flex-start;
+}
+
+/* Day Columns */
+.day-column {
+    position: relative;
+    border-right: 1px solid #e2e8f0;
+}
+
+.day-column:last-child {
+    border-right: none;
+}
+
+.grid-cell {
+    height: 60px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background-color 0.2s;
+}
+
+.grid-cell:hover {
+    background-color: #f8fafc;
+}
+
+/* Classes Container */
+.classes-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+/* Class Block */
+.class-block {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+    pointer-events: all;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.2s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.class-block:hover {
+    transform: translateX(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 10;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.class-time-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.class-time {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.7);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.class-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.9);
+    /* Allow wrapping for long names */
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.2;
+}
+
+.class-room {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.6);
+    white-space: nowrap;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.class-week {
+    font-size: 10px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Color Classes */
+.bg-blue-400 {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+}
+
+.bg-green-400 {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+}
+
+.bg-purple-400 {
+    background: linear-gradient(135deg, #c084fc 0%, #a855f7 100%);
+}
+
+.bg-pink-400 {
+    background: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+}
+
+.bg-yellow-400 {
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+}
+
+.bg-indigo-400 {
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+}
+
+.bg-red-400 {
+    background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+}
+
+.bg-teal-400 {
+    background: linear-gradient(135deg, #2dd4bf 0%, #14b8a6 100%);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .timetable-container {
+        min-width: 600px;
+    }
+
+    .day-name {
+        font-size: 14px;
+    }
+
+    .class-name {
+        font-size: 12px;
+    }
+
+    .class-time,
+    .class-room,
+    .class-week {
+        font-size: 10px;
+    }
+}
+
+@media (max-width: 768px) {
+    .timetable-grid {
+        grid-template-columns: 60px repeat(7, 1fr);
+    }
+
+    .timetable-header {
+        grid-template-columns: 60px repeat(7, 1fr);
+    }
+
+    .time-slot {
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+
+    .day-header {
+        padding: 12px 4px;
+    }
+
+    .day-name {
+        font-size: 12px;
+    }
+}
+
+/* Current time indicator (optional enhancement) */
+.current-time-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #ef4444;
+    z-index: 20;
+    pointer-events: none;
+}
+
+.current-time-line::before {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: -3px;
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+}
