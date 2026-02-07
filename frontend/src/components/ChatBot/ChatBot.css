@@ -421,7 +421,38 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 12px 16px;
   color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
 }
+
+.download-excel-btn {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #1e7e34 0%, #28a745 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.download-excel-btn:hover {
+  background: linear-gradient(135deg, #155724 0%, #1e7e34 100%);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+.download-excel-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
 
 .combination-title {
   display: flex;
