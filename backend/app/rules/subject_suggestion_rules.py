@@ -163,14 +163,15 @@ class SubjectSuggestionRuleEngine:
         - S: semester number (1, 2, 3)
         
         Semester periods:
-        - Semester 1: September - January
-        - Semester 2: February - July  
-        - Semester 3: August (supplementary)
+        - Semester 2: September - January
+        - Semester 3: February - July  
+        - Semester 1: August (supplementary)
         
         Examples:
         - November 2025 → "20251" (semester 1 of 2024-2025)
         - March 2025 → "20242" (semester 2 of 2024-2025)
         - August 2025 → "20243" (semester 3 of 2024-2025)
+        - Đăng ký học phần thì sẽ đăng ký cho kỳ sau đó
         """
         now = datetime.now()
         month = now.month
@@ -178,16 +179,16 @@ class SubjectSuggestionRuleEngine:
         
         if 9 <= month <= 12:
             # September - December: Semester 1 of current year
-            return f"{year}1"
+            return f"{year}2"
         elif 1 <= month <= 1:
             # January: Semester 1 of previous year
-            return f"{year - 1}1"
+            return f"{year - 1}3"
         elif 2 <= month <= 7:
             # February - July: Semester 2 of previous year
-            return f"{year - 1}2"
+            return f"{year - 1}3"
         else:  # month == 8
             # August: Semester 3 of previous year
-            return f"{year - 1}3"
+            return f"{year - 1}1"
     
     def calculate_student_semester_number(
         self, 
@@ -469,23 +470,33 @@ class SubjectSuggestionRuleEngine:
     def rule_2_filter_semester_match(
         self,
         subjects: List[Dict],
-        current_semester_number: int
+        current_semester_number: int,
+        student_data: Dict
     ) -> Tuple[List[Dict], List[Dict]]:
         """
         RULE 2: Priority for subjects matching current semester
+        Excludes subjects already learned (not failed)
         
         Args:
             subjects: List of available subjects
             current_semester_number: Current semester number (1-8)
+            student_data: Student data including completed_subjects
         
         Returns:
             (matching_subjects, non_matching_subjects)
         """
         matching = []
         non_matching = []
+        completed = student_data['completed_subjects']
         
         for subject in subjects:
+            subject_id = subject['subject_id']
             learning_sem = subject.get('learning_semester')
+            
+            # Skip if subject already learned with passing grade
+            if subject_id in completed and completed[subject_id]['grade'] != 'F':
+                non_matching.append(subject)
+                continue
             
             if learning_sem and learning_sem == current_semester_number:
                 subject['priority_reason'] = f'Matches semester {current_semester_number}'
@@ -504,6 +515,7 @@ class SubjectSuggestionRuleEngine:
         """
         RULE 3: Register political subjects (SSH series, EM1170)
         Must complete all 6 subjects
+        If all political subjects are completed, don't suggest any more
         
         Returns:
             (political_subjects, remaining_subjects)
@@ -513,13 +525,23 @@ class SubjectSuggestionRuleEngine:
         
         completed = student_data['completed_subjects']
         
+        # Count completed political subjects (with passing grade)
+        political_completed_count = sum(
+            1 for sid, data in completed.items()
+            if sid in self.POLITICAL_SUBJECTS and data['grade'] != 'F'
+        )
+        
+        # If all political subjects completed, don't suggest more
+        if political_completed_count >= self.POLITICAL_REQUIRED:
+            return political, subjects
+        
         for subject in subjects:
             subject_id = subject['subject_id']
             
             if subject_id in self.POLITICAL_SUBJECTS:
                 # Check if not yet completed with passing grade
                 if subject_id not in completed or completed[subject_id]['grade'] == 'F':
-                    subject['priority_reason'] = 'Political subject (required)'
+                    subject['priority_reason'] = f'Political subject ({political_completed_count}/{self.POLITICAL_REQUIRED} completed)'
                     subject['priority_level'] = 3
                     political.append(subject)
             else:
@@ -535,6 +557,7 @@ class SubjectSuggestionRuleEngine:
         """
         RULE 4: Register physical education subjects (PE series)
         Must complete 4 out of all PE subjects
+        If 4 PE subjects completed, don't suggest more
         
         Returns:
             (pe_subjects, remaining_subjects)
@@ -550,16 +573,19 @@ class SubjectSuggestionRuleEngine:
             if sid in self.PHYSICAL_EDUCATION_SUBJECTS and data['grade'] != 'F'
         )
         
+        # If already completed 4 PE subjects, don't suggest more
+        if pe_completed_count >= self.PE_REQUIRED:
+            return pe, subjects
+        
         for subject in subjects:
             subject_id = subject['subject_id']
             
             if subject_id in self.PHYSICAL_EDUCATION_SUBJECTS:
-                # Only suggest if haven't completed 4 PE subjects yet
-                if pe_completed_count < 4:
-                    if subject_id not in completed or completed[subject_id]['grade'] == 'F':
-                        subject['priority_reason'] = f'PE subject ({pe_completed_count}/4 completed)'
-                        subject['priority_level'] = 4
-                        pe.append(subject)
+                # Only suggest if not yet completed with passing grade
+                if subject_id not in completed or completed[subject_id]['grade'] == 'F':
+                    subject['priority_reason'] = f'PE subject ({pe_completed_count}/{self.PE_REQUIRED} completed)'
+                    subject['priority_level'] = 4
+                    pe.append(subject)
             else:
                 remaining.append(subject)
         
@@ -573,6 +599,7 @@ class SubjectSuggestionRuleEngine:
         """
         RULE 5: Register supplementary subjects
         Must complete 3 out of the list
+        If 3 supplementary subjects completed, don't suggest more
         
         Returns:
             (supplementary_subjects, remaining_subjects)
@@ -588,16 +615,19 @@ class SubjectSuggestionRuleEngine:
             if sid in self.SUPPLEMENTARY_SUBJECTS and data['grade'] != 'F'
         )
         
+        # If already completed 3 supplementary subjects, don't suggest more
+        if supp_completed_count >= self.SUPPLEMENTARY_REQUIRED:
+            return supplementary, subjects
+        
         for subject in subjects:
             subject_id = subject['subject_id']
             
             if subject_id in self.SUPPLEMENTARY_SUBJECTS:
-                # Only suggest if haven't completed 3 yet
-                if supp_completed_count < 3:
-                    if subject_id not in completed or completed[subject_id]['grade'] == 'F':
-                        subject['priority_reason'] = f'Supplementary subject ({supp_completed_count}/3 completed)'
-                        subject['priority_level'] = 5
-                        supplementary.append(subject)
+                # Only suggest if not yet completed with passing grade
+                if subject_id not in completed or completed[subject_id]['grade'] == 'F':
+                    subject['priority_reason'] = f'Supplementary subject ({supp_completed_count}/{self.SUPPLEMENTARY_REQUIRED} completed)'
+                    subject['priority_level'] = 5
+                    supplementary.append(subject)
             else:
                 remaining.append(subject)
         
@@ -638,12 +668,14 @@ class SubjectSuggestionRuleEngine:
         self,
         subjects: List[Dict],
         student_data: Dict,
-        current_total_credits: int
+        current_total_credits: int,
+        student_id: int
     ) -> List[Dict]:
         """
-        RULE 7: Improve low grades (D, D+, C)
+        RULE 7: Improve low grades (D, D+, C, C+)
         Only if total credits <= 20
-        Priority: F > D > D+ > C (with fewer credits first)
+        Only suggest if subject has fewer occurrences in learned_subjects
+        Priority order: D+ > D > C+ > C (lower grades first)
         
         Returns:
             List of subjects to improve
@@ -654,6 +686,23 @@ class SubjectSuggestionRuleEngine:
         improvement = []
         completed = student_data['completed_subjects']
         
+        # Get count of each subject in learned_subjects
+        count_query = """
+            SELECT subject_id, COUNT(*) as count
+            FROM learned_subjects
+            WHERE student_id = :student_id
+            GROUP BY subject_id
+        """
+        count_result = self.db.execute(
+            text(count_query),
+            {"student_id": student_id}
+        ).fetchall()
+        
+        subject_counts = {row[0]: row[1] for row in count_result}
+        
+        # Improvement grades including C+
+        improvement_grades = ['D+', 'D', 'C+', 'C']
+        
         for subject in subjects:
             subject_id = subject['subject_id']
             
@@ -661,15 +710,25 @@ class SubjectSuggestionRuleEngine:
                 grade = completed[subject_id]['grade']
                 
                 # Check if grade needs improvement
-                if grade in self.IMPROVEMENT_GRADES:
-                    subject['priority_reason'] = f'Improve grade {grade}'
-                    subject['priority_level'] = 7
-                    subject['grade_priority'] = self.GRADE_PRIORITY[grade]
-                    subject['original_grade'] = grade
-                    improvement.append(subject)
+                if grade in improvement_grades:
+                    # Get occurrence count (default to 1 if not in query result)
+                    occurrence_count = subject_counts.get(subject_id, 1)
+                    
+                    # Only suggest if has few occurrences (1 or 2 attempts)
+                    if occurrence_count <= 2:
+                        subject['priority_reason'] = f'Improve grade {grade} (attempt {occurrence_count})'
+                        subject['priority_level'] = 7
+                        subject['original_grade'] = grade
+                        subject['occurrence_count'] = occurrence_count
+                        
+                        # Priority mapping: D+ = 0, D = 1, C+ = 2, C = 3
+                        grade_order = {'D+': 0, 'D': 1, 'C+': 2, 'C': 3}
+                        subject['grade_order'] = grade_order.get(grade, 99)
+                        
+                        improvement.append(subject)
         
-        # Sort by grade priority (F > D > D+ > C) then by credits (fewer first)
-        improvement.sort(key=lambda x: (x['grade_priority'], x['credits']))
+        # Sort by grade order (D+ > D > C+ > C), then by credits (fewer first)
+        improvement.sort(key=lambda x: (x['grade_order'], x['credits']))
         
         return improvement
     
@@ -749,9 +808,9 @@ class SubjectSuggestionRuleEngine:
                 summary['failed_retake'].append(subject)
                 total_credits += subject['credits']
         
-        # RULE 2: Semester match
+        # RULE 2: Semester match (with learned subjects check)
         semester_match, remaining = self.rule_2_filter_semester_match(
-            remaining, student_semester_number
+            remaining, student_semester_number, student_data
         )
         
         for subject in semester_match:
@@ -807,7 +866,7 @@ class SubjectSuggestionRuleEngine:
         # RULE 7: Grade improvement (if credits <= 20)
         if total_credits <= self.IMPROVEMENT_THRESHOLD:
             improvement = self.rule_7_filter_grade_improvement(
-                available_subjects, student_data, total_credits
+                available_subjects, student_data, total_credits, student_id
             )
             
             for subject in improvement:
@@ -815,6 +874,20 @@ class SubjectSuggestionRuleEngine:
                     suggested.append(subject)
                     summary['grade_improvement'].append(subject)
                     total_credits += subject['credits']
+        
+        # RULE 8: Remaining course subjects (if total < 28 credits)
+      #  if total_credits < 28:
+      #      remaining_subjects = self.rule_8_filter_remaining_course_subjects(
+      #          remaining, student_data
+      #      )
+      #      
+      #      for subject in remaining_subjects:
+      #          if total_credits + subject['credits'] <= max_credits_allowed:
+      #              suggested.append(subject)
+      #              if 'remaining_course' not in summary:
+      #                  summary['remaining_course'] = []
+      #              summary['remaining_course'].append(subject)
+      #              total_credits += subject['credits']
         
         # Check minimum credits requirement
         meets_minimum = total_credits >= min_credits_required
@@ -911,6 +984,12 @@ class SubjectSuggestionRuleEngine:
             for i, subj in enumerate(summary['grade_improvement'], 1):
                 orig_grade = subj.get('original_grade', '?')
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} TC) - Điểm hiện tại: {orig_grade}")
+        
+        if summary.get('remaining_course'):
+            response.append("\n**📚 MÔN HỌC CÒN LẠI TRONG CHƯƠNG TRÌNH**")
+            response.append("Các môn còn lại trong chương trình học:")
+            for i, subj in enumerate(summary['remaining_course'], 1):
+                response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
 
         # Total summary
         response.append("\n**📊 TỔNG KẾT**")

@@ -1,0 +1,62 @@
+\contentsline {chapter}{\numberline {1}Giới thiệu đề tài}{2}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Đặt vấn đề và tổng quan đề tài}{2}{section.1.1}%
+\contentsline {section}{\numberline {1.2}Mục tiêu và phạm vi đề tài}{2}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Định hướng giải pháp}{3}{section.1.3}%
+\contentsline {section}{\numberline {1.4}Bố cục đồ án}{3}{section.1.4}%
+\contentsline {chapter}{\numberline {2}Phân tích đề tài}{4}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Khảo sát hiện trạng}{4}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Tổng quan chức năng}{5}{section.2.2}%
+\contentsline {subsection}{\numberline {2.2.1}Biểu đồ usecase tổng quát}{5}{subsection.2.2.1}%
+\contentsline {subsection}{\numberline {2.2.2}Biểu đồ usecase phân rã}{5}{subsection.2.2.2}%
+\contentsline {subsection}{\numberline {2.2.3}Quy trình nghiệp vụ}{6}{subsection.2.2.3}%
+\contentsline {subsection}{\numberline {2.2.4}Đặc tả chức năng}{7}{subsection.2.2.4}%
+\contentsline {subsubsection}{Đặc tả usecase: Xem thông tin học tập}{7}{subsubsection*.2}%
+\contentsline {subsubsection}{Đặc tả usecase: Xây dựng thời khóa biểu mẫu}{8}{subsubsection*.3}%
+\contentsline {subsubsection}{Đặc tả usecase: Hỏi chatbot tư vấn}{9}{subsubsection*.4}%
+\contentsline {subsubsection}{Đặc tả usecase: Thêm tài khoản sinh viên}{9}{subsubsection*.5}%
+\contentsline {subsubsection}{Đặc tả usecase: Cập nhật điểm}{10}{subsubsection*.6}%
+\contentsline {subsubsection}{Đặc tả usecase: Cập nhật danh sách lớp mở}{12}{subsubsection*.7}%
+\contentsline {subsubsection}{Đặc tả usecase: Cập nhật danh sách học phần}{13}{subsubsection*.8}%
+\contentsline {section}{\numberline {2.3}Yêu cầu phi chức năng}{14}{section.2.3}%
+\contentsline {subsection}{\numberline {2.3.1}Hiệu năng}{14}{subsection.2.3.1}%
+\contentsline {subsection}{\numberline {2.3.2}Tính sẵn sàng và phục hồi}{14}{subsection.2.3.2}%
+\contentsline {subsection}{\numberline {2.3.3}Bảo mật}{15}{subsection.2.3.3}%
+\contentsline {subsection}{\numberline {2.3.4}Khả năng mở rộng}{15}{subsection.2.3.4}%
+\contentsline {subsection}{\numberline {2.3.5}Tính khả dụng}{15}{subsection.2.3.5}%
+\contentsline {subsection}{\numberline {2.3.6}Độ tin cậy}{15}{subsection.2.3.6}%
+\contentsline {subsection}{\numberline {2.3.7}Tương thích}{15}{subsection.2.3.7}%
+\contentsline {subsection}{\numberline {2.3.8}Khả năng bảo trì}{15}{subsection.2.3.8}%
+\contentsline {chapter}{\numberline {3}Công nghệ sử dụng}{16}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Kiến trúc hệ thống}{16}{section.3.1}%
+\contentsline {section}{\numberline {3.2}Công nghệ backend}{16}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Web Framework: FastAPI}{16}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}Tương tác Cơ sở dữ liệu (ORM): SQLAlchemy}{16}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}Xác thực và Bảo mật}{16}{subsection.3.2.3}%
+\contentsline {section}{\numberline {3.3}Công nghệ chatbot}{17}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Bộ phân loại ý định (Intent Classification)}{17}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Dịch vụ NL2SQL (Natural Language to SQL)}{17}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Rule Engine (Bộ quy tắc nghiệp vụ)}{17}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Công cụ sinh tổ hợp itertools.product}{17}{subsection.3.3.4}%
+\contentsline {section}{\numberline {3.4}Công nghệ frontend}{18}{section.3.4}%
+\contentsline {subsection}{\numberline {3.4.1}Framework và Ngôn ngữ}{18}{subsection.3.4.1}%
+\contentsline {subsection}{\numberline {3.4.2}Giao diện và Trực quan hóa dữ liệu}{18}{subsection.3.4.2}%
+\contentsline {section}{\numberline {3.5}Cơ sở dữ liệu}{18}{section.3.5}%
+\contentsline {section}{\numberline {3.6}Công cụ phát triển và kiểm thử}{18}{section.3.6}%
+\contentsline {chapter}{\numberline {4}Thiết kế và triển khai hệ thống chatbot}{19}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Phát triển cơ sở dữ liệu}{19}{section.4.1}%
+\contentsline {section}{\numberline {4.2}Phát triển backend}{19}{section.4.2}%
+\contentsline {section}{\numberline {4.3}Phát triển frontend}{20}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Phát triển chatbot}{20}{section.4.4}%
+\contentsline {subsection}{\numberline {4.4.1}Mục tiêu}{20}{subsection.4.4.1}%
+\contentsline {subsection}{\numberline {4.4.2}Kiến trúc tổng thể}{21}{subsection.4.4.2}%
+\contentsline {subsection}{\numberline {4.4.3}Nguyên lý hoạt động}{21}{subsection.4.4.3}%
+\contentsline {subsection}{\numberline {4.4.4}Kết quả hoạt động}{24}{subsection.4.4.4}%
+\contentsline {subsubsection}{Giao diện khi đăng ký và đăng nhập}{24}{subsubsection*.9}%
+\contentsline {subsubsection}{Giao diện khi đăng nhập thành công dưới vai trò sinh viên}{25}{subsubsection*.10}%
+\contentsline {subsubsection}{Giao diện khi thêm các học phần đã học}{25}{subsubsection*.11}%
+\contentsline {subsubsection}{Giao diện khi hỏi đáp với chatbot}{26}{subsubsection*.12}%
+\contentsline {subsubsection}{Giao diện của admin khi quản lý học phần}{26}{subsubsection*.13}%
+\contentsline {subsubsection}{Giao diện của admin khi quản lý lớp}{26}{subsubsection*.14}%
+\contentsline {chapter}{\numberline {5}Định hướng cho Đồ án tốt nghiệp}{27}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Hoàn thiện chatbot}{27}{section.5.1}%
+\contentsline {section}{\numberline {5.2}Hoàn thiện website}{27}{section.5.2}%
