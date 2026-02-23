@@ -263,21 +263,21 @@ def create_new_learned_subject(
     if not subject:
         raise HTTPException(status_code=404, detail=f"Không tìm thấy môn học với mã HP {data.subject_id}")
 
-    # 3. Kiểm tra trùng lặp (sử dụng student_id và subject.id - INTEGER FK)
+    # 3. Kiểm tra trùng lặp theo mã học phần (bất kể học kỳ)
     existing = db.query(LearnedSubject).filter(
         and_(
             LearnedSubject.student_id == data.student_id,
             LearnedSubject.subject_id == subject.id,
-            LearnedSubject.semester == data.semester
         )
     ).first()
-    
+
+    old_semester = None
     if existing:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Môn học {subject.subject_name} đã tồn tại trong học kỳ {data.semester}"
-        )
-    
+        # Lưu lại học kỳ cũ để cập nhật GPA sau khi xóa
+        old_semester = existing.semester
+        db.delete(existing)
+        db.flush()  # Xóa khỏi session trước khi thêm mới
+
     # 4. Tạo LearnedSubject với student_id và subject.id (INTEGER FK)
     new_learned_subject = LearnedSubject(
         subject_name=subject.subject_name,
@@ -293,13 +293,17 @@ def create_new_learned_subject(
     db.refresh(new_learned_subject)
     
     # 6.    AUTO-CALCULATE GPA & STUDENT STATS
+    # Nếu học kỳ cũ khác học kỳ mới thì cập nhật GPA cho cả 2 học kỳ
+    if old_semester and old_semester != data.semester:
+        update_semester_gpa(student.id, old_semester, db)
     update_semester_gpa(student.id, data.semester, db)
     db.flush()  #    Flush to ensure semester_gpa is in session before calculating CPA
     update_student_stats(student.id, db)
     db.commit()
     
+    action = "Cập nhật" if old_semester else "Thêm"
     return {
-        "message": "Thêm môn học thành công",
+        "message": f"{action} môn học thành công",
         "learned_subject": {
             "id": new_learned_subject.id,
             "subject_code": subject.subject_id,  # Trả về mã HP để hiển thị
@@ -309,6 +313,7 @@ def create_new_learned_subject(
             "semester": data.semester
         }
     }
+
     
 
 
