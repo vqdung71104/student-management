@@ -1,0 +1,83 @@
+﻿.\venv\Scripts\python.exe : 
+Traceback (most recent call 
+last):
+At line:1 char:1
++ .\venv\Scripts\python.exe 
+test_intent.py 2>&1 | 
+Out-File -FilePath te ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpecified: (Trace  
+  back (most recent call    
+ last)::String) [], Remo    
+teException
+    + FullyQualifiedErrorId 
+    : NativeCommandError
+ 
+  File "C:\Users\Admin\stude
+nt-management\backend\test_i
+ntent.py", line 40, in 
+<module>
+    asyncio.run(test_intent_
+classification())
+  File "C:\Program Files\Win
+dowsApps\PythonSoftwareFound
+ation.Python.3.11_3.11.2544.
+0_x64__qbz5n2kfra8p0\Lib\asy
+ncio\runners.py", line 190, 
+in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Win
+dowsApps\PythonSoftwareFound
+ation.Python.3.11_3.11.2544.
+0_x64__qbz5n2kfra8p0\Lib\asy
+ncio\runners.py", line 118, 
+in run
+    return self._loop.run_un
+til_complete(task)
+           ^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Win
+dowsApps\PythonSoftwareFound
+ation.Python.3.11_3.11.2544.
+0_x64__qbz5n2kfra8p0\Lib\asy
+ncio\base_events.py", line 
+654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\stude
+nt-management\backend\test_i
+ntent.py", line 6, in 
+test_intent_classification
+    classifier = 
+TfidfIntentClassifier()
+                 
+^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Admin\stude
+nt-management\backend\app\ch
+atbot\tfidf_classifier.py", 
+line 90, in __init__
+    print("\U0001f527 
+Initializing TF-IDF Intent 
+Classifier (Phase 3 - 
+Fine-tuned)...")
+  File "C:\Program Files\Win
+dowsApps\PythonSoftwareFound
+ation.Python.3.11_3.11.2544.
+0_x64__qbz5n2kfra8p0\Lib\enc
+odings\cp1252.py", line 19, 
+in encode
+    return codecs.charmap_en
+code(input,self.errors,encod
+ing_table)[0]
+           ^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^
+UnicodeEncodeError: 
+'charmap' codec can't 
+encode character 
+'\U0001f527' in position 0: 
+character maps to 
+<undefined>
