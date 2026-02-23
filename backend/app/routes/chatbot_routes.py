@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
 from app.services.chatbot_service import ChatbotService
+from app.services.text_preprocessor import get_text_preprocessor
 from app.schemas.chatbot_schema import (
     ChatMessage, 
     ChatResponse, 
@@ -19,9 +20,10 @@ from sqlalchemy import text
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
 
-# Initialize TF-IDF intent classifier and NL2SQL service
+# Initialize TF-IDF intent classifier, NL2SQL service, and text preprocessor
 intent_classifier = TfidfIntentClassifier()
 nl2sql_service = NL2SQLService()
+text_preprocessor = get_text_preprocessor()
 
 
 @router.post("/chat", response_model=ChatResponseWithData)
@@ -52,9 +54,16 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         if state and state.stage == 'collecting':
             # User is answering a preference question - directly process as class_registration_suggestion
             print(f"🔄 [ROUTE] Active conversation detected for student {message.student_id}, skipping intent classification")
+            
+            # Preprocess message even in conversation mode
+            normalized_message = text_preprocessor.preprocess(message.message)
+            print(f"📝 [ORIGINAL] {message.message}")
+            if normalized_message != message.message:
+                print(f"✨ [NORMALIZED] {normalized_message}")
+            
             result = await chatbot_service.process_class_suggestion(
                 student_id=message.student_id,
-                question=message.message
+                question=normalized_message
             )
             return ChatResponseWithData(
                 text=result["text"],
@@ -65,8 +74,14 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                 sql_error=result.get("error")
             )
         
-        # 1. Phân loại intent (only if NOT in active conversation)
-        intent_result = await intent_classifier.classify_intent(message.message)
+        # 1. Preprocess message (normalize, fix typos, expand abbreviations)
+        print(f"📝 [ORIGINAL] {message.message}")
+        normalized_message = text_preprocessor.preprocess(message.message)
+        if normalized_message != message.message:
+            print(f"✨ [NORMALIZED] {normalized_message}")
+        
+        # 2. Phân loại intent (only if NOT in active conversation)
+        intent_result = await intent_classifier.classify_intent(normalized_message)
         
         intent = intent_result["intent"]
         confidence = intent_result["confidence"]

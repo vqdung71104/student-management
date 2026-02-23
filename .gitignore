@@ -162,3 +162,12 @@ backend/models/vit5_nl2sql/
 *.onnx
 *.h5
 *.keras
+
+# =========================
+# Docker
+# =========================
+.env.production
+docker-compose.override.yml
+
+# Database backups
+backup_*.sql

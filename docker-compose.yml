@@ -1,0 +1,185 @@
+# ============================================
+# Networks
+# ============================================
+networks:
+  student-management-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================
+# Volumes
+# ============================================
+volumes:
+  mysql-data:
+    driver: local
+  backend-cache:
+    driver: local
+
+# ============================================
+# Services
+# ============================================
+services:
+  # ==========================================
+  # MySQL Database
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    container_name: student-management-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-123456}
+      MYSQL_DATABASE: ${MYSQL_DB:-student_management}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      student-management-network:
+        ipv4_address: 172.20.0.2
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --max_connections=1000
+      - --innodb_buffer_pool_size=256M
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_PASSWORD:-123456}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # Backend (FastAPI)
+  # ==========================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: student-management-backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-123456}
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DB: ${MYSQL_DB:-student_management}
+
+      # Server Configuration
+      PORT: 8000
+      HOST: 0.0.0.0
+
+      # JWT Configuration
+      SECRET_KEY: ${SECRET_KEY:-ed8cfdc1c04842e0b8e69327cb8a7e0b3bccca6e94e54177e8ab069cc512335d}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+
+      # Google AI Configuration
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+
+      # Chatbot Configuration
+      USE_PHOBERT: ${USE_PHOBERT:-true}
+      USE_GEMINI: ${USE_GEMINI:-true}
+      CHATBOT_STRATEGY: ${CHATBOT_STRATEGY:-hybrid}
+
+      # Python Configuration
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - backend-cache:/app/__pycache__
+      - /app/venv
+    networks:
+      student-management-network:
+        ipv4_address: 172.20.0.3
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # Frontend (React + Vite)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-development}
+    container_name: student-management-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "${FRONTEND_PORT:-5173}:${FRONTEND_DEV_PORT:-5173}"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      student-management-network:
+        ipv4_address: 172.20.0.4
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${FRONTEND_DEV_PORT:-5173}" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # phpMyAdmin (Optional - for database management)
+  # ==========================================
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: student-management-phpmyadmin
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: ${MYSQL_USER:-root}
+      PMA_PASSWORD: ${MYSQL_PASSWORD:-123456}
+      UPLOAD_LIMIT: 100M
+    ports:
+      - "${PHPMYADMIN_PORT:-8181}:80"
+    networks:
+      student-management-network:
+        ipv4_address: 172.20.0.5
+    profiles:
+      - tools
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

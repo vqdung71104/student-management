@@ -1,0 +1,33 @@
+# ============================================
+# Docker Compose Override Example
+# ============================================
+# Copy this file to docker-compose.override.yml to customize your local setup
+# This file is gitignored and won't be committed
+
+version: '3.8'
+
+services:
+  # Example: Add more environment variables to backend
+  backend:
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=debug
+    # Example: Mount additional volumes
+    # volumes:
+    #   - ./custom-data:/app/custom-data
+
+    # Example: Change frontend port
+    # frontend:
+    #   ports:
+    #     - "3000:5173"
+
+    # Example: Add custom database configuration
+    # mysql:
+    #   environment:
+    #     - MYSQL_MAX_CONNECTIONS=2000
+    #   volumes:
+    #     - ./custom-init.sql:/docker-entrypoint-initdb.d/custom-init.sql
+
+    # Example: Enable phpMyAdmin by default
+    # phpmyadmin:
+    #   profiles: []  # Remove profile to enable by default
