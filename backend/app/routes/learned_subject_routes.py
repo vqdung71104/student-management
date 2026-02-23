@@ -41,6 +41,15 @@ def update_semester_gpa(student_id: int, semester: str, db: Session):
     ).all()
     
     if not learned_subjects:
+        # Xóa SemesterGPA nếu không còn môn nào trong học kỳ này
+        semester_gpa_to_delete = db.query(SemesterGPA).filter(
+            and_(
+                SemesterGPA.student_id == student_id,
+                SemesterGPA.semester == semester
+            )
+        ).first()
+        if semester_gpa_to_delete:
+            db.delete(semester_gpa_to_delete)
         return
     
     total_credits = 0
@@ -240,7 +249,19 @@ def delete_learned_subject(learned_subject_id: int, db: Session = Depends(get_db
     db.commit()
     
     #    AUTO-CALCULATE GPA & STUDENT STATS after deletion
+    # Cập nhật toàn bộ semester GPA của student (không chỉ semester bị xóa)
+    all_semesters = db.query(LearnedSubject.semester).filter(
+        LearnedSubject.student_id == student_id
+    ).distinct().all()
+    
+    # Update GPA cho từng semester còn lại
+    for (sem,) in all_semesters:
+        update_semester_gpa(student_id, sem, db)
+    
+    # Xử lý riêng semester của môn vừa xóa (có thể đã không còn môn nào)
     update_semester_gpa(student_id, semester, db)
+    
+    db.flush()
     update_student_stats(student_id, db)
     db.commit()
     
