@@ -38,7 +38,8 @@ Thumbs.db
 Dockerfile
 docker-compose.yml
 .dockerignore
-nginx.conf
+# NOTE: nginx.conf is intentionally NOT excluded here
+# It is required by the production stage to configure nginx
 
 # Documentation
 *.md
