@@ -46,6 +46,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
+            type=raw,value=v1,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Backend image
         uses: docker/build-push-action@v5
@@ -94,6 +95,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
+            type=raw,value=v1,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Frontend image
         uses: docker/build-push-action@v5
