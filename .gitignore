@@ -171,3 +171,6 @@ docker-compose.override.yml
 
 # Database backups
 backup_*.sql
+
+# Log file build
+build_log.txt
