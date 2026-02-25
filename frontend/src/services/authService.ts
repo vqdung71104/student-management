@@ -1,8 +1,3 @@
-interface LoginRequest {
-  email: string;
-  password: string;
-}
-
 interface LoginResponse {
   user_type: string;
   user_info: any;
@@ -30,11 +25,11 @@ class AuthService {
     }
 
     const data: LoginResponse = await response.json();
-    
+
     // Save token and user info to localStorage
     localStorage.setItem(this.TOKEN_KEY, data.access_token);
     localStorage.setItem(this.USER_KEY, JSON.stringify(data.user_info));
-    
+
     return data;
   }
 

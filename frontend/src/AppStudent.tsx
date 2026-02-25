@@ -70,7 +70,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const [chatbotOpen, setChatbotOpen] = useState(false)
   const [studentData, setStudentData] = useState<Student | null>(null)
   const [scheduleData, setScheduleData] = useState<ScheduleItem[]>([])
-  const [gradesData, setGradesData] = useState<GradesData[] | null>(null)
+  const [_gradesData, setGradesData] = useState<GradesData[] | null>(null)
   const [courseData, setCourseData] = useState<Course | null>(null)
   const [notifications, setNotifications] = useState<Notification[]>([
     { id: 1, title: 'Thông báo đăng ký học kỳ 2024.1', content: 'Thời gian đăng ký từ 15/01 đến 30/01/2024', isRead: false, time: '2 giờ trước' },
@@ -78,13 +78,13 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
     { id: 3, title: 'Học bổng khuyến khích học tập', content: 'Mở đăng ký học bổng cho sinh viên xuất sắc', isRead: false, time: '3 ngày trước' }
   ])
   const [notificationOpen, setNotificationOpen] = useState(false)
-  const [studyMenuOpen, setStudyMenuOpen] = useState(false)
+  const [_studyMenuOpen, setStudyMenuOpen] = useState(false)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
-  const [formMenuOpen, setFormMenuOpen] = useState(false)
+  const [_formMenuOpen, setFormMenuOpen] = useState(false)
   const [scholarshipMenuOpen, setScholarshipMenuOpen] = useState(false)
   const [integratedStudyMenuOpen, setIntegratedStudyMenuOpen] = useState(false)
-  const [researchMenuOpen, setResearchMenuOpen] = useState(false)
-  const [exchangeMenuOpen, setExchangeMenuOpen] = useState(false)
+  const [_researchMenuOpen, setResearchMenuOpen] = useState(false)
+  const [_exchangeMenuOpen, setExchangeMenuOpen] = useState(false)
   const [supportMenuOpen, setSupportMenuOpen] = useState(false)
   const [registrationMenuOpen, setRegistrationMenuOpen] = useState(false)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -190,9 +190,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
       setChatInput('')
       // Simulate bot response
       setTimeout(() => {
-        const botMessage: ChatMessage = { 
-          type: 'bot', 
-          content: 'Cảm ơn bạn đã gửi tin nhắn. Tôi sẽ phản hồi sớm nhất có thể!' 
+        const botMessage: ChatMessage = {
+          type: 'bot',
+          content: 'Cảm ơn bạn đã gửi tin nhắn. Tôi sẽ phản hồi sớm nhất có thể!'
         }
         setChatMessages(prev => [...prev, botMessage])
       }, 1000)
@@ -220,7 +220,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   }
 
   const markAsRead = (id: number) => {
-    setNotifications(notifications.map(n => 
+    setNotifications(notifications.map(n =>
       n.id === id ? { ...n, isRead: true } : n
     ))
   }
@@ -236,7 +236,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
         <div className="container mx-auto px-4 py-3">
           <div className="flex justify-between items-center">
             {/* Logo và Title */}
-            <button 
+            <button
               onClick={() => window.location.href = 'http://localhost:5173/student'}
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
             >
@@ -258,34 +258,33 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                       onClick={() => showStudentPage('schedule')}
                       className={currentPage.includes('schedule') ? 'bg-blue-50 font-semibold' : ''}
                     >
-                       Thời khóa biểu
+                      Thời khóa biểu
                     </Menu.Item>
                     <Menu.Item
                       key="grades"
                       onClick={() => showStudentPage('grades')}
                       className={currentPage.includes('grades') ? 'bg-blue-50 font-semibold' : ''}
                     >
-                         Xem điểm
+                      Xem điểm
                     </Menu.Item>
                     <Menu.Item
                       key="curriculum"
                       onClick={() => showStudentPage('curriculum')}
                       className={currentPage.includes('curriculum') ? 'bg-blue-50 font-semibold' : ''}
                     >
-                       Chương trình đào tạo
+                      Chương trình đào tạo
                     </Menu.Item>
                   </Menu>
                 }
               >
                 <button
-                  className={`ant-dropdown-trigger section-nav-item px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    currentPage.includes('study') ||
-                    currentPage.includes('schedule') ||
-                    currentPage.includes('grades') ||
-                    currentPage.includes('curriculum')
+                  className={`ant-dropdown-trigger section-nav-item px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('study') ||
+                      currentPage.includes('schedule') ||
+                      currentPage.includes('grades') ||
+                      currentPage.includes('curriculum')
                       ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                 >
                   <span> Học tập</span>
                   <span className="span-icon-narrow">
@@ -293,15 +292,14 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                   </span>
                 </button>
               </Dropdown>
-              
+
               {/* Đăng ký học tập */}
               <div className="relative">
-                <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    currentPage.includes('registration')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                <button
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('registration')
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                   onClick={() => setRegistrationMenuOpen(!registrationMenuOpen)}
                 >
                   <span> Đăng ký học tập</span>
@@ -312,23 +310,22 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {registrationMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => window.location.href = '/student/subject-registration'} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                         Đăng ký học phần
+                      Đăng ký học phần
                     </button>
                     <button onClick={() => window.location.href = '/student/class-registration'} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                       Đăng ký lớp
+                      Đăng ký lớp
                     </button>
                   </div>
                 )}
               </div>
-              
+
               {/* Đồ án */}
               <div className="relative">
-                <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    currentPage.includes('project')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                <button
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('project')
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                   onClick={() => setProjectMenuOpen(!projectMenuOpen)}
                 >
                   <span> Đồ án</span>
@@ -339,44 +336,42 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {projectMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('project-list')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                         Danh sách đồ án
+                      Danh sách đồ án
                     </button>
                     <button onClick={() => showStudentPage('project-register')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                       Đăng ký nguyện vọng
+                      Đăng ký nguyện vọng
                     </button>
                     <button onClick={() => showStudentPage('project-guidance')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                         Định hướng đề tài
+                      Định hướng đề tài
                     </button>
                     <button onClick={() => showStudentPage('company-list')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                       DS Doanh nghiệp
+                      DS Doanh nghiệp
                     </button>
                     <button onClick={() => showStudentPage('plagiarism-check')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                       Kiểm tra trùng lặp
+                      Kiểm tra trùng lặp
                     </button>
                   </div>
                 )}
               </div>
-              
+
               {/* Biểu mẫu */}
-              <button 
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentPage.includes('form')
-                    ? 'bg-blue-600 text-white shadow-lg' 
+              <button
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${currentPage.includes('form')
+                    ? 'bg-blue-600 text-white shadow-lg'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
                 onClick={() => showStudentPage('forms')}
               >
-                 Biểu mẫu
+                Biểu mẫu
               </button>
-              
+
               {/* Học bổng */}
               <div className="relative">
-                <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    currentPage.includes('scholarship')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                <button
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('scholarship')
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                   onClick={() => setScholarshipMenuOpen(!scholarshipMenuOpen)}
                 >
                   <span>💰 Học bổng</span>
@@ -387,23 +382,22 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {scholarshipMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('scholarship-register')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                         Đăng ký học bổng
+                      Đăng ký học bổng
                     </button>
                     <button onClick={() => showStudentPage('scholarship-criteria')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                         Điều kiện xét học bổng
+                      Điều kiện xét học bổng
                     </button>
                   </div>
                 )}
               </div>
-              
+
               {/* Học tích hợp */}
               <div className="relative">
-                <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    currentPage.includes('integrated')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                <button
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('integrated')
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                   onClick={() => setIntegratedStudyMenuOpen(!integratedStudyMenuOpen)}
                 >
                   <span> Học tích hợp</span>
@@ -414,47 +408,44 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {integratedStudyMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('engineer-advanced')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                       Kỹ sư chuyên sâu
+                      Kỹ sư chuyên sâu
                     </button>
                     <button onClick={() => showStudentPage('master-degree')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                         Thạc sỹ
+                      Thạc sỹ
                     </button>
                   </div>
                 )}
               </div>
-              
+
               {/* NCKH */}
-              <button 
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentPage.includes('research')
-                    ? 'bg-blue-600 text-white shadow-lg' 
+              <button
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${currentPage.includes('research')
+                    ? 'bg-blue-600 text-white shadow-lg'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
                 onClick={() => showStudentPage('research')}
               >
-                 NCKH
+                NCKH
               </button>
-              
+
               {/* CT Trao đổi */}
-              <button 
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  currentPage.includes('exchange')
-                    ? 'bg-blue-600 text-white shadow-lg' 
+              <button
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${currentPage.includes('exchange')
+                    ? 'bg-blue-600 text-white shadow-lg'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                  }`}
                 onClick={() => showStudentPage('exchange')}
               >
-                 CT Trao đổi
+                CT Trao đổi
               </button>
-              
+
               {/* Hỗ trợ */}
               <div className="relative">
-                <button 
-                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${
-                    currentPage.includes('support')
-                      ? 'bg-blue-600 text-white shadow-lg' 
+                <button
+                  className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('support')
+                      ? 'bg-blue-600 text-white shadow-lg'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                    }`}
                   onClick={() => setSupportMenuOpen(!supportMenuOpen)}
                 >
                   <span> Hỗ trợ</span>
@@ -465,13 +456,13 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 {supportMenuOpen && (
                   <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
                     <button onClick={() => showStudentPage('user-guide')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                       Hướng dẫn sử dụng
+                      Hướng dẫn sử dụng
                     </button>
                     <button onClick={() => showStudentPage('faq')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                         Những câu hỏi thường gặp
+                      Những câu hỏi thường gặp
                     </button>
                     <button onClick={() => showStudentPage('feedback')} className="block w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 text-left">
-                       Phản hồi và góp ý
+                      Phản hồi và góp ý
                     </button>
                   </div>
                 )}
@@ -482,7 +473,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
             <div className="flex items-center space-x-4">
               {/* Notification Bell */}
               <div className="relative">
-                <button 
+                <button
                   className="relative p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
                   onClick={() => setNotificationOpen(!notificationOpen)}
                 >
@@ -495,14 +486,14 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                     </span>
                   )}
                 </button>
-                
+
                 {/* Notification Dropdown */}
                 {notificationOpen && (
                   <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
                     <div className="p-4 border-b border-gray-200 flex justify-between items-center">
                       <h3 className="font-semibold text-gray-800">Thông báo</h3>
                       {unreadCount > 0 && (
-                        <button 
+                        <button
                           onClick={markAllAsRead}
                           className="text-blue-600 text-xs hover:text-blue-800"
                         >
@@ -512,11 +503,10 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                     </div>
                     <div className="max-h-64 overflow-y-auto">
                       {notifications.map(notification => (
-                        <div 
+                        <div
                           key={notification.id}
-                          className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${
-                            !notification.isRead ? 'bg-blue-50' : ''
-                          }`}
+                          className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notification.isRead ? 'bg-blue-50' : ''
+                            }`}
                           onClick={() => markAsRead(notification.id)}
                         >
                           <div className="flex justify-between items-start">
@@ -543,7 +533,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 onClick={onLogout}
                 className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all duration-200 font-medium"
               >
-                 Đăng xuất
+                Đăng xuất
               </button>
             </div>
           </div>
@@ -610,7 +600,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
               </div>
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-lg font-semibold mb-4">Thông báo mới</h3>
@@ -631,7 +621,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-lg font-semibold mb-4">Lịch học hôm nay</h3>
               <div className="space-y-3">
@@ -699,16 +689,16 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
             ))}
           </div>
           <div className="flex">
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Nhập tin nhắn..." 
+              placeholder="Nhập tin nhắn..."
               className="flex-grow border border-gray-300 rounded-l-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button 
-              className="bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700 transition" 
+            <button
+              className="bg-blue-600 text-white px-4 py-2 rounded-r-md hover:bg-blue-700 transition"
               onClick={sendChatMessage}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

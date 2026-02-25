@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import warning from 'antd/es/_util/warning'
 
 const StudentDashboard = () => {
   const { userInfo } = useAuth()
@@ -12,21 +11,21 @@ const StudentDashboard = () => {
     completedSubjects: 0,
     warning_level: 0
   })
-  const [recentGrades, setRecentGrades] = useState<Array<{subject: string, grade: string}>>([])
-  const [upcomingSchedule, setUpcomingSchedule] = useState<Array<{subject: string, time: string, room: string, day: string}>>([])
+  const [recentGrades, setRecentGrades] = useState<Array<{ subject: string, grade: string }>>([])
+  const [upcomingSchedule, setUpcomingSchedule] = useState<Array<{ subject: string, time: string, room: string, day: string }>>([])
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!userInfo?.id) return
-      
+
       try {
         // Lấy thông tin chi tiết học tập
         const response = await fetch(`http://localhost:8000/api/students/${userInfo.id}/academic-details`)
         if (response.ok) {
           const data = await response.json()
           console.log('Academic details data:', data) // Debug log
-          console.log('overall_gpa: ',data.overall_gpa)
-          
+          console.log('overall_gpa: ', data.overall_gpa)
+
           setQuickStats({
             currentCPA: data.overall_gpa || 0,
             totalCredits: data.total_credits || 0,
@@ -41,7 +40,7 @@ const StudentDashboard = () => {
               subject: subject.subject_name,
               grade: subject.letter_grade || 'F'
             })) || []
-          
+
           setRecentGrades(recentGradesData)
         } else {
           console.error('Failed to fetch academic details, status:', response.status)
@@ -52,7 +51,7 @@ const StudentDashboard = () => {
         if (scheduleResponse.ok) {
           const classRegisters = await scheduleResponse.json()
           console.log('Class registers data:', classRegisters) // Debug log
-          
+
           // Lấy thông tin chi tiết 3 lớp đầu tiên cho tuần này
           const upcomingData = await Promise.all(
             classRegisters.slice(0, 3).map(async (register: any) => {
@@ -60,19 +59,19 @@ const StudentDashboard = () => {
                 const classResponse = await fetch(`http://localhost:8000/api/classes/${register.class_id}`)
                 if (classResponse.ok) {
                   const classData = await classResponse.json()
-                  
+
                   // Check if subject_id exists before fetching
                   if (!classData.subject_id) {
                     console.warn('Class has no subject_id:', classData)
                     return null
                   }
-                  
+
                   const subjectResponse = await fetch(`http://localhost:8000/api/subjects/${classData.subject_id}`)
                   if (subjectResponse.ok) {
                     const subjectData = await subjectResponse.json()
-                    
+
                     const daysOfWeek = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
-                    
+
                     return {
                       subject: subjectData.subject_name,
                       time: `${classData.start_time || '07:00'}-${classData.end_time || '08:50'}`,
@@ -87,7 +86,7 @@ const StudentDashboard = () => {
               return null
             })
           )
-          
+
           setUpcomingSchedule(upcomingData.filter(item => item !== null))
         } else {
           console.error('Failed to fetch class registers, status:', scheduleResponse.status)
@@ -112,11 +111,11 @@ const StudentDashboard = () => {
           </p>
         </div>
         <div className="text-sm text-gray-500">
-          Hôm nay: {new Date().toLocaleDateString('vi-VN', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
+          Hôm nay: {new Date().toLocaleDateString('vi-VN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
           })}
         </div>
       </div>
@@ -186,7 +185,7 @@ const StudentDashboard = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Điểm số gần đây</h2>
-            <button 
+            <button
               onClick={() => navigate('/student/grades')}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
@@ -201,12 +200,11 @@ const StudentDashboard = () => {
                   <p className="text-xs text-gray-600">Điểm tổng kết</p>
                 </div>
                 <div className="text-right">
-                  <span className={`inline-flex px-3 py-2 text-lg font-semibold rounded-full ${
-                    grade.grade === 'A+' || grade.grade === 'A' ? 'bg-green-100 text-green-800' :
-                    grade.grade === 'B+' || grade.grade === 'B' ? 'bg-blue-100 text-blue-800' :
-                    grade.grade === 'C+' || grade.grade === 'C' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
-                  }`}>
+                  <span className={`inline-flex px-3 py-2 text-lg font-semibold rounded-full ${grade.grade === 'A+' || grade.grade === 'A' ? 'bg-green-100 text-green-800' :
+                      grade.grade === 'B+' || grade.grade === 'B' ? 'bg-blue-100 text-blue-800' :
+                        grade.grade === 'C+' || grade.grade === 'C' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-red-100 text-red-800'
+                    }`}>
                     {grade.grade}
                   </span>
                 </div>
@@ -219,7 +217,7 @@ const StudentDashboard = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900">Lịch học tuần này</h2>
-            <button 
+            <button
               onClick={() => navigate('/student/schedule')}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
@@ -246,42 +244,42 @@ const StudentDashboard = () => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Thao tác nhanh</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          <button 
+          <button
             onClick={() => navigate('/student/schedule')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Thời khóa biểu</p>
           </button>
-          <button 
+          <button
             onClick={() => navigate('/student/grades')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Xem điểm</p>
           </button>
-          <button 
+          <button
             onClick={() => navigate('/student/curriculum')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Chương trình đào tạo</p>
           </button>
-          <button 
+          <button
             onClick={() => navigate('/student/subject-registration')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
           >
             <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Đăng ký học phần</p>
           </button>
-          <button 
+          <button
             onClick={() => navigate('/student/class-registration')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 transition-colors"
           >
             <div className="text-2xl mb-2">  </div>
             <p className="text-sm font-medium text-gray-900">Đăng ký lớp</p>
           </button>
-          <button 
+          <button
             onClick={() => navigate('/student/forms')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -297,7 +295,7 @@ const StudentDashboard = () => {
         <div className="space-y-4">
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <h3 className="text-sm font-medium text-blue-900 mb-1">
-                Thông báo đăng ký học kỳ 2024.1
+              Thông báo đăng ký học kỳ 2024.1
             </h3>
             <p className="text-sm text-blue-800 mb-2">
               Thời gian đăng ký từ 15/01 đến 30/01/2024. Sinh viên vui lòng đăng ký theo đúng thời gian quy định.
@@ -306,7 +304,7 @@ const StudentDashboard = () => {
           </div>
           <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
             <h3 className="text-sm font-medium text-green-900 mb-1">
-                 Học bổng khuyến khích học tập
+              Học bổng khuyến khích học tập
             </h3>
             <p className="text-sm text-green-800 mb-2">
               Mở đăng ký học bổng cho sinh viên có kết quả học tập xuất sắc trong học kỳ vừa qua.

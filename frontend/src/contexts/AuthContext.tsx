@@ -8,6 +8,8 @@ interface User {
   username?: string
   role?: string
   course_id?: number
+  cpa?: number
+  semester?: number
 }
 
 interface AuthContextType {
@@ -99,7 +101,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // Fallback cho demo - không còn student_id
         if (email === 'student' && password === 'student123') {
           setUserRole('student')
-          setUserInfo({ 
+          setUserInfo({
             id: 1,
             student_name: 'Vũ Quang Dũng',
             email: 'dung.vq225818@sis.hust.edu.vn',
@@ -115,7 +117,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Fallback for demo
       if (email === 'student' && password === 'student123') {
         setUserRole('student')
-        setUserInfo({ 
+        setUserInfo({
           id: 1,
           student_name: 'Vũ Quang Dũng',
           email: 'dung.vq225818@sis.hust.edu.vn',

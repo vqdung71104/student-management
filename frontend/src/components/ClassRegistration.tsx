@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input, Select } from 'antd'
-import { SearchOutlined, HomeOutlined, PlusOutlined, CalendarOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input } from 'antd'
+import { SearchOutlined, HomeOutlined, CalendarOutlined, ClockCircleOutlined } from '@ant-design/icons'
 
 const { Title, Text } = Typography
-const { Option } = Select
 
 interface Class {
   id: number
@@ -50,7 +49,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedClass, setSelectedClass] = useState<Class | null>(null)
   const [searchText, setSearchText] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string | null>(null)
+  const filterStatus: string | null = null
 
   // Fetch available classes
   const fetchClasses = async () => {
@@ -152,14 +151,14 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   // Filter classes
   const filteredClasses = classes.filter(classItem => {
     const matchSearch = classItem.class_name.toLowerCase().includes(searchText.toLowerCase()) ||
-                       classItem.class_code.toLowerCase().includes(searchText.toLowerCase()) ||
-                       classItem.subject_name.toLowerCase().includes(searchText.toLowerCase()) ||
-                       classItem.instructor_name.toLowerCase().includes(searchText.toLowerCase())
+      classItem.class_code.toLowerCase().includes(searchText.toLowerCase()) ||
+      classItem.subject_name.toLowerCase().includes(searchText.toLowerCase()) ||
+      classItem.instructor_name.toLowerCase().includes(searchText.toLowerCase())
     const matchStatus = filterStatus === null || classItem.status === filterStatus
-    
+
     // Check if already registered
     const isRegistered = registeredClasses.some(reg => reg.class_id === classItem.id)
-    
+
     return matchSearch && matchStatus && !isRegistered
   })
 
@@ -229,8 +228,8 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
         <div>
           <Text>{record.current_students}/{record.max_students}</Text>
           <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-            <div 
-              className="bg-blue-600 h-2 rounded-full" 
+            <div
+              className="bg-blue-600 h-2 rounded-full"
               style={{ width: `${(record.current_students / record.max_students) * 100}%` }}
             ></div>
           </div>
@@ -253,7 +252,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
       key: 'action',
       width: 120,
       align: 'center' as const,
-      
+
     },
   ]
 
@@ -354,8 +353,8 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
       </Card>
 
       {/* Registered Classes */}
-      <Card 
-        title="Lớp học đã đăng ký" 
+      <Card
+        title="Lớp học đã đăng ký"
         className="mb-6"
         extra={<Tag color="green">{registeredClasses.length} lớp</Tag>}
       >
@@ -370,7 +369,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
       </Card>
 
       {/* Available Classes */}
-      <Card 
+      <Card
         title="Danh sách lớp học có thể đăng ký"
         extra={
           <Space>
@@ -381,7 +380,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
               onChange={(e) => setSearchText(e.target.value)}
               style={{ width: 250 }}
             />
-            
+
           </Space>
         }
       >

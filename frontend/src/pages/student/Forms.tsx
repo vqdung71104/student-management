@@ -175,7 +175,7 @@ const Forms = () => {
 
   const handleSendForm = async () => {
     if (!selectedForm) return
-    
+
     try {
       // Tạo nội dung email với thông tin form
       const emailContent = {
@@ -186,10 +186,10 @@ const Forms = () => {
 
       // Gửi email đến admin (sẽ implement sau)
       console.log('Sending form to admin:', emailContent)
-      
+
       // Hiển thị thông báo thành công
       alert('Đơn đã được gửi thành công! Bạn sẽ nhận được thông báo khi đơn được xử lý.')
-      
+
       // Reset state
       setShowPreview(false)
       setSelectedForm(null)
@@ -205,7 +205,7 @@ const Forms = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-900">Biểu mẫu</h1>
       </div>
-      
+
       {/* Grid các biểu mẫu */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {formTemplates.map((form) => (
@@ -232,20 +232,19 @@ const Forms = () => {
       {/* Preview document */}
       {showPreview && selectedForm && (
         <DocumentPreview
-          form={selectedForm}
           formData={formData}
-          onClose={() => {
+          onBack={() => {
             setShowPreview(false)
             setSelectedForm(null)
           }}
-          onSend={handleSendForm}
+          onSubmit={handleSendForm}
         />
       )}
 
       {/* Hướng dẫn sinh viên */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8">
         <h2 className="text-xl font-bold text-gray-900 mb-4 border-b border-red-500 pb-2">Hướng dẫn sinh viên</h2>
-        
+
         <div className="space-y-6">
           <div>
             <h3 className="font-semibold text-gray-800 mb-2">1. Hướng dẫn sử dụng Dịch vụ trực tuyến</h3>
@@ -295,7 +294,7 @@ const Forms = () => {
           <div>
             <h3 className="font-semibold text-gray-800 mb-2">5. Lưu ý</h3>
             <p className="text-gray-600 ml-4">
-              Các loại giấy Xác nhận chế độ chính sách, giấy Xác nhận vay vốn, giấy Chứng nhận mất thẻ sinh viên, 
+              Các loại giấy Xác nhận chế độ chính sách, giấy Xác nhận vay vốn, giấy Chứng nhận mất thẻ sinh viên,
               sinh viên xuống làm việc trực tiếp tại phòng CTCT & CTSV - Nhà C1-104, để được giải quyết.
             </p>
           </div>

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input, Select } from 'antd'
-import { SearchOutlined, HomeOutlined, PlusOutlined, CalendarOutlined, ClockCircleOutlined } from '@ant-design/icons'
+import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input } from 'antd'
+import { SearchOutlined, HomeOutlined, CalendarOutlined } from '@ant-design/icons'
 
 const { Text } = Typography
-const { Option } = Select
 
 interface Class {
   id: number
@@ -59,7 +58,7 @@ const ClassRegistration = () => {
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedClass, setSelectedClass] = useState<Class | null>(null)
   const [searchText, setSearchText] = useState('')
-  const [filterStatus, setFilterStatus] = useState<string | null>(null)
+  const filterStatus: string | null = null
 
   // Fetch available classes (only for subjects student registered)
   const fetchClasses = async () => {
@@ -69,11 +68,11 @@ const ClassRegistration = () => {
       if (response.ok) {
         const allClasses = await response.json()
         console.log('All classes fetched:', allClasses.length)
-        
+
         // Fetch registration counts for all classes
         const registrationResponse = await fetch('http://localhost:8000/api/class-registers/')
         let registrationCounts: { [key: number]: number } = {}
-        
+
         if (registrationResponse.ok) {
           const allRegistrations = await registrationResponse.json()
           // Count registrations by class_id (which is the foreign key to class.id)
@@ -83,13 +82,13 @@ const ClassRegistration = () => {
           }, {})
           console.log('Registration counts:', registrationCounts)
         }
-        
+
         // Add registration count to each class
         const classesWithCounts = allClasses.map((classItem: any) => ({
           ...classItem,
           registered_count: registrationCounts[classItem.id] || 0
         }))
-        
+
         // Create a Set of all linked class IDs to filter out
         const linkedClassIds = new Set<number>()
         classesWithCounts.forEach((classItem: any) => {
@@ -101,15 +100,15 @@ const ClassRegistration = () => {
             })
           }
         })
-        
+
         console.log('Linked class IDs to exclude:', Array.from(linkedClassIds))
-        
+
         // Filter classes: only exclude linked classes (no longer require subject registration)
         const allowedClasses = classesWithCounts.filter((classItem: any) => {
           const isNotLinkedClass = !linkedClassIds.has(classItem.class_id)
           return isNotLinkedClass
         })
-        
+
         console.log('Filtered classes (main classes only):', allowedClasses.length)
         setClasses(allowedClasses)
       } else {
@@ -126,19 +125,19 @@ const ClassRegistration = () => {
   // Fetch registered classes
   const fetchRegisteredClasses = async () => {
     if (!userInfo?.id) return
-    
+
     try {
       // Use student ID endpoint
       const response = await fetch(`http://localhost:8000/api/class-registers/student/${userInfo.id}`)
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered classes data:', registersData)
-        
+
         // Fetch class information for each registered class
         const classesResponse = await fetch('http://localhost:8000/api/classes/')
         if (classesResponse.ok) {
           const allClasses = await classesResponse.json()
-          
+
           // Join class info with register data
           const enrichedRegisters = registersData.map((register: any) => {
             const classInfo = allClasses.find((cls: any) => cls.id === register.class_id)
@@ -151,7 +150,7 @@ const ClassRegistration = () => {
               teacher_name: classInfo?.teacher_name || 'N/A'
             }
           })
-          
+
           console.log('Enriched registered classes:', enrichedRegisters)
           setRegisteredClasses(enrichedRegisters)
         } else {
@@ -174,11 +173,11 @@ const ClassRegistration = () => {
 
     try {
       setLoading(true)
-      
+
       // Find the selected class to get its linked classes
       const selectedClassData = classes.find(cls => cls.id === classId)
       const linkedClassIds = selectedClassData?.linked_class_ids || []
-      
+
       console.log('Main class ID:', classId)
       console.log('Main class data:', selectedClassData)
       console.log('Linked class IDs (class_id values):', linkedClassIds)
@@ -193,7 +192,7 @@ const ClassRegistration = () => {
       }
 
       console.log('Registering main class:', registerData)
-      
+
       const response = await fetch('http://localhost:8000/api/class-registers', {
         method: 'POST',
         headers: {
@@ -215,7 +214,7 @@ const ClassRegistration = () => {
         const allClassesResponse = await fetch('http://localhost:8000/api/classes/')
         if (allClassesResponse.ok) {
           const allClasses = await allClassesResponse.json()
-          
+
           for (const linkedClassId of linkedClassIds) {
             if (linkedClassId !== selectedClassData?.class_id) { // Don't register self again
               // Find the class with this class_id to get its database id
@@ -230,7 +229,7 @@ const ClassRegistration = () => {
                 }
 
                 console.log(`Registering linked class ${linkedClassId} (DB ID: ${linkedClass.id}):`, linkedRegisterData)
-                
+
                 const linkedResponse = await fetch('http://localhost:8000/api/class-registers', {
                   method: 'POST',
                   headers: {
@@ -257,13 +256,13 @@ const ClassRegistration = () => {
 
       const totalRegistered = 1 + linkedRegistrations.length
       message.success(`Đăng ký thành công ${totalRegistered} lớp học!${linkedRegistrations.length > 0 ? ` (Bao gồm ${linkedRegistrations.length} lớp kèm)` : ''}`)
-      
+
       setModalVisible(false)
       setSelectedClass(null)
       // Refresh both lists
       await fetchClasses()
       await fetchRegisteredClasses()
-      
+
     } catch (error) {
       console.error('Error registering class:', error)
       message.error(error instanceof Error ? error.message : 'Lỗi kết nối server')
@@ -309,15 +308,15 @@ const ClassRegistration = () => {
   const filteredClasses = classes.filter(classItem => {
     const searchLower = (searchText || '').toLowerCase()
     const matchSearch = searchLower === '' ||
-                       (classItem.class_name || '').toLowerCase().includes(searchLower) ||
-                       (classItem.class_code || '').toLowerCase().includes(searchLower) ||
-                       (classItem.subject_name || '').toLowerCase().includes(searchLower) ||
-                       (classItem.instructor_name || '').toLowerCase().includes(searchLower)
+      (classItem.class_name || '').toLowerCase().includes(searchLower) ||
+      (classItem.class_code || '').toLowerCase().includes(searchLower) ||
+      (classItem.subject_name || '').toLowerCase().includes(searchLower) ||
+      (classItem.instructor_name || '').toLowerCase().includes(searchLower)
     const matchStatus = filterStatus === null || (classItem.status || '') === filterStatus
-    
+
     // Check if already registered
     const isRegistered = registeredClasses.some(reg => reg.class_id === classItem.id)
-    
+
     return matchSearch && matchStatus && !isRegistered
   })
 
@@ -395,12 +394,12 @@ const ClassRegistration = () => {
         const registeredCount = record.registered_count || 0
         const maxStudents = record.max_student_number || 0
         const percentage = maxStudents > 0 ? (registeredCount / maxStudents) * 100 : 0
-        
+
         return (
           <div className="text-center">
             <div className="text-sm">{registeredCount}/{maxStudents}</div>
             <div className="w-full bg-gray-200 rounded h-1 mt-1">
-              <div 
+              <div
                 className={`h-1 rounded ${percentage >= 100 ? 'bg-red-500' : percentage >= 80 ? 'bg-orange-500' : 'bg-blue-500'}`}
                 style={{ width: `${Math.min(percentage, 100)}%` }}
               ></div>
@@ -538,8 +537,8 @@ const ClassRegistration = () => {
       </Card>
 
       {/* Registered Classes */}
-      <Card 
-        title="Lớp học đã đăng ký" 
+      <Card
+        title="Lớp học đã đăng ký"
         extra={<Tag color="green">{registeredClasses.length} lớp</Tag>}
       >
         <Table
@@ -553,7 +552,7 @@ const ClassRegistration = () => {
       </Card>
 
       {/* Available Classes */}
-      <Card 
+      <Card
         title="Danh sách lớp học có thể đăng ký"
         extra={
           <Space>
@@ -568,25 +567,25 @@ const ClassRegistration = () => {
               style={{ width: 250 }}
               allowClear
             />
-            
+
           </Space>
         }
       >
         <Table
-            columns={availableClassesColumns}
-            dataSource={filteredClasses}
-            rowKey="id"
-            loading={loading}
-            size="small"
-            pagination={{
-              pageSize: 8,
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total) => `Tổng ${total} lớp học`
-            }}
-            tableLayout="auto"
-            scroll={{ y: 400 }}
-          />
+          columns={availableClassesColumns}
+          dataSource={filteredClasses}
+          rowKey="id"
+          loading={loading}
+          size="small"
+          pagination={{
+            pageSize: 8,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `Tổng ${total} lớp học`
+          }}
+          tableLayout="auto"
+          scroll={{ y: 400 }}
+        />
       </Card>
 
       {/* Confirmation Modal */}

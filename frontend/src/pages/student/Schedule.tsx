@@ -129,25 +129,6 @@ const Schedule = () => {
     setLoading(false)
   }
 
-  const getClassesForDayAndTime = (dayIndex: number, timeSlot: string) => {
-    return classes.filter(cls => {
-      if (cls.day_of_week !== dayIndex) return false
-
-      const slotHour = parseInt(timeSlot.split(':')[0])
-      const startHour = parseInt(cls.study_time_start.split(':')[0])
-      const startMinute = parseInt(cls.study_time_start.split(':')[1])
-      const endHour = parseInt(cls.study_time_end.split(':')[0])
-      const endMinute = parseInt(cls.study_time_end.split(':')[1])
-
-      // Check if this time slot overlaps with the class time
-      const slotStart = slotHour * 60
-      const slotEnd = (slotHour + 1) * 60
-      const classStart = startHour * 60 + startMinute
-      const classEnd = endHour * 60 + endMinute
-
-      return classStart < slotEnd && classEnd > slotStart
-    })
-  }
 
   const calculateClassPosition = (classItem: ClassSchedule) => {
     const startHour = parseInt(classItem.study_time_start.split(':')[0])
@@ -207,7 +188,7 @@ const Schedule = () => {
             {/* Header with days */}
             <div className="timetable-header">
               <div className="time-column-header"></div>
-              {daysOfWeek.map((day, index) => (
+              {daysOfWeek.map((day) => (
                 <div key={day} className="day-header">
                   <div className="day-name">{day}</div>
                 </div>
