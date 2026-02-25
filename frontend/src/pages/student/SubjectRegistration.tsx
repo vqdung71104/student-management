@@ -1,11 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input, Select } from 'antd'
-import { SearchOutlined, BookOutlined, PlusOutlined, ArrowLeftOutlined, CalendarOutlined } from '@ant-design/icons'
-import { useNavigate } from 'react-router-dom'
+import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input } from 'antd'
+import { SearchOutlined, BookOutlined, PlusOutlined, CalendarOutlined } from '@ant-design/icons'
 
-const { Title, Text } = Typography
-const { Option } = Select
+const { Text } = Typography
 
 interface Subject {
   id: number
@@ -29,21 +27,20 @@ interface SubjectRegister {
 
 const SubjectRegistration = () => {
   const { userInfo } = useAuth()
-  const navigate = useNavigate()
   const [subjects, setSubjects] = useState<Subject[]>([])
   const [registeredSubjects, setRegisteredSubjects] = useState<SubjectRegister[]>([])
   const [loading, setLoading] = useState(false)
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
   const [searchText, setSearchText] = useState('')
-  const [filterSemester, setFilterSemester] = useState<number | null>(null)
-  const [filterType, setFilterType] = useState<string | null>(null)
+  const filterSemester: number | null = null
+  const filterType: string | null = null
   const [studentData, setStudentData] = useState<any>(null)
 
   // Fetch student data first
   const fetchStudentData = async () => {
     if (!userInfo?.id) return
-    
+
     try {
       const response = await fetch(`http://localhost:8000/api/students/${userInfo.id}`)
       if (response.ok) {
@@ -112,7 +109,7 @@ const SubjectRegistration = () => {
       const validSubjects = subjectDetails.filter(subject => subject !== null)
       console.log('Valid subjects:', validSubjects)
       setSubjects(validSubjects)
-      
+
       if (validSubjects.length === 0) {
         message.info('Không tìm thấy học phần hợp lệ cho khóa học của bạn')
       }
@@ -127,18 +124,18 @@ const SubjectRegistration = () => {
   // Fetch registered subjects
   const fetchRegisteredSubjects = async () => {
     if (!userInfo?.id) return
-    
+
     try {
       const response = await fetch(`http://localhost:8000/api/subject-registers/student/${userInfo.id}`)
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered subjects data:', registersData)
-        
+
         // Fetch subject information for each registered subject
         const subjectsResponse = await fetch('http://localhost:8000/api/subjects/')
         if (subjectsResponse.ok) {
           const allSubjects = await subjectsResponse.json()
-          
+
           // Join subject info with register data
           const enrichedRegisters = registersData.map((register: any) => {
             const subjectInfo = allSubjects.find((subject: any) => subject.id === register.subject_id)
@@ -149,7 +146,7 @@ const SubjectRegistration = () => {
               credits: subjectInfo?.credits || register.credits || 0
             }
           })
-          
+
           console.log('Enriched registered subjects:', enrichedRegisters)
           setRegisteredSubjects(enrichedRegisters)
         } else {
@@ -251,17 +248,17 @@ const SubjectRegistration = () => {
       const subjectName = subject.subject_name || ''
       const subjectCode = subject.subject_id || ''
       const searchLower = searchText.toLowerCase()
-      
-      const matchSearch = searchText === '' || 
-                         subjectName.toLowerCase().includes(searchLower) ||
-                         subjectCode.toLowerCase().includes(searchLower)
-      
+
+      const matchSearch = searchText === '' ||
+        subjectName.toLowerCase().includes(searchLower) ||
+        subjectCode.toLowerCase().includes(searchLower)
+
       const matchSemester = filterSemester === null || subject.semester === filterSemester
       const matchType = filterType === null || subject.subject_type === filterType
-      
+
       // Check if already registered
       const isRegistered = registeredSubjects.some(reg => reg.subject_id === subject.id)
-      
+
       return matchSearch && matchSemester && matchType && !isRegistered
     })
   }, [subjects, searchText, filterSemester, filterType, registeredSubjects])
@@ -304,7 +301,7 @@ const SubjectRegistration = () => {
         <Tag color="green">HK {studentData?.newest_semester || 'N/A'}</Tag>
       )
     },
-    
+
     {
       title: 'Thao tác',
       key: 'action',
@@ -408,7 +405,7 @@ const SubjectRegistration = () => {
 
   return (
     <div className="space-y-6">
-      
+
       {/* Summary Card */}
       <Card size="small">
         <div className="flex justify-between items-center">
@@ -424,8 +421,8 @@ const SubjectRegistration = () => {
       </Card>
 
       {/* Registered Subjects */}
-      <Card 
-        title="Học phần đã đăng ký" 
+      <Card
+        title="Học phần đã đăng ký"
         extra={<Tag color="green">{registeredSubjects.length} học phần</Tag>}
       >
         <Table
@@ -439,7 +436,7 @@ const SubjectRegistration = () => {
       </Card>
 
       {/* Available Subjects */}
-      <Card 
+      <Card
         title="Danh sách học phần có thể đăng ký"
         extra={
           <Space>
@@ -454,8 +451,8 @@ const SubjectRegistration = () => {
               style={{ width: 200 }}
               allowClear
             />
-            
-            
+
+
           </Space>
         }
       >
@@ -514,7 +511,7 @@ const SubjectRegistration = () => {
               <Text strong>Học kỳ: </Text>
               <Tag color="green">HK {selectedSubject.semester}</Tag>
             </div>
-            
+
             {selectedSubject.description && (
               <div>
                 <Text strong>Mô tả: </Text>

@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from 'docx'
+import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx'
 import { saveAs } from 'file-saver'
 
 export interface FormData {
@@ -55,7 +55,7 @@ export const generateDocument = async (formData: FormData): Promise<Blob> => {
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 },
         }),
-        
+
         new Paragraph({
           children: [
             new TextRun({
@@ -282,7 +282,7 @@ const getFormTitle = (formType: string): string => {
   return titles[formType] || 'ĐƠN XIN'
 }
 
-const getRecipient = (formType: string): string => {
+const getRecipient = (_formType: string): string => {
   return "Ban Giám hiệu Trường Công nghệ Thông tin và Truyền thông"
 }
 

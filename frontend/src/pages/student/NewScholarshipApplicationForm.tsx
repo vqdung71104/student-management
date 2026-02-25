@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import emailjs from '@emailjs/browser';
 import { sendFormEmail } from '../../services/emailjs-service';
 
 interface Scholarship {
@@ -172,7 +171,7 @@ const ScholarshipApplicationForm: React.FC = () => {
       };
 
       const emailSuccess = await sendFormEmail(emailData);
-      
+
       if (emailSuccess) {
         alert('Đã nộp hồ sơ thành công! Admin sẽ xem xét và phản hồi sớm nhất.');
         navigate('/student/scholarships');
@@ -214,19 +213,19 @@ const ScholarshipApplicationForm: React.FC = () => {
         <div className="flex gap-6">
           {/* Main Content */}
           <div className="flex-1 space-y-8">
-            
+
             {/* Section 1: Thông tin chung */}
             <div id="section-1" className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center mb-6">
                 <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center mr-3">1</div>
                 <h2 className="text-lg font-semibold">Thông tin chung</h2>
               </div>
-              
+
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Tên học bổng *:</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={scholarship.title}
                     disabled
                     className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -236,8 +235,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Loại học bổng</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={scholarship.type}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -245,8 +244,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Số lượng học bổng</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={scholarship.slots}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -257,8 +256,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Giá trị học bổng/suất</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={scholarship.value_per_slot?.toLocaleString('vi-VN')}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -266,8 +265,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Đối tác cấp học bổng</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={scholarship.sponsor}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -278,8 +277,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Ngày bắt đầu đăng ký *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={new Date(scholarship.register_start_at).toLocaleString('vi-VN')}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -287,8 +286,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Ngày kết thúc đăng ký *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={new Date(scholarship.register_end_at).toLocaleString('vi-VN')}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -299,7 +298,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Dành cho sinh viên các đơn vị</label>
-                    <textarea 
+                    <textarea
                       value={scholarship.target_departments}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 h-20"
@@ -307,8 +306,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Dành cho sinh viên các khóa</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={scholarship.target_courses}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -318,7 +317,7 @@ const ScholarshipApplicationForm: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium mb-1">Dành cho sinh viên các hệ *</label>
-                  <textarea 
+                  <textarea
                     value={scholarship.target_programs}
                     disabled
                     className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 h-16"
@@ -328,8 +327,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Cán bộ phụ trách</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={scholarship.contact_person}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -337,8 +336,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Thông tin liên hệ</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={scholarship.contact_info}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
@@ -349,10 +348,10 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">Tài liệu</label>
                   {scholarship.document_url && (
-                    <a 
+                    <a
                       href={scholarship.document_url}
                       target="_blank"
-                      rel="noopener noreferrer" 
+                      rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800"
                     >
                       {scholarship.document_url.split('/').pop()}
@@ -368,7 +367,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center mr-3">2</div>
                 <h2 className="text-lg font-semibold">Thông tin chi tiết</h2>
               </div>
-              
+
               <div className="prose max-w-none">
                 <div dangerouslySetInnerHTML={{ __html: scholarship.description || 'Không có mô tả chi tiết' }} />
               </div>
@@ -386,8 +385,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Điểm CPA *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={autoData?.auto_cpa || ''}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
@@ -395,8 +394,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Điểm GPA *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={autoData?.auto_gpa || ''}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
@@ -404,8 +403,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Điểm rèn luyện kỳ gần nhất *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={autoData?.auto_drl_latest || ''}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
@@ -413,8 +412,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Tổng số tín chỉ tích lũy *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={autoData?.auto_total_credits || ''}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
@@ -425,8 +424,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Điểm rèn luyện TB tích lũy *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={autoData?.auto_drl_average || ''}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
@@ -434,8 +433,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Điểm TB 2 HK gần nhất *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={autoData?.auto_gpa_last_2_sem || ''}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
@@ -443,8 +442,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Điểm rèn luyện 2 kỳ gần nhất *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={autoData?.auto_drl_last_2_sem || ''}
                       disabled
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
@@ -456,7 +455,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Hoàn cảnh gia đình *</label>
-                    <select 
+                    <select
                       value={formData.family_status}
                       onChange={(e) => setFormData(prev => ({ ...prev, family_status: e.target.value as any }))}
                       className="w-full p-3 border border-gray-300 rounded-lg"
@@ -471,7 +470,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">Quốc gia</label>
-                      <select 
+                      <select
                         value={formData.address_country}
                         onChange={(e) => setFormData(prev => ({ ...prev, address_country: e.target.value }))}
                         className="w-full p-3 border border-gray-300 rounded-lg"
@@ -481,7 +480,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Tỉnh/Thành phố</label>
-                      <select 
+                      <select
                         value={formData.address_city}
                         onChange={(e) => setFormData(prev => ({ ...prev, address_city: e.target.value }))}
                         className="w-full p-3 border border-gray-300 rounded-lg"
@@ -494,7 +493,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Quận/Huyện</label>
-                      <select 
+                      <select
                         value={formData.address_ward}
                         onChange={(e) => setFormData(prev => ({ ...prev, address_ward: e.target.value }))}
                         className="w-full p-3 border border-gray-300 rounded-lg"
@@ -506,8 +505,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Địa chỉ chi tiết</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={formData.address_detail}
                         onChange={(e) => setFormData(prev => ({ ...prev, address_detail: e.target.value }))}
                         placeholder="số 8, ngách 201/19, tổ 5, Phúc Lợi"
@@ -518,8 +517,8 @@ const ScholarshipApplicationForm: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">Số điện thoại hiện tại *</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       value={formData.phone_number}
                       onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
                       placeholder="Nhập số điện thoại"
@@ -530,8 +529,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">STK nhận học bổng nếu đạt *</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={formData.bank_account_number}
                         onChange={(e) => setFormData(prev => ({ ...prev, bank_account_number: e.target.value }))}
                         placeholder="Nhập số tài khoản chính chủ, lưu ý"
@@ -540,8 +539,8 @@ const ScholarshipApplicationForm: React.FC = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium mb-1">Tại ngân hàng nào (VD: BIDV, Vietinbank, ...)</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         value={formData.bank_name}
                         onChange={(e) => setFormData(prev => ({ ...prev, bank_name: e.target.value }))}
                         placeholder="Nhập tên ngân hàng"
@@ -555,7 +554,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium mb-1">Mô tả ngắn gọn hoàn cảnh gia đình</label>
-                    <textarea 
+                    <textarea
                       value={formData.family_description}
                       onChange={(e) => setFormData(prev => ({ ...prev, family_description: e.target.value }))}
                       placeholder="Nhập không quá 300 từ"
@@ -566,10 +565,10 @@ const ScholarshipApplicationForm: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Thành tích học tập, NCKH đạt được khen thưởng trong thời gian học tập tại 
+                      Thành tích học tập, NCKH đạt được khen thưởng trong thời gian học tập tại
                       Đại học Bách khoa Hà Nội (Yêu cầu tài minh chứng lên)
                     </label>
-                    <textarea 
+                    <textarea
                       value={formData.achievement_special}
                       onChange={(e) => setFormData(prev => ({ ...prev, achievement_special: e.target.value }))}
                       rows={4}
@@ -579,10 +578,10 @@ const ScholarshipApplicationForm: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Thành tích hoạt động phong trào Đoàn - Hội được khen thưởng trong thời gian 
+                      Thành tích hoạt động phong trào Đoàn - Hội được khen thưởng trong thời gian
                       học tập tại Đại học Bách khoa Hà Nội (tài minh chứng lên)
                     </label>
-                    <textarea 
+                    <textarea
                       value={formData.achievement_activity}
                       onChange={(e) => setFormData(prev => ({ ...prev, achievement_activity: e.target.value }))}
                       rows={4}
@@ -594,7 +593,7 @@ const ScholarshipApplicationForm: React.FC = () => {
                     <label className="block text-sm font-medium mb-1">
                       Lý do xin học bổng và cam kết của sinh viên
                     </label>
-                    <textarea 
+                    <textarea
                       value={formData.reason_apply}
                       onChange={(e) => setFormData(prev => ({ ...prev, reason_apply: e.target.value }))}
                       rows={4}
@@ -670,33 +669,29 @@ const ScholarshipApplicationForm: React.FC = () => {
               <nav className="space-y-2">
                 <button
                   onClick={() => scrollToSection(1)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    activeSection === 1 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                  }`}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${activeSection === 1 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                    }`}
                 >
                   1. Thông tin chung
                 </button>
                 <button
                   onClick={() => scrollToSection(2)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    activeSection === 2 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                  }`}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${activeSection === 2 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                    }`}
                 >
                   2. Thông tin chi tiết
                 </button>
                 <button
                   onClick={() => scrollToSection(3)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    activeSection === 3 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                  }`}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${activeSection === 3 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                    }`}
                 >
                   3. Thông tin đăng ký học bổng
                 </button>
                 <button
                   onClick={() => scrollToSection(4)}
-                  className={`w-full text-left p-3 rounded-lg transition-colors ${
-                    activeSection === 4 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                  }`}
+                  className={`w-full text-left p-3 rounded-lg transition-colors ${activeSection === 4 ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                    }`}
                 >
                   4. Nộp hồ sơ đính kèm
                 </button>

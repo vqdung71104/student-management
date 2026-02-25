@@ -6,44 +6,11 @@ interface ExcelUploadProps {
   onClose: () => void
 }
 
-interface ClassData {
-  semester: string
-  school_department: string
-  class_code: string
-  class_code_attached: string
-  subject_code: string
-  subject_name: string
-  subject_name_english: string
-  credits: string
-  note: string
-  session_number: string
-  day_of_week: string
-  time_slot: string
-  start_date: string
-  end_date: string
-  shift: string
-  weeks: string
-  room: string
-  requires_lab: string
-  registered_count: string
-  max_students: string
-  status: string
-  class_type: string
-  opening_batch: string
-  manager_code: string
-  system: string
-  teaching_type: string
-  main_class: string
-  session_id: string
-  status_id: string
-  course_year: string
-}
-
 // Utility functions for data conversion
 const convertDayOfWeek = (dayNumber: string): string => {
   const dayMap: { [key: string]: string } = {
     '2': 'Monday',
-    '3': 'Tuesday', 
+    '3': 'Tuesday',
     '4': 'Wednesday',
     '5': 'Thursday',
     '6': 'Friday',
@@ -58,16 +25,16 @@ const convertTimeSlot = (timeSlot: string): { startTime: string, endTime: string
   if (!timeSlot || !timeSlot.includes('-')) {
     return { startTime: '', endTime: '' }
   }
-  
+
   const [start, end] = timeSlot.split('-')
-  
+
   const formatTime = (time: string): string => {
     if (time.length === 4) {
       return `${time.substring(0, 2)}:${time.substring(2, 4)}`
     }
     return time
   }
-  
+
   return {
     startTime: formatTime(start.trim()),
     endTime: formatTime(end.trim())
@@ -76,12 +43,12 @@ const convertTimeSlot = (timeSlot: string): { startTime: string, endTime: string
 
 const parseStudyWeeks = (weeksString: string): number[] => {
   if (!weeksString) return []
-  
+
   try {
     // Handle different formats like "1-15", "1,2,3", "1-5,8-10", etc.
     const weeks: number[] = []
     const parts = weeksString.split(',')
-    
+
     for (const part of parts) {
       const trimmed = part.trim()
       if (trimmed.includes('-')) {
@@ -98,7 +65,7 @@ const parseStudyWeeks = (weeksString: string): number[] => {
         }
       }
     }
-    
+
     return [...new Set(weeks)].sort((a, b) => a - b) // Remove duplicates and sort
   } catch (error) {
     console.error('Error parsing study weeks:', error)
@@ -129,9 +96,9 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
       const workbook = XLSX.read(arrayBuffer, { type: 'array' })
       const sheetName = workbook.SheetNames[0]
       const worksheet = workbook.Sheets[sheetName]
-      
+
       // Chuyển đổi sheet thành JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
         header: 1,
         defval: ''
       }) as any[][]
@@ -139,10 +106,10 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
       // Tìm dòng header (chứa các trường cần thiết)
       let headerRowIndex = -1
       const requiredFields = ['Kỳ', 'Mã_lớp', 'Mã_HP', 'Tên_HP']
-      
+
       for (let i = 0; i < jsonData.length; i++) {
         const row = jsonData[i]
-        if (row && requiredFields.every(field => 
+        if (row && requiredFields.every(field =>
           row.some(cell => cell && cell.toString().includes(field))
         )) {
           headerRowIndex = i
@@ -193,7 +160,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
 
       // Parse data rows
       const parsedData: any[] = []
-      
+
       for (const row of dataRows) {
         // Skip empty rows
         if (!row || row.every(cell => !cell || cell.toString().trim() === '')) {
@@ -201,7 +168,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
         }
 
         const classData: any = {}
-        
+
         headers.forEach((header, index) => {
           const fieldName = fieldMapping[header as keyof typeof fieldMapping]
           if (fieldName && row[index]) {
@@ -229,7 +196,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
       }
 
       setPreview(parsedData.slice(0, 10)) // Show first 10 rows for preview
-      
+
     } catch (error) {
       console.error('Error parsing Excel file:', error)
       setError(error instanceof Error ? error.message : 'Lỗi khi đọc file Excel')
@@ -254,10 +221,10 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
             // Find header row and parse all data (same logic as above)
             let headerRowIndex = -1
             const requiredFields = ['Kỳ', 'Mã_lớp', 'Mã_HP', 'Tên_HP']
-            
+
             for (let i = 0; i < jsonData.length; i++) {
               const row = jsonData[i]
-              if (row && requiredFields.every(field => 
+              if (row && requiredFields.every(field =>
                 row.some(cell => cell && cell.toString().includes(field))
               )) {
                 headerRowIndex = i
@@ -302,14 +269,14 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
             }
 
             const allParsedData: any[] = []
-            
+
             for (const row of dataRows) {
               if (!row || row.every(cell => !cell || cell.toString().trim() === '')) {
                 continue
               }
 
               const classData: any = {}
-              
+
               headers.forEach((header, index) => {
                 const fieldName = fieldMapping[header as keyof typeof fieldMapping]
                 if (fieldName && row[index]) {
@@ -332,7 +299,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
             }
 
             onDataParsed(allParsedData)
-            
+
           } catch (error) {
             console.error('Error processing file:', error)
             setError('Lỗi khi xử lý file')
@@ -366,7 +333,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
                 onChange={handleFileSelect}
                 className="hidden"
               />
-              
+
               {!file ? (
                 <div>
                   <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
@@ -387,7 +354,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
               ) : (
                 <div>
                   <div className="text-green-600 mb-2">
-                       File đã chọn: {file.name}
+                    File đã chọn: {file.name}
                   </div>
                   <button
                     onClick={() => fileInputRef.current?.click()}
