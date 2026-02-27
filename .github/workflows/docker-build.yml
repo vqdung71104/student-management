@@ -59,7 +59,7 @@ jobs:
 
       - name: Run backend integration tests
         run: |
-          docker compose exec -T backend pytest app/tests/test_api_call.py -v --tb=short
+          docker compose exec -T backend pytest tests/test_api_call.py -v --tb=short
 
       - name: Show service logs on failure
         if: failure()
