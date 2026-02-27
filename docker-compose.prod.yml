@@ -48,6 +48,7 @@ services:
   # Backend (FastAPI)
   # ==========================================
   backend:
+    image: ghcr.io/vqdung71104/student-management/backend:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -92,6 +93,7 @@ services:
   # Frontend (Nginx)
   # ==========================================
   frontend:
+    image: ghcr.io/vqdung71104/student-management/frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile
