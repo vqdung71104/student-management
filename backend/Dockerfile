@@ -57,7 +57,7 @@ FROM dependencies AS production
 
 COPY main.py .
 COPY app ./app
-COPY models ./models
+COPY ml_models ./ml_models
 COPY scripts ./scripts
 
 RUN useradd -m -u 1000 appuser && \
