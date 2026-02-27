@@ -171,3 +171,19 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: true
+
+#Deploy
+  deploy:
+      needs: [push-backend, push-frontend] # Chỉ chạy sau khi push image xong
+      runs-on: ubuntu-latest
+      steps:
+        - name: Deploy to VPS via SSH
+          uses: appleboy/ssh-action@master
+          with:
+            host: ${{ secrets.VPS_IP }}
+            username: ubuntu
+            key: ${{ secrets.VPS_SSH_KEY }}
+            script: |
+              cd student-app
+              docker compose pull
+              docker compose up -d
