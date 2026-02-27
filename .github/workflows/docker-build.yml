@@ -177,6 +177,15 @@ jobs:
       needs: [push-backend, push-frontend] # Chỉ chạy sau khi push image xong
       runs-on: ubuntu-latest
       steps:
+        - name: Copy docker-compose.prod.yml to VPS
+          uses: appleboy/scp-action@master
+          with:
+            host: ${{ secrets.VPS_IP }}
+            username: ubuntu
+            key: ${{ secrets.VPS_SSH_KEY }}
+            source: "docker-compose.prod.yml"
+            target: "student-app/"
+
         - name: Deploy to VPS via SSH
           uses: appleboy/ssh-action@master
           with:
@@ -185,5 +194,7 @@ jobs:
             key: ${{ secrets.VPS_SSH_KEY }}
             script: |
               cd student-app
-              docker compose pull
-              docker compose up -d
+              echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+              docker compose -f docker-compose.prod.yml pull
+              docker compose -f docker-compose.prod.yml up -d
+              docker image prune -f
