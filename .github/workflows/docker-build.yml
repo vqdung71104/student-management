@@ -196,7 +196,12 @@ jobs:
                 git remote set-url origin "$REPO_URL"
                 git pull origin main
               else
-                echo "==> Repo not found, cloning..."
+                # Thư mục tồn tại nhưng không phải git repo → xóa và clone lại
+                if [ -d "$APP_DIR" ]; then
+                  echo "==> Directory exists but is not a git repo, removing..."
+                  rm -rf "$APP_DIR"
+                fi
+                echo "==> Cloning repo..."
                 git clone "$REPO_URL" "$APP_DIR"
                 cd "$APP_DIR"
               fi
