@@ -9,7 +9,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError    # Flush để đảm bảo SemesterGPA đã được thêm vào database session
    
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Add backend root (2 levels up from scripts/db/) to sys.path so 'from app...' imports work
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from app.db.database import DATABASE_URL, Base, SessionLocal
 from app.models.department_model import Department
 from app.models.subject_model import Subject
@@ -221,16 +222,21 @@ def update_student_stats(student_id: int, db):
     else:
         student.year_level = "Năm 5"
 
+# Absolute path to the 'data/' folder located in the backend root directory
+_BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_DATA_DIR = os.path.join(_BACKEND_ROOT, 'data')
+
 def load_json_file(filename):
-    """Load data from a specific JSON file"""
+    """Load data from a specific JSON file (path relative to backend/data/)"""
+    filepath = os.path.join(_DATA_DIR, filename)
     try:
-        with open(f'data/{filename}', 'r', encoding='utf-8') as file:
+        with open(filepath, 'r', encoding='utf-8') as file:
             return json.load(file)
     except FileNotFoundError:
-        print(f"Error: {filename} file not found!")
+        print(f"Error: {filepath} not found!")
         return None
     except json.JSONDecodeError as e:
-        print(f"Error parsing JSON in {filename}: {e}")
+        print(f"Error parsing JSON in {filepath}: {e}")
         return None
 
 def populate_departments(db, departments_data):
