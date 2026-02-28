@@ -187,7 +187,13 @@ jobs:
               set -e
 
               APP_DIR="/home/ubuntu/student-app"
-              REPO_URL="https://x-access-token:${{ secrets.CR_PAT }}@github.com/${{ github.repository }}.git"
+              REPO_URL="https://github.com/${{ github.repository }}.git"
+
+              # Tắt hoàn toàn interactive git prompt, dùng credential store
+              export GIT_TERMINAL_PROMPT=0
+              git config --global credential.helper store
+              echo "https://x-access-token:${{ secrets.CR_PAT }}@github.com" > ~/.git-credentials
+              chmod 600 ~/.git-credentials
 
               # Clone repo lần đầu, hoặc pull nếu đã có
               if [ -d "$APP_DIR/.git" ]; then
