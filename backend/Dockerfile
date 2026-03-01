@@ -26,7 +26,7 @@ WORKDIR /app
 FROM base AS dependencies
 
 COPY requirements.txt .
-COPY backend/data/ ./data/
+COPY ./data/ ./data/
 
 # 1) Upgrade pip
 RUN pip install --upgrade pip
