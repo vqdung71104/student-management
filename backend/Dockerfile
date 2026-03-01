@@ -26,7 +26,6 @@ WORKDIR /app
 FROM base AS dependencies
 
 COPY requirements.txt .
-COPY ./data/ ./data/
 
 # 1) Upgrade pip
 RUN pip install --upgrade pip
@@ -58,6 +57,7 @@ FROM dependencies AS production
 
 COPY main.py .
 COPY app ./app
+COPY data ./data
 COPY ml_models ./ml_models
 COPY scripts ./scripts
 
