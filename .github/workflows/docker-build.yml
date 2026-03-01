@@ -197,7 +197,7 @@ jobs:
               docker compose -f docker-compose.prod.yml pull
               docker compose -f docker-compose.prod.yml up -d
               docker image prune -f
-              sleep 10 # Đợi container khởi động
-              docker compose -f docker-compose.prod.yml exec -T backend alembic upgrade head# Chạy migration để tạo bảng
-              # Populate dữ liệu (chỉ định đúng compose file để đúng container)
+              # Chờ backend healthy (create_all() tạo/cập nhật bảng khi startup)
+              sleep 15
+              # Populate dữ liệu mẫu
               docker compose -f docker-compose.prod.yml exec -T backend sh -c "PYTHONPATH=/app python scripts/db/populate_data.py"
