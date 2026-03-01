@@ -184,54 +184,12 @@ jobs:
             username: ubuntu
             key: ${{ secrets.VPS_SSH_KEY }}
             script: |
-              set -e
-
-              APP_DIR="/home/ubuntu/student-app"
-              REPO_URL="https://github.com/${{ github.repository }}.git"
-
-              # Tắt hoàn toàn interactive git prompt, dùng credential store
-              export GIT_TERMINAL_PROMPT=0
-              git config --global credential.helper store
-              echo "https://x-access-token:${{ secrets.CR_PAT }}@github.com" > ~/.git-credentials
-              chmod 600 ~/.git-credentials
-
-              # Clone repo lần đầu, hoặc pull nếu đã có
-              if [ -d "$APP_DIR/.git" ]; then
-                echo "==> Repo exists, pulling latest..."
-                cd "$APP_DIR"
-                git remote set-url origin "$REPO_URL"
-                git pull origin main
-              else
-                # Thư mục tồn tại nhưng không phải git repo → xóa và clone lại
-                if [ -d "$APP_DIR" ]; then
-                  echo "==> Directory exists but is not a git repo, removing..."
-                  rm -rf "$APP_DIR"
-                fi
-                echo "==> Cloning repo..."
-                git clone "$REPO_URL" "$APP_DIR"
-                cd "$APP_DIR"
-              fi
-
-              # Đăng nhập Container Registry (dùng --password-stdin để tránh lỗi non-TTY)
+              cd student-app
+              git pull origin main
               echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-              # Pull image mới nhất và khởi động lại services
               docker compose -f docker-compose.prod.yml pull
               docker compose -f docker-compose.prod.yml up -d
-
-              # Dọn image cũ
               docker image prune -f
-
-              # Chờ backend sẵn sàng (tối đa 60s)
-              echo "==> Waiting for backend to be healthy..."
-              for i in $(seq 1 12); do
-                if docker compose -f docker-compose.prod.yml exec -T backend curl -sf http://localhost:8000/ > /dev/null 2>&1; then
-                  echo "Backend is ready after ${i} attempts!"
-                  break
-                fi
-                echo "  Attempt ${i}/12 - retrying in 5s..."
-                sleep 5
-              done
-
+              sleep 10 # Đợi container khởi động
               # Populate dữ liệu (chỉ định đúng compose file để đúng container)
               docker compose -f docker-compose.prod.yml exec -T backend python scripts/db/populate_data.py
