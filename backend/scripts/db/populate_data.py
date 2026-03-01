@@ -51,7 +51,6 @@ def clear_all_data(db):
         db.execute(text("DELETE FROM class_registers"))
         db.execute(text("DELETE FROM subject_registers"))
         db.execute(text("DELETE FROM learned_subjects"))
-        db.execute(text("DELETE FROM student_drl"))
         db.execute(text("DELETE FROM semester_gpa"))
         db.execute(text("DELETE FROM classes"))
         db.execute(text("DELETE FROM students"))
