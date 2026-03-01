@@ -9,8 +9,10 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError    # Flush để đảm bảo SemesterGPA đã được thêm vào database session
    
 
-# Add backend root (2 levels up from scripts/db/) to sys.path so 'from app...' imports work
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, "../../"))
+if project_root not in sys.path:
+    sys.path.append(project_root)
 from app.db.database import DATABASE_URL, Base, SessionLocal
 from app.models.department_model import Department
 from app.models.subject_model import Subject
