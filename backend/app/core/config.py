@@ -27,7 +27,9 @@ class Settings:
 
     SECRET_KEY: str = os.getenv("SECRET_KEY", "secret")
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+    raw_value = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(raw_value) if raw_value and raw_value.strip() else 30
+    
 
     HOST: str = os.getenv("HOST", "127.0.0.1")
     PORT: int = int(os.getenv("PORT", 8000))
