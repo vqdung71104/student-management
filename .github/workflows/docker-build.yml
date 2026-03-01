@@ -192,4 +192,4 @@ jobs:
               docker image prune -f
               sleep 10 # Đợi container khởi động
               # Populate dữ liệu (chỉ định đúng compose file để đúng container)
-              docker compose -f docker-compose.prod.yml exec -T backend python scripts/db/populate_data.py
+              docker compose exec -T backend python scripts/db/populate_data.py
