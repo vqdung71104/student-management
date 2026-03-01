@@ -37,7 +37,6 @@ docs/
 *.md
 
 # Data files & test outputs (not needed in container)
-data/
 *.xlsx
 test_output.xlsx
 test_*.py
