@@ -1,0 +1,67 @@
+/* Main CSS Styles */
+body {
+    font-family: 'Montserrat', sans-serif;
+    background-color: #f0f4f8;
+}
+
+.gradient-bg {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.card-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.tab-active {
+    color: #2563eb;
+    border-bottom: 3px solid #2563eb;
+}
+
+.schedule-cell {
+    min-height: 100px;
+}
+
+.schedule-item {
+    border-left: 4px solid;
+}
+
+.tooltip {
+    position: relative;
+}
+
+.tooltip .tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+.course-card.selected {
+    border: 2px solid #2563eb;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(37, 99, 235, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+
+.pulse-animation {
+    animation: pulse 2s infinite;
+} 

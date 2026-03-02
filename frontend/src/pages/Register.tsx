@@ -37,7 +37,7 @@ const Register = () => {
 
   const fetchCourses = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/courses/')
+      const response = await fetch('/api/courses/')
       if (response.ok) {
         const data = await response.json()
         setCourses(data)
@@ -49,7 +49,7 @@ const Register = () => {
 
   const fetchDepartments = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/departments/')
+      const response = await fetch('/api/departments/')
       if (response.ok) {
         const data = await response.json()
         setDepartments(data)

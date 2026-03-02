@@ -42,7 +42,7 @@ const Schedule = () => {
         return
       }
 
-      const classRegisterResponse = await fetch(`http://localhost:8000/api/class-registers/student/${userInfo.id}`)
+      const classRegisterResponse = await fetch(`/api/class-registers/student/${userInfo.id}`)
 
       if (classRegisterResponse.ok) {
         const classRegisters = await classRegisterResponse.json()
@@ -50,7 +50,7 @@ const Schedule = () => {
         const classDetails = await Promise.all(
           classRegisters.map(async (register: any) => {
             try {
-              const classResponse = await fetch(`http://localhost:8000/api/classes/${register.class_id}`)
+              const classResponse = await fetch(`/api/classes/${register.class_id}`)
               if (classResponse.ok) {
                 const classData = await classResponse.json()
                 const subjectData = classData.subject

@@ -40,7 +40,7 @@ const FeedbackManagement: React.FC = () => {
     try {
       setLoading(true)
       const statusParam = filterStatus === 'all' ? '' : `?status=${filterStatus}`
-      const response = await fetch(`http://localhost:8000/feedback${statusParam}`)
+      const response = await fetch(`/api/feedback${statusParam}`)
       
       if (response.ok) {
         const data = await response.json()
@@ -57,7 +57,7 @@ const FeedbackManagement: React.FC = () => {
 
   const updateFeedbackStatus = async (feedbackId: number, status: 'pending' | 'resolved') => {
     try {
-      const response = await fetch(`http://localhost:8000/feedback/${feedbackId}`, {
+      const response = await fetch(`/api/feedback/${feedbackId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -80,7 +80,7 @@ const FeedbackManagement: React.FC = () => {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/feedback/bulk-update', {
+      const response = await fetch('/api/feedback/bulk-update', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ const FeedbackManagement: React.FC = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa phản hồi này?')) return
 
     try {
-      const response = await fetch(`http://localhost:8000/feedback/${feedbackId}`, {
+      const response = await fetch(`/api/feedback/${feedbackId}`, {
         method: 'DELETE'
       })
 

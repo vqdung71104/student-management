@@ -55,7 +55,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   const fetchClasses = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/classes/')
+      const response = await fetch('/api/classes/')
       if (response.ok) {
         const data = await response.json()
         setClasses(data)
@@ -72,7 +72,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   // Fetch registered classes
   const fetchRegisteredClasses = async () => {
     try {
-      const response = await fetch(`http://localhost:8000/class-registers/student/${studentInfo.student_id}`)
+      const response = await fetch(`/api/class-registers/student/${studentInfo.student_id}`)
       if (response.ok) {
         const data = await response.json()
         setRegisteredClasses(data)
@@ -88,7 +88,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   const registerClass = async (classId: number) => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/class-registers/', {
+      const response = await fetch('/api/class-registers/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -124,7 +124,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   const cancelRegistration = async (registerId: number) => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:8000/class-registers/${registerId}`, {
+      const response = await fetch(`/api/class-registers/${registerId}`, {
         method: 'DELETE'
       })
 

@@ -189,7 +189,7 @@ const FAQ = () => {
   useEffect(() => {
     const fetchFAQs = async () => {
       try {
-        const response = await fetch('http://localhost:8000/faq?active_only=true')
+        const response = await fetch('/api/faq?active_only=true')
         if (response.ok) {
           const data = await response.json()
           setFaqs(data)
@@ -297,7 +297,7 @@ const Feedback = () => {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch('http://localhost:8000/feedback', {
+      const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
