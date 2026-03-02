@@ -29,7 +29,7 @@ const FAQManagement: React.FC = () => {
   const fetchFAQs = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/faq?active_only=false')
+      const response = await fetch('/api/faq?active_only=false')
       
       if (response.ok) {
         const data = await response.json()
@@ -49,8 +49,8 @@ const FAQManagement: React.FC = () => {
 
     try {
       const url = editingFaq 
-        ? `http://localhost:8000/faq/${editingFaq.id}`
-        : 'http://localhost:8000/faq'
+        ? `/api/faq/${editingFaq.id}`
+        : '/api/faq'
       
       const method = editingFaq ? 'PUT' : 'POST'
 
@@ -81,7 +81,7 @@ const FAQManagement: React.FC = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa FAQ này?')) return
 
     try {
-      const response = await fetch(`http://localhost:8000/faq/${faqId}`, {
+      const response = await fetch(`/api/faq/${faqId}`, {
         method: 'DELETE'
       })
 

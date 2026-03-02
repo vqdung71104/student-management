@@ -53,7 +53,7 @@ const StudentsManagement = () => {
   const fetchStudents = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/students')
+      const response = await fetch('/api/students')
       if (response.ok) {
         const data = await response.json()
         setStudents(data)
@@ -70,7 +70,7 @@ const StudentsManagement = () => {
 
   const handleCreateStudent = async () => {
     try {
-      const response = await fetch('http://localhost:8000/students/', {
+      const response = await fetch('/api/students/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ const StudentsManagement = () => {
     if (!selectedStudent) return
     
     try {
-      const response = await fetch(`http://localhost:8000/students/${selectedStudent.id}`, {
+      const response = await fetch(`/api/students/${selectedStudent.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ const StudentsManagement = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa sinh viên này?')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/students/${studentId}`, {
+      const response = await fetch(`/api/students/${studentId}`, {
         method: 'DELETE',
       })
       
@@ -617,7 +617,7 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
       for (const student of students) {
         console.log('Sending student:', student)
         try {
-          const response = await fetch('http://localhost:8000/students/', {
+          const response = await fetch('/api/students/', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

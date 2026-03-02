@@ -64,13 +64,13 @@ const ClassRegistration = () => {
   const fetchClasses = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:8000/api/classes/')
+      const response = await fetch('/api/classes/')
       if (response.ok) {
         const allClasses = await response.json()
         console.log('All classes fetched:', allClasses.length)
 
         // Fetch registration counts for all classes
-        const registrationResponse = await fetch('http://localhost:8000/api/class-registers/')
+        const registrationResponse = await fetch('/api/class-registers/')
         let registrationCounts: { [key: number]: number } = {}
 
         if (registrationResponse.ok) {
@@ -128,13 +128,13 @@ const ClassRegistration = () => {
 
     try {
       // Use student ID endpoint
-      const response = await fetch(`http://localhost:8000/api/class-registers/student/${userInfo.id}`)
+      const response = await fetch(`/api/class-registers/student/${userInfo.id}`)
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered classes data:', registersData)
 
         // Fetch class information for each registered class
-        const classesResponse = await fetch('http://localhost:8000/api/classes/')
+        const classesResponse = await fetch('/api/classes/')
         if (classesResponse.ok) {
           const allClasses = await classesResponse.json()
 
@@ -193,7 +193,7 @@ const ClassRegistration = () => {
 
       console.log('Registering main class:', registerData)
 
-      const response = await fetch('http://localhost:8000/api/class-registers', {
+      const response = await fetch('/api/class-registers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -211,7 +211,7 @@ const ClassRegistration = () => {
       const linkedRegistrations = []
       if (linkedClassIds.length > 0) {
         console.log('Fetching all classes to find linked classes...')
-        const allClassesResponse = await fetch('http://localhost:8000/api/classes/')
+        const allClassesResponse = await fetch('/api/classes/')
         if (allClassesResponse.ok) {
           const allClasses = await allClassesResponse.json()
 
@@ -230,7 +230,7 @@ const ClassRegistration = () => {
 
                 console.log(`Registering linked class ${linkedClassId} (DB ID: ${linkedClass.id}):`, linkedRegisterData)
 
-                const linkedResponse = await fetch('http://localhost:8000/api/class-registers', {
+                const linkedResponse = await fetch('/api/class-registers', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
@@ -276,7 +276,7 @@ const ClassRegistration = () => {
     console.log('Attempting to cancel registration with ID:', registerId)
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:8000/api/class-registers/${registerId}`, {
+      const response = await fetch(`/api/class-registers/${registerId}`, {
         method: 'DELETE'
       })
 

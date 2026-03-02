@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from 'react'
+import { useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -109,7 +109,7 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
       })
 
       try {
-        const response = await fetch('http://localhost:8000/api/learned-subjects/create-new-learned-subject', {
+        const response = await fetch('/api/learned-subjects/create-new-learned-subject', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -165,16 +165,16 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
 
         <div className="p-6">
           <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h4 className="font-semibold text-blue-900 mb-2">Hướng dẫn:</h4>
+            <h4 className="font-semibold text-blue-900 mb-2">Hu?ng d?n:</h4>
             <ol className="list-decimal list-inside space-y-2 text-sm text-blue-800">
-              <li>Truy cập https://ctt.hust.edu.vn/ và đăng nhập</li>
-              <li>Chọn: Dịch vụ  Kết quả học tập  Điểm cá nhân</li>
-              <li>Sao chép toàn bộ bảng điểm và dán vào trang tính Excel trống</li>
-              <li>Lưu tệp Excel và tải lên đây</li>
+              <li>Truy c?p https://ctt.hust.edu.vn/ v� dang nh?p</li>
+              <li>Ch?n: D?ch v?  K?t qu? h?c t?p  �i?m c� nh�n</li>
+              <li>Sao ch�p to�n b? b?ng di?m v� d�n v�o trang t�nh Excel tr?ng</li>
+              <li>Luu t?p Excel v� t?i l�n d�y</li>
             </ol>
             <div className="mt-3 text-xs text-blue-700 bg-white p-2 rounded">
-              <strong>Định dạng file:</strong> Dữ liệu bắt đầu từ cột A (không cần tiêu đề)<br />
-              <strong>Thứ tự cột:</strong> A=Học kỳ, B=Mã HP, C=Tên HP, D=Số tín chỉ, E=Điểm chữ
+              <strong>�?nh d?ng file:</strong> D? li?u b?t d?u t? c?t A (kh�ng c?n ti�u d?)<br />
+              <strong>Th? t? c?t:</strong> A=H?c k?, B=M� HP, C=T�n HP, D=S? t�n ch?, E=�i?m ch?
             </div>
           </div>
 
@@ -196,16 +196,16 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
                   </svg>
                   <div className="mt-4">
                     <button onClick={() => fileInputRef.current?.click()} className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition" disabled={loading}>
-                      Chọn tệp
+                      Ch?n t?p
                     </button>
-                    <p className="mt-2 text-sm text-gray-500">Hỗ trợ các tệp .xlsx, .xls</p>
+                    <p className="mt-2 text-sm text-gray-500">H? tr? c�c t?p .xlsx, .xls</p>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div className="text-green-600 mb-2">File đã chọn: {file.name}</div>
+                  <div className="text-green-600 mb-2">File d� ch?n: {file.name}</div>
                   <button onClick={() => fileInputRef.current?.click()} className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition" disabled={loading}>
-                    Chọn tệp khác
+                    Ch?n t?p kh�c
                   </button>
                 </div>
               )}
@@ -233,7 +233,7 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
           {loading && progress.total === 0 && (
             <div className="text-center py-4">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <p className="mt-2 text-gray-600">Đang xử lý tệp...</p>
+              <p className="mt-2 text-gray-600">�ang x? l� t?p...</p>
             </div>
           )}
 
@@ -244,11 +244,11 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
                 <table className="min-w-full bg-white text-sm">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
-                      <th className="px-4 py-2 text-left">Học kỳ</th>
-                      <th className="px-4 py-2 text-left">Mã học phần</th>
-                      <th className="px-4 py-2 text-left">Tên học phần</th>
-                      <th className="px-4 py-2 text-left">Số tín chỉ</th>
-                      <th className="px-4 py-2 text-left">Điểm chữ</th>
+                      <th className="px-4 py-2 text-left">H?c k?</th>
+                      <th className="px-4 py-2 text-left">M� h?c ph?n</th>
+                      <th className="px-4 py-2 text-left">T�n h?c ph?n</th>
+                      <th className="px-4 py-2 text-left">S? t�n ch?</th>
+                      <th className="px-4 py-2 text-left">�i?m ch?</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -273,7 +273,7 @@ const GradeExcelUpload = ({ onClose, onSuccess }: GradeExcelUploadProps) => {
                   </tbody>
                 </table>
               </div>
-              <p className="text-sm text-gray-600 mt-2">Tổng cộng: {preview.length} môn học</p>
+              <p className="text-sm text-gray-600 mt-2">T?ng c?ng: {preview.length} m�n h?c</p>
             </div>
           )}
 

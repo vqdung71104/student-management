@@ -52,7 +52,7 @@ const Grades = () => {
       console.log('Fetching academic details for student:', userInfo.id)
       
       // Lấy thông tin chi tiết học tập từ API
-      const response = await fetch(`http://localhost:8000/api/students/${userInfo.id}/academic-details`)
+      const response = await fetch(`/api/students/${userInfo.id}/academic-details`)
       console.log('Response status:', response.status)
       
       if (response.ok) {
@@ -107,7 +107,7 @@ const Grades = () => {
   const handleAddGrade = async (data: { subject_code: string; semester: string; letter_grade: string }) => {
     setSubmitting(true)
     try {
-      const response = await fetch('http://localhost:8000/api/learned-subjects/create-new-learned-subject', {
+      const response = await fetch('/api/learned-subjects/create-new-learned-subject', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -147,7 +147,7 @@ const Grades = () => {
 
     setDeletingId(gradeId)
     try {
-      const response = await fetch(`http://localhost:8000/api/learned-subjects/${gradeId}`, {
+      const response = await fetch(`/api/learned-subjects/${gradeId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'

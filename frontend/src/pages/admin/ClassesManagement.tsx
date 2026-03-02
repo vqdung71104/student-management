@@ -80,7 +80,7 @@ const ClassesManagement = () => {
   const fetchClasses = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/classes')
+      const response = await fetch('/api/classes')
       if (response.ok) {
         const data = await response.json()
         setClasses(data)
@@ -97,7 +97,7 @@ const ClassesManagement = () => {
 
   const fetchSubjects = async () => {
     try {
-      const response = await fetch('http://localhost:8000/subjects')
+      const response = await fetch('/api/subjects')
       if (response.ok) {
         const data = await response.json()
         setSubjects(data)
@@ -109,7 +109,7 @@ const ClassesManagement = () => {
 
   const handleCreateClass = async () => {
     try {
-      const response = await fetch('http://localhost:8000/classes/', {
+      const response = await fetch('/api/classes/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ const ClassesManagement = () => {
     if (!selectedClass) return
     
     try {
-      const response = await fetch(`http://localhost:8000/classes/${selectedClass.id}`, {
+      const response = await fetch(`/api/classes/${selectedClass.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +161,7 @@ const ClassesManagement = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa lớp học này?')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/classes/${classId}`, {
+      const response = await fetch(`/api/classes/${classId}`, {
         method: 'DELETE',
       })
       

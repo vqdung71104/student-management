@@ -18,10 +18,10 @@ const Dashboard = () => {
     try {
       // Lấy dữ liệu từ các API endpoint
       const [studentsRes, subjectsRes, coursesRes, classesRes] = await Promise.all([
-        fetch('http://localhost:8000/students/'),
-        fetch('http://localhost:8000/subjects/'),
-        fetch('http://localhost:8000/courses/'),
-        fetch('http://localhost:8000/classes/')
+        fetch('/api/students/'),
+        fetch('/api/subjects/'),
+        fetch('/api/courses/'),
+        fetch('/api/classes/')
       ])
 
       const [students, subjects, courses, classes] = await Promise.all([

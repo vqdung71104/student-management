@@ -57,7 +57,7 @@ const SubjectsManagement = () => {
   const fetchSubjects = async () => {
     setLoading(true)
     try {
-      const response = await fetch('http://localhost:8000/api/subjects')
+      const response = await fetch('/api/subjects')
       if (response.ok) {
         const data = await response.json()
         setSubjects(data)
@@ -74,7 +74,7 @@ const SubjectsManagement = () => {
 
   const handleCreateSubject = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/subjects/', {
+      const response = await fetch('/api/subjects/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,7 +100,7 @@ const SubjectsManagement = () => {
     if (!selectedSubject) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/subjects/${selectedSubject.id}`, {
+      const response = await fetch(`/api/subjects/${selectedSubject.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -126,7 +126,7 @@ const SubjectsManagement = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa học phần này?')) return
     
     try {
-      const response = await fetch(`http://localhost:8000/api/subjects/${subjectId}`, {
+      const response = await fetch(`/api/subjects/${subjectId}`, {
         method: 'DELETE',
       })
       

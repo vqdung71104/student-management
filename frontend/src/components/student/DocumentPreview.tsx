@@ -56,7 +56,7 @@ const DocumentPreview: React.FC<DocumentPreviewProps> = ({ formData, onBack, onS
 
   const createNotificationForStudent = async () => {
     try {
-      const response = await fetch('http://localhost:8000/student-forms/notification', {
+      const response = await fetch('/api/student-forms/notification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

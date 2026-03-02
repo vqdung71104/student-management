@@ -128,7 +128,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const fetchStudentData = async () => {
     try {
       if (studentInfo?.id) {
-        const response = await fetch(`http://localhost:8000/students/${studentInfo.id}`)
+        const response = await fetch(`/api/students/${studentInfo.id}`)
         if (response.ok) {
           const student: Student = await response.json()
           setStudentData(student)
@@ -142,7 +142,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const fetchScheduleData = async () => {
     try {
       if (studentInfo?.id) {
-        const response = await fetch(`http://localhost:8000/class-registers/student/${studentInfo.id}`)
+        const response = await fetch(`/api/class-registers/student/${studentInfo.id}`)
         if (response.ok) {
           const data: ScheduleItem[] = await response.json()
           setScheduleData(data)
@@ -157,7 +157,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const fetchGradesData = async () => {
     try {
       if (studentData?.id) {
-        const response = await fetch(`http://localhost:8000/learned-subjects/student/${studentData.id}`)
+        const response = await fetch(`/api/learned-subjects/student/${studentData.id}`)
         if (response.ok) {
           const data: GradesData[] = await response.json()
           setGradesData(data)
@@ -172,7 +172,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const fetchCourseData = async () => {
     try {
       if (studentData?.course_id) {
-        const response = await fetch(`http://localhost:8000/courses/${studentData.course_id}`)
+        const response = await fetch(`/api/courses/${studentData.course_id}`)
         if (response.ok) {
           const data: Course = await response.json()
           setCourseData(data)

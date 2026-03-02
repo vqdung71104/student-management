@@ -20,7 +20,7 @@ const StudentDashboard = () => {
 
       try {
         // Lấy thông tin chi tiết học tập
-        const response = await fetch(`http://localhost:8000/api/students/${userInfo.id}/academic-details`)
+        const response = await fetch(`/api/students/${userInfo.id}/academic-details`)
         if (response.ok) {
           const data = await response.json()
           console.log('Academic details data:', data) // Debug log
@@ -47,7 +47,7 @@ const StudentDashboard = () => {
         }
 
         // Lấy lịch học tuần này  
-        const scheduleResponse = await fetch(`http://localhost:8000/api/class-registers/student/${userInfo.id}`)
+        const scheduleResponse = await fetch(`/api/class-registers/student/${userInfo.id}`)
         if (scheduleResponse.ok) {
           const classRegisters = await scheduleResponse.json()
           console.log('Class registers data:', classRegisters) // Debug log
@@ -56,7 +56,7 @@ const StudentDashboard = () => {
           const upcomingData = await Promise.all(
             classRegisters.slice(0, 3).map(async (register: any) => {
               try {
-                const classResponse = await fetch(`http://localhost:8000/api/classes/${register.class_id}`)
+                const classResponse = await fetch(`/api/classes/${register.class_id}`)
                 if (classResponse.ok) {
                   const classData = await classResponse.json()
 
@@ -66,7 +66,7 @@ const StudentDashboard = () => {
                     return null
                   }
 
-                  const subjectResponse = await fetch(`http://localhost:8000/api/subjects/${classData.subject_id}`)
+                  const subjectResponse = await fetch(`/api/subjects/${classData.subject_id}`)
                   if (subjectResponse.ok) {
                     const subjectData = await subjectResponse.json()
 
