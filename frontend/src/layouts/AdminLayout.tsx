@@ -92,15 +92,17 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 </button>
 
                 {/* Subject Management */}
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setSubjectMenuOpen(true)}
+                  onMouseLeave={() => setSubjectMenuOpen(false)}
+                >
                   <button 
                     className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
                       isActive('/admin/schedule') || isActive('/admin/subjects')
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
-                    onMouseEnter={() => setSubjectMenuOpen(true)}
-                    onMouseLeave={() => setSubjectMenuOpen(true)}
                   >
                     <span>  </span>
                     <span className="hidden lg:inline">{t.subjectManagement}</span>
@@ -109,31 +111,31 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     </svg>
                   </button>
                   {subjectMenuOpen && (
-                    <div 
-                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                      onMouseEnter={() => setSubjectMenuOpen(true)}
-                      onMouseLeave={() => setSubjectMenuOpen(false)}
-                    >
-                      <button onClick={() => navigateTo('/admin/schedule-update')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.updateSchedule}
-                      </button>
-                      <button onClick={() => navigateTo('/admin/subjects')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.updateSubjects}
-                      </button>
+                    <div className="absolute top-full left-0 pt-1 w-52 z-50">
+                      <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                        <button onClick={() => navigateTo('/admin/schedule-update')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.updateSchedule}
+                        </button>
+                        <button onClick={() => navigateTo('/admin/subjects')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.updateSubjects}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Settings */}
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setSettingsMenuOpen(true)}
+                  onMouseLeave={() => setSettingsMenuOpen(false)}
+                >
                   <button 
                     className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
                       isActive('/admin/settings')
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
-                    onMouseEnter={() => setSettingsMenuOpen(true)}
-                    onMouseLeave={() => setSettingsMenuOpen(true)}
                   >
                     <span>  </span>
                     <span className="hidden lg:inline">{t.settings}</span>
@@ -142,28 +144,26 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     </svg>
                   </button>
                   {settingsMenuOpen && (
-                    <div 
-                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                      onMouseEnter={() => setSettingsMenuOpen(true)}
-                      onMouseLeave={() => setSettingsMenuOpen(false)}
-                    >
-                      <button onClick={() => navigateTo('/admin/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           Trả lời phản hồi
-                      </button>
-                      <button onClick={() => navigateTo('/admin/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           Quản lý FAQ
-                      </button>
-                      <button onClick={() => navigateTo('/admin/notifications')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                          Quản lý thông báo
-                      </button>
-                      <button onClick={() => navigateTo('/admin/change-password')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.changePassword}
-                      </button>
+                    <div className="absolute top-full left-0 pt-1 w-52 z-50">
+                      <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                        <button onClick={() => navigateTo('/admin/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             Trả lời phản hồi
+                        </button>
+                        <button onClick={() => navigateTo('/admin/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             Quản lý FAQ
+                        </button>
+                        <button onClick={() => navigateTo('/admin/notifications')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                            Quản lý thông báo
+                        </button>
+                        <button onClick={() => navigateTo('/admin/change-password')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.changePassword}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Chatbot Support */}
+                {/* Chatbot Support 
                 <button 
                   className={`h-8 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded flex items-center space-x-1 ${
                     chatbotOpen 
@@ -174,7 +174,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                 >
                   <span>  </span>
                   <span className="hidden lg:inline">{t.chatbotSupport}</span>
-                </button>
+                </button>*/}
 
                 {/* Language Switcher */}
                 <div className="relative flex items-center bg-white border border-gray-300 h-8 rounded-none">

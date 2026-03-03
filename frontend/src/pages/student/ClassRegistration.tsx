@@ -59,6 +59,8 @@ const ClassRegistration = () => {
   const [selectedClass, setSelectedClass] = useState<Class | null>(null)
   const [searchText, setSearchText] = useState('')
   const filterStatus: string | null = null
+  const [tablePageSize, setTablePageSize] = useState(10)
+  const [tablePage, setTablePage] = useState(1)
 
   // Fetch available classes (only for subjects student registered)
   const fetchClasses = async () => {
@@ -578,13 +580,18 @@ const ClassRegistration = () => {
           loading={loading}
           size="small"
           pagination={{
-            pageSize: 8,
+            current: tablePage,
+            pageSize: tablePageSize,
+            pageSizeOptions: ['10', '20', '50'],
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `Tổng ${total} lớp học`
+            showTotal: (total) => `Tổng ${total} lớp học`,
+            onChange: (page, size) => {
+              setTablePage(page)
+              setTablePageSize(size)
+            }
           }}
           tableLayout="auto"
-          scroll={{ y: 400 }}
         />
       </Card>
 

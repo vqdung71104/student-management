@@ -275,7 +275,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 )}
               </div>
 
-              {/* Chatbot Support Button */}
+              {/* Chatbot Support Button 
               <button 
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                   chatbotOpen 
@@ -285,7 +285,7 @@ function AppAdmin({ onLogout }: AppAdminProps) {
                 onClick={toggleChatbot}
               >
                  {t.chatbotSupport}
-              </button>
+              </button>*/}
             </div>
 
             {/* Logout Button */}

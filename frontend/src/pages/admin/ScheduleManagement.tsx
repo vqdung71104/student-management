@@ -234,6 +234,8 @@ const ScheduleManagement = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [editingClass, setEditingClass] = useState<any>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [schedPage, setSchedPage] = useState(1)
+  const [schedPageSize, setSchedPageSize] = useState(10)
   
   // Refs for scroll synchronization
   const topScrollRef = useRef<HTMLDivElement>(null)
@@ -243,6 +245,11 @@ const ScheduleManagement = () => {
   useEffect(() => {
     fetchClasses()
   }, [])
+
+  // Reset to first page whenever search term changes
+  useEffect(() => {
+    setSchedPage(1)
+  }, [searchTerm])
 
   // Synchronize scroll bars
   const handleScroll = (source: 'top' | 'main' | 'bottom') => (e: React.UIEvent<HTMLDivElement>) => {
@@ -373,6 +380,9 @@ const ScheduleManagement = () => {
     classItem.teacher_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     classItem.class_type?.toLowerCase().includes(searchTerm.toLowerCase())
   )
+
+  const schedTotalPages = Math.max(1, Math.ceil(filteredClasses.length / schedPageSize))
+  const paginatedClasses = filteredClasses.slice((schedPage - 1) * schedPageSize, schedPage * schedPageSize)
 
   const handleExcelDataParsed = async (excelData: any[]) => {
     setCreateLoading(true)
@@ -753,7 +763,7 @@ const ScheduleManagement = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredClasses.map((classItem: any) => (
+              {paginatedClasses.map((classItem: any) => (
                 <tr key={classItem.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {classItem.class_id}
@@ -819,6 +829,70 @@ const ScheduleManagement = () => {
             <p className="text-gray-500">
               {searchTerm ? 'Không tìm thấy lớp học nào phù hợp' : 'Chưa có lớp học nào'}
             </p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {filteredClasses.length > 0 && (
+          <div className="px-6 py-3 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3 bg-white">
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>Hiển thị</span>
+              <select
+                className="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                value={schedPageSize}
+                onChange={(e) => { setSchedPageSize(Number(e.target.value)); setSchedPage(1) }}
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span>dòng / trang &nbsp;•&nbsp; Tổng {filteredClasses.length} lớp</span>
+            </div>
+            <div className="flex items-center gap-1 text-sm">
+              <button
+                disabled={schedPage === 1}
+                onClick={() => setSchedPage(1)}
+                className="h-8 px-2 rounded border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >&laquo;</button>
+              <button
+                disabled={schedPage === 1}
+                onClick={() => setSchedPage(p => p - 1)}
+                className="h-8 px-2 rounded border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >&lsaquo;</button>
+              {Array.from({ length: schedTotalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === schedTotalPages || Math.abs(p - schedPage) <= 2)
+                .reduce<(number | 'ellipsis1' | 'ellipsis2')[]>((acc, p, idx, src) => {
+                  if (idx > 0 && p - (src[idx - 1] as number) > 1) {
+                    acc.push(acc.length === 1 ? 'ellipsis1' : 'ellipsis2')
+                  }
+                  acc.push(p)
+                  return acc
+                }, [])
+                .map((item) =>
+                  item === 'ellipsis1' || item === 'ellipsis2'
+                    ? <span key={item} className="h-8 px-1 flex items-center text-gray-400">…</span>
+                    : <button
+                        key={item}
+                        onClick={() => setSchedPage(item as number)}
+                        className={`h-8 w-8 rounded border text-sm transition-colors ${
+                          schedPage === item
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >{item}</button>
+                )
+              }
+              <button
+                disabled={schedPage === schedTotalPages}
+                onClick={() => setSchedPage(p => p + 1)}
+                className="h-8 px-2 rounded border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >&rsaquo;</button>
+              <button
+                disabled={schedPage === schedTotalPages}
+                onClick={() => setSchedPage(schedTotalPages)}
+                className="h-8 px-2 rounded border border-gray-300 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+              >&raquo;</button>
+            </div>
           </div>
         )}
       </div>

@@ -36,6 +36,8 @@ const SubjectRegistration = () => {
   const filterSemester: number | null = null
   const filterType: string | null = null
   const [studentData, setStudentData] = useState<any>(null)
+  const [tablePageSize, setTablePageSize] = useState(10)
+  const [tablePage, setTablePage] = useState(1)
 
   // Fetch student data first
   const fetchStudentData = async () => {
@@ -463,10 +465,16 @@ const SubjectRegistration = () => {
           loading={loading}
           size="small"
           pagination={{
-            pageSize: 10,
+            current: tablePage,
+            pageSize: tablePageSize,
+            pageSizeOptions: ['10', '20', '50'],
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `Tổng ${total} học phần`
+            showTotal: (total) => `Tổng ${total} học phần`,
+            onChange: (page, size) => {
+              setTablePage(page)
+              setTablePageSize(size)
+            }
           }}
         />
       </Card>
