@@ -19,7 +19,6 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [chatbotOpen, setChatbotOpen] = useState(false)
   const [notificationOpen, setNotificationOpen] = useState(false)
   const [studyMenuOpen, setStudyMenuOpen] = useState(false)
-  const [scholarshipMenuOpen, setScholarshipMenuOpen] = useState(false)
   const [supportMenuOpen, setSupportMenuOpen] = useState(false)
   const [registrationMenuOpen, setRegistrationMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -45,7 +44,6 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const navigateTo = (path: string) => {
     navigate(path)
     setStudyMenuOpen(false)
-    setScholarshipMenuOpen(false)
     setSupportMenuOpen(false)
     setRegistrationMenuOpen(false)
     setNotificationOpen(false)
