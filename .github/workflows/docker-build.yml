@@ -197,7 +197,4 @@ jobs:
               docker compose -f docker-compose.prod.yml pull
               docker compose -f docker-compose.prod.yml up -d
               docker image prune -f
-              # Chờ backend healthy (create_all() tạo/cập nhật bảng khi startup)
-              sleep 15
-              # Populate dữ liệu mẫu
-              docker compose -f docker-compose.prod.yml exec -T backend sh -c "PYTHONPATH=/app python scripts/db/populate_data.py"
+             
