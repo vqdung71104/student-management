@@ -84,15 +84,17 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
             <div className="hidden md:flex items-center flex-1 justify-end mr-4">
               <div className="flex items-center space-x-1">
                 {/* Học tập */}
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setStudyMenuOpen(true)}
+                  onMouseLeave={() => setStudyMenuOpen(false)}
+                >
                   <button 
                     className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
                       isActive('/student/schedule') || isActive('/student/grades') || isActive('/student/curriculum')
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
-                    onMouseEnter={() => setStudyMenuOpen(true)}
-                    onMouseLeave={() => setStudyMenuOpen(true)}
                   >
                     <span>  </span>
                     <span className="hidden lg:inline">{t.study}</span>
@@ -101,34 +103,34 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     </svg>
                   </button>
                   {studyMenuOpen && (
-                    <div 
-                      className="absolute top-full left-0 mt-1 w-44 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                      onMouseEnter={() => setStudyMenuOpen(true)}
-                      onMouseLeave={() => setStudyMenuOpen(false)}
-                    >
-                      <button onClick={() => navigateTo('/student/schedule')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.schedule}
-                      </button>
-                      <button onClick={() => navigateTo('/student/grades')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.grades}
-                      </button>
-                      <button onClick={() => navigateTo('/student/curriculum')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.curriculum}
-                      </button>
+                    <div className="absolute top-full left-0 pt-1 w-44 z-50">
+                      <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                        <button onClick={() => navigateTo('/student/schedule')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.schedule}
+                        </button>
+                        <button onClick={() => navigateTo('/student/grades')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.grades}
+                        </button>
+                        <button onClick={() => navigateTo('/student/curriculum')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.curriculum}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Đăng ký học tập */}
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setRegistrationMenuOpen(true)}
+                  onMouseLeave={() => setRegistrationMenuOpen(false)}
+                >
                   <button 
                     className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
                       isActive('/student/subject-registration') || isActive('/student/class-registration')
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
-                    onMouseEnter={() => setRegistrationMenuOpen(true)}
-                    onMouseLeave={() => setRegistrationMenuOpen(true)}
                   >
                     <span>  </span>
                     <span className="hidden lg:inline">{t.registration}</span>
@@ -137,22 +139,20 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     </svg>
                   </button>
                   {registrationMenuOpen && (
-                    <div 
-                      className="absolute top-full left-0 mt-1 w-44 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                      onMouseEnter={() => setRegistrationMenuOpen(true)}
-                      onMouseLeave={() => setRegistrationMenuOpen(false)}
-                    >
-                      <button onClick={() => navigateTo('/student/subject-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.subjectRegistration}
-                      </button>
-                      <button onClick={() => navigateTo('/student/class-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.classRegistration}
-                      </button>
+                    <div className="absolute top-full left-0 pt-1 w-44 z-50">
+                      <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                        <button onClick={() => navigateTo('/student/subject-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.subjectRegistration}
+                        </button>
+                        <button onClick={() => navigateTo('/student/class-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.classRegistration}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
 
-                {/* Biểu mẫu */}
+                {/* Biểu mẫu 
                 <button 
                   className={`h-8 px-3 text-xs font-medium transition-all duration-200 whitespace-nowrap rounded flex items-center space-x-1 ${
                     isActive('/student/forms')
@@ -163,9 +163,9 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                 >
                   <span>  </span>
                   <span className="hidden lg:inline">{t.forms}</span>
-                </button>
+                </button>*/}
 
-                {/* Học bổng */}
+                {/* Học bổng 
                 <div className="relative">
                   <button 
                     className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
@@ -196,7 +196,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                       </button>
                     </div>
                   )}
-                </div>
+                </div>*/}
 
                 {/* Đổi mật khẩu */}
                 <button 
@@ -212,15 +212,17 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                 </button>
 
                 {/* Hỗ trợ */}
-                <div className="relative">
+                <div
+                  className="relative"
+                  onMouseEnter={() => setSupportMenuOpen(true)}
+                  onMouseLeave={() => setSupportMenuOpen(false)}
+                >
                   <button 
                     className={`h-8 px-3 text-xs font-medium transition-all duration-200 flex items-center space-x-1 whitespace-nowrap rounded ${
                       location.pathname.includes('/student/support')
                         ? 'bg-blue-600 text-white' 
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
-                    onMouseEnter={() => setSupportMenuOpen(true)}
-                    onMouseLeave={() => setSupportMenuOpen(true)}
                   >
                     <span>  </span>
                     <span className="hidden lg:inline">{t.support}</span>
@@ -229,20 +231,18 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     </svg>
                   </button>
                   {supportMenuOpen && (
-                    <div 
-                      className="absolute top-full left-0 mt-1 w-52 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50"
-                      onMouseEnter={() => setSupportMenuOpen(true)}
-                      onMouseLeave={() => setSupportMenuOpen(false)}
-                    >
-                      <button onClick={() => navigateTo('/student/support/user-guide')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.userGuide}
-                      </button>
-                      <button onClick={() => navigateTo('/student/support/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.faq}
-                      </button>
-                      <button onClick={() => navigateTo('/student/support/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                           {t.feedback}
-                      </button>
+                    <div className="absolute top-full left-0 pt-1 w-52 z-50">
+                      <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
+                        <button onClick={() => navigateTo('/student/support/user-guide')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.userGuide}
+                        </button>
+                        <button onClick={() => navigateTo('/student/support/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.faq}
+                        </button>
+                        <button onClick={() => navigateTo('/student/support/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
+                             {t.feedback}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

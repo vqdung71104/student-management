@@ -354,7 +354,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 )}
               </div>
 
-              {/* Biểu mẫu */}
+              {/* Biểu mẫu 
               <button
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${currentPage.includes('form')
                     ? 'bg-blue-600 text-white shadow-lg'
@@ -363,9 +363,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 onClick={() => showStudentPage('forms')}
               >
                 Biểu mẫu
-              </button>
+              </button>*/}
 
-              {/* Học bổng */}
+              {/* Học bổng 
               <div className="relative">
                 <button
                   className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('scholarship')
@@ -389,9 +389,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                     </button>
                   </div>
                 )}
-              </div>
+              </div>*/}
 
-              {/* Học tích hợp */}
+              {/* Học tích hợp 
               <div className="relative">
                 <button
                   className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 ${currentPage.includes('integrated')
@@ -415,9 +415,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                     </button>
                   </div>
                 )}
-              </div>
+              </div>*/}
 
-              {/* NCKH */}
+              {/* NCKH 
               <button
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${currentPage.includes('research')
                     ? 'bg-blue-600 text-white shadow-lg'
@@ -426,9 +426,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 onClick={() => showStudentPage('research')}
               >
                 NCKH
-              </button>
+              </button> */}
 
-              {/* CT Trao đổi */}
+              {/* CT Trao đổi
               <button
                 className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${currentPage.includes('exchange')
                     ? 'bg-blue-600 text-white shadow-lg'
@@ -437,7 +437,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 onClick={() => showStudentPage('exchange')}
               >
                 CT Trao đổi
-              </button>
+              </button>*/}
 
               {/* Hỗ trợ */}
               <div className="relative">
