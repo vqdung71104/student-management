@@ -134,14 +134,55 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
             try:
                 print(f" DEBUG: student_id = {message.student_id}, intent = {intent}")
                 
-                # Generate SQL
+                # Generate SQL (truyền db để fuzzy matching hoạt động)
+                # Dùng normalized_message để entity extraction chính xác hơn
                 sql_result = await nl2sql_service.generate_sql(
-                    question=message.message,
+                    question=normalized_message,
                     intent=intent,
-                    student_id=message.student_id
+                    student_id=message.student_id,
+                    db=db
                 )
                 
                 print(f"DEBUG: SQL result = {sql_result}")
+                
+                # ── Kiểm tra fuzzy match: nếu chưa auto-map → hỏi lại user ────────────
+                fuzzy_info = sql_result.get('fuzzy_match')
+                if fuzzy_info and not fuzzy_info.get('auto_mapped', True):
+                    try:
+                        import re as _re
+                        original_query = fuzzy_info['original_query']
+                        is_subject_code = bool(_re.match(r'^[A-Z]{2,4}\d{3,4}[A-Z]?$', original_query.upper()))
+
+                        if is_subject_code and fuzzy_info.get('matched_id'):
+                            # Mã môn gõ sai — hiển thị gợi ý cụ thể
+                            matched_id   = fuzzy_info['matched_id']
+                            matched_name = fuzzy_info['matched_name']
+                            score        = fuzzy_info['score']
+                            clarification_text = (
+                                f"🔍 Không tìm thấy môn **{original_query}**.\n"
+                                f"Bạn có muốn hỏi về môn **{matched_name} ({matched_id})**"
+                                f" (độ tương đồng {score:.0f}%) không?\n"
+                                f"Hãy nhập lại với mã môn **{matched_id}** hoặc tên môn đầy đủ."
+                            )
+                        else:
+                            # Tên môn gõ sai — hiển thị top-k candidates
+                            from app.services.fuzzy_matcher import FuzzyMatcher
+                            matcher = FuzzyMatcher(db)
+                            candidates = matcher.get_subject_candidates(original_query, db=db)
+                            clarification_text = matcher.format_candidates_prompt(candidates)
+
+                        return ChatResponseWithData(
+                            text=clarification_text,
+                            intent=intent,
+                            confidence="medium",
+                            data=None,
+                            sql=None,
+                            sql_error=None
+                        )
+                    except Exception as fe:
+                        print(f"   Fuzzy clarification error: {fe}")
+                        # Tiếp tục với LIKE search nếu có lỗi
+                # ──────────────────────────────────────────────────────────────
                 
                 sql_query = sql_result.get("sql")
                 

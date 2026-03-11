@@ -804,40 +804,44 @@ class TfidfIntentClassifier:
     
     def _calculate_keyword_score(self, message: str, intent_tag: str) -> float:
         """
-        Tính keyword matching score
+        Tính keyword matching score sử dụng F1 (harmonic mean of precision & recall)
         
-        Args:
-            message: User message
-            intent_tag: Intent tag
-            
-        Returns:
-            Keyword matching score (0.0 to 1.0)
+        Trước đây dùng recall-only (matches/message_words), khiến các intent có
+        keyword set lớn (như class_registration_suggestion) luôn đạt điểm cao.
+        Nay dùng F1 để cân bằng: intent có keyword set lớn sẽ bị penalty precision.
         
         Formula:
-        keyword_score = (số từ khóa match / tổng số từ trong message)
+            recall    = |matches| / |message_words|
+            precision = |matches| / |intent_keywords|
+            F1        = 2 * precision * recall / (precision + recall)
         
         Ví dụ:
         Message: "tôi nên đăng ký môn gì" (5 words)
-        Keywords: {"tôi", "nên", "đăng ký", "môn", "học phần", "gì"}
-        Match: {"tôi", "nên", "đăng ký", "môn", "gì"} (5 matches)
-        Score: 5/5 = 1.0
+        intent_A (nhỏ, 10 keywords): matches=5  → P=0.50, R=1.0, F1=0.67
+        intent_B (lớn, 100 keywords): matches=5 → P=0.05, R=1.0, F1=0.09
         """
         normalized_message = self._normalize_vietnamese(message)
         message_words = set(normalized_message.split())
-        
+
         if not message_words:
             return 0.0
-        
+
         intent_keywords = self.intent_keywords_map.get(intent_tag, set())
-        
+
         if not intent_keywords:
             return 0.0
-        
+
         # Calculate overlap
         matches = message_words & intent_keywords
-        keyword_score = len(matches) / len(message_words)
-        
-        return keyword_score
+        if not matches:
+            return 0.0
+
+        recall = len(matches) / len(message_words)
+        precision = len(matches) / len(intent_keywords)
+
+        # F1 harmonic mean
+        f1_score = 2 * precision * recall / (precision + recall)
+        return f1_score
     
     def _calculate_pattern_score(self, message: str, intent_tag: str) -> float:
         """

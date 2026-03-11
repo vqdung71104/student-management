@@ -6,6 +6,14 @@ import os
 from typing import Dict, List, Optional, Tuple
 import re
 
+# FuzzyMatcher — import lazy để tránh circular imports
+def _get_fuzzy_matcher():
+    try:
+        from app.services.fuzzy_matcher import FuzzyMatcher
+        return FuzzyMatcher
+    except ImportError:
+        return None
+
 
 class NL2SQLService:
     """
@@ -275,85 +283,134 @@ class NL2SQLService:
         return intent_examples[0] if intent_examples else None
     
     def _customize_sql(self, sql_template: str, question: str, entities: Dict) -> str:
-        """Customize SQL template with extracted entities"""
+        """
+        Customize SQL template with extracted entities.
+
+        Logic:
+        - subject_id có sẵn (regex) → thay vào subject_id placeholder
+        - subject_id từ fuzzy ("auto_mapped") → thay subject_name LIKE bằng subject_id filter
+        - Chỉ có subject_name → thay LIKE placeholder
+        - Thêm DISTINCT khi JOIN để tránh duplicate rows
+        """
         sql = sql_template
-        
-        # Replace class_id if found
+
+        # ── 1. DISTINCT: tránh duplicate rows khi JOIN ─────────────────────────
+        if re.search(r'\bJOIN\b', sql, re.IGNORECASE) and 'DISTINCT' not in sql.upper():
+            sql = re.sub(r'\bSELECT\b', 'SELECT DISTINCT', sql, count=1, flags=re.IGNORECASE)
+
+        # ── 2. class_id ─────────────────────────────────────────────────────────
         if 'class_id' in entities:
-            # Match and preserve prefix (c. or nothing)
             def replace_class_id(match):
                 prefix = match.group(1) or ''
                 return f"{prefix}class_id = '{entities['class_id']}'"
-            
-            sql = re.sub(
-                r"(c\.)?class_id = '\d+'",
-                replace_class_id,
-                sql
-            )
-        
-        # Replace subject_id if found
+            sql = re.sub(r"(c\.)?class_id = '\d+'", replace_class_id, sql)
+
+        # ── 3. subject_id (có thể từ regex hoặc từ fuzzy) ────────────────────────
         if 'subject_id' in entities:
-            # Match and preserve prefix (s. or nothing)
-            def replace_subject_id(match):
-                prefix = match.group(1) or ''
-                return f"{prefix}subject_id = '{entities['subject_id']}'"
-            
-            sql = re.sub(
-                r"(s\.)?subject_id = '[A-Z]{2,4}\d{4}[A-Z]?'",
-                replace_subject_id,
-                sql
+            subj_id = entities['subject_id']
+
+            # 3a. Thay subject_id placeholder trong template nếu có
+            new_sql = re.sub(
+                r"(s\.)?subject_id\s*=\s*'[^']*'",
+                f"s.subject_id = '{subj_id}'",
+                sql,
+                flags=re.IGNORECASE
             )
-        
-        # Replace subject_name if found
-        if 'subject_name' in entities:
+
+            if new_sql != sql:
+                sql = new_sql
+                # Xóa subject_name LIKE thừa nếu vẫn còn
+                sql = re.sub(r"\s+AND\s+(s\.)?subject_name\s+LIKE\s+'%[^']+%'",
+                             '', sql, flags=re.IGNORECASE)
+                sql = re.sub(r"(s\.)?subject_name\s+LIKE\s+'%[^']+%'\s+AND\s+",
+                             '', sql, flags=re.IGNORECASE)
+            else:
+                # 3b. Template dùng subject_name LIKE → thay bằng subject_id
+                has_like = bool(re.search(
+                    r"(s\.)?subject_name\s+LIKE\s+'%[^']+%'", sql, re.IGNORECASE
+                ))
+                # Cũng có thể template dùng ls.subject_name LIKE (learned_subjects)
+                has_ls_like = bool(re.search(
+                    r"ls\.subject_name\s+LIKE\s+'%[^']+%'", sql, re.IGNORECASE
+                ))
+
+                if has_like or has_ls_like:
+                    # Đảm bảo có JOIN subjects
+                    if not re.search(r'JOIN\s+subjects', sql, re.IGNORECASE):
+                        sql = re.sub(
+                            r'(FROM\s+learned_subjects\s+ls)(\s)',
+                            r'\1 JOIN subjects s ON ls.subject_id = s.id\2',
+                            sql, flags=re.IGNORECASE
+                        )
+                    # Thay tất cả dạng subject_name LIKE bằng s.subject_id
+                    sql = re.sub(
+                        r"(?:ls|s)?\.?subject_name\s+LIKE\s+'%[^']+%'",
+                        f"s.subject_id = '{subj_id}'",
+                        sql, flags=re.IGNORECASE
+                    )
+                    # Thêm DISTINCT do vừa thêm JOIN
+                    if 'DISTINCT' not in sql.upper():
+                        sql = re.sub(r'\bSELECT\b', 'SELECT DISTINCT', sql,
+                                     count=1, flags=re.IGNORECASE)
+                else:
+                    # Template không có filter môn nào → thêm vào WHERE
+                    if not re.search(r'JOIN\s+subjects', sql, re.IGNORECASE):
+                        sql = re.sub(
+                            r'(FROM\s+learned_subjects\s+ls)(\s)',
+                            r'\1 JOIN subjects s ON ls.subject_id = s.id\2',
+                            sql, flags=re.IGNORECASE
+                        )
+                    if re.search(r'\bWHERE\b', sql, re.IGNORECASE):
+                        sql = re.sub(
+                            r'(\bWHERE\b\s+)',
+                            f"WHERE s.subject_id = '{subj_id}' AND ",
+                            sql, count=1, flags=re.IGNORECASE
+                        )
+                    else:
+                        sql += f" WHERE s.subject_id = '{subj_id}'"
+
+        elif 'subject_name' in entities:
+            # Chỉ có subject_name (không có subject_id) → dùng LIKE
             subject_name = entities['subject_name']
-            # Match and preserve prefix (s. or nothing)
+
             def replace_subject_name(match):
                 prefix = match.group(1) or ''
                 return f"{prefix}subject_name LIKE '%{subject_name}%'"
-            
+
             sql = re.sub(
-                r"(s\.)?subject_name LIKE '%[^']+%'",
-                replace_subject_name,
-                sql
+                r"(s\.|ls\.)?subject_name LIKE '%[^']+'%'",  # typo-safe
+                replace_subject_name, sql, flags=re.IGNORECASE
+            )
+            # Fallback: pattern không có ngoặc đóng
+            sql = re.sub(
+                r"(s\.|ls\.)?subject_name LIKE '%[^']+%'",
+                replace_subject_name, sql, flags=re.IGNORECASE
             )
         else:
-            # IMPORTANT: If no subject_name entity was extracted, remove the WHERE clause with subject_name
-            # This prevents using the hardcoded example subject name (e.g., "Giải tích")
-            # Remove standalone WHERE condition with subject_name
+            # Không có entity môn → xóa filter khỏi template
             sql = re.sub(
                 r"WHERE\s+(s\.)?subject_name\s+LIKE\s+'%[^']+%'\s*$",
-                "",
-                sql,
-                flags=re.IGNORECASE
+                "", sql, flags=re.IGNORECASE
             )
-            # Remove subject_name condition from WHERE with other conditions (keep other conditions)
             sql = re.sub(
                 r"(WHERE\s+.+?)\s+AND\s+(s\.)?subject_name\s+LIKE\s+'%[^']+%'",
-                r"\1",
-                sql,
-                flags=re.IGNORECASE
+                r"\1", sql, flags=re.IGNORECASE
             )
-            # Remove subject_name as first condition in WHERE with AND
             sql = re.sub(
                 r"WHERE\s+(s\.)?subject_name\s+LIKE\s+'%[^']+%'\s+AND\s+",
-                "WHERE ",
-                sql,
-                flags=re.IGNORECASE
+                "WHERE ", sql, flags=re.IGNORECASE
             )
-        
-        # Customize by study days
+
+        # ── 4. study_days ────────────────────────────────────────────────────────
         if 'study_days' in entities:
             days = entities['study_days']
             day_conditions = ' OR '.join([f"c.study_date LIKE '%{day}%'" for day in days])
-            # Replace existing day conditions
             sql = re.sub(
                 r"c\.study_date LIKE '%\w+%'(?: OR c\.study_date LIKE '%\w+%')*",
-                day_conditions,
-                sql
+                day_conditions, sql
             )
-        
-        # Customize by time period
+
+        # ── 5. time_period ───────────────────────────────────────────────────────
         if 'time_period' in entities:
             if entities['time_period'] == 'morning':
                 if "c.study_time_start" not in sql:
@@ -361,14 +418,15 @@ class NL2SQLService:
             elif entities['time_period'] == 'afternoon':
                 if "c.study_time_start" not in sql:
                     sql += " AND c.study_time_start >= '12:00:00'"
-        
+
         return sql
     
     async def generate_sql(
         self,
         question: str,
         intent: str,
-        student_id: Optional[int] = None
+        student_id: Optional[int] = None,
+        db=None
     ) -> Dict:
         """
         Generate SQL query from natural language question
@@ -377,6 +435,7 @@ class NL2SQLService:
             question: Natural language question
             intent: Detected intent
             student_id: Student ID (for authenticated queries)
+            db: SQLAlchemy Session (optional, dùng cho fuzzy matching)
             
         Returns:
             Dict containing SQL query, parameters, and metadata
@@ -386,9 +445,77 @@ class NL2SQLService:
         print(f"  Intent: {intent}")
         print(f"  Student ID: {student_id}")
         
-        # Extract entities from question
+        # Extract entities từ question (regex-based)
         entities = self._extract_entities(question)
-        print(f"  Entities: {entities}")
+        print(f"  Entities (raw): {entities}")
+        
+        # ── Fuzzy Matching: resolve subject_name → subject_id ──────────────
+        # Trường hợp 0: subject_id được extract bằng regex nhưng có thể gõ sai
+        # (vd: IT3081 thay vì IT3080). Kiểm tra xem mã có tồn tại không; nếu không
+        # thì fuzzy match theo mã môn.
+        fuzzy_info = None
+        if db is not None and 'subject_id' in entities:
+            raw_subject_id = entities['subject_id']
+            FuzzyMatcher = _get_fuzzy_matcher()
+            if FuzzyMatcher:
+                try:
+                    from app.models.subject_model import Subject as _Subject
+                    exact_exists = db.query(_Subject).filter(
+                        _Subject.subject_id == raw_subject_id
+                    ).first()
+                    if not exact_exists:
+                        matcher_id = FuzzyMatcher(db)
+                        id_match = matcher_id.match_subject_by_id(raw_subject_id, db=db)
+                        if id_match:
+                            print(f"  🔍 [FUZZY_ID] '{raw_subject_id}' không tồn tại → '{id_match.subject_id}' (score={id_match.score:.0f}, auto_mapped={id_match.auto_mapped})")
+                            fuzzy_info = {
+                                "original_query": raw_subject_id,
+                                "matched_name": id_match.subject_name,
+                                "matched_id": id_match.subject_id,
+                                "score": id_match.score,
+                                "auto_mapped": id_match.auto_mapped
+                            }
+                            if id_match.auto_mapped:
+                                entities['subject_id'] = id_match.subject_id
+                                entities['subject_name'] = id_match.subject_name
+                                print(f"  ✅ [FUZZY_ID] Auto-mapped subject_id → {id_match.subject_id}")
+                            else:
+                                # Score thấp — trả về candidates để hỏi lại
+                                pass  # caller sẽ xử lý qua fuzzy_info
+                        else:
+                            print(f"  ⚠️ [FUZZY_ID] Không tìm được mã môn gần với '{raw_subject_id}'")
+                except Exception as fie:
+                    print(f"  ⚠️ [FUZZY_ID] Error: {fie}")
+
+        # Trường hợp 1: chỉ có subject_name (chưa có subject_id)
+        # thử fuzzy match để tìm môn chính xác hơn.
+        if db is not None and 'subject_name' in entities and 'subject_id' not in entities:
+            FuzzyMatcher = _get_fuzzy_matcher()
+            if FuzzyMatcher:
+                try:
+                    matcher = FuzzyMatcher(db)
+                    match = matcher.match_subject(entities['subject_name'], db=db)
+                    if match:
+                        print(f"  🔍 [FUZZY] subject_name='{entities['subject_name']}' → '{match.subject_name}' (score={match.score:.0f}, auto_mapped={match.auto_mapped})")
+                        fuzzy_info = {
+                            "original_query": entities['subject_name'],
+                            "matched_name": match.subject_name,
+                            "matched_id": match.subject_id,
+                            "score": match.score,
+                            "auto_mapped": match.auto_mapped
+                        }
+                        if match.auto_mapped:
+                            # Đủ điểm → thay subject_name bằng subject_id để SQL chính xác hơn
+                            entities['subject_id'] = match.subject_id
+                            entities['subject_name'] = match.subject_name  # tên chuẩn có dấu
+                            print(f"  ✅ [FUZZY] Auto-mapped to subject_id={match.subject_id}")
+                        else:
+                            print(f"  ⚠️ [FUZZY] Score {match.score:.0f} < threshold, keeping LIKE search")
+                except Exception as fe:
+                    print(f"  ⚠️ [FUZZY] Error during fuzzy match: {fe}")
+        # ────────────────────────────────────────────────────────────────────
+        
+        print(f"  Entities (resolved): {entities}")
         
         # If ViT5 model is available, use it
         if self.has_vit5:
@@ -396,6 +523,10 @@ class NL2SQLService:
         else:
             # Otherwise, use rule-based approach
             result = self._generate_rule_based(question, intent, student_id, entities)
+        
+        # Đính kèm fuzzy_info vào result để caller có thể sử dụng
+        if fuzzy_info:
+            result['fuzzy_match'] = fuzzy_info
         
         print(f"   Generated SQL: {result.get('sql')}")
         print(f"   Method: {result.get('method')}")

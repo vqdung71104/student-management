@@ -24,6 +24,15 @@ class ChatbotService:
         self.db = db
         self.subject_rule_engine = SubjectSuggestionRuleEngine(db)
         self.class_rule_engine = ClassSuggestionRuleEngine(db)
+
+        # FuzzyMatcher — dùng để resolve tên môn khi user gõ sai / thiếu dấu
+        try:
+            from app.services.fuzzy_matcher import FuzzyMatcher
+            self._fuzzy_matcher = FuzzyMatcher(db)
+            print(f"✅ [ChatbotService] FuzzyMatcher loaded: {self._fuzzy_matcher.subject_count} subjects")
+        except Exception as e:
+            print(f"⚠️ [ChatbotService] FuzzyMatcher not available: {e}")
+            self._fuzzy_matcher = None
     
     async def process_subject_suggestion(
         self, 
@@ -604,31 +613,28 @@ class ChatbotService:
     
     def _extract_subject_from_question(self, question: str) -> Optional[str]:
         """
-        Extract specific subject ID from user's question
-        
+        Extract specific subject ID from user's question.
+
+        Priority:
+        1. Static keyword dict (nhanh nhất)
+        2. Regex subject code pattern (IT3170, SSH1131...)
+        3. Fuzzy matching fallback (trích xuất tên môn từ câu hỏi, dùng rapidfuzz)
+
         Examples:
             - "gợi ý lớp Tiếng Nhật" → "JP"
             - "lớp tiếng anh nào" → "ENG"
             - "môn lập trình mạng" → "IT3170"
             - "môn SSH1131" → "SSH1131"
-        
-        Args:
-            question: User's question
-        
-        Returns:
-            Subject ID or None if not found
+            - "môn giai tich 1" → fuzzy → "MI1114"
         """
         question_lower = question.lower()
-        
-        # Common subject mappings
+
+        # ——— 1. Static keyword shortcuts (fastest path) ————————————————
         subject_keywords = {
-            # Languages
             'tiếng nhật': 'JP',
             'tiếng anh': 'ENG',
             'japanese': 'JP',
             'english': 'ENG',
-            
-            # Common subjects
             'lập trình mạng': 'IT3170',
             'cơ sở dữ liệu': 'IT3080',
             'toán': 'MI',
@@ -637,27 +643,51 @@ class ChatbotService:
             'sinh học': 'BI',
             'triết học': 'PHI',
             'chủ nghĩa xã hội': 'SSH',
-            
-            # Generic patterns
             'cnxh': 'SSH',
             'xã hội': 'SSH',
         }
-        
-        # Try to match keywords
         for keyword, subject_prefix in subject_keywords.items():
             if keyword in question_lower:
-                # If user mentions this subject, find it in recommended subjects
                 return subject_prefix
-        
-        # Try to extract subject code pattern (e.g., IT3170, SSH1131, JP2126)
+
+        # ——— 2. Regex: mã môn dạng IT3170, SSH1131, JP2126 ————————————
         import re
-        # Pattern: Letters followed by numbers
         pattern = r'\b([A-Z]{2,4}\d{3,4})\b'
-        match = re.search(pattern, question.upper())
-        if match:
-            return match.group(1)
-        
+        code_match = re.search(pattern, question.upper())
+        if code_match:
+            return code_match.group(1)
+
+        # ——— 3. Fuzzy Matching Fallback —————————————————————————————
+        # Trích xuất tên môn từ câu hỏi sau keyword "môn", "lớp", "học phần"
+        subject_name_patterns = [
+            r'(?:môn|lớp|học phần)\s+học\s+([^\?\.,]+)',
+            r'(?:môn|lớp|học phần)\s+([^\?\.,]{3,})',
+            r'(?:gợi ý|dăng ký|đăng ký)\s+(?:lớp|môn)(?:\s+học)?\s+([^\?\.,]{3,})',
+        ]
+        extracted_name = None
+        for pat in subject_name_patterns:
+            m = re.search(pat, question_lower)
+            if m:
+                candidate = m.group(1).strip()
+                # Loại "gì", "nào" (question words)
+                if not re.match(r'^(g\u00ec|n\u00e0o|n\u00e0o\s)', candidate):
+                    extracted_name = candidate
+                    break
+
+        if extracted_name and self._fuzzy_matcher:
+            try:
+                fuzzy_result = self._fuzzy_matcher.match_subject(extracted_name)
+                if fuzzy_result and fuzzy_result.auto_mapped:
+                    print(f"🔍 [CHATBOT_SERVICE FUZZY] '{extracted_name}' → '{fuzzy_result.subject_id}' (score={fuzzy_result.score:.0f})")
+                    return fuzzy_result.subject_id
+                elif fuzzy_result:
+                    print(f"⚠️ [CHATBOT_SERVICE FUZZY] '{extracted_name}' score={fuzzy_result.score:.0f} < threshold, no auto-map")
+            except Exception as e:
+                print(f"⚠️ [CHATBOT_SERVICE FUZZY] Error: {e}")
+        # —————————————————————————————————————————————————————————
+
         return None
+
     
     def _format_class_suggestions_with_preferences(
         self,

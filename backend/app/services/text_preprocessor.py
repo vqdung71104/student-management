@@ -213,35 +213,63 @@ class TextPreprocessor:
     
     def fix_doubled_characters(self, text: str) -> str:
         """
-        Fix doubled/tripled characters that are typos
-        
-        Args:
-            text: Input text
-            
-        Returns:
-            Text with fixed doubled characters
-            
+        Fix doubled/tripled characters that are typos (fast-typing errors).
+
+        Handles:
+        - Triple+ chars: aaa → aa (first pass)
+        - General doubled letters inside non-whitelisted words: taoo→tao, nhaan→nhan, bii→bi
+        - Specific consonant-cluster rules at word start: dd→d, tt→t, nn→n, gg→g
+
+        Whitelisted tokens (course codes like IT3080, SSH1131) are left untouched.
+
         Example:
-            Input: "ddaayf đủ"
-            Output: "đầy đủ"
+            Input:  "taoo nhaan moonn bii IT3080"
+            Output: "tao nhan mon bi IT3080"
         """
-        # Common patterns of doubled characters that should be single
-        # But preserve intentional doubles like "cc", "tt" in some words
-        
-        # Fix triple+ characters first (definitely typos)
-        text = re.sub(r'(.)\1{2,}', r'\1\1', text)  # aaa -> aa
-        
-        # Fix specific doubled patterns that are usually typos
-        doubled_patterns = {
-            r'\bdd([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r'd\1',  # dd -> d
-            r'\btt([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r't\1',  # tt -> t
-            r'\bnn([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r'n\1',  # nn -> n
-            r'\bgg([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r'g\1',  # gg -> g
+        # 1. Fix triple+ characters first (definitely typos: aaa → aa)
+        text = re.sub(r'(.)\1{2,}', r'\1\1', text)
+
+        # 2. Per-word doubled-letter reduction for non-whitelisted tokens
+        #    Vietnamese has NO regular doubled letters, so any doubled letter
+        #    in a plain word is a typo.
+        VOWELS = (
+            'aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩ'
+            'òóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ'
+        )
+        CONSONANTS = 'bcdfghjklmnpqrstvwxyzđ'
+        ALL_LETTERS = VOWELS + CONSONANTS
+
+        def _reduce_doubles(word: str) -> str:
+            """Reduce all doubled letters in a word to single."""
+            result = []
+            prev = ''
+            for ch in word:
+                if ch.lower() in ALL_LETTERS and ch.lower() == prev.lower():
+                    continue  # skip the duplicate
+                result.append(ch)
+                prev = ch
+            return ''.join(result)
+
+        words = text.split()
+        fixed_words = []
+        for word in words:
+            if self._is_whitelisted(word):
+                fixed_words.append(word)
+            else:
+                fixed_words.append(_reduce_doubles(word))
+        text = ' '.join(fixed_words)
+
+        # 3. Keep legacy specific consonant patterns at word start (handles edge-cases
+        #    where the per-word loop may have missed accented pairs)
+        old_patterns = {
+            r'\bdd([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r'd\1',
+            r'\btt([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r't\1',
+            r'\bnn([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r'n\1',
+            r'\bgg([aeiouàáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹ])': r'g\1',
         }
-        
-        for pattern, replacement in doubled_patterns.items():
+        for pattern, replacement in old_patterns.items():
             text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
-        
+
         return text
     
     def fix_tone_errors(self, text: str) -> str:
