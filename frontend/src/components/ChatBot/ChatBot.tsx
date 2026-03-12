@@ -14,6 +14,15 @@ interface Message {
   timestamp: Date;
   intent?: string;
   data?: any[];
+  is_compound?: boolean;
+  parts?: Array<{
+    intent: string;
+    confidence: string;
+    text: string;
+    data?: any[];
+    sql_error?: string | null;
+    query: string;
+  }>;
 }
 
 const ChatBot: React.FC = () => {
@@ -73,6 +82,8 @@ const ChatBot: React.FC = () => {
         timestamp: new Date(),
         intent: response.intent,
         data: response.data,
+        is_compound: response.is_compound,
+        parts: response.parts,
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -249,6 +260,32 @@ const ChatBot: React.FC = () => {
     );
   };
 
+  // Render each part of a compound multi-intent response
+  const renderCompoundParts = (parts: Message['parts']) => {
+    if (!parts || parts.length === 0) return null;
+    return (
+      <div className="compound-parts">
+        {parts.map((part, idx) => (
+          <div key={idx} className="compound-part">
+            {part.data && part.data.length > 0 && (
+              <div className="part-data">
+                {part.intent === 'class_registration_suggestion'
+                  ? renderClassCombinations(part.data)
+                  : renderDataTable(part.data)}
+              </div>
+            )}
+            {part.data && part.data.length === 0 && (
+              <div className="part-empty">Không tìm thấy dữ liệu cho phần này.</div>
+            )}
+            {part.sql_error && (
+              <div className="part-error">⚠️ Lỗi: {part.sql_error}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // Render data table if available (for other intents)
   const renderDataTable = (data: any[]) => {
     if (!data || data.length === 0) return null;
@@ -324,11 +361,14 @@ const ChatBot: React.FC = () => {
                     __html: formatMessageText(message.text)
                   }}
                 />
-                {message.data && message.data.length > 0 && (
-                  message.intent === 'class_registration_suggestion'
-                    ? renderClassCombinations(message.data)
-                    : renderDataTable(message.data)
-                )}
+                {message.is_compound && message.parts
+                  ? renderCompoundParts(message.parts)
+                  : message.data && message.data.length > 0 && (
+                    message.intent === 'class_registration_suggestion'
+                      ? renderClassCombinations(message.data)
+                      : renderDataTable(message.data)
+                  )
+                }
                 <span className="message-time">{formatTime(message.timestamp)}</span>
               </div>
               {message.isUser && (

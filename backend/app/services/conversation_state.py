@@ -25,6 +25,7 @@ class ConversationState:
         self.questions_remaining: list = []  # NEW: Track remaining questions
         self.current_question: Optional[PreferenceQuestion] = None
         self.pending_question: Optional[Dict] = None  # NEW: Pending question details
+        self.nlq_constraints: Optional[Dict] = None  # Constraint extractor result (serialised)
         self.timestamp: datetime = datetime.now()
     
     def to_dict(self) -> Dict:
@@ -39,6 +40,7 @@ class ConversationState:
             'questions_remaining': self.questions_remaining,
             'current_question': self.current_question.dict() if self.current_question else None,
             'pending_question': self.pending_question,
+            'nlq_constraints': self.nlq_constraints,
             'timestamp': self.timestamp.isoformat()
         }
     
@@ -58,6 +60,7 @@ class ConversationState:
             from app.schemas.preference_schema import PreferenceQuestion
             state.current_question = PreferenceQuestion(**data['current_question'])
         state.pending_question = data.get('pending_question')
+        state.nlq_constraints = data.get('nlq_constraints')
         state.timestamp = datetime.fromisoformat(data['timestamp'])
         return state
     

@@ -120,9 +120,18 @@ class NL2SQLService:
             entities['class_id'] = class_id_match.group(1)
         
         # Extract subject IDs (e.g., IT4040, MAT1234, MI1114, EM1180Q)
-        subject_id_match = re.search(r'\b([A-Z]{2,4}\d{4}[A-Z]?)\b', question)
-        if subject_id_match:
-            entities['subject_id'] = subject_id_match.group(1)
+        # Use findall to capture ALL codes in the question (for multi-subject queries)
+        subject_id_matches = re.findall(r'\b([A-Z]{2,4}\d{3,5}[A-Z]?)\b', question)
+        if subject_id_matches:
+            # Deduplicate while preserving order
+            seen = []
+            for s in subject_id_matches:
+                if s not in seen:
+                    seen.append(s)
+            subject_id_matches = seen
+            entities['subject_id'] = subject_id_matches[0]   # compat: first code
+            if len(subject_id_matches) > 1:
+                entities['subject_ids'] = subject_id_matches  # full list for IN query
         
         # Extract subject names (e.g., "Giải tích 1", "Đại số", "Lý thuyết điều khiển tự động")
         # Try to extract after keywords, match until end of string or special words
@@ -305,14 +314,22 @@ class NL2SQLService:
                 return f"{prefix}class_id = '{entities['class_id']}'"
             sql = re.sub(r"(c\.)?class_id = '\d+'", replace_class_id, sql)
 
-        # ── 3. subject_id (có thể từ regex hoặc từ fuzzy) ────────────────────────
+        # ── 3. subject_id / subject_ids ──────────────────────────────────────────
         if 'subject_id' in entities:
-            subj_id = entities['subject_id']
+            subject_ids_list = entities.get('subject_ids', [entities['subject_id']])
+            subj_id = entities['subject_id']  # first / only
+
+            # Build SQL fragment: = 'X' for single, IN('X','Y') for multiple
+            def _make_filter(col_prefix: str = 's') -> str:
+                if len(subject_ids_list) > 1:
+                    ids_str = ', '.join(f"'{s}'" for s in subject_ids_list)
+                    return f"{col_prefix}.subject_id IN ({ids_str})"
+                return f"{col_prefix}.subject_id = '{subj_id}'"
 
             # 3a. Thay subject_id placeholder trong template nếu có
             new_sql = re.sub(
                 r"(s\.)?subject_id\s*=\s*'[^']*'",
-                f"s.subject_id = '{subj_id}'",
+                lambda m: _make_filter('s'),
                 sql,
                 flags=re.IGNORECASE
             )
@@ -342,10 +359,10 @@ class NL2SQLService:
                             r'\1 JOIN subjects s ON ls.subject_id = s.id\2',
                             sql, flags=re.IGNORECASE
                         )
-                    # Thay tất cả dạng subject_name LIKE bằng s.subject_id
+                    # Thay tất cả dạng subject_name LIKE bằng s.subject_id / IN
                     sql = re.sub(
                         r"(?:ls|s)?\.?subject_name\s+LIKE\s+'%[^']+%'",
-                        f"s.subject_id = '{subj_id}'",
+                        lambda m: _make_filter('s'),
                         sql, flags=re.IGNORECASE
                     )
                     # Thêm DISTINCT do vừa thêm JOIN
@@ -363,11 +380,11 @@ class NL2SQLService:
                     if re.search(r'\bWHERE\b', sql, re.IGNORECASE):
                         sql = re.sub(
                             r'(\bWHERE\b\s+)',
-                            f"WHERE s.subject_id = '{subj_id}' AND ",
+                            lambda m: f"WHERE {_make_filter('s')} AND ",
                             sql, count=1, flags=re.IGNORECASE
                         )
                     else:
-                        sql += f" WHERE s.subject_id = '{subj_id}'"
+                        sql += f" WHERE {_make_filter('s')}"
 
         elif 'subject_name' in entities:
             # Chỉ có subject_name (không có subject_id) → dùng LIKE

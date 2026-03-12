@@ -40,6 +40,8 @@ class ChatResponseWithData(ChatResponse):
     data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu từ database")
     sql: Optional[str] = Field(None, description="SQL query đã thực thi")
     sql_error: Optional[str] = Field(None, description="Lỗi SQL (nếu có)")
+    is_compound: bool = Field(False, description="True nếu câu hỏi là compound query (nhiều intent)")
+    parts: Optional[List[Dict[str, Any]]] = Field(None, description="Kết quả từng phần khi is_compound=True")
     
     class Config:
         json_schema_extra = {

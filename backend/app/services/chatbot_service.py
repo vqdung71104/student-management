@@ -181,7 +181,8 @@ class ChatbotService:
                     return await self._generate_class_suggestions_with_preferences(
                         student_id=student_id,
                         preferences=state.preferences,
-                        subject_id=subject_id
+                        subject_id=subject_id,
+                        nlq_constraints_dict=getattr(state, 'nlq_constraints', None)
                     )
                 else:
                     # Ask next question
@@ -215,6 +216,17 @@ class ChatbotService:
                     intent='class_registration_suggestion'
                 )
                 state.preferences = initial_preferences
+
+                # Extract hard constraints (time/day) from initial message
+                try:
+                    from app.services.constraint_extractor import get_constraint_extractor
+                    _extractor = get_constraint_extractor()
+                    _constraints = _extractor.extract(question, query_type="class_registration_suggestion")
+                    state.nlq_constraints = _constraints.dict()
+                    print(f"🔒 [CONSTRAINTS] Extracted: days={_constraints.days} session={_constraints.session} avoid_start={_constraints.avoid_start_times}")
+                except Exception as _ce:
+                    print(f"⚠️ [CONSTRAINTS] Extract failed: {_ce}")
+                    state.nlq_constraints = None
                 
                 # Check if preferences are already complete
                 if state.preferences.is_complete():
@@ -226,7 +238,8 @@ class ChatbotService:
                     return await self._generate_class_suggestions_with_preferences(
                         student_id=student_id,
                         preferences=state.preferences,
-                        subject_id=subject_id
+                        subject_id=subject_id,
+                        nlq_constraints_dict=state.nlq_constraints
                     )
                 else:
                     # Start collecting missing preferences
@@ -270,7 +283,8 @@ class ChatbotService:
         self,
         student_id: int,
         preferences,
-        subject_id: Optional[str] = None
+        subject_id: Optional[str] = None,
+        nlq_constraints_dict: Optional[Dict] = None
     ) -> Dict:
         """
         Generate class suggestions with collected preferences
@@ -348,7 +362,21 @@ class ChatbotService:
                     preferences=preferences_dict,
                     strict=False  # Soft filter to keep some diversity
                 )
-                
+
+                # Apply hard constraints from NL query (exact time/day/session)
+                if nlq_constraints_dict:
+                    try:
+                        from app.services.constraint_extractor import ClassQueryConstraints
+                        from app.services.class_query_service import ClassQueryService
+                        _c = ClassQueryConstraints(**nlq_constraints_dict)
+                        _svc = ClassQueryService(self.db)
+                        _hard = _svc._apply_hard_filters(filtered_classes, _c)
+                        if _hard:  # Only replace if result non-empty
+                            filtered_classes = _hard
+                            print(f"  🔒 After hard constraints: {len(filtered_classes)} classes")
+                    except Exception as _he:
+                        print(f"  ⚠️ Hard constraint filter error: {_he}")
+
                 # Take top 3-5 classes after filtering
                 subject_suggested = filtered_classes[:5]
                 print(f"  ✅ After preference filter: {len(subject_suggested)} classes")

@@ -16,6 +16,15 @@ export interface ChatResponse {
   data?: any[];
   sql?: string;
   sql_error?: string;
+  is_compound?: boolean;
+  parts?: Array<{
+    intent: string;
+    confidence: string;
+    text: string;
+    data?: any[];
+    sql_error?: string | null;
+    query: string;
+  }>;
 }
 
 export interface Intent {

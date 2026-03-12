@@ -633,3 +633,29 @@
     font-size: 13px;
   }
 }
+
+/* ── Compound multi-intent response ─────────────────────────────────────── */
+.compound-parts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.compound-part {
+  /* no extra chrome — the section header text already separates parts */
+}
+
+.part-empty {
+  color: #888;
+  font-size: 13px;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.part-error {
+  color: #d32f2f;
+  font-size: 13px;
+  padding: 4px 0;
+}
+
