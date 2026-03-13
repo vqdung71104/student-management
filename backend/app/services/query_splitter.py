@@ -35,6 +35,11 @@ _MARKERS: Dict[str, Tuple[str, float]] = {
     "điểm môn":              ("grade_view", 1.5),
     "kết quả học tập":       ("grade_view", 2.0),
     "kết quả thi":           ("grade_view", 1.5),
+    "điểm cpa":              ("grade_view", 2.0),
+    "gpa":                   ("grade_view", 2.0),
+    "cpa":                   ("grade_view", 2.0),
+    "điểm trung bình":       ("grade_view", 2.0),
+    "điểm tích lũy":         ("grade_view", 2.0),
 
     # learned_subjects_view
     "môn trượt":             ("learned_subjects_view", 2.5),
@@ -155,12 +160,9 @@ class QuerySplitter:
         text = text.strip()
         lower = text.lower()
 
-        # Quick check: need at least 2 distinct intent types present
+        # Extract distinct intents that appear in the whole text
         global_scores = self._score_intents(lower)
         distinct_intents = [i for i, s in global_scores.items() if s >= _MIN_SIDE_SCORE]
-        if len(distinct_intents) < 2:
-            return [SubQuery(text, detected_intent=distinct_intents[0] if distinct_intents else None,
-                             intent_score=global_scores.get(distinct_intents[0], 0) if distinct_intents else 0)]
 
         # Try each conjunction from left to right, pick first valid split
         candidates: List[Tuple[int, int, str]] = []  # (start, end, conj)
@@ -195,9 +197,8 @@ class QuerySplitter:
             left_intent  = self._dominant_intent(left_text.lower())
             right_intent = self._dominant_intent(right_text.lower())
 
-            # Valid split: both sides have markers, and they differ
-            if (left_intent is not None and right_intent is not None
-                    and left_intent != right_intent):
+            # Valid split: both sides have markers
+            if (left_intent is not None and right_intent is not None):
                 parts.append(SubQuery(
                     text=left_text,
                     detected_intent=left_intent,

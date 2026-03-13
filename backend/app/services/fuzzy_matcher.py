@@ -10,7 +10,7 @@ Features:
 """
 import unicodedata
 import re
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple, Dict, Set
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 
@@ -68,7 +68,7 @@ class FuzzyMatcher:
                 Nếu None, cache sẽ trống cho đến khi gọi refresh_cache(db)
         """
         # Cache
-        self._subjects: List[Tuple[str, str]] = []      # [(subject_id, subject_name)]
+        self._subjects: List[Tuple[str, str, Set[int]]] = []      # [(subject_id, subject_name, {course_ids})]
         self._subjects_norm: List[Tuple[str, str]] = []  # [(subject_id, normalized_name)]
         self._classes: List[Dict] = []                   # list of class dicts
         self._classes_norm: List[Tuple[str, Dict]] = [] # [(normalized_name, class_dict)]
@@ -86,34 +86,58 @@ class FuzzyMatcher:
         try:
             from app.models.subject_model import Subject
             from app.models.class_model import Class
+            from app.models.course_subject_model import CourseSubject
             from sqlalchemy.orm import joinedload
 
-            # Load subjects
-            subjects_rows = db.query(Subject.subject_id, Subject.subject_name).all()
-            self._subjects = [(row.subject_id, row.subject_name or '') for row in subjects_rows]
-            self._subjects_norm = [
-                (sid, self._normalize(name))
-                for sid, name in self._subjects
-            ]
-
-            # Load classes với subject_name join
-            classes_rows = (
-                db.query(Class, Subject.subject_id, Subject.subject_name)
-                .join(Subject, Class.subject_id == Subject.id)
+            # Load subjects with relation to course_subjects
+            sq = (
+                db.query(Subject.subject_id, Subject.subject_name, CourseSubject.course_id)
+                .outerjoin(CourseSubject, Subject.id == CourseSubject.subject_id)
                 .all()
             )
-            self._classes = []
+            
+            subj_dict = {}
+            for sid, sname, cid in sq:
+                if sid not in subj_dict:
+                    subj_dict[sid] = {"name": sname or '', "courses": set()}
+                if cid is not None:
+                    subj_dict[sid]["courses"].add(cid)
+                    
+            self._subjects = []
+            for sid, data in subj_dict.items():
+                self._subjects.append((sid, data["name"], data["courses"]))
+                
+            self._subjects_norm = [
+                (sid, self._normalize(data["name"]))
+                for sid, data in subj_dict.items()
+            ]
+
+            # Load classes with subject_name and course_ids join
+            classes_rows = (
+                db.query(Class, Subject.subject_id, Subject.subject_name, CourseSubject.course_id)
+                .join(Subject, Class.subject_id == Subject.id)
+                .outerjoin(CourseSubject, Subject.id == CourseSubject.subject_id)
+                .all()
+            )
+            
+            cls_dict = {}
+            for cls, subj_code, subj_name, course_id in classes_rows:
+                if cls.class_id not in cls_dict:
+                    cls_dict[cls.class_id] = {
+                        "class_id": cls.class_id,
+                        "class_name": cls.class_name or '',
+                        "subject_id": subj_code,
+                        "subject_name": subj_name or '',
+                        "course_ids": set()
+                    }
+                if course_id is not None:
+                    cls_dict[cls.class_id]["course_ids"].add(course_id)
+
+            self._classes = list(cls_dict.values())
             self._classes_norm = []
-            for cls, subj_code, subj_name in classes_rows:
-                cls_dict = {
-                    "class_id": cls.class_id,
-                    "class_name": cls.class_name or '',
-                    "subject_id": subj_code,
-                    "subject_name": subj_name or '',
-                }
-                self._classes.append(cls_dict)
-                norm_name = self._normalize(cls.class_name or '')
-                self._classes_norm.append((norm_name, cls_dict))
+            for cd in self._classes:
+                norm_name = self._normalize(cd["class_name"])
+                self._classes_norm.append((norm_name, cd))
 
             self._last_refresh = datetime.now()
             print(f"✅ [FuzzyMatcher] Cache refreshed: {len(self._subjects)} subjects, {len(self._classes)} classes")
@@ -184,7 +208,8 @@ class FuzzyMatcher:
         self,
         query: str,
         db=None,
-        threshold: int = AUTO_MAP_THRESHOLD
+        threshold: int = AUTO_MAP_THRESHOLD,
+        preferred_course_id: Optional[int] = None
     ) -> Optional[FuzzyMatch]:
         """
         Tìm môn học khớp nhất với query.
@@ -193,6 +218,7 @@ class FuzzyMatcher:
             query: Tên môn user nhập (có thể sai chính tả, không dấu)
             db: DB session để refresh cache nếu cần
             threshold: Ngưỡng auto-map (mặc định AUTO_MAP_THRESHOLD = 80)
+            preferred_course_id: ID khóa học ưu tiên (để giải quyết trùng tên)
 
         Returns:
             FuzzyMatch tốt nhất nếu score >= SUGGEST_THRESHOLD,
@@ -219,27 +245,48 @@ class FuzzyMatcher:
             name_list = [name for _, name in self._subjects_norm]
             id_list = [sid for sid, _ in self._subjects_norm]
 
-            # Dùng WRatio: robust với độ dài khác nhau, transpositions...
-            result = process.extractOne(
+            # Dùng extract (lấy nhiều kết quả) để có thể boost score
+            results = process.extract(
                 normalized_query,
                 name_list,
                 scorer=fuzz.WRatio,
+                limit=10,
                 score_cutoff=SUGGEST_THRESHOLD
             )
 
-            if result is None:
+            if not results:
                 return None
 
-            matched_name, score, idx = result
+            best_match = None
+            best_score = -1
+            best_idx = -1
+
+            for matched_name, score, idx in results:
+                course_ids = self._subjects[idx][2]
+                
+                adjusted_score = score
+                if preferred_course_id is not None and preferred_course_id in course_ids:
+                    # Let score go above 100 temporarily to break ties definitively
+                    adjusted_score = score + 10
+                
+                if adjusted_score > best_score:
+                    best_score = adjusted_score
+                    best_match = (matched_name, score, idx) # Store original score for final result
+
+            if best_match is None:
+                return None
+
+            matched_name, original_score, idx = best_match
+            # Clamp final score
+            final_score = min(original_score + 10 if preferred_course_id is not None and preferred_course_id in self._subjects[idx][2] else original_score, 100)
             subject_id = id_list[idx]
-            # Lấy tên gốc (có dấu)
             original_name = self._subjects[idx][1]
 
             return FuzzyMatch(
                 subject_id=subject_id,
                 subject_name=original_name,
-                score=score,
-                auto_mapped=score >= threshold
+                score=final_score,
+                auto_mapped=final_score >= threshold
             )
 
         except ImportError:
@@ -356,7 +403,7 @@ class FuzzyMatcher:
     # Class matching
     # ----------------------------------------------------------
 
-    def match_class(self, query: str, db=None) -> Optional[FuzzyClassMatch]:
+    def match_class(self, query: str, db=None, preferred_course_id: Optional[int] = None) -> Optional[FuzzyClassMatch]:
         """
         Tìm lớp học khớp nhất với query (tên lớp hoặc class_id).
 
@@ -378,17 +425,39 @@ class FuzzyMatcher:
             normalized_query = self._normalize(query)
             name_list = [name for name, _ in self._classes_norm]
 
-            result = process.extractOne(
+            results = process.extract(
                 normalized_query,
                 name_list,
                 scorer=fuzz.WRatio,
+                limit=10,
                 score_cutoff=SUGGEST_THRESHOLD
             )
 
-            if result is None:
+            if not results:
                 return None
 
-            matched_name, score, idx = result
+            best_match = None
+            best_score = -1
+            best_idx = -1
+
+            for matched_name, score, idx in results:
+                cls_dict = self._classes_norm[idx][1]
+                course_ids = cls_dict.get("course_ids", set())
+                
+                adjusted_score = score
+                if preferred_course_id is not None and preferred_course_id in course_ids:
+                    adjusted_score = score + 10
+                
+                if adjusted_score > best_score:
+                    best_score = adjusted_score
+                    best_match = (matched_name, score, idx)
+
+            if best_match is None:
+                return None
+
+            matched_name, original_score, idx = best_match
+            course_ids = self._classes_norm[idx][1].get("course_ids", set())
+            final_score = min(original_score + 10 if preferred_course_id is not None and preferred_course_id in course_ids else original_score, 100)
             cls_dict = self._classes_norm[idx][1]
 
             return FuzzyClassMatch(
@@ -396,8 +465,8 @@ class FuzzyMatcher:
                 class_name=cls_dict["class_name"],
                 subject_id=cls_dict["subject_id"],
                 subject_name=cls_dict["subject_name"],
-                score=score,
-                auto_mapped=score >= AUTO_MAP_THRESHOLD
+                score=final_score,
+                auto_mapped=final_score >= AUTO_MAP_THRESHOLD
             )
 
         except ImportError:

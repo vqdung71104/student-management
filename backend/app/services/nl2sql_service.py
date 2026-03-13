@@ -352,16 +352,16 @@ class NL2SQLService:
                 ))
 
                 if has_like or has_ls_like:
-                    # Đảm bảo có JOIN subjects
+                    # Đảm bảo có JOIN subjects nếu query liên quan đến learned_subjects hoặc classes
                     if not re.search(r'JOIN\s+subjects', sql, re.IGNORECASE):
                         sql = re.sub(
-                            r'(FROM\s+learned_subjects\s+ls)(\s)',
-                            r'\1 JOIN subjects s ON ls.subject_id = s.id\2',
+                            r'(FROM\s+(?:learned_subjects|classes)\s+(?:ls|c))(\s)',
+                            r'\1 JOIN subjects s ON \1.subject_id = s.id\2',
                             sql, flags=re.IGNORECASE
                         )
                     # Thay tất cả dạng subject_name LIKE bằng s.subject_id / IN
                     sql = re.sub(
-                        r"(?:ls|s)?\.?subject_name\s+LIKE\s+'%[^']+%'",
+                        r"(?:ls|s|c)?\.?subject_name\s+LIKE\s+'%[^']+%'",
                         lambda m: _make_filter('s'),
                         sql, flags=re.IGNORECASE
                     )
@@ -370,21 +370,24 @@ class NL2SQLService:
                         sql = re.sub(r'\bSELECT\b', 'SELECT DISTINCT', sql,
                                      count=1, flags=re.IGNORECASE)
                 else:
-                    # Template không có filter môn nào → thêm vào WHERE
+                    # Template không có filter môn nào → thêm vào WHERE 
+                    # NHƯNG CHỈ THÊM NẾU CÂU TRUY VẤN CÓ BẢNG subjects HOẶC ĐƯỢC THÊM VÀO JOIN
                     if not re.search(r'JOIN\s+subjects', sql, re.IGNORECASE):
                         sql = re.sub(
-                            r'(FROM\s+learned_subjects\s+ls)(\s)',
-                            r'\1 JOIN subjects s ON ls.subject_id = s.id\2',
+                            r'(FROM\s+(?:learned_subjects|classes|subject_registers)\s+(?:ls|c|sr))(\s)',
+                            r'\1 JOIN subjects s ON \1.subject_id = s.id\2',
                             sql, flags=re.IGNORECASE
                         )
-                    if re.search(r'\bWHERE\b', sql, re.IGNORECASE):
-                        sql = re.sub(
-                            r'(\bWHERE\b\s+)',
-                            lambda m: f"WHERE {_make_filter('s')} AND ",
-                            sql, count=1, flags=re.IGNORECASE
-                        )
-                    else:
-                        sql += f" WHERE {_make_filter('s')}"
+                    
+                    if re.search(r'\bsubjects\s+s\b', sql, re.IGNORECASE) or bool(re.search(r'JOIN\s+subjects\b', sql, re.IGNORECASE)):
+                        if re.search(r'\bWHERE\b', sql, re.IGNORECASE):
+                            sql = re.sub(
+                                r'(\bWHERE\b\s+)',
+                                lambda m: f"WHERE {_make_filter('s')} AND ",
+                                sql, count=1, flags=re.IGNORECASE
+                            )
+                        else:
+                            sql += f" WHERE {_make_filter('s')}"
 
         elif 'subject_name' in entities:
             # Chỉ có subject_name (không có subject_id) → dùng LIKE
@@ -466,6 +469,17 @@ class NL2SQLService:
         entities = self._extract_entities(question)
         print(f"  Entities (raw): {entities}")
         
+        # Lấy course_id của sinh viên nếu có student_id để ưu tiên matching
+        preferred_course_id = None
+        if db is not None and student_id:
+            try:
+                from app.models.student_model import Student
+                student = db.query(Student).filter(Student.id == student_id).first()
+                if student:
+                    preferred_course_id = student.course_id
+            except Exception as e:
+                print(f"  ⚠️ Could not fetch student course_id: {e}")
+
         # ── Fuzzy Matching: resolve subject_name → subject_id ──────────────
         # Trường hợp 0: subject_id được extract bằng regex nhưng có thể gõ sai
         # (vd: IT3081 thay vì IT3080). Kiểm tra xem mã có tồn tại không; nếu không
@@ -511,11 +525,31 @@ class NL2SQLService:
             if FuzzyMatcher:
                 try:
                     matcher = FuzzyMatcher(db)
-                    match = matcher.match_subject(entities['subject_name'], db=db)
+                    raw_name = entities['subject_name']
+                    match = matcher.match_subject(raw_name, db=db, preferred_course_id=preferred_course_id)
+                    
+                    # Giải quyết vấn đề chữ "và" (tách nối vs tên riêng)
+                    if not match or not match.auto_mapped:
+                        if " và " in raw_name.lower():
+                            parts = re.split(r'\s+và\s+', raw_name, flags=re.IGNORECASE)
+                            valid_matches = []
+                            for part in parts:
+                                part = part.strip()
+                                if not part: continue
+                                pm = matcher.match_subject(part, db=db, preferred_course_id=preferred_course_id)
+                                if pm and pm.auto_mapped:
+                                    valid_matches.append(pm)
+                                    
+                            if valid_matches:
+                                match = valid_matches[0]
+                                print(f"  🔍 [FUZZY_SPLIT] Tách '{raw_name}' qua 'và', tìm thấy {len(valid_matches)} môn: {[m.subject_name for m in valid_matches]}")
+                                if len(valid_matches) > 1:
+                                    entities['subject_ids'] = [m.subject_id for m in valid_matches]
+                                    
                     if match:
-                        print(f"  🔍 [FUZZY] subject_name='{entities['subject_name']}' → '{match.subject_name}' (score={match.score:.0f}, auto_mapped={match.auto_mapped})")
+                        print(f"  🔍 [FUZZY] subject_name='{raw_name}' → '{match.subject_name}' (score={match.score:.0f}, auto_mapped={match.auto_mapped})")
                         fuzzy_info = {
-                            "original_query": entities['subject_name'],
+                            "original_query": raw_name,
                             "matched_name": match.subject_name,
                             "matched_id": match.subject_id,
                             "score": match.score,
