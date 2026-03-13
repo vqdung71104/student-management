@@ -59,17 +59,16 @@ def _merge_responses(
 ) -> ChatResponseWithData:
     """
     Merge multiple single-intent responses into one compound response.
-    - text: sections separated by "---"
+    - text: empty, since frontend will render each part sequentially
     - data: all items merged, each tagged with _intent_type
     - parts: list of part dicts for frontend to render separately
     """
-    text_sections: List[str] = []
     merged_data: List = []
     parts_list: List = []
 
     for resp, sq in zip(parts, sub_queries):
         header = _section_header(resp.intent)
-        text_sections.append(f"**{header}**\n{resp.text}")
+        part_text = f"**{header}**\n{resp.text}"
 
         if resp.data:
             for item in resp.data:
@@ -80,16 +79,14 @@ def _merge_responses(
         parts_list.append({
             "intent": resp.intent,
             "confidence": resp.confidence,
-            "text": resp.text,
+            "text": part_text,
             "data": resp.data,
             "sql_error": resp.sql_error,
             "query": sq.text,
         })
 
-    combined_text = "\n\n---\n\n".join(text_sections)
-
     return ChatResponseWithData(
-        text=combined_text,
+        text="Dưới đây là thông tin chi tiết cho từng phần trong câu hỏi của bạn:",
         intent="compound",
         confidence="high",
         data=merged_data if merged_data else None,

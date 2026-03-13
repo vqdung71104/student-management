@@ -266,7 +266,16 @@ const ChatBot: React.FC = () => {
     return (
       <div className="compound-parts">
         {parts.map((part, idx) => (
-          <div key={idx} className="compound-part">
+          <div key={idx} className="compound-part" style={{ marginTop: idx > 0 ? '16px' : '8px', paddingBottom: '16px', borderBottom: idx < parts.length - 1 ? '1px dashed #e2e8f0' : 'none' }}>
+            {part.text && (
+              <div 
+                className="part-text"
+                dangerouslySetInnerHTML={{
+                  __html: formatMessageText(part.text)
+                }}
+                style={{ marginBottom: '8px' }}
+              />
+            )}
             {part.data && part.data.length > 0 && (
               <div className="part-data">
                 {part.intent === 'class_registration_suggestion'
