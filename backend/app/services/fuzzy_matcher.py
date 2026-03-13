@@ -257,11 +257,24 @@ class FuzzyMatcher:
             if not results:
                 return None
 
+            # Course-first strategy:
+            # 1) Nếu có preferred_course_id và tồn tại ứng viên trong course đó,
+            #    chỉ chọn trong tập ứng viên này.
+            # 2) Nếu không có ứng viên trong course, fallback về toàn bộ kết quả như cũ.
+            if preferred_course_id is not None:
+                in_course_results = []
+                for matched_name, score, idx in results:
+                    course_ids = self._subjects[idx][2]
+                    if preferred_course_id in course_ids:
+                        in_course_results.append((matched_name, score, idx))
+                candidates = in_course_results if in_course_results else results
+            else:
+                candidates = results
+
             best_match = None
             best_score = -1
-            best_idx = -1
 
-            for matched_name, score, idx in results:
+            for matched_name, score, idx in candidates:
                 course_ids = self._subjects[idx][2]
                 
                 adjusted_score = score
@@ -300,7 +313,8 @@ class FuzzyMatcher:
         self,
         query: str,
         db=None,
-        top_k: int = TOP_K
+        top_k: int = TOP_K,
+        preferred_course_id: Optional[int] = None
     ) -> List[FuzzyMatch]:
         """
         Trả về top-k candidates để hỏi lại user khi không auto-map.
@@ -332,12 +346,22 @@ class FuzzyMatcher:
                 normalized_query,
                 name_list,
                 scorer=fuzz.WRatio,
-                limit=top_k,
+                limit=max(top_k * 5, top_k),
                 score_cutoff=SUGGEST_THRESHOLD
             )
 
+            if preferred_course_id is not None:
+                in_course_results = []
+                for matched_name, score, idx in results:
+                    course_ids = self._subjects[idx][2]
+                    if preferred_course_id in course_ids:
+                        in_course_results.append((matched_name, score, idx))
+                selected_results = in_course_results if in_course_results else results
+            else:
+                selected_results = results
+
             candidates = []
-            for matched_name, score, idx in results:
+            for matched_name, score, idx in selected_results[:top_k]:
                 subject_id = self._subjects_norm[idx][0]
                 original_name = self._subjects[idx][1]
                 candidates.append(FuzzyMatch(
@@ -355,7 +379,7 @@ class FuzzyMatcher:
             print(f"⚠️ [FuzzyMatcher] get_subject_candidates error: {e}")
             return []
 
-    def match_subject_by_id(self, subject_id_query: str, db=None) -> Optional[FuzzyMatch]:
+    def match_subject_by_id(self, subject_id_query: str, db=None, preferred_course_id: Optional[int] = None) -> Optional[FuzzyMatch]:
         """
         Fuzzy match theo subject_id (mã môn), ví dụ "IT308" → "IT3080"
 
@@ -373,17 +397,28 @@ class FuzzyMatcher:
             query_norm = subject_id_query.upper().strip()
             id_list = [sid for sid, _ in self._subjects]
 
-            result = process.extractOne(
+            results = process.extract(
                 query_norm,
                 id_list,
                 scorer=fuzz.WRatio,
+                limit=10,
                 score_cutoff=SUGGEST_THRESHOLD
             )
 
-            if result is None:
+            if not results:
                 return None
 
-            matched_id, score, idx = result
+            if preferred_course_id is not None:
+                in_course_results = []
+                for matched_id, score, idx in results:
+                    course_ids = self._subjects[idx][2]
+                    if preferred_course_id in course_ids:
+                        in_course_results.append((matched_id, score, idx))
+                candidates = in_course_results if in_course_results else results
+            else:
+                candidates = results
+
+            matched_id, score, idx = max(candidates, key=lambda x: x[1])
             original_name = self._subjects[idx][1]
 
             return FuzzyMatch(

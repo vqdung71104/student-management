@@ -181,6 +181,14 @@ class NL2SQLService:
                 if not re.match(r'^[A-Z]{2,4}\d{4}[A-Z]?$', extracted):
                     entities['subject_name'] = extracted
                     break
+
+        # Multi-subject list extraction for same intent, e.g.:
+        # "điểm các môn giải tích 1, giải tích 2; đại số tuyến tính"
+        list_names = self._extract_subject_name_list(question)
+        if len(list_names) > 1:
+            entities['subject_names'] = list_names
+            if 'subject_name' not in entities:
+                entities['subject_name'] = list_names[0]
         
         # Extract day of week
         day_mapping = {
@@ -212,6 +220,55 @@ class NL2SQLService:
             entities['time_period'] = 'afternoon'
         
         return entities
+
+    def _extract_subject_name_list(self, question: str) -> List[str]:
+        """Extract list of subject names from comma/semicolon/conjunction separated input."""
+        q = question.strip()
+        if not q:
+            return []
+
+        lower = q.lower()
+
+        anchor_patterns = [
+            r'(?:điểm\s+các\s+môn|điểm\s+môn|xem\s+điểm\s+các\s+môn|xem\s+điểm\s+môn)\s+(.+)$',
+            r'(?:các\s+lớp\s+của\s+các\s+môn|các\s+lớp\s+của\s+môn|các\s+lớp\s+môn|thông\s+tin\s+các\s+lớp\s+môn|danh\s+sách\s+các\s+lớp\s+môn)\s+(.+)$',
+            r'(?:môn|học\s+phần|lớp)\s+(.+)$',
+        ]
+
+        tail = None
+        for pat in anchor_patterns:
+            m = re.search(pat, lower, flags=re.IGNORECASE)
+            if m:
+                tail = m.group(1).strip()
+                break
+
+        if not tail:
+            return []
+
+        # Stop at time/day clauses to avoid leaking scheduling constraints into subject names
+        tail = re.split(
+            r'\b(?:học\s+vào|vào\s+thứ|thứ\s+\d|thứ\s+(?:hai|ba|tư|năm|sáu|bảy)|chủ\s+nhật|buổi|lúc|từ\s+\d|đến\s+\d|kỳ\s+này|hiện\s+tại)\b',
+            tail,
+            maxsplit=1,
+            flags=re.IGNORECASE,
+        )[0].strip()
+
+        if not re.search(r'[;,]|\s+và\s+|\s+hoặc\s+', tail, flags=re.IGNORECASE):
+            return []
+
+        raw_parts = re.split(r'[;,]|\s+và\s+|\s+hoặc\s+', tail, flags=re.IGNORECASE)
+        names: List[str] = []
+        for part in raw_parts:
+            p = part.strip(' .')
+            if not p:
+                continue
+            p = re.sub(r'^(?:môn|học\s+phần|lớp|các\s+môn|các\s+lớp|của)\s+', '', p, flags=re.IGNORECASE).strip()
+            if not p or p in {'gì', 'nào'}:
+                continue
+            if p not in names:
+                names.append(p)
+
+        return names
     
     def _find_best_match(self, question: str, intent: str) -> Optional[Dict]:
         """Find best matching SQL template from examples"""
@@ -491,12 +548,54 @@ class NL2SQLService:
             if FuzzyMatcher:
                 try:
                     from app.models.subject_model import Subject as _Subject
+                    from app.models.course_subject_model import CourseSubject as _CourseSubject
+
                     exact_exists = db.query(_Subject).filter(
                         _Subject.subject_id == raw_subject_id
                     ).first()
+
+                    # Course-first validation cho subject_id đã extract:
+                    # Nếu mã môn tồn tại nhưng không thuộc course của sinh viên,
+                    # ưu tiên môn cùng tên nằm trong course đó.
+                    if exact_exists and preferred_course_id is not None:
+                        in_course_exact = db.query(_CourseSubject).filter(
+                            _CourseSubject.course_id == preferred_course_id,
+                            _CourseSubject.subject_id == exact_exists.id,
+                        ).first()
+
+                        if not in_course_exact:
+                            alt_in_course = (
+                                db.query(_Subject)
+                                .join(_CourseSubject, _Subject.id == _CourseSubject.subject_id)
+                                .filter(
+                                    _CourseSubject.course_id == preferred_course_id,
+                                    _Subject.subject_name == exact_exists.subject_name,
+                                )
+                                .first()
+                            )
+                            if alt_in_course:
+                                entities['subject_id'] = alt_in_course.subject_id
+                                entities['subject_name'] = alt_in_course.subject_name
+                                fuzzy_info = {
+                                    "original_query": raw_subject_id,
+                                    "matched_name": alt_in_course.subject_name,
+                                    "matched_id": alt_in_course.subject_id,
+                                    "score": 100,
+                                    "auto_mapped": True,
+                                    "course_preferred": True,
+                                }
+                                print(
+                                    f"  ✅ [COURSE_PREF] subject_id='{raw_subject_id}' không thuộc course {preferred_course_id} "
+                                    f"→ ưu tiên '{alt_in_course.subject_id}' cùng tên trong course"
+                                )
+
                     if not exact_exists:
                         matcher_id = FuzzyMatcher(db)
-                        id_match = matcher_id.match_subject_by_id(raw_subject_id, db=db)
+                        id_match = matcher_id.match_subject_by_id(
+                            raw_subject_id,
+                            db=db,
+                            preferred_course_id=preferred_course_id,
+                        )
                         if id_match:
                             print(f"  🔍 [FUZZY_ID] '{raw_subject_id}' không tồn tại → '{id_match.subject_id}' (score={id_match.score:.0f}, auto_mapped={id_match.auto_mapped})")
                             fuzzy_info = {
@@ -525,37 +624,71 @@ class NL2SQLService:
             if FuzzyMatcher:
                 try:
                     matcher = FuzzyMatcher(db)
-                    raw_name = entities['subject_name']
-                    match = matcher.match_subject(raw_name, db=db, preferred_course_id=preferred_course_id)
-                    
-                    # Giải quyết vấn đề chữ "và" (tách nối vs tên riêng)
-                    if not match or not match.auto_mapped:
-                        if " và " in raw_name.lower():
-                            parts = re.split(r'\s+và\s+', raw_name, flags=re.IGNORECASE)
-                            valid_matches = []
-                            for part in parts:
-                                part = part.strip()
-                                if not part: continue
-                                pm = matcher.match_subject(part, db=db, preferred_course_id=preferred_course_id)
-                                if pm and pm.auto_mapped:
+                    multi_raw_names = entities.get('subject_names', [])
+                    valid_matches = []
+
+                    if multi_raw_names:
+                        for rn in multi_raw_names:
+                            pm = matcher.match_subject(rn, db=db, preferred_course_id=preferred_course_id)
+                            if pm and (pm.auto_mapped or pm.score >= 70):
+                                valid_matches.append(pm)
+                        if valid_matches:
+                            print(
+                                f"  🔍 [FUZZY_SPLIT] Tách multi-list {multi_raw_names}, "
+                                f"tìm thấy {len(valid_matches)} môn: {[m.subject_name for m in valid_matches]}"
+                            )
+                    else:
+                        raw_name = entities['subject_name']
+                        # Split single extracted phrase if it still contains list separators.
+                        split_names = re.split(r'[;,]|\s+và\s+|\s+hoặc\s+', raw_name, flags=re.IGNORECASE)
+                        split_names = [
+                            re.sub(r'^(?:môn|học\s+phần|lớp)\s+', '', s.strip(), flags=re.IGNORECASE)
+                            for s in split_names if s.strip()
+                        ]
+                        if len(split_names) > 1:
+                            for rn in split_names:
+                                pm = matcher.match_subject(rn, db=db, preferred_course_id=preferred_course_id)
+                                if pm and (pm.auto_mapped or pm.score >= 70):
                                     valid_matches.append(pm)
-                                    
                             if valid_matches:
-                                match = valid_matches[0]
-                                print(f"  🔍 [FUZZY_SPLIT] Tách '{raw_name}' qua 'và', tìm thấy {len(valid_matches)} môn: {[m.subject_name for m in valid_matches]}")
-                                if len(valid_matches) > 1:
-                                    entities['subject_ids'] = [m.subject_id for m in valid_matches]
+                                print(
+                                    f"  🔍 [FUZZY_SPLIT] Tách '{raw_name}' qua ',', ';', 'và/hoặc', "
+                                    f"tìm thấy {len(valid_matches)} môn: {[m.subject_name for m in valid_matches]}"
+                                )
+                        else:
+                            pm = matcher.match_subject(raw_name, db=db, preferred_course_id=preferred_course_id)
+                            if pm:
+                                valid_matches.append(pm)
+
+                    # Deduplicate by subject_id while preserving order
+                    dedup_matches = []
+                    seen_ids = set()
+                    for m in valid_matches:
+                        if m.subject_id in seen_ids:
+                            continue
+                        seen_ids.add(m.subject_id)
+                        dedup_matches.append(m)
+
+                    match = dedup_matches[0] if dedup_matches else None
+                    if len(dedup_matches) > 1:
+                        entities['subject_ids'] = [m.subject_id for m in dedup_matches]
+                        entities['subject_id'] = dedup_matches[0].subject_id
+                        entities['subject_name'] = dedup_matches[0].subject_name
                                     
                     if match:
+                        raw_name = entities.get('subject_name', entities.get('subject_names', ['']))
+                        if isinstance(raw_name, list):
+                            raw_name = ', '.join(raw_name)
                         print(f"  🔍 [FUZZY] subject_name='{raw_name}' → '{match.subject_name}' (score={match.score:.0f}, auto_mapped={match.auto_mapped})")
                         fuzzy_info = {
                             "original_query": raw_name,
                             "matched_name": match.subject_name,
                             "matched_id": match.subject_id,
                             "score": match.score,
-                            "auto_mapped": match.auto_mapped
+                            "auto_mapped": match.auto_mapped,
+                            "matched_ids": entities.get('subject_ids', [match.subject_id])
                         }
-                        if match.auto_mapped:
+                        if match.auto_mapped or len(entities.get('subject_ids', [])) > 1:
                             # Đủ điểm → thay subject_name bằng subject_id để SQL chính xác hơn
                             entities['subject_id'] = match.subject_id
                             entities['subject_name'] = match.subject_name  # tên chuẩn có dấu

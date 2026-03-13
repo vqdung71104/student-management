@@ -285,18 +285,53 @@ class ConstraintExtractor:
         # -- General: extract phrase after "môn"/"lớp"/"học phần"
         # Only if no code was extracted and no domain keyword matched
         if not existing_codes and not names:
-            patterns = [
-                r'(?:môn|học phần)\s+(?:học\s+)?([^\?,\.\n]+?)(?:\s+học\s+|\s+vào\s+|$)',
-                r'lớp\s+(?:học\s+)?([^\?,\.\n]+?)(?:\s+học\s+|\s+vào\s+|$)',
+            candidates: List[str] = []
+
+            # Priority pattern: explicit multi-list for same intent
+            list_patterns = [
+                r'(?:điểm\s+các\s+môn|điểm\s+môn|xem\s+điểm\s+các\s+môn|xem\s+điểm\s+môn)\s+([^\?\.\n]+)',
+                r'(?:các\s+lớp\s+của\s+các\s+môn|các\s+lớp\s+của\s+môn|các\s+lớp\s+môn|thông\s+tin\s+các\s+lớp\s+môn|danh\s+sách\s+các\s+lớp\s+môn)\s+([^\?\.\n]+)',
+                r'(?:môn|học\s+phần|lớp)\s+([^\?\.\n]+)',
             ]
-            for pat in patterns:
+
+            for pat in list_patterns:
                 m = re.search(pat, text_lower)
-                if m:
-                    candidate = m.group(1).strip()
-                    # filter out day tokens
-                    if not self._re_day.search(candidate):
-                        names.append(candidate)
+                if not m:
+                    continue
+                tail = m.group(1).strip()
+                tail = re.split(
+                    r'\b(?:học\s+vào|vào\s+thứ|thứ\s+\d|thứ\s+(?:hai|ba|tư|năm|sáu|bảy)|chủ\s+nhật|buổi|lúc|từ\s+\d|đến\s+\d)\b',
+                    tail,
+                    maxsplit=1,
+                )[0].strip()
+                candidates = [
+                    re.sub(r'^(?:môn|học\s+phần|lớp|các\s+môn|các\s+lớp|của)\s+', '', p.strip())
+                    for p in re.split(r'[;,]|\s+và\s+|\s+hoặc\s+', tail)
+                    if p.strip()
+                ]
+                if candidates:
                     break
+
+            # Fallback legacy behavior if no candidate found above
+            if not candidates:
+                patterns = [
+                    r'(?:môn|học phần)\s+(?:học\s+)?([^\?,\.\n]+?)(?:\s+học\s+|\s+vào\s+|$)',
+                    r'lớp\s+(?:học\s+)?([^\?,\.\n]+?)(?:\s+học\s+|\s+vào\s+|$)',
+                ]
+                for pat in patterns:
+                    m = re.search(pat, text_lower)
+                    if m:
+                        candidates = [m.group(1).strip()]
+                        break
+
+            for candidate in candidates:
+                if not candidate:
+                    continue
+                # filter out day tokens
+                if self._re_day.search(candidate):
+                    continue
+                if candidate not in names:
+                    names.append(candidate)
 
         # -- Multi-subject: split by comma/và/hoặc
         # Also handle inline lists like "bóng đá, cầu lông, bóng bàn"
