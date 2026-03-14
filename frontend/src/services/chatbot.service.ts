@@ -7,6 +7,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 export interface ChatMessage {
   message: string;
   student_id?: number;
+  conversation_id?: number;
 }
 
 export interface ChatResponse {
@@ -17,6 +18,9 @@ export interface ChatResponse {
   sql?: string;
   sql_error?: string;
   is_compound?: boolean;
+  conversation_id?: number;
+  message_id?: number;
+  created_at?: string;
   parts?: Array<{
     intent: string;
     confidence: string;
@@ -38,16 +42,60 @@ export interface IntentsResponse {
   intents: Intent[];
 }
 
+export interface ChatConversation {
+  id: number;
+  student_pk: number;
+  title?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatConversationListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+  items: ChatConversation[];
+  cache_hit: boolean;
+}
+
+export interface ChatHistoryMessage {
+  id: number;
+  conversation_id: number;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  intent?: string;
+  confidence?: string;
+  data_json?: any;
+  sql_text?: string;
+  sql_error?: string;
+  created_at: string;
+}
+
+export interface ConversationMessagesResponse {
+  conversation: ChatConversation;
+  total: number;
+  page: number;
+  page_size: number;
+  has_more: boolean;
+  items: ChatHistoryMessage[];
+  cache_hit: boolean;
+}
+
 /**
  * Gửi tin nhắn tới chatbot
  */
 export const sendMessage = async (
   message: string, 
-  studentId?: number
+  studentId?: number,
+  conversationId?: number
 ): Promise<ChatResponse> => {
   const body: ChatMessage = { message };
   if (studentId) {
     body.student_id = studentId;
+  }
+  if (conversationId) {
+    body.conversation_id = conversationId;
   }
 
   const response = await fetch(`${API_BASE_URL}/chatbot/chat`, {
@@ -63,6 +111,88 @@ export const sendMessage = async (
   }
 
   return response.json();
+};
+
+export const listConversations = async (
+  studentId: number,
+  page: number = 1,
+  pageSize: number = 20
+): Promise<ChatConversationListResponse> => {
+  const query = new URLSearchParams({
+    student_id: String(studentId),
+    page: String(page),
+    page_size: String(pageSize),
+  });
+
+  const response = await fetch(`${API_BASE_URL}/chatbot/conversations?${query.toString()}`);
+  if (!response.ok) {
+    throw new Error('Failed to load conversations');
+  }
+
+  return response.json();
+};
+
+export const getConversationMessages = async (
+  conversationId: number,
+  studentId: number,
+  page: number = 1,
+  pageSize: number = 50
+): Promise<ConversationMessagesResponse> => {
+  const query = new URLSearchParams({
+    student_id: String(studentId),
+    page: String(page),
+    page_size: String(pageSize),
+  });
+
+  const response = await fetch(
+    `${API_BASE_URL}/chatbot/conversations/${conversationId}/messages?${query.toString()}`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to load conversation messages');
+  }
+
+  return response.json();
+};
+
+export const renameConversation = async (
+  conversationId: number,
+  studentId: number,
+  title: string
+): Promise<ChatConversation> => {
+  const response = await fetch(`${API_BASE_URL}/chatbot/conversations/${conversationId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      student_id: studentId,
+      title,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to rename conversation');
+  }
+
+  return response.json();
+};
+
+export const deleteConversation = async (
+  conversationId: number,
+  studentId: number
+): Promise<void> => {
+  const query = new URLSearchParams({
+    student_id: String(studentId),
+  });
+
+  const response = await fetch(
+    `${API_BASE_URL}/chatbot/conversations/${conversationId}?${query.toString()}`,
+    { method: 'DELETE' }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to delete conversation');
+  }
 };
 
 /**

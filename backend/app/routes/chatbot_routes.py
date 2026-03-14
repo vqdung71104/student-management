@@ -1,7 +1,7 @@
 """
 Chatbot Routes - API endpoints cho chatbot with NL2SQL and Rule Engine
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
@@ -9,12 +9,17 @@ from app.services.nl2sql_service import NL2SQLService
 from app.services.chatbot_service import ChatbotService
 from app.services.text_preprocessor import get_text_preprocessor
 from app.services.query_splitter import get_query_splitter, SubQuery
+from app.services.chat_history_service import ChatHistoryService
 from app.schemas.chatbot_schema import (
     ChatMessage, 
-    ChatResponse, 
     IntentsResponse, 
     IntentInfo,
-    ChatResponseWithData
+    ChatResponseWithData,
+    ConversationCreateRequest,
+    ConversationUpdateRequest,
+    ChatConversationItem,
+    ChatConversationListResponse,
+    ConversationMessagesResponse,
 )
 from app.db.database import get_db
 from sqlalchemy import text
@@ -267,6 +272,8 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
     """
     try:
         chatbot_service = ChatbotService(db)
+        history_service = ChatHistoryService(db)
+        response_payload: ChatResponseWithData
 
         # ── Active conversation shortcut (preference collection in progress) ──
         from app.services.conversation_state import get_conversation_manager
@@ -280,7 +287,7 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                 student_id=message.student_id,
                 question=normalized_message,
             )
-            return ChatResponseWithData(
+            response_payload = ChatResponseWithData(
                 text=result["text"],
                 intent=result["intent"],
                 confidence=result["confidence"],
@@ -288,6 +295,20 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                 sql=None,
                 sql_error=result.get("error"),
             )
+            if message.student_id:
+                try:
+                    conversation, _, assistant_message = history_service.save_chat_turn(
+                        student_pk=message.student_id,
+                        user_content=message.message,
+                        assistant_payload=response_payload.model_dump(),
+                        conversation_id=message.conversation_id,
+                    )
+                    response_payload.conversation_id = conversation.id
+                    response_payload.message_id = assistant_message.id
+                    response_payload.created_at = assistant_message.created_at
+                except Exception as persist_err:
+                    print(f"⚠️ [CHAT_HISTORY] Persist failed: {persist_err}")
+            return response_payload
 
         # ── Preprocessing ─────────────────────────────────────────────────────
         print(f"📝 [ORIGINAL] {message.message}")
@@ -322,15 +343,31 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                     )
                 parts.append(part_resp)
 
-            return _merge_responses(parts, sub_queries)
+            response_payload = _merge_responses(parts, sub_queries)
+        else:
+            # ── Single query (normal path) ────────────────────────────────────────
+            response_payload = await _process_single_query(
+                normalized_text=normalized_message,
+                student_id=message.student_id,
+                db=db,
+                chatbot_service=chatbot_service,
+            )
 
-        # ── Single query (normal path) ────────────────────────────────────────
-        return await _process_single_query(
-            normalized_text=normalized_message,
-            student_id=message.student_id,
-            db=db,
-            chatbot_service=chatbot_service,
-        )
+        if message.student_id:
+            try:
+                conversation, _, assistant_message = history_service.save_chat_turn(
+                    student_pk=message.student_id,
+                    user_content=message.message,
+                    assistant_payload=response_payload.model_dump(),
+                    conversation_id=message.conversation_id,
+                )
+                response_payload.conversation_id = conversation.id
+                response_payload.message_id = assistant_message.id
+                response_payload.created_at = assistant_message.created_at
+            except Exception as persist_err:
+                print(f"⚠️ [CHAT_HISTORY] Persist failed: {persist_err}")
+
+        return response_payload
 
     except Exception as e:
         print(f"❌ [CHAT] Error: {str(e)}")
@@ -408,6 +445,114 @@ async def get_available_intents():
             status_code=500,
             detail=f"Lỗi lấy danh sách intent: {str(e)}"
         )
+
+
+@router.get("/intents", response_model=IntentsResponse)
+async def intents_endpoint():
+    return await get_available_intents()
+
+
+@router.post("/conversations", response_model=ChatConversationItem)
+async def create_conversation(payload: ConversationCreateRequest, db: Session = Depends(get_db)):
+    try:
+        service = ChatHistoryService(db)
+        conversation = service.create_conversation(
+            student_pk=payload.student_id,
+            title=payload.title,
+        )
+        return ChatConversationItem(
+            id=conversation.id,
+            student_pk=conversation.student_pk,
+            title=conversation.title,
+            created_at=conversation.created_at,
+            updated_at=conversation.updated_at,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi tạo conversation: {e}")
+
+
+@router.get("/conversations", response_model=ChatConversationListResponse)
+async def list_conversations(
+    student_id: int = Query(..., ge=1),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    try:
+        service = ChatHistoryService(db)
+        result = service.list_conversations(
+            student_pk=student_id,
+            page=page,
+            page_size=page_size,
+        )
+        return ChatConversationListResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lấy danh sách conversation: {e}")
+
+
+@router.get("/conversations/{conversation_id}/messages", response_model=ConversationMessagesResponse)
+async def list_conversation_messages(
+    conversation_id: int,
+    student_id: int = Query(..., ge=1),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    try:
+        service = ChatHistoryService(db)
+        result = service.list_messages(
+            student_pk=student_id,
+            conversation_id=conversation_id,
+            page=page,
+            page_size=page_size,
+        )
+        return ConversationMessagesResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi lấy tin nhắn conversation: {e}")
+
+
+@router.patch("/conversations/{conversation_id}", response_model=ChatConversationItem)
+async def rename_conversation(
+    conversation_id: int,
+    payload: ConversationUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        service = ChatHistoryService(db)
+        conversation = service.rename_conversation(
+            student_pk=payload.student_id,
+            conversation_id=conversation_id,
+            title=payload.title,
+        )
+        return ChatConversationItem(
+            id=conversation.id,
+            student_pk=conversation.student_pk,
+            title=conversation.title,
+            created_at=conversation.created_at,
+            updated_at=conversation.updated_at,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi đổi tên conversation: {e}")
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: int,
+    student_id: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+):
+    try:
+        service = ChatHistoryService(db)
+        service.delete_conversation(student_pk=student_id, conversation_id=conversation_id)
+        return {"success": True}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi xóa conversation: {e}")
 
 
 @router.post("/export-schedule")

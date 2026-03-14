@@ -16,6 +16,8 @@ volumes:
     driver: local
   backend-cache:
     driver: local
+  redis-data:
+    driver: local
 
 # ============================================
 # Services
@@ -71,6 +73,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       # Database Configuration
       MYSQL_USER: ${MYSQL_USER:-root}
@@ -96,6 +100,11 @@ services:
       USE_GEMINI: ${USE_GEMINI:-true}
       CHATBOT_STRATEGY: ${CHATBOT_STRATEGY:-hybrid}
 
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+
       # Python Configuration
       PYTHONUNBUFFERED: 1
       PYTHONDONTWRITEBYTECODE: 1
@@ -114,6 +123,33 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ==========================================
+  # Redis Cache
+  # ==========================================
+  redis:
+    image: redis:7-alpine
+    container_name: student-management-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    networks:
+      student-management-network:
+        ipv4_address: 172.20.0.6
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     logging:
       driver: "json-file"
       options:

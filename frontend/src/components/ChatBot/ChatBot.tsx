@@ -2,8 +2,19 @@
  * ChatBot Component - Messenger-style Chat Interface
  */
 import React, { useState, useRef, useEffect } from 'react';
-import { sendMessage, exportScheduleToExcel } from '../../services/chatbot.service';
-import type { ChatResponse } from '../../services/chatbot.service';
+import {
+  sendMessage,
+  exportScheduleToExcel,
+  listConversations,
+  getConversationMessages,
+  deleteConversation,
+  renameConversation,
+} from '../../services/chatbot.service';
+import type {
+  ChatResponse,
+  ChatConversation,
+  ChatHistoryMessage,
+} from '../../services/chatbot.service';
 import { useAuth } from '../../contexts/AuthContext';
 import './ChatBot.css';
 
@@ -27,14 +38,29 @@ interface Message {
 
 const ChatBot: React.FC = () => {
   const { userInfo } = useAuth();
+  const welcomeMessage: Message = {
+    id: 0,
+    text: 'Xin chào! Mình là trợ lý ảo của hệ thống quản lý sinh viên. Mình có thể giúp gì cho bạn?',
+    isUser: false,
+    timestamp: new Date(),
+  };
+  const activeConversationStorageKey = 'chatbot_active_conversation_id';
+
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 0,
-      text: 'Xin chào! Mình là trợ lý ảo của hệ thống quản lý sinh viên. Mình có thể giúp gì cho bạn?',
-      isUser: false,
-      timestamp: new Date(),
-    },
+    welcomeMessage,
   ]);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
+  const [isBootstrapping, setIsBootstrapping] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [messagesPage, setMessagesPage] = useState(1);
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    conversation: ChatConversation;
+  } | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -57,6 +83,95 @@ const ChatBot: React.FC = () => {
     }
   }, [inputValue]);
 
+  useEffect(() => {
+    const closeContextMenu = () => setContextMenu(null);
+    window.addEventListener('click', closeContextMenu);
+    return () => window.removeEventListener('click', closeContextMenu);
+  }, []);
+
+  const mapHistoryMessages = (items: ChatHistoryMessage[]): Message[] => {
+    return items.map((item) => ({
+      id: item.id,
+      text: item.content,
+      isUser: item.role === 'user',
+      timestamp: new Date(item.created_at),
+      intent: item.intent,
+      data: Array.isArray(item.data_json)
+        ? item.data_json
+        : Array.isArray(item.data_json?.data)
+          ? item.data_json.data
+          : undefined,
+      is_compound: Boolean(item.data_json?.is_compound),
+      parts: Array.isArray(item.data_json?.parts) ? item.data_json.parts : undefined,
+    }));
+  };
+
+  const loadConversation = async (conversationId: number, page: number = 1, appendOlder: boolean = false) => {
+    if (!userInfo?.id) {
+      return;
+    }
+
+    const result = await getConversationMessages(conversationId, userInfo.id, page, 20);
+    const loaded = mapHistoryMessages(result.items);
+    setMessages((prev) => {
+      if (appendOlder) {
+        const existingIds = new Set(prev.map((message) => message.id));
+        const deduped = loaded.filter((message) => !existingIds.has(message.id));
+        return [...deduped, ...prev];
+      }
+
+      return loaded.length > 0 ? loaded : [welcomeMessage];
+    });
+    setActiveConversationId(conversationId);
+    setMessagesPage(page);
+    setHasOlderMessages(result.has_more);
+    localStorage.setItem(activeConversationStorageKey, String(conversationId));
+  };
+
+  const refreshConversations = async (preferredConversationId?: number) => {
+    if (!userInfo?.id) {
+      return;
+    }
+
+    const result = await listConversations(userInfo.id, 1, 30);
+    setConversations(result.items);
+
+    if (result.items.length === 0) {
+      setActiveConversationId(null);
+      setMessagesPage(1);
+      setHasOlderMessages(false);
+      localStorage.removeItem(activeConversationStorageKey);
+      setMessages([welcomeMessage]);
+      return;
+    }
+
+    const stored = Number(localStorage.getItem(activeConversationStorageKey));
+    const candidate = preferredConversationId || (Number.isNaN(stored) ? undefined : stored) || result.items[0].id;
+    const exists = result.items.some((item) => item.id === candidate);
+    const resolved = exists ? candidate : result.items[0].id;
+    await loadConversation(resolved);
+  };
+
+  useEffect(() => {
+    const bootstrap = async () => {
+      if (!userInfo?.id) {
+        return;
+      }
+
+      setIsBootstrapping(true);
+      try {
+        await refreshConversations();
+      } catch (error) {
+        console.error('Error loading chat history:', error);
+        setMessages([welcomeMessage]);
+      } finally {
+        setIsBootstrapping(false);
+      }
+    };
+
+    bootstrap();
+  }, [userInfo?.id]);
+
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
@@ -73,7 +188,13 @@ const ChatBot: React.FC = () => {
 
     try {
       // Send message with student_id from userInfo
-      const response: ChatResponse = await sendMessage(inputValue, userInfo?.id);
+      const response: ChatResponse = await sendMessage(inputValue, userInfo?.id, activeConversationId || undefined);
+
+      if (response.conversation_id && response.conversation_id !== activeConversationId) {
+        setActiveConversationId(response.conversation_id);
+        localStorage.setItem(activeConversationStorageKey, String(response.conversation_id));
+        setIsHistoryOpen(true);
+      }
 
       const botMessage: Message = {
         id: Date.now() + 1,
@@ -87,6 +208,15 @@ const ChatBot: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, botMessage]);
+
+      if (userInfo?.id) {
+        try {
+          const result = await listConversations(userInfo.id, 1, 30);
+          setConversations(result.items);
+        } catch (refreshError) {
+          console.error('Error refreshing conversation list:', refreshError);
+        }
+      }
     } catch (error) {
       console.error('Error sending message:', error);
 
@@ -341,6 +471,103 @@ const ChatBot: React.FC = () => {
     );
   };
 
+  const handleNewConversation = async () => {
+    if (isLoading) {
+      return;
+    }
+
+    setActiveConversationId(null);
+    setMessagesPage(1);
+    setHasOlderMessages(false);
+    localStorage.removeItem(activeConversationStorageKey);
+    setMessages([welcomeMessage]);
+    setInputValue('');
+    setIsHistoryOpen(false);
+  };
+
+  const handleConversationSelect = async (conversationId: number) => {
+    if (!conversationId || conversationId === activeConversationId) {
+      return;
+    }
+    try {
+      await loadConversation(conversationId);
+      setIsHistoryOpen(false);
+    } catch (error) {
+      console.error('Error loading selected conversation:', error);
+    }
+  };
+
+  const handleDeleteConversation = async (conversationId?: number) => {
+    const targetConversationId = conversationId ?? activeConversationId;
+    if (!userInfo?.id || !targetConversationId || isLoading) {
+      return;
+    }
+
+    const confirmed = window.confirm('Bạn có chắc muốn xóa toàn bộ cuộc trò chuyện này không?');
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await deleteConversation(targetConversationId, userInfo.id);
+      setContextMenu(null);
+      await refreshConversations(targetConversationId === activeConversationId ? undefined : activeConversationId ?? undefined);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    }
+  };
+
+  const handleRenameConversation = async (conversationId?: number) => {
+    const targetConversationId = conversationId ?? activeConversationId;
+    if (!userInfo?.id || !targetConversationId || isLoading) {
+      return;
+    }
+
+    const currentConversation = conversations.find((conversation) => conversation.id === targetConversationId);
+    const nextTitle = window.prompt('Nhập tên mới cho cuộc trò chuyện', currentConversation?.title || '');
+
+    if (!nextTitle || !nextTitle.trim()) {
+      return;
+    }
+
+    try {
+      const updated = await renameConversation(targetConversationId, userInfo.id, nextTitle.trim());
+      setConversations((prev) => prev.map((conversation) => (
+        conversation.id === updated.id ? updated : conversation
+      )));
+      setContextMenu(null);
+    } catch (error) {
+      console.error('Error renaming conversation:', error);
+    }
+  };
+
+  const handleConversationContextMenu = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    conversation: ChatConversation
+  ) => {
+    event.preventDefault();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      conversation,
+    });
+  };
+
+  const handleLoadOlderMessages = async () => {
+    if (!userInfo?.id || !activeConversationId || !hasOlderMessages || isLoadingOlder) {
+      return;
+    }
+
+    setIsLoadingOlder(true);
+    try {
+      await loadConversation(activeConversationId, messagesPage + 1, true);
+    } catch (error) {
+      console.error('Error loading older messages:', error);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  };
+
   return (
     <div className="chatbot-container">
       <div className="chatbot-header">
@@ -350,10 +577,85 @@ const ChatBot: React.FC = () => {
             <h3>Trợ lý ảo</h3>
             <span className="status">Đang hoạt động</span>
           </div>
+          <div className="conversation-controls">
+            <button className="conversation-btn" onClick={handleNewConversation} disabled={isLoading || isBootstrapping}>
+              Cuộc trò chuyện mới
+            </button>
+            <button
+              className="conversation-btn"
+              onClick={() => setIsHistoryOpen((prev) => !prev)}
+              disabled={isBootstrapping}
+            >
+              {isHistoryOpen ? 'Đóng lịch sử' : 'Lịch sử'}
+            </button>
+          </div>
         </div>
       </div>
 
+      {isHistoryOpen && (
+        <div className="conversation-panel">
+          <div className="conversation-panel-header">
+            <span>Lịch sử trò chuyện</span>
+            <span className="conversation-panel-hint">Chuột phải hoặc bấm ⋮ để đổi tên / xóa</span>
+          </div>
+          <div className="conversation-list">
+            {conversations.length === 0 ? (
+              <div className="conversation-empty">Chưa có cuộc trò chuyện nào được lưu.</div>
+            ) : (
+              conversations.map((conversation) => (
+                <div
+                  key={conversation.id}
+                  className={`conversation-item ${conversation.id === activeConversationId ? 'active' : ''}`}
+                >
+                  <button
+                    className="conversation-item-main"
+                    onClick={() => handleConversationSelect(conversation.id)}
+                    onContextMenu={(event) => handleConversationContextMenu(event, conversation)}
+                  >
+                    <span className="conversation-item-title">{conversation.title || `Conversation #${conversation.id}`}</span>
+                    <span className="conversation-item-time">{formatTime(new Date(conversation.updated_at))}</span>
+                  </button>
+                  <button
+                    className="conversation-item-menu"
+                    onClick={(event) => handleConversationContextMenu(event, conversation)}
+                    title="Tùy chọn cuộc trò chuyện"
+                  >
+                    ⋮
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {contextMenu && (
+        <div
+          className="conversation-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button onClick={() => handleRenameConversation(contextMenu.conversation.id)}>
+            Đổi tên
+          </button>
+          <button className="danger" onClick={() => handleDeleteConversation(contextMenu.conversation.id)}>
+            Xóa cuộc trò chuyện
+          </button>
+        </div>
+      )}
+
       <div className="chatbot-messages">
+        {hasOlderMessages && (
+          <div className="messages-toolbar">
+            <button
+              className="load-older-btn"
+              onClick={handleLoadOlderMessages}
+              disabled={isLoadingOlder}
+            >
+              {isLoadingOlder ? 'Đang tải...' : 'Tải tin nhắn cũ hơn'}
+            </button>
+          </div>
+        )}
+
         {messages.map((message) => (
           <div
             key={message.id}

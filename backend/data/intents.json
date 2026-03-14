@@ -229,6 +229,10 @@
         "xem kết quả học tập chi tiết",
         "điểm các môn đã học",
         "xem điểm môn",
+        "điểm học phần",
+        "điểm của học phần",
+        "điểm môn",
+        "điểm của môn",
         "điểm môn học"
       ],
       "description": "Xem danh sách các môn đã học và điểm chi tiết"

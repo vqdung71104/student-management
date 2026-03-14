@@ -12,4 +12,5 @@ from .feedback_model import Feedback, FAQ
 from .notification_model import Notification
 from .admin_model import Admin
 from .otp_model import OTPVerification
+from .chat_history_model import ChatConversation, ChatMessage
 
