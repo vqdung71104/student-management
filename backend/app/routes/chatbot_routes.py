@@ -3,7 +3,7 @@ Chatbot Routes - API endpoints cho chatbot with NL2SQL and Rule Engine
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
 from app.services.chatbot_service import ChatbotService
@@ -174,9 +174,10 @@ async def _process_single_query(
     data = None
     sql_query = None
     sql_error = None
+    sql_entities: Dict[str, Any] = {}
 
     nl2sql_intents = [
-        "grade_view", "learned_subjects_view", "subject_info",
+        "grade_view", "learned_subjects_view", "student_info", "subject_info",
         "class_info", "schedule_view",
     ]
 
@@ -190,6 +191,7 @@ async def _process_single_query(
                 db=db,
             )
             print(f"🔎 [NL2SQL] result={sql_result}")
+            sql_entities = sql_result.get("entities") or {}
 
             # Fuzzy clarification
             fuzzy_info = sql_result.get("fuzzy_match")
@@ -233,12 +235,22 @@ async def _process_single_query(
                     data = [dict(zip(columns, row)) for row in rows]
                 else:
                     data = []
+
+                if intent in ("subject_info", "class_info") and data and student_id:
+                    data = _enrich_subject_or_class_data(
+                        data=data,
+                        student_id=student_id,
+                        db=db,
+                        entities=sql_entities,
+                    )
         except Exception as e:
             sql_error = str(e)
             print(f"⚠️ SQL execution error: {e}")
 
     # ── Response text ─────────────────────────────────────────────────────────
     response_text = _generate_response_text(intent, confidence, intent_classifier, data, sql_error)
+    if intent in ("subject_info", "class_info") and data:
+        response_text = _append_learning_context_to_text(intent, response_text, data)
 
     return ChatResponseWithData(
         text=response_text,
@@ -248,6 +260,192 @@ async def _process_single_query(
         sql=sql_query,
         sql_error=sql_error,
     )
+
+
+def _enrich_subject_or_class_data(
+    data: List[Dict[str, Any]],
+    student_id: int,
+    db: Session,
+    entities: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Annotate subject/class rows with student-specific learning context."""
+
+    if not data:
+        return data
+
+    student_row = db.execute(
+        text(
+            """
+            SELECT st.course_id, c.course_name
+            FROM students st
+            LEFT JOIN courses c ON c.id = st.course_id
+            WHERE st.id = :student_id
+            """
+        ),
+        {"student_id": student_id},
+    ).mappings().first()
+
+    if not student_row:
+        return data
+
+    course_pk = student_row.get("course_id")
+    course_name = student_row.get("course_name")
+
+    subject_codes: List[str] = []
+    if entities.get("subject_ids"):
+        subject_codes.extend([str(code) for code in entities["subject_ids"] if code])
+    elif entities.get("subject_id"):
+        subject_codes.append(str(entities["subject_id"]))
+
+    if not subject_codes:
+        subject_codes.extend([str(item.get("subject_id")) for item in data if item.get("subject_id")])
+
+    subject_names = []
+    if entities.get("subject_name"):
+        subject_names.append(str(entities["subject_name"]))
+    subject_names.extend([str(item.get("subject_name")) for item in data if item.get("subject_name")])
+
+    if subject_names:
+        for idx, name in enumerate(subject_names):
+            row = db.execute(
+                text(
+                    """
+                    SELECT subject_id
+                    FROM subjects
+                    WHERE subject_name = :subject_name
+                    LIMIT 1
+                    """
+                ),
+                {"subject_name": name},
+            ).mappings().first()
+            if row and row.get("subject_id"):
+                subject_codes.append(str(row["subject_id"]))
+
+    subject_codes = list(dict.fromkeys([code for code in subject_codes if code]))
+    if not subject_codes:
+        return data
+
+    in_placeholders = ", ".join([f":subject_code_{i}" for i in range(len(subject_codes))])
+    in_params = {f"subject_code_{i}": code for i, code in enumerate(subject_codes)}
+
+    subject_meta_rows = db.execute(
+        text(
+            f"""
+            SELECT
+                sb.subject_id,
+                sb.subject_name,
+                CASE WHEN cs.id IS NULL THEN 0 ELSE 1 END AS in_program
+            FROM subjects sb
+            LEFT JOIN course_subjects cs
+                ON cs.subject_id = sb.id
+                AND cs.course_id = :course_pk
+            WHERE sb.subject_id IN ({in_placeholders})
+            """
+        ),
+        {"course_pk": course_pk, **in_params},
+    ).mappings().all()
+
+    learned_rows = db.execute(
+        text(
+            f"""
+            SELECT
+                sb.subject_id,
+                ls.letter_grade,
+                ls.semester
+            FROM learned_subjects ls
+            JOIN subjects sb ON sb.id = ls.subject_id
+            WHERE ls.student_id = :student_id
+              AND sb.subject_id IN ({in_placeholders})
+            ORDER BY ls.semester DESC
+            """
+        ),
+        {"student_id": student_id, **in_params},
+    ).mappings().all()
+
+    subject_meta_by_code = {row["subject_id"]: row for row in subject_meta_rows}
+    subject_code_by_name = {row["subject_name"]: row["subject_id"] for row in subject_meta_rows}
+
+    learned_by_code: Dict[str, List[Dict[str, Any]]] = {}
+    for row in learned_rows:
+        sid = row["subject_id"]
+        learned_by_code.setdefault(sid, []).append(
+            {
+                "letter_grade": row["letter_grade"],
+                "semester": row["semester"],
+            }
+        )
+
+    enriched: List[Dict[str, Any]] = []
+    for item in data:
+        row = dict(item)
+        sid = row.get("subject_id")
+        if not sid and row.get("subject_name"):
+            sid = subject_code_by_name.get(row["subject_name"])
+
+        row["_student_course_name"] = course_name
+        row["_student_course_pk"] = course_pk
+
+        if not sid or sid not in subject_meta_by_code:
+            row["_student_learning_status"] = "unknown"
+            enriched.append(row)
+            continue
+
+        row["subject_id"] = sid
+        meta = subject_meta_by_code[sid]
+        in_program = bool(meta.get("in_program"))
+        history = learned_by_code.get(sid, [])
+
+        row["_in_student_program"] = in_program
+        row["_student_grade_history"] = history
+
+        if history:
+            latest = history[0]
+            row["_student_learning_status"] = "learned"
+            row["_student_latest_grade"] = latest.get("letter_grade")
+            row["_student_latest_semester"] = latest.get("semester")
+            row["_student_context_message"] = (
+                f"Bạn đã học học phần này ở kỳ {latest.get('semester')} và đạt điểm {latest.get('letter_grade')}."
+            )
+        elif in_program:
+            row["_student_learning_status"] = "not_learned"
+            row["_student_context_message"] = "Bạn chưa học học phần này."
+        else:
+            row["_student_learning_status"] = "out_of_program"
+            row["_student_context_message"] = "Học phần này không nằm trong chương trình đào tạo của bạn."
+
+        enriched.append(row)
+
+    return enriched
+
+
+def _append_learning_context_to_text(intent: str, base_text: str, data: List[Dict[str, Any]]) -> str:
+    """Append high-level learning context for subject/class intents."""
+    statuses = [row.get("_student_learning_status") for row in data if row.get("_student_learning_status")]
+    if not statuses:
+        return base_text
+
+    learned = sum(1 for s in statuses if s == "learned")
+    not_learned = sum(1 for s in statuses if s == "not_learned")
+    out_program = sum(1 for s in statuses if s == "out_of_program")
+
+    if intent == "subject_info":
+        first_msg = data[0].get("_student_context_message")
+        if first_msg:
+            return f"{base_text}\n{first_msg}"
+        return base_text
+
+    notes: List[str] = []
+    if out_program:
+        notes.append(f"{out_program} lớp thuộc học phần không nằm trong chương trình đào tạo của bạn")
+    if learned:
+        notes.append(f"{learned} lớp thuộc học phần bạn đã học")
+    if not_learned:
+        notes.append(f"{not_learned} lớp thuộc học phần bạn chưa học")
+
+    if notes:
+        return f"{base_text}\nNgữ cảnh học tập: " + "; ".join(notes) + "."
+
+    return base_text
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -405,7 +603,7 @@ def _generate_response_text(
         elif intent == "learned_subjects_view":
             return f"Đây là điểm các môn đã học của bạn (tìm thấy {len(data)} môn):"
         elif intent == "student_info":
-            return "Đây là thông tin của bạn:"
+            return "Đây là thông tin sinh viên của bạn (bao gồm chương trình đào tạo và GPA theo từng kỳ):"
         elif intent == "subject_info":
             return f"Thông tin về học phần (tìm thấy {len(data)} kết quả):"
         elif intent == "class_info":

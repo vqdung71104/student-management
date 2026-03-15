@@ -24,6 +24,10 @@
     "course_subjects": {
       "columns": ["id", "course_id", "subject_id", "learning_semester", "subject_type"],
       "description": "Các học phần thuộc chương trình đào tạo cụ thể"
+    },
+    "semester_gpa": {
+      "columns": ["id", "semester", "gpa", "total_credits", "student_id"],
+      "description": "GPA theo từng học kỳ của sinh viên"
     }
   },
   "training_examples": [
@@ -45,6 +49,20 @@
       "intent": "grade_view",
       "question": "tôi còn nợ bao nhiêu môn",
       "sql": "SELECT s.failed_subjects_number, s.total_failed_credits, s.warning_level FROM students s WHERE s.id = {student_id}",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "student_info",
+      "question": "thông tin sinh viên của tôi",
+      "sql": "SELECT st.student_name, c.course_id, c.course_name, st.cpa, st.total_learned_credits, sg.semester, sg.gpa FROM students st LEFT JOIN courses c ON c.id = st.course_id LEFT JOIN semester_gpa sg ON sg.student_id = st.id WHERE st.id = {student_id} ORDER BY sg.semester ASC",
+      "requires_auth": true,
+      "parameters": ["student_id"]
+    },
+    {
+      "intent": "student_info",
+      "question": "profile của tôi",
+      "sql": "SELECT st.student_name, c.course_id, c.course_name, st.cpa, st.total_learned_credits, sg.semester, sg.gpa FROM students st LEFT JOIN courses c ON c.id = st.course_id LEFT JOIN semester_gpa sg ON sg.student_id = st.id WHERE st.id = {student_id} ORDER BY sg.semester ASC",
       "requires_auth": true,
       "parameters": ["student_id"]
     },
@@ -296,7 +314,7 @@
     {
       "intent": "subject_info",
       "question": "môn tiên quyết của MI1114",
-      "sql": "SELECT s.subject_id, s.subject_name, s.conditional_subjects FROM subjects s WHERE s.subject_id = 'MI1114'",
+      "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.conditional_subjects, s.english_subject_name FROM subjects s WHERE s.subject_id = 'MI1114'",
       "requires_auth": false,
       "parameters": []
     },

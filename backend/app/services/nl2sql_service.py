@@ -839,7 +839,7 @@ class NL2SQLService:
         # Map intents to relevant tables
         intent_tables = {
             "grade_view": ["students", "learned_subjects"],
-            "student_info": ["students", "learned_subjects"],
+            "student_info": ["students", "courses", "semester_gpa"],
             "subject_info": ["subjects"],
             "class_info": ["classes", "subjects"],
             "schedule_view": ["class_registers", "classes", "subjects"],
