@@ -307,5 +307,571 @@
       "learning_semester": 8
     }
   ]
+},
+
+{
+  "course_id": "IT1",
+  "course_name": "Khoa học máy tính",
+  "subjects": [
+    {
+      "subject_id": "SSH1111",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "SSH1121",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "SSH1131",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "SSH1141",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "SSH1151",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "EM1170",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "PE1014",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "PE1024",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MIL1210",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MIL1220",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MIL1230",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "FL1131",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "FL1132",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "MI1111",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MI1121",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "MI1131",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "MI1141",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MI2020",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT2000",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "PH1120",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT1108",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "IT3020",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "MI3052",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT2022",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "IT3011",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "IT3030",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT3040",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT3070",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT4653",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT3080",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT3090",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3100",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT3170",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3180",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3150",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3160",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3120",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4015",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT3190",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4930",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3930",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT3940",
+      "learning_semester": 8
+    },
+    {
+      "subject_id": "IT4244",
+      "learning_semester": 8
+    },
+    {
+      "subject_id": "IT2030",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "EM1010",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "EM1180",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "ED3280",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "ED3220",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "ET3262",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "TEX3123",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4490",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4441",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4501",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4785",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4350",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4611",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4341",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4863",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4818",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4931",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT5425",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4906",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4409",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4788",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4663",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4613",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4991",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4995",
+      "learning_semester": 8
+    }
+  ]
+},
+{
+  "course_id": "IT2",
+  "course_name": "Kỹ thuật máy tính",
+  "subjects": [
+    {
+      "subject_id": "SSH1111",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "SSH1121",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "SSH1131",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "SSH1141",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "SSH1151",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "EM1170",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "PE1014",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "PE1024",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "MIL1110",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MIL1120",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MIL1130",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "FL1100",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "FL1101",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "MI1111",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MI1121",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "MI1131",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "MI1141",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "MI2020",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "PH1110",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "PH1120",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT1110",
+      "learning_semester": 2
+    },
+    {
+      "subject_id": "MI2010",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT3020",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT2000",
+      "learning_semester": 1
+    },
+    {
+      "subject_id": "IT3420",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "IT3011",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT3030",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT3040",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3070",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT3170",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT3080",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3090",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3100",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "IT3150",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4593",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4172",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT3120",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4060",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT3180",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4015",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT3931",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4611",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT3943",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT2030",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "EM1010",
+      "learning_semester": 3
+    },
+    {
+      "subject_id": "EM1180",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "ED3280",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "ED3220",
+      "learning_semester": 4
+    },
+    {
+      "subject_id": "ET3262",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "TEX3123",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4210",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4785",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4735",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4651",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4409",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4931",
+      "learning_semester": 8
+    },
+    {
+      "subject_id": "IT4651",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4409",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4735",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4681",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4263",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4785",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4025",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4263",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4785",
+      "learning_semester": 5
+    },
+    {
+      "subject_id": "IT4651",
+      "learning_semester": 6
+    },
+    {
+      "subject_id": "IT4409",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4831",
+      "learning_semester": 8
+    },
+    {
+      "subject_id": "IT4991",
+      "learning_semester": 7
+    },
+    {
+      "subject_id": "IT4997",
+      "learning_semester": 8
+    }
+  ]
 }
+
 ]
