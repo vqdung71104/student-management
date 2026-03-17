@@ -148,25 +148,40 @@ async def _process_single_query(
             from app.services.class_query_service import ClassQueryService
             extractor = get_constraint_extractor()
             constraints = extractor.extract(normalized_text, query_type="class_info")
-            if constraints.subject_codes or constraints.subject_names:
+            has_structured_filters = any([
+                bool(constraints.subject_codes),
+                bool(constraints.subject_names),
+                bool(constraints.days),
+                bool(constraints.session),
+                bool(constraints.day_session_constraints),
+                bool(constraints.start_time_exact),
+                bool(constraints.end_time_exact),
+                bool(constraints.time_range),
+                bool(constraints.time_from),
+                bool(constraints.classroom_exact),
+                bool(constraints.building_code),
+                bool(constraints.room_code),
+            ])
+
+            if has_structured_filters:
                 print(f"🔍 [CLASS_INFO] codes={constraints.subject_codes} names={constraints.subject_names}")
                 svc = ClassQueryService(db)
                 rows = svc.query(constraints)
-                if rows:
-                    import datetime
-                    for r in rows:
-                        if isinstance(r.get("study_time_start"), datetime.time):
-                            r["study_time_start"] = r["study_time_start"].strftime("%H:%M")
-                        if isinstance(r.get("study_time_end"), datetime.time):
-                            r["study_time_end"] = r["study_time_end"].strftime("%H:%M")
-                    return ChatResponseWithData(
-                        text=f"✅ Tìm thấy {len(rows)} lớp học phù hợp.",
-                        intent="class_info",
-                        confidence="high",
-                        data=rows,
-                        sql=None,
-                        sql_error=None,
-                    )
+                import datetime
+                for r in rows:
+                    if isinstance(r.get("study_time_start"), datetime.time):
+                        r["study_time_start"] = r["study_time_start"].strftime("%H:%M")
+                    if isinstance(r.get("study_time_end"), datetime.time):
+                        r["study_time_end"] = r["study_time_end"].strftime("%H:%M")
+
+                return ChatResponseWithData(
+                    text=(f"✅ Tìm thấy {len(rows)} lớp học phù hợp." if rows else "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn."),
+                    intent="class_info",
+                    confidence="high",
+                    data=rows,
+                    sql=None,
+                    sql_error=None,
+                )
         except Exception as ce:
             print(f"⚠️ [CLASS_INFO] Constraint path error: {ce}")
 

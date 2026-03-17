@@ -48,6 +48,23 @@ def _timedelta_to_time(td) -> Optional[dtime]:
         h, rem = divmod(total, 3600)
         m = rem // 60
         return dtime(h, m)
+    if isinstance(td, str):
+        s = td.strip()
+        # Some drivers can surface TIME/INTERVAL-like strings, e.g. "PT30300S".
+        m = re.match(r'^PT(\d+)S$', s)
+        if m:
+            total = int(m.group(1))
+            h, rem = divmod(total, 3600)
+            mn = rem // 60
+            if 0 <= h <= 23:
+                return dtime(h, mn)
+        # Fallback for plain HH:MM(:SS)
+        m2 = re.match(r'^(\d{1,2}):(\d{2})(?::\d{2})?$', s)
+        if m2:
+            h = int(m2.group(1))
+            mn = int(m2.group(2))
+            if 0 <= h <= 23 and 0 <= mn <= 59:
+                return dtime(h, mn)
     return None
 
 
@@ -120,8 +137,21 @@ class ClassQueryService:
         # 1. Resolve subject names → subject_ids via fuzzy
         resolved_ids = self._resolve_subjects(constraints)
 
+        has_non_subject_filters = any([
+            bool(constraints.days),
+            bool(constraints.session),
+            bool(constraints.day_session_constraints),
+            bool(constraints.start_time_exact),
+            bool(constraints.end_time_exact),
+            bool(constraints.time_range),
+            bool(constraints.time_from),
+            bool(constraints.classroom_exact),
+            bool(constraints.building_code),
+            bool(constraints.room_code),
+        ])
+
         # 2. If no subject filter at all, return empty (too broad)
-        if not resolved_ids:
+        if not resolved_ids and not has_non_subject_filters:
             return []
 
         # 3. Base ORM query
@@ -130,8 +160,9 @@ class ClassQueryService:
             .join(Subject, Class.subject_id == Subject.id)
         )
 
-        # 4. Subject filter
-        q = q.filter(Subject.subject_id.in_(resolved_ids))
+        # 4. Subject filter (optional if user only asks by room/time/day)
+        if resolved_ids:
+            q = q.filter(Subject.subject_id.in_(resolved_ids))
 
         # 5. Availability (seats)
         # Subquery: registered count per class
@@ -318,6 +349,21 @@ class ClassQueryService:
         cls_days = self._class_days(cls)
         start    = cls.get("study_time_start")
         end      = cls.get("study_time_end")
+        classroom = (cls.get("classroom") or "").upper().strip()
+
+        # ── Classroom filter (exact / building / room) ──────────────────────
+        if c.classroom_exact:
+            if classroom != c.classroom_exact.upper():
+                return False
+        else:
+            if c.building_code:
+                if not classroom.startswith(f"{c.building_code.upper()}-"):
+                    return False
+            if c.room_code:
+                # Primary format in DB is building-room, e.g. D9-401
+                # Keep a fallback for records that may store only room text.
+                if not (classroom.endswith(f"-{c.room_code}") or re.search(rf'\b{re.escape(c.room_code)}\b', classroom)):
+                    return False
 
         # ── Day filter (top-level c.days) ────────────────────────────────────
         if c.days:
@@ -364,13 +410,21 @@ class ClassQueryService:
         # ── Exact start time ─────────────────────────────────────────────────
         if c.start_time_exact:
             t = _to_time(c.start_time_exact)
-            if t and start != t:
+            if t and (start is None or start != t):
+                return False
+
+        # ── Exact end time ───────────────────────────────────────────────────
+        if c.end_time_exact:
+            t = _to_time(c.end_time_exact)
+            if t and (end is None or end != t):
                 return False
 
         # ── Time range ───────────────────────────────────────────────────────
         if c.time_range:
             t_from = _to_time(c.time_range[0])
             t_to   = _to_time(c.time_range[1])
+            if start is None or end is None:
+                return False
             if t_from and start and start < t_from:
                 return False
             if t_to and end and end > t_to:
@@ -379,7 +433,7 @@ class ClassQueryService:
         # ── Time from ────────────────────────────────────────────────────────
         if c.time_from:
             t_from = _to_time(c.time_from)
-            if t_from and start and start < t_from:
+            if t_from and (start is None or start < t_from):
                 return False
 
         # ── Avoid start times ────────────────────────────────────────────────

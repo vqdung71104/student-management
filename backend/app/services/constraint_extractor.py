@@ -117,6 +117,11 @@ class ClassQueryConstraints(BaseModel):
     time_until: Optional[str] = None                        # "11:45" (<= until)
     time_range: Optional[Tuple[str, str]] = None            # ("08:25","10:15")
 
+    # ── Classroom filters (classroom format: "D9-401") ──────────────────
+    classroom_exact: Optional[str] = None                   # "D9-401"
+    building_code: Optional[str] = None                     # "D9"
+    room_code: Optional[str] = None                         # "401"
+
     # Per-session-per-day constraints (parsed from "chiều thứ 2,3,4 và sáng thứ 3,5,6")
     day_session_constraints: List[DaySessionConstraint] = Field(default_factory=list)
 
@@ -229,6 +234,9 @@ class ConstraintExtractor:
         c.time_range = self._extract_time_range(text_lower)
         c.time_from = self._extract_time_from(text_lower)
 
+        # 5.1 Classroom filters (tòa/phòng)
+        c.classroom_exact, c.building_code, c.room_code = self._extract_classroom_filters(text_lower)
+
         # 6. Avoid times (không học lúc 6h45, không kết thúc lúc 17h30)
         c.avoid_start_times, c.avoid_end_times = self._extract_avoid_times(text_lower)
 
@@ -300,10 +308,14 @@ class ConstraintExtractor:
                     continue
                 tail = m.group(1).strip()
                 tail = re.split(
-                    r'\b(?:học\s+vào|vào\s+thứ|thứ\s+\d|thứ\s+(?:hai|ba|tư|năm|sáu|bảy)|chủ\s+nhật|buổi|lúc|từ\s+\d|đến\s+\d)\b',
+                    r'\b(?:học\s+vào|học\s+ở|ở\s+[a-z]\d{0,2}(?:\s*[-\s]\s*\d{2,4})?|ở\s+tòa|ở\s+phòng|vào\s+thứ|thứ\s+\d|thứ\s+(?:hai|ba|tư|năm|sáu|bảy)|chủ\s+nhật|buổi|lúc|bắt\s+đầu|kết\s+thúc|tan\s+học|thời\s+gian|từ\s+\d|đến\s+\d|phòng\s+\d{2,4}|tòa\s+[a-z]\d*)\b',
                     tail,
                     maxsplit=1,
                 )[0].strip()
+
+                # Remove trailing punctuation / connectors after cut.
+                tail = re.sub(r'[\s,;:\-]+$', '', tail).strip()
+                tail = re.sub(r'\s+(?:học|xem|tìm)$', '', tail).strip()
                 candidates = [
                     re.sub(r'^(?:môn|học\s+phần|lớp|các\s+môn|các\s+lớp|của)\s+', '', p.strip())
                     for p in re.split(r'[;,]|\s+và\s+|\s+hoặc\s+', tail)
@@ -327,6 +339,16 @@ class ConstraintExtractor:
             for candidate in candidates:
                 if not candidate:
                     continue
+                candidate = candidate.strip()
+
+                # Skip generic / noise fragments that are not subject names
+                if candidate in {"học", "lớp", "môn", "học phần", "thông tin"}:
+                    continue
+                if re.match(r'^(?:ở|phòng|phong|tòa|toa)\b', candidate):
+                    continue
+                if re.search(r'\b(?:thời gian|bắt đầu|kết thúc|lúc\s+\d|\d{1,2}[hg:]\d{0,2})\b', candidate):
+                    continue
+
                 # filter out day tokens
                 if self._re_day.search(candidate):
                     continue
@@ -447,22 +469,43 @@ class ConstraintExtractor:
         """
         Convert "8h25", "8:25", "8h", "8g25", "10h15" → "08:25" / "10:15"
         """
-        raw = raw.strip()
-        m = re.match(r'^(\d{1,2})[hgH:](\d{2})?$', raw)
-        if m:
-            h = int(m.group(1))
-            mn = int(m.group(2)) if m.group(2) else 0
-            return f"{h:02d}:{mn:02d}"
-        return None
+        return self._extract_time_from_raw(raw)
+
+    def _normalize_time_hhmm(self, hour: int, minute: int) -> Optional[str]:
+        """
+        Normalize to HH:MM and apply business rule:
+        - Inputs in 00:00..06:59 are interpreted as afternoon (add 12 hours).
+
+        Examples:
+            8h25   -> 08:25
+            9h15   -> 09:15
+            4h     -> 16:00
+            3h20   -> 15:20
+            10:12  -> 10:12
+        """
+        if minute < 0 or minute > 59:
+            return None
+
+        # Convert 00:00..06:00 to PM for class queries (user shorthand).
+        # Keep 06:01+ as morning to avoid breaking real early classes (e.g. 06:45).
+        if 0 <= hour < 6 or (hour == 6 and minute == 0):
+            hour += 12
+
+        if hour < 0 or hour > 23:
+            return None
+
+        return f"{hour:02d}:{minute:02d}"
 
     def _extract_time_from_raw(self, raw: str) -> Optional[str]:
         """Extract a time token and convert."""
+        raw = raw.strip()
         m = self._RE_TIME_STRICT.search(raw)
-        if m:
-            h = int(m.group(1))
-            mn = int(m.group(2)) if m.group(2) else 0
-            return f"{h:02d}:{mn:02d}"
-        return None
+        if not m:
+            return None
+
+        h = int(m.group(1))
+        mn = int(m.group(2)) if m.group(2) else 0
+        return self._normalize_time_hhmm(h, mn)
 
     def _extract_exact_times(self, text: str) -> Tuple[Optional[str], Optional[str]]:
         """
@@ -475,18 +518,22 @@ class ConstraintExtractor:
         start_t = None
         end_t   = None
 
-        # "lúc X" or "vào X" or "bắt đầu lúc X"
+        # "lúc X" or "vào X" or "bắt đầu lúc X" or "thời gian bắt đầu X"
         for m in re.finditer(
-            r'(?:lúc|vào lúc|bắt đầu lúc|bắt đầu vào)\s+(\d{1,2}[hg:]\d{0,2})',
+            r'(?:lúc|vào lúc|học lúc|học vào lúc|bắt đầu|bắt đầu lúc|bắt đầu vào|thời gian bắt đầu(?:\s+lúc)?)\s+(\d{1,2}[hg:]\d{0,2})',
             text
         ):
+            # Skip "kết thúc lúc X" so it won't be treated as start time.
+            prev_context = text[max(0, m.start() - 20):m.start()]
+            if re.search(r'kết\s+thúc\s*$', prev_context):
+                continue
             t = self._extract_time_from_raw(m.group(1))
             if t and start_t is None:
                 start_t = t
 
-        # "kết thúc lúc X" / "đến X"
+        # "kết thúc lúc X" / "đến X" / "thời gian kết thúc X"
         for m in re.finditer(
-            r'(?:kết thúc lúc|kết thúc vào|đến lúc|đến)\s+(\d{1,2}[hg:]\d{0,2})',
+            r'(?:kết thúc|kết thúc lúc|kết thúc vào|tan lúc|học đến|thời gian kết thúc(?:\s+lúc)?|đến lúc|đến)\s+(\d{1,2}[hg:]\d{0,2})',
             text
         ):
             t = self._extract_time_from_raw(m.group(1))
@@ -494,6 +541,42 @@ class ConstraintExtractor:
                 end_t = t
 
         return start_t, end_t
+
+    def _extract_classroom_filters(self, text: str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Extract classroom constraints from phrases like:
+            "học ở C7-114", "ở D9 401", "tòa D9", "phòng 402"
+        Returns: (classroom_exact, building_code, room_code)
+        """
+        classroom_exact: Optional[str] = None
+        building_code: Optional[str] = None
+        room_code: Optional[str] = None
+
+        # Exact classroom format with dash/space: D9-401 / D9 401 / C7-114
+        exact = re.search(r'\b([a-z]\d{0,2})\s*[-\s]\s*(\d{2,4})\b', text, re.IGNORECASE)
+        if exact:
+            building_code = exact.group(1).upper()
+            room_code = exact.group(2)
+            classroom_exact = f"{building_code}-{room_code}"
+            return classroom_exact, building_code, room_code
+
+        # Building only: tòa D9 / toa D9
+        b_match = re.search(r'(?:tòa|toa)\s+([a-z]\d{0,2})\b', text, re.IGNORECASE)
+        if b_match:
+            building_code = b_match.group(1).upper()
+
+        # Room only: phòng 402 / phong 402
+        r_match = re.search(r'(?:phòng|phong)\s+(\d{2,4})\b', text, re.IGNORECASE)
+        if r_match:
+            room_code = r_match.group(1)
+
+        # Fallback: "ở D9" without keyword tòa
+        if not building_code:
+            b_fallback = re.search(r'\bở\s+([a-z]\d{0,2})\b', text, re.IGNORECASE)
+            if b_fallback:
+                building_code = b_fallback.group(1).upper()
+
+        return classroom_exact, building_code, room_code
 
     def _extract_time_range(self, text: str) -> Optional[Tuple[str, str]]:
         """Extract "8h25 đến 10h15" → ("08:25","10:15")."""
