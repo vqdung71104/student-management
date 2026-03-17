@@ -219,6 +219,34 @@ class NL2SQLService:
         elif 'chiều' in question or 'trưa' in question:
             entities['time_period'] = 'afternoon'
         
+        # Extract building and room (classroom info)
+        # Format: "tòa D9", "phòng 401", "D9-401", "D9 401", etc.
+        building = None
+        room = None
+        
+        # Pattern 1: "tòa [TÊNÒA]" (e.g., "tòa D9", "tòa A")
+        toa_match = re.search(r'tòa\s+([A-Z]\d+|[A-Z]{1,2})', question, re.IGNORECASE)
+        if toa_match:
+            building = toa_match.group(1).upper()
+        
+        # Pattern 2: "phòng [SỐ]" (e.g., "phòng 401", "phòng 402")
+        phong_match = re.search(r'phòng\s+(\d{2,4})', question, re.IGNORECASE)
+        if phong_match:
+            room = phong_match.group(1)
+        
+        # Pattern 3: "[TÒA]-[PHÒNG]" format (e.g., "D9-401", "A1-201", "D9 401", "D9401")
+        # This covers both "D9-401" and "D9 401" formats
+        classroom_format_match = re.search(r'(?:học\s+ở|ở\s+)?([A-Z]\d+)[\s\-]+(\d{2,4})', question, re.IGNORECASE)
+        if classroom_format_match and not building and not room:
+            building = classroom_format_match.group(1).upper()
+            room = classroom_format_match.group(2)
+        
+        # Store building and room separately for SQL customization
+        if building:
+            entities['building'] = building
+        if room:
+            entities['room'] = room
+        
         return entities
 
     def _extract_subject_name_list(self, question: str) -> List[str]:
@@ -478,7 +506,47 @@ class NL2SQLService:
                 "WHERE ", sql, flags=re.IGNORECASE
             )
 
-        # ── 4. study_days ────────────────────────────────────────────────────────
+        # ── 4. building and room (classroom filter) ──────────────────────────────────
+        # Format: "tòa-phòng" (e.g., "D9-401")
+        if 'building' in entities or 'room' in entities:
+            building = entities.get('building')
+            room = entities.get('room')
+            
+            if building and room:
+                # Both specified: exact format "D9-401"
+                classroom_filter = f"c.classroom = '{building}-{room}'"
+            elif building:
+                # Only building: "D9-%"
+                classroom_filter = f"c.classroom LIKE '{building}-%'"
+            elif room:
+                # Only room: "%-401"
+                classroom_filter = f"c.classroom LIKE '%-{room}'"
+            else:
+                classroom_filter = None
+            
+            if classroom_filter:
+                # Try to replace existing classroom filter in WHERE clause
+                if "c.classroom" in sql:
+                    sql = re.sub(
+                        r"c\.classroom\s*(?:=|LIKE)\s*'[^']*'",
+                        classroom_filter,
+                        sql,
+                        flags=re.IGNORECASE
+                    )
+                else:
+                    # Add classroom filter to WHERE clause
+                    if re.search(r'\bWHERE\b', sql, re.IGNORECASE):
+                        sql = re.sub(
+                            r'(\bWHERE\b\s+)',
+                            lambda m: f"{m.group(0)}{classroom_filter} AND ",
+                            sql,
+                            count=1,
+                            flags=re.IGNORECASE
+                        )
+                    else:
+                        sql += f" WHERE {classroom_filter}"
+        
+        # ── 5. study_days ────────────────────────────────────────────────────────
         if 'study_days' in entities:
             days = entities['study_days']
             day_conditions = ' OR '.join([f"c.study_date LIKE '%{day}%'" for day in days])
@@ -487,7 +555,7 @@ class NL2SQLService:
                 day_conditions, sql
             )
 
-        # ── 5. time_period ───────────────────────────────────────────────────────
+        # ── 6. time_period ───────────────────────────────────────────────────────
         if 'time_period' in entities:
             if entities['time_period'] == 'morning':
                 if "c.study_time_start" not in sql:

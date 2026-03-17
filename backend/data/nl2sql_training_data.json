@@ -305,6 +305,34 @@
       "parameters": []
     },
     {
+      "intent": "class_info",
+      "question": "các lớp Thuật toán ứng dụng học ở tòa D9",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_name LIKE '%Thuật toán%' AND c.classroom LIKE 'D9-%'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "các lớp MI1114 học ở D9-401",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE s.subject_id = 'MI1114' AND c.classroom = 'D9-401'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "các lớp học ở D9 401",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE c.classroom LIKE 'D9-401'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
+      "intent": "class_info",
+      "question": "các lớp học phòng 402 lúc 8h25",
+      "sql": "SELECT c.class_id, c.class_name, c.classroom, c.study_date, c.study_time_start, c.study_time_end, c.teacher_name, s.subject_name FROM classes c JOIN subjects s ON c.subject_id = s.id WHERE c.classroom LIKE '%-402' AND c.study_time_start = '08:25:00'",
+      "requires_auth": false,
+      "parameters": []
+    },
+    {
       "intent": "subject_info",
       "question": "thông tin học phần Giải tích 2",
       "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.conditional_subjects, s.english_subject_name FROM subjects s WHERE s.subject_name LIKE '%Giải tích%'",
