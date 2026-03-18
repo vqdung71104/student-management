@@ -202,7 +202,6 @@ User: "gợi ý lớp học cho tôi"
    │
    ├─ For each subject:
    │   ├─ Query available classes
-   │   ├─ Filter: registered < max_students
    │   └─ Include: time, teacher, room, seats
    │
    ↓

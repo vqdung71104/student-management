@@ -128,19 +128,7 @@ async def test_clear_preferences():
     print("✅ Preferences cleared")
 
 
-@pytest.mark.asyncio
-async def test_send_notification():
-    """Test sending notification"""
-    success = await MessageQueueService.send_notification(
-        student_id=1,
-        notification_type='class_full',
-        title='Lớp đã đầy',
-        content='Lớp IT3170-001 đã đầy. Vui lòng chọn lớp khác.',
-        metadata={'class_id': 'IT3170-001', 'subject_id': 'IT3170'}
-    )
-    
-    assert success
-    print("✅ Notification sent")
+
 
 
 @pytest.mark.asyncio

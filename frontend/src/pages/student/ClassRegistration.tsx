@@ -19,8 +19,6 @@ interface Class {
   study_date?: string
   study_time_start?: string
   study_time_end?: string
-  max_students?: number
-  max_student_number?: number
   current_students: number
   registered_count?: number // Add this field for actual registered students
   subject_id: number
@@ -387,29 +385,7 @@ const ClassRegistration = () => {
         </div>
       )
     },
-    {
-      title: 'Sĩ số',
-      key: 'capacity',
-      width: 70,
-      align: 'center' as const,
-      render: (record: any) => {
-        const registeredCount = record.registered_count || 0
-        const maxStudents = record.max_student_number || 0
-        const percentage = maxStudents > 0 ? (registeredCount / maxStudents) * 100 : 0
-
-        return (
-          <div className="text-center">
-            <div className="text-sm">{registeredCount}/{maxStudents}</div>
-            <div className="w-full bg-gray-200 rounded h-1 mt-1">
-              <div
-                className={`h-1 rounded ${percentage >= 100 ? 'bg-red-500' : percentage >= 80 ? 'bg-orange-500' : 'bg-blue-500'}`}
-                style={{ width: `${Math.min(percentage, 100)}%` }}
-              ></div>
-            </div>
-          </div>
-        )
-      }
-    },
+    
     {
       title: 'Thao tác',
       key: 'action',
@@ -659,10 +635,7 @@ const ClassRegistration = () => {
                 }
               </Text>
             </div>
-            <div>
-              <Text strong>Sĩ số hiện tại: </Text>
-              <Text>0/{selectedClass.max_student_number || 0} sinh viên</Text>
-            </div>
+            
             <div>
               <Text strong>Trạng thái: </Text>
               <Tag color={selectedClass.status === 'Mở' ? 'green' : 'red'}>

@@ -11,7 +11,6 @@ class ClassInfo(BaseModel):
     study_date: str
     study_time_start: str
     study_time_end: str
-    max_student_number: int
     teacher_name: str
     
     class Config:

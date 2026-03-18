@@ -27,7 +27,6 @@ interface Class {
   study_date?: string
   study_time_start?: string
   study_time_end?: string
-  max_student_number?: number
   teacher_name?: string
   study_week: number[]
   subject: Subject
@@ -43,7 +42,6 @@ interface ClassFormData {
   study_date?: string
   study_time_start?: string
   study_time_end?: string
-  max_student_number?: number
   teacher_name?: string
   study_week: number[]
 }
@@ -67,7 +65,6 @@ const ClassesManagement = () => {
     study_date: '',
     study_time_start: '09:00',
     study_time_end: '10:50',
-    max_student_number: 50,
     teacher_name: '',
     study_week: [1],
   })
@@ -188,7 +185,6 @@ const ClassesManagement = () => {
       study_date: '',
       study_time_start: '09:00',
       study_time_end: '10:50',
-      max_student_number: 50,
       teacher_name: '',
       study_week: [1],
     })
@@ -211,7 +207,6 @@ const ClassesManagement = () => {
       study_date: classItem.study_date || '',
       study_time_start: classItem.study_time_start || '09:00',
       study_time_end: classItem.study_time_end || '10:50',
-      max_student_number: classItem.max_student_number || 50,
       teacher_name: classItem.teacher_name || '',
       study_week: classItem.study_week || [1],
     })
@@ -288,9 +283,7 @@ const ClassesManagement = () => {
                   <p className="text-sm text-gray-600">
                     <span className="font-medium">Giảng viên:</span> {classItem.teacher_name || 'Chưa phân công'}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">Sĩ số tối đa:</span> {classItem.max_student_number}
-                  </p>
+                  
                 </div>
               </div>
             </div>
@@ -397,13 +390,7 @@ const ClassesManagement = () => {
                   onChange={(e) => setFormData({...formData, study_time_end: e.target.value})}
                 />
               </div>
-              <input
-                type="number"
-                placeholder="Sĩ số tối đa"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.max_student_number}
-                onChange={(e) => setFormData({...formData, max_student_number: parseInt(e.target.value)})}
-              />
+             
               <input
                 type="text"
                 placeholder="Giảng viên"
@@ -509,13 +496,7 @@ const ClassesManagement = () => {
                   onChange={(e) => setFormData({...formData, study_time_end: e.target.value})}
                 />
               </div>
-              <input
-                type="number"
-                placeholder="Sĩ số tối đa"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.max_student_number}
-                onChange={(e) => setFormData({...formData, max_student_number: parseInt(e.target.value)})}
-              />
+              
               <input
                 type="text"
                 placeholder="Giảng viên"
@@ -562,7 +543,6 @@ const ClassesManagement = () => {
               <div><strong>Phòng học:</strong> {selectedClass.classroom || 'Chưa phân phòng'}</div>
               <div><strong>Ngày học:</strong> {selectedClass.study_date || 'Chưa xác định'}</div>
               <div><strong>Thời gian:</strong> {selectedClass.study_time_start} - {selectedClass.study_time_end}</div>
-              <div><strong>Sĩ số tối đa:</strong> {selectedClass.max_student_number}</div>
               <div><strong>Giảng viên:</strong> {selectedClass.teacher_name || 'Chưa phân công'}</div>
               <div><strong>Tuần học:</strong> {selectedClass.study_week.join(', ')}</div>
             </div>

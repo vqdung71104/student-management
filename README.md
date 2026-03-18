@@ -9,7 +9,6 @@ A comprehensive student management system built with FastAPI (Python) backend an
 - **Grade Tracking**: Semester GPA calculation and tracking
 - **AI Chatbot**: Natural language query support with PhoBERT and Google Gemini
 - **Authentication**: Secure JWT-based authentication
-- **Notifications**: Real-time notification system
 - **Feedback System**: Student feedback and forms management
 - **Excel Export**: Export data to Excel format
 
@@ -155,7 +154,6 @@ The system includes the following main entities:
 - Subjects
 - Learned Subjects
 - Semester GPA
-- Notifications
 - Feedback
 - Student Forms
 

@@ -124,7 +124,6 @@ def test_class_structure():
         "subject_name": "Lập trình mạng",
         "credits": 3,
         "registered_students": 20,
-        "max_students": 50,
         "seats_available": 30,
         "priority_reason": "Môn tiên quyết cho IT4785"
     }
@@ -134,7 +133,6 @@ def test_class_structure():
         "class_id", "class_name", "classroom", "study_date",
         "study_time_start", "study_time_end", "teacher_name",
         "subject_id", "subject_name", "credits",
-        "registered_students", "max_students", "seats_available",
         "priority_reason"
     ]
     

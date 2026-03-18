@@ -11,7 +11,6 @@ interface Class {
   instructor_name: string
   room: string
   time_slot: string
-  max_students: number
   current_students: number
   subject_id: number
   subject_name: string
@@ -216,23 +215,6 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
         <div className="flex items-center">
           <ClockCircleOutlined className="mr-1" />
           <span className="text-sm">{time}</span>
-        </div>
-      )
-    },
-    {
-      title: 'Sĩ số',
-      key: 'students',
-      width: 100,
-      align: 'center' as const,
-      render: (_: any, record: Class) => (
-        <div>
-          <Text>{record.current_students}/{record.max_students}</Text>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-            <div
-              className="bg-blue-600 h-2 rounded-full"
-              style={{ width: `${(record.current_students / record.max_students) * 100}%` }}
-            ></div>
-          </div>
         </div>
       )
     },
@@ -449,10 +431,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
               <Text strong>Thời gian: </Text>
               <Text>{selectedClass.time_slot}</Text>
             </div>
-            <div>
-              <Text strong>Sĩ số hiện tại: </Text>
-              <Text>{selectedClass.current_students}/{selectedClass.max_students} sinh viên</Text>
-            </div>
+            
             <div>
               <Text strong>Trạng thái: </Text>
               <Tag color={selectedClass.status === 'Mở' ? 'green' : 'red'}>

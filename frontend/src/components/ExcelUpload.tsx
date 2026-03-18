@@ -145,7 +145,6 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
         'Phòng': 'room',
         'Cần_TN': 'requires_lab',
         'SLĐK': 'registered_count',
-        'SL_Max': 'max_students',
         'Trạng_thái': 'status',
         'Loại_lớp': 'class_type',
         'Đợt_mở': 'opening_batch',
@@ -255,7 +254,6 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
               'Phòng': 'room',
               'Cần_TN': 'requires_lab',
               'SLĐK': 'registered_count',
-              'SL_Max': 'max_students',
               'Trạng_thái': 'status',
               'Loại_lớp': 'class_type',
               'Đợt_mở': 'opening_batch',
@@ -413,7 +411,6 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
                         <td className="px-2 py-1">{row.day_of_week_converted}</td>
                         <td className="px-2 py-1">{row.study_time_start} - {row.study_time_end}</td>
                         <td className="px-2 py-1">{row.room}</td>
-                        <td className="px-2 py-1">{row.max_students}</td>
                         <td className="px-2 py-1">{row.class_type}</td>
                       </tr>
                     ))}

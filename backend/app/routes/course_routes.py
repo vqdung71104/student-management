@@ -164,7 +164,7 @@ def delete_course(course_id: int, db: Session = Depends(get_db)):
 @router.get("/{student_id}/curriculum")
 def get_student_curriculum(student_id: str, db: Session = Depends(get_db)):
     # Find student by student_id (string)
-    student = db.query(Student).filter(Student.student_id == student_id).first()
+    student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     

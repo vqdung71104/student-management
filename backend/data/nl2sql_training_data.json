@@ -10,7 +10,7 @@
       "description": "Thông tin các học phần/môn học"
     },
     "classes": {
-      "columns": ["id", "subject_id", "class_id", "class_name", "linked_class_ids", "class_type", "classroom", "study_date", "study_time_start", "study_time_end", "max_student_number", "teacher_name", "study_week"],
+      "columns": ["id", "subject_id", "class_id", "class_name", "linked_class_ids", "class_type", "classroom", "study_date", "study_time_start", "study_time_end", "teacher_name", "study_week"],
       "description": "Thông tin các lớp học"
     },
     "learned_subjects": {

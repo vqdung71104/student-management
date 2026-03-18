@@ -49,14 +49,6 @@ interface ChatMessage {
   content: string
 }
 
-interface Notification {
-  id: number
-  title: string
-  content: string
-  isRead: boolean
-  time: string
-}
-
 interface AppStudentProps {
   onLogout: () => void
   studentInfo?: {
@@ -72,12 +64,6 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const [scheduleData, setScheduleData] = useState<ScheduleItem[]>([])
   const [_gradesData, setGradesData] = useState<GradesData[] | null>(null)
   const [courseData, setCourseData] = useState<Course | null>(null)
-  const [notifications, setNotifications] = useState<Notification[]>([
-    { id: 1, title: 'Thông báo đăng ký học kỳ 2024.1', content: 'Thời gian đăng ký từ 15/01 đến 30/01/2024', isRead: false, time: '2 giờ trước' },
-    { id: 2, title: 'Kết quả học tập kỳ 2023.2', content: 'Kết quả đã được cập nhật', isRead: true, time: '1 ngày trước' },
-    { id: 3, title: 'Học bổng khuyến khích học tập', content: 'Mở đăng ký học bổng cho sinh viên xuất sắc', isRead: false, time: '3 ngày trước' }
-  ])
-  const [notificationOpen, setNotificationOpen] = useState(false)
   const [_studyMenuOpen, setStudyMenuOpen] = useState(false)
   const [projectMenuOpen, setProjectMenuOpen] = useState(false)
   const [_formMenuOpen, setFormMenuOpen] = useState(false)
@@ -97,8 +83,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   ])
   const [chatInput, setChatInput] = useState('')
 
-  const unreadCount = notifications.filter(n => !n.isRead).length
-
+ 
   const toggleChatbot = () => {
     setChatbotOpen(!chatbotOpen)
   }
@@ -212,18 +197,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
     setExchangeMenuOpen(false)
     setSupportMenuOpen(false)
     setRegistrationMenuOpen(false)
-    setNotificationOpen(false)
   }
 
-  const markAsRead = (id: number) => {
-    setNotifications(notifications.map(n =>
-      n.id === id ? { ...n, isRead: true } : n
-    ))
-  }
-
-  const markAllAsRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, isRead: true })))
-  }
+  
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -465,64 +441,9 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
               </div>
             </div>
 
-            {/* Right side - Notification và Logout */}
+            {/* Right side - Logout */}
             <div className="flex items-center space-x-4">
-              {/* Notification Bell */}
-              <div className="relative">
-                <button
-                  className="relative p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200"
-                  onClick={() => setNotificationOpen(!notificationOpen)}
-                >
-                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* Notification Dropdown */}
-                {notificationOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-96 overflow-y-auto">
-                    <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-                      <h3 className="font-semibold text-gray-800">Thông báo</h3>
-                      {unreadCount > 0 && (
-                        <button
-                          onClick={markAllAsRead}
-                          className="text-blue-600 text-xs hover:text-blue-800"
-                        >
-                          Đánh dấu tất cả đã đọc
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-64 overflow-y-auto">
-                      {notifications.map(notification => (
-                        <div
-                          key={notification.id}
-                          className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${!notification.isRead ? 'bg-blue-50' : ''
-                            }`}
-                          onClick={() => markAsRead(notification.id)}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <h4 className={`text-sm font-medium ${!notification.isRead ? 'text-blue-800' : 'text-gray-800'}`}>
-                                {notification.title}
-                              </h4>
-                              <p className="text-xs text-gray-600 mt-1">{notification.content}</p>
-                              <p className="text-xs text-gray-400 mt-2">{notification.time}</p>
-                            </div>
-                            {!notification.isRead && (
-                              <div className="w-2 h-2 bg-red-500 rounded-full ml-2 mt-1"></div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              
 
               {/* Logout Button */}
               <button

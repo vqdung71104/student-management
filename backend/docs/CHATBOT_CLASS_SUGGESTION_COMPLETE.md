@@ -1659,12 +1659,7 @@ def calculate_combination_score(self, classes: List[Dict], preferences: Dict) ->
             # 13:00 (780min) → +10, 7:00 (420min) → 0
             score += max(0, (avg_start_minutes - 420) / 360 * 10)
     
-    # === AVAILABLE SLOTS BONUS (weight: 5) ===
-    avg_availability = sum(
-        cls.get('available_slots', 0) / max(cls.get('max_students', 1), 1)
-        for cls in classes
-    ) / len(classes)
-    score += avg_availability * 5
+    
     
     # === CREDITS BALANCE BONUS (weight: 5) ===
     total_credits = metrics['total_credits']
@@ -1974,7 +1969,6 @@ if not valid_combinations:
     "subject_name": "Lập trình mạng",
     "credits": 3,
     "registered_students": 20,
-    "max_students": 50,
     "seats_available": 30,
     "priority_reason": "Môn tiên quyết cho IT4785"
 }
@@ -2420,7 +2414,6 @@ if state.timestamp + timedelta(hours=1) < datetime.now():
 3. **Integration**
    - Direct registration from chatbot
    - Waitlist management
-   - Notification when seats available
 
 ---
 

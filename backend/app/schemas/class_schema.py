@@ -13,7 +13,6 @@ class ClassBase(BaseModel):
     study_date: Optional[str] = None  # ví dụ: "Monday,Tuesday"
     study_time_start: Optional[time] = None
     study_time_end: Optional[time] = None
-    max_student_number: Optional[int] = None
     teacher_name: Optional[str] = None
     study_week: List[int]  # số tuần học
 
@@ -88,7 +87,6 @@ class ClassUpdate(BaseModel):
     study_date: Optional[str] = None
     study_time_start: Optional[time] = None
     study_time_end: Optional[time] = None
-    max_student_number: Optional[int] = None
     teacher_name: Optional[str] = None
     study_week: Optional[List[int]] = None
     subject_id: Optional[int] = None

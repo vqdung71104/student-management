@@ -340,12 +340,7 @@ def calculate_combination_score(
         # Earlier = higher score (7:00 = max, 12:00 = min)
         score += max(0, (12 - avg_start_hour) / 5 * 10)
     
-    # Preference: Available slots (weight: 5)
-    # More available slots = better
-    avg_availability = sum(
-        cls['available_slots'] / cls['max_students'] for cls in classes
-    ) / len(classes)
-    score += avg_availability * 5
+    
     
     return score
 ```

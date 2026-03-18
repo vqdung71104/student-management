@@ -352,13 +352,8 @@ class ScheduleCombinationGenerator:
                 # 13:00 = 780min → score+10, 7:00 = 420min → score+0
                 score += max(0, (avg_start_minutes - 420) / 360 * 10)
         
-        # === BONUS: Available slots (weight: 5) ===
-        # More available slots = better (less crowded)
-        avg_availability = sum(
-            cls.get('available_slots', 0) / max(cls.get('max_students', 1), 1)
-            for cls in classes
-        ) / len(classes) if classes else 0
-        score += avg_availability * 5
+        
+        
         
         # === BONUS: Credits balance (weight: 5) ===
         # Prefer combinations with reasonable credit count (12-18)

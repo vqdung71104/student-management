@@ -2,7 +2,6 @@ import random
 import string
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from app.models.otp_model import OTPVerification
 from typing import Optional
 
 

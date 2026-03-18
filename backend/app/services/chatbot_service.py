@@ -428,7 +428,6 @@ class ChatbotService:
                         "subject_name": cls.get('subject_name', ''),
                         "credits": cls.get('credits', 0),
                         "registered_students": cls.get('registered_count', 0),
-                        "max_students": cls.get('max_students', 0),
                         "seats_available": cls.get('available_slots', 0),
                         "priority_reason": subject_reasons.get(cls.get('subject_id', ''), ''),
                     })
@@ -786,7 +785,7 @@ class ChatbotService:
                 badge = "✅" if cls.get('fully_satisfies', False) else "⚠️"
                 response.append(f"   {badge} {cls['class_id']}: {cls['study_date']} {cls['study_time_start']}-{cls['study_time_end']}")
                 response.append(f"      📍 Phòng {cls['classroom']} - {cls['teacher_name'] if cls['teacher_name'] else 'Chưa có GV'}")
-                response.append(f"      👥 {cls['seats_available']} chỗ trống / {cls['max_students']}")
+                
                 
                 # Show violations if any
                 if cls.get('violations'):
@@ -864,9 +863,9 @@ class ChatbotService:
             # Group by subject for display
             for cls in combo['classes']:
                 response.append(f"    • {cls['subject_id']} - {cls['subject_name']} ({cls['credits']} TC)")
-                response.append(f"      📍 Lớp {cls['class_id']}: {cls['study_date']} {cls['study_time_start']}-{cls['study_time_end']}")
-                response.append(f"      🏫 Phòng {cls['classroom']} - {cls['teacher_name'] if cls['teacher_name'] else 'TBA'}")
-                response.append(f"      👥 {cls['seats_available']}/{cls['max_students']} chỗ trống")
+                response.append(f"      Lớp {cls['class_id']}: {cls['study_date']} {cls['study_time_start']}-{cls['study_time_end']}")
+                response.append(f"      Phòng {cls['classroom']} - {cls['teacher_name'] if cls['teacher_name'] else 'TBA'}")
+               
                 
                 if cls.get('priority_reason'):
                     response.append(f"      💡 {cls['priority_reason']}")

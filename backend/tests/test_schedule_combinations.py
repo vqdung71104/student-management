@@ -199,8 +199,7 @@ def test_combination_generation():
                 'study_time_start': time(9, 0),
                 'study_time_end': time(11, 25),
                 'credits': 3,
-                'available_slots': 30,
-                'max_students': 50
+                'available_slots': 30
             },
             {
                 'id': 2,
@@ -211,8 +210,7 @@ def test_combination_generation():
                 'study_time_start': time(13, 0),
                 'study_time_end': time(15, 25),
                 'credits': 3,
-                'available_slots': 25,
-                'max_students': 50
+                'available_slots': 25
             }
         ],
         'SSH1131': [
@@ -225,8 +223,7 @@ def test_combination_generation():
                 'study_time_start': time(9, 0),
                 'study_time_end': time(11, 25),
                 'credits': 2,
-                'available_slots': 150,
-                'max_students': 150
+                'available_slots': 150
             },
             {
                 'id': 4,
@@ -237,8 +234,7 @@ def test_combination_generation():
                 'study_time_start': time(7, 0),
                 'study_time_end': time(9, 25),
                 'credits': 2,
-                'available_slots': 50,
-                'max_students': 50
+                'available_slots': 50
             }
         ]
     }

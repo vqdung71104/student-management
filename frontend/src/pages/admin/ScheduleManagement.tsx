@@ -342,7 +342,6 @@ const ScheduleManagement = () => {
           study_date: updatedClass.study_date,
           study_time_start: updatedClass.study_time_start,
           study_time_end: updatedClass.study_time_end,
-          max_student_number: updatedClass.max_student_number,
           teacher_name: updatedClass.teacher_name,
           study_week: updatedClass.study_week || []
         }),
@@ -518,7 +517,6 @@ const ScheduleManagement = () => {
           study_date: row.day_of_week_converted || '',
           study_time_start: row.study_time_start || '',
           study_time_end: row.study_time_end || '',
-          max_student_number: parseInt(row.max_students) || 30,
           teacher_name: row.teacher_name || '',
           study_week: row.study_weeks || []
         }
@@ -783,15 +781,7 @@ const ScheduleManagement = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {classItem.teacher_name || 'Chưa phân công'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      (classItem.current_students || 0) >= (classItem.max_student_number || 0)
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-green-100 text-green-800'
-                    }`}>
-                      {classItem.current_students || 0}/{classItem.max_student_number || 0}
-                    </span>
-                  </td>
+                  
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button 
                       onClick={() => handleEditClass(classItem)}
@@ -990,16 +980,7 @@ const ScheduleManagement = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sĩ số tối đa</label>
-                <input
-                  type="number"
-                  min="1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  value={editingClass.max_student_number || ''}
-                  onChange={(e) => setEditingClass({...editingClass, max_student_number: parseInt(e.target.value) || 0})}
-                />
-              </div>
+              
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Giảng viên</label>

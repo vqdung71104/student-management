@@ -86,12 +86,10 @@ def _row_to_dict(row, registered_count: int) -> Dict:
         "study_time_end":   end,
         "study_week":       cls.study_week or [],
         "teacher_name":     cls.teacher_name or "",
-        "max_students":     cls.max_student_number or 0,
         "subject_id":       subj.subject_id,
         "subject_name":     subj.subject_name or "",
         "credits":          subj.credits or 0,
         "registered_count": registered_count,
-        "available_slots":  max(0, (cls.max_student_number or 0) - registered_count),
     }
 
 
@@ -164,27 +162,9 @@ class ClassQueryService:
         if resolved_ids:
             q = q.filter(Subject.subject_id.in_(resolved_ids))
 
-        # 5. Availability (seats)
-        # Subquery: registered count per class
-        subq = (
-            self.db.query(
-                ClassRegister.class_id,
-                func.count(ClassRegister.id).label("cnt")
-            )
-            .group_by(ClassRegister.class_id)
-            .subquery()
-        )
-        q = q.outerjoin(subq, Class.id == subq.c.class_id)
+        
 
-        if not include_full:
-            q = q.filter(
-                or_(
-                    subq.c.cnt == None,
-                    subq.c.cnt < Class.max_student_number
-                )
-            )
-
-        # 6. Execute and build dicts
+        # 5. Execute and build dicts
         rows = q.all()
 
         # Build registered count map
@@ -205,7 +185,7 @@ class ClassQueryService:
 
         result_dicts = [_row_to_dict(row, cnt_map.get(row[0].id, 0)) for row in rows]
 
-        # 7. Post-filter by time/day (done in Python for portability with LIKE study_date)
+        # 6. Post-filter by time/day (done in Python for portability with LIKE study_date)
         result_dicts = self._apply_time_day_filters(result_dicts, constraints)
 
         return result_dicts

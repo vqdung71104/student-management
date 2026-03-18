@@ -132,7 +132,6 @@ class ClassSuggestionRuleEngine:
                 c.study_time_end,
                 c.study_week,
                 c.teacher_name,
-                c.max_student_number,
                 s.subject_id,
                 s.subject_name,
                 s.credits,
@@ -149,7 +148,6 @@ class ClassSuggestionRuleEngine:
         
         query += """
             GROUP BY c.id
-            HAVING COUNT(cr.id) < c.max_student_number
         """
         
         # Execute query
@@ -204,7 +202,6 @@ class ClassSuggestionRuleEngine:
                 'study_time_end': study_time_end,
                 'study_week': study_week_list,  # Study week as LIST for conflict detection
                 'teacher_name': row[8],
-                'max_students': row[9],
                 'subject_id': row[10],
                 'subject_name': row[11],
                 'credits': row[12],
@@ -766,11 +763,7 @@ class ClassSuggestionRuleEngine:
                     score += 20
                     reasons.append(f"Teacher: {cls.get('teacher_name')}")
             
-            # Available slots
-            availability_ratio = cls['available_slots'] / cls['max_students']
-            if availability_ratio > 0.5:
-                score += 5
-                reasons.append('High availability')
+            
             
             ranked.append({
                 **cls,
@@ -1004,7 +997,6 @@ class ClassSuggestionRuleEngine:
                     lines.append(f"   • Ngày học: {', '.join(days_vi)}")
                     lines.append(f"   • Phòng: {cls['classroom']}")
                     lines.append(f"   • Giảng viên: {cls['teacher_name']}")
-                    lines.append(f"   • Chỗ trống: {cls['available_slots']}/{cls['max_students']}")
                     
                     # Match reasons or violations
                     if fully_satisfied and cls.get('match_reasons'):

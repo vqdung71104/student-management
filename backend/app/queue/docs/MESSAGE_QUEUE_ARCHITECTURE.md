@@ -200,9 +200,7 @@ QUEUE_CLASS_PREFERENCES   # Class preferences
   - TTL: 1 hour
   - Max length: 5,000 messages
 
-QUEUE_NOTIFICATION        # Notifications
-  - TTL: 7 days
-  - Max length: 50,000 messages
+
 ```
 
 **Exchanges:**
@@ -211,8 +209,6 @@ QUEUE_NOTIFICATION        # Notifications
 EXCHANGE_CHAT             # Topic exchange for chat
   - Routing keys: chat.message.*, chat.preferences.*
 
-EXCHANGE_SYSTEM           # Direct exchange for system
-  - Routing keys: notification
 ```
 
 **Methods:**
@@ -248,9 +244,7 @@ RABBITMQ_PASS=guest
    - Consumes from `class_preferences` queue
    - Saves to `class_preference_logs` table
 
-3. **Notification Worker**
-   - Consumes from `notifications` queue
-   - Saves to `notification_logs` table
+
 
 **Database Tables:**
 
@@ -280,19 +274,7 @@ CREATE TABLE class_preference_logs (
     INDEX (student_id)
 );
 
--- Notification logs
-CREATE TABLE notification_logs (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    student_id INT NOT NULL,
-    notification_type VARCHAR(100) NOT NULL,
-    title VARCHAR(500) NOT NULL,
-    content TEXT NOT NULL,
-    metadata JSON,
-    timestamp DATETIME NOT NULL,
-    created_at DATETIME NOT NULL,
-    INDEX (student_id),
-    INDEX (notification_type)
-);
+
 ```
 
 **Running Worker:**
@@ -304,7 +286,6 @@ python app/queue/workers/message_worker.py --type all
 # Run specific worker
 python app/queue/workers/message_worker.py --type chat
 python app/queue/workers/message_worker.py --type preference
-python app/queue/workers/message_worker.py --type notification
 ```
 
 ### 4. Message Queue Service (`app/queue/message_queue_service.py`)
@@ -323,8 +304,7 @@ MessageQueueService:
   - get_current_preferences(student_id) -> Dict
   - clear_preferences(student_id) -> bool
   
-  # Notification
-  - send_notification(student_id, type, title, content, metadata) -> bool
+ 
   
   # History
   - get_conversation_history(student_id) -> Dict

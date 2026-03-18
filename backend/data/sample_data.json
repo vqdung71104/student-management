@@ -266,8 +266,7 @@
       "day_of_week": "Monday",
       "study_time_start": "08:00",
       "study_time_end": "10:50",
-      "study_weeks": "1-15",
-      "max_students": 50
+      "study_weeks": "1-15"
     },
     {
       "class_id": "IT1110_002",
@@ -280,8 +279,7 @@
       "day_of_week": "Tuesday",
       "study_time_start": "14:00",
       "study_time_end": "16:50",
-      "study_weeks": "1-15",
-      "max_students": 50
+      "study_weeks": "1-15"
     },
     {
       "class_id": "IT2030_001",
@@ -294,8 +292,7 @@
       "day_of_week": "Wednesday",
       "study_time_start": "08:00",
       "study_time_end": "10:50",
-      "study_weeks": "1-15",
-      "max_students": 45
+      "study_weeks": "1-15"
     },
     {
       "class_id": "IT3080_001",
@@ -308,8 +305,7 @@
       "day_of_week": "Thursday",
       "study_time_start": "14:00",
       "study_time_end": "16:50",
-      "study_weeks": "1-15",
-      "max_students": 40
+      "study_weeks": "1-15"
     },
     {
       "class_id": "ME2012_001",
@@ -322,8 +318,7 @@
       "day_of_week": "Friday",
       "study_time_start": "08:00",
       "study_time_end": "10:50",
-      "study_weeks": "1-15",
-      "max_students": 60
+      "study_weeks": "1-15"
     },
     {
       "class_id": "EE2011_001",
@@ -336,8 +331,7 @@
       "day_of_week": "Monday",
       "study_time_start": "14:00",
       "study_time_end": "16:50",
-      "study_weeks": "1-15",
-      "max_students": 55
+      "study_weeks": "1-15"
     }
   ],
   "faqs": [

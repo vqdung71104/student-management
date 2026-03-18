@@ -19,7 +19,6 @@ class Class(Base):
     study_date = Column(String(255))  # ví dụ: "Monday,Tuesday"
     study_time_start = Column(Time)   # 09:05
     study_time_end = Column(Time)     # 10:00
-    max_student_number = Column(Integer)
     teacher_name = Column(String(255))
     study_week = Column(JSON)  # số tuần học
 

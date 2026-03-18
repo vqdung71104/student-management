@@ -926,7 +926,6 @@ manager = get_redis_conversation_manager()  # Redis with auto-fallback
                 "subject_name": "Lập trình mạng",
                 "credits": 3,
                 "registered_students": 20,
-                "max_students": 50,
                 "seats_available": 30,
                 "priority_reason": "Môn tiên quyết cho IT4785"
             },
@@ -961,9 +960,8 @@ manager = get_redis_conversation_manager()  # Redis with auto-fallback
 9. `subject_name`: Subject name
 10. `credits`: Credit hours
 11. `registered_students`: Current enrollment
-12. `max_students`: Maximum capacity
-13. `seats_available`: Available seats
-14. `priority_reason`: Why this subject is recommended
+12. `seats_available`: Available seats
+13. `priority_reason`: Why this subject is recommended
 
 **10 Metrics per Combination:**
 1. `total_credits`: Sum of all credits
@@ -1027,7 +1025,6 @@ User: [Answers preferences]
           "classroom": "D5-401",
           "teacher_name": "Nguyễn Văn A",
           "available_slots": 30,
-          "max_students": 50,
           ...
         },
         ...
