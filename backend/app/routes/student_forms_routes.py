@@ -2,8 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.student_model import Student
+from app.utils.jwt_utils import get_current_student
 from pydantic import BaseModel
 from datetime import datetime
+import importlib
+
+Notification = None
+try:
+    notification_module = importlib.import_module("app.models.notification_model")
+    Notification = getattr(notification_module, "Notification", None)
+except Exception:
+    Notification = None
 
 router = APIRouter(prefix="/student-forms", tags=["Student Forms"])
 
@@ -21,10 +30,14 @@ class NotificationRequest(BaseModel):
 @router.post("/submit")
 def submit_form(
     request: FormSubmissionRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     """Submit a form and create notification"""
     try:
+        if Notification is None:
+            raise HTTPException(status_code=501, detail="Notification model chưa được cấu hình")
+
         # Verify student exists
         student = db.query(Student).filter(Student.student_id == request.student_id).first()
         if not student:
@@ -56,10 +69,14 @@ def submit_form(
 @router.post("/notification")
 def create_notification(
     request: NotificationRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     """Create a notification for student"""
     try:
+        if Notification is None:
+            raise HTTPException(status_code=501, detail="Notification model chưa được cấu hình")
+
         # Verify student exists
         student = db.query(Student).filter(Student.student_id == request.student_id).first()
         if not student:

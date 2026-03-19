@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.__init__ import Student, Admin
-from app.utils.jwt_utils import create_access_token
+from app.utils.jwt_utils import create_access_token, get_current_student, get_current_user
 from pydantic import BaseModel, EmailStr, validator
 import hashlib
 
@@ -52,7 +52,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
+def login(request: LoginRequest, response: Response, db: Session = Depends(get_db)):
     """
     API đăng nhập cho admin và sinh viên
     """
@@ -66,6 +66,15 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             "email": admin.email
         })
         
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            max_age=30 * 24 * 60 * 60,
+        )
+
         return LoginResponse(
             user_type="admin",
             user_info={
@@ -89,6 +98,15 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             "email": admin_by_username.email
         })
         
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            max_age=30 * 24 * 60 * 60,
+        )
+
         return LoginResponse(
             user_type="admin",
             user_info={
@@ -113,6 +131,15 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
             "email": student.email
         })
         
+        response.set_cookie(
+            key="access_token",
+            value=token,
+            httponly=True,
+            samesite="lax",
+            secure=False,
+            max_age=30 * 24 * 60 * 60,
+        )
+
         return LoginResponse(
             user_type="student",
             user_info={
@@ -130,7 +157,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/register")
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
+def register(request: RegisterRequest, response: Response, db: Session = Depends(get_db)):
     """
     API đăng ký tài khoản cho sinh viên
     """
@@ -170,6 +197,15 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
         "email": new_student.email
     })
     
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=30 * 24 * 60 * 60,
+    )
+
     return LoginResponse(
         user_type="student",
         user_info={
@@ -187,23 +223,44 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
 def change_password(
     current_password: str,
     new_password: str,
-    email: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     """
     Đổi mật khẩu cho sinh viên
     """
-    hashed_current = hashlib.md5(current_password.encode()).hexdigest()
-    student = db.query(Student).filter(
-        Student.email == email,
-        Student.login_password == hashed_current
-    ).first()
-    
-    if not student:
+    if not verify_password(current_password, current_student.password):
         raise HTTPException(status_code=401, detail="Mật khẩu hiện tại không chính xác")
-    
+    if verify_password(new_password, current_student.password):
+        raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
+
     # Update với mật khẩu mới
-    student.login_password = hashlib.md5(new_password.encode()).hexdigest()
+    current_student.password = hashlib.sha256(new_password.encode()).hexdigest()
     db.commit()
     
     return {"message": "Đổi mật khẩu thành công"}
+
+
+@router.get("/me")
+def me(current_user = Depends(get_current_user)):
+    """Quick check endpoint for current authenticated identity."""
+    if isinstance(current_user, Admin):
+        return {
+            "authenticated": True,
+            "user_type": "admin",
+            "user": {
+                "id": current_user.id,
+                "email": current_user.email,
+                "username": current_user.username,
+            },
+        }
+
+    return {
+        "authenticated": True,
+        "user_type": "student",
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "student_name": current_user.student_name,
+        },
+    }

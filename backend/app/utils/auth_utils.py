@@ -1,20 +1,20 @@
-from fastapi import Depends, HTTPException, status, Header
-from typing import Optional
+from fastapi import HTTPException, status
 
-def get_current_student_id(x_student_id: Optional[str] = Header(None, alias="X-Student-ID")):
-    """
-    Lấy student_id từ header request
-    Trong production, nên sử dụng JWT token thay vì header đơn giản
-    """
-    if not x_student_id:
-        # Fallback cho testing
-        return "SV001"
-    return x_student_id
 
-def get_current_admin():
-    """Dummy function - authentication disabled"""
-    pass
+def _auth_disabled_error() -> None:
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail="auth_utils is deprecated. Use JWT dependencies in app.utils.jwt_utils instead.",
+    )
 
-def get_current_user():
-    """Dummy function - authentication disabled"""
-    pass
+
+def get_current_student_id(*args, **kwargs):
+    _auth_disabled_error()
+
+
+def get_current_admin(*args, **kwargs):
+    _auth_disabled_error()
+
+
+def get_current_user(*args, **kwargs):
+    _auth_disabled_error()

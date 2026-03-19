@@ -22,6 +22,8 @@ from app.schemas.chatbot_schema import (
     ConversationMessagesResponse,
 )
 from app.db.database import get_db
+from app.models.student_model import Student
+from app.utils.jwt_utils import get_current_student
 from sqlalchemy import text
 
 
@@ -468,7 +470,11 @@ def _append_learning_context_to_text(intent: str, base_text: str, data: List[Dic
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/chat", response_model=ChatResponseWithData)
-async def chat(message: ChatMessage, db: Session = Depends(get_db)):
+async def chat(
+    message: ChatMessage,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     """
     Endpoint nhận tin nhắn từ user và trả về phản hồi của chatbot kèm data từ database
 
@@ -484,6 +490,8 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         - **parts**: List kết quả từng phần (khi is_compound=True)
     """
     try:
+        effective_student_id = current_student.id
+
         chatbot_service = ChatbotService(db)
         history_service = ChatHistoryService(db)
         response_payload: ChatResponseWithData
@@ -491,13 +499,13 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
         # ── Active conversation shortcut (preference collection in progress) ──
         from app.services.conversation_state import get_conversation_manager
         conv_manager = get_conversation_manager()
-        state = conv_manager.get_state(message.student_id)
+        state = conv_manager.get_state(effective_student_id)
 
         if state and state.stage == 'collecting':
-            print(f"🔄 [ROUTE] Active conversation for student {message.student_id}")
+            print(f"🔄 [ROUTE] Active conversation for student {effective_student_id}")
             normalized_message = text_preprocessor.preprocess(message.message)
             result = await chatbot_service.process_class_suggestion(
-                student_id=message.student_id,
+                student_id=effective_student_id,
                 question=normalized_message,
             )
             response_payload = ChatResponseWithData(
@@ -508,10 +516,10 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                 sql=None,
                 sql_error=result.get("error"),
             )
-            if message.student_id:
+            if effective_student_id:
                 try:
                     conversation, _, assistant_message = history_service.save_chat_turn(
-                        student_pk=message.student_id,
+                        student_pk=effective_student_id,
                         user_content=message.message,
                         assistant_payload=response_payload.model_dump(),
                         conversation_id=message.conversation_id,
@@ -540,7 +548,7 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
                 try:
                     part_resp = await _process_single_query(
                         normalized_text=sq.text,
-                        student_id=message.student_id,
+                        student_id=effective_student_id,
                         db=db,
                         chatbot_service=chatbot_service,
                     )
@@ -561,15 +569,15 @@ async def chat(message: ChatMessage, db: Session = Depends(get_db)):
             # ── Single query (normal path) ────────────────────────────────────────
             response_payload = await _process_single_query(
                 normalized_text=normalized_message,
-                student_id=message.student_id,
+                student_id=effective_student_id,
                 db=db,
                 chatbot_service=chatbot_service,
             )
 
-        if message.student_id:
+        if effective_student_id:
             try:
                 conversation, _, assistant_message = history_service.save_chat_turn(
-                    student_pk=message.student_id,
+                    student_pk=effective_student_id,
                     user_content=message.message,
                     assistant_payload=response_payload.model_dump(),
                     conversation_id=message.conversation_id,
@@ -666,11 +674,15 @@ async def intents_endpoint():
 
 
 @router.post("/conversations", response_model=ChatConversationItem)
-async def create_conversation(payload: ConversationCreateRequest, db: Session = Depends(get_db)):
+async def create_conversation(
+    payload: ConversationCreateRequest,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     try:
         service = ChatHistoryService(db)
         conversation = service.create_conversation(
-            student_pk=payload.student_id,
+            student_pk=current_student.id,
             title=payload.title,
         )
         return ChatConversationItem(
@@ -690,11 +702,12 @@ async def list_conversations(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     try:
         service = ChatHistoryService(db)
         result = service.list_conversations(
-            student_pk=student_id,
+            student_pk=current_student.id,
             page=page,
             page_size=page_size,
         )
@@ -710,11 +723,12 @@ async def list_conversation_messages(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     try:
         service = ChatHistoryService(db)
         result = service.list_messages(
-            student_pk=student_id,
+            student_pk=current_student.id,
             conversation_id=conversation_id,
             page=page,
             page_size=page_size,
@@ -731,11 +745,12 @@ async def rename_conversation(
     conversation_id: int,
     payload: ConversationUpdateRequest,
     db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     try:
         service = ChatHistoryService(db)
         conversation = service.rename_conversation(
-            student_pk=payload.student_id,
+            student_pk=current_student.id,
             conversation_id=conversation_id,
             title=payload.title,
         )
@@ -757,10 +772,11 @@ async def delete_conversation(
     conversation_id: int,
     student_id: int = Query(..., ge=1),
     db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     try:
         service = ChatHistoryService(db)
-        service.delete_conversation(student_pk=student_id, conversation_id=conversation_id)
+        service.delete_conversation(student_pk=current_student.id, conversation_id=conversation_id)
         return {"success": True}
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

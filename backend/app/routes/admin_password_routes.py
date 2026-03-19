@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.admin_model import Admin
+from app.utils.jwt_utils import get_current_admin
 from app.schemas.admin_schema import (
     ChangePasswordRequest, 
     RequestPasswordResetRequest, 
@@ -40,96 +41,56 @@ def check_password_expiry(admin: Admin) -> bool:
 
 
 @router.get("/profile", response_model=AdminResponse)
-def get_admin_profile(db: Session = Depends(get_db)):
+def get_admin_profile(current_admin: Admin = Depends(get_current_admin)):
     """Lấy thông tin admin profile"""
-    admin = db.query(Admin).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="Admin không tồn tại")
-    
-    return admin
+    return current_admin
 
 
 @router.post("/request-password-reset", response_model=PasswordResetResponse)
 def request_password_reset(
     request: RequestPasswordResetRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
 ):
-    """Yêu cầu đổi mật khẩu - gửi OTP qua email"""
-    # Kiểm tra admin có tồn tại không
-    admin = db.query(Admin).filter(Admin.email == request.email).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="Email admin không tồn tại")
-    
-    # Tạo và gửi OTP
-    otp = email_service.create_otp_record(db, request.email, "password_reset")
-    if not otp:
-        raise HTTPException(status_code=500, detail="Không thể tạo mã OTP")
-    
-    # Gửi email
-    if not email_service.send_otp_email(request.email, otp, "password_reset"):
-        raise HTTPException(status_code=500, detail="Không thể gửi email OTP")
-    
+    """Deprecated OTP flow: endpoint kept for backward compatibility."""
     return PasswordResetResponse(
-        message="Mã OTP đã được gửi đến email của bạn",
-        expires_in=600  # 10 phút
+        message="OTP flow is disabled. Use /admin/change-password while authenticated.",
+        expires_in=0,
     )
 
 
 @router.post("/verify-otp-and-change-password")
 def verify_otp_and_change_password(
     request: VerifyOTPRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
 ):
-    """Xác thực OTP và đổi mật khẩu"""
-    # Kiểm tra admin có tồn tại không
-    admin = db.query(Admin).filter(Admin.email == request.email).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="Email admin không tồn tại")
-    
-    # Xác thực OTP
-    if not email_service.verify_otp(db, request.email, request.otp, "password_reset"):
-        raise HTTPException(status_code=400, detail="Mã OTP không hợp lệ hoặc đã hết hạn")
-    
-    # Kiểm tra mật khẩu mới khác mật khẩu cũ
-    new_password_hash = hash_password(request.new_password)
-    if admin.password_hash == new_password_hash:
-        raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
-    
-    # Cập nhật mật khẩu
-    admin.password_hash = new_password_hash
-    admin.password_updated_at = datetime.now()
-    
-    try:
-        db.commit()
-        return {"message": "Đổi mật khẩu thành công"}
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Lỗi khi cập nhật mật khẩu")
+    """Deprecated OTP flow: endpoint kept for backward compatibility."""
+    raise HTTPException(
+        status_code=410,
+        detail="OTP flow is disabled. Use /admin/change-password while authenticated.",
+    )
 
 
 @router.post("/change-password")
 def change_password_with_current(
     request: ChangePasswordRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_admin: Admin = Depends(get_current_admin),
 ):
     """Đổi mật khẩu với mật khẩu hiện tại (không cần OTP)"""
-    # Lấy thông tin admin (hiện tại chỉ có 1 admin)
-    admin = db.query(Admin).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="Admin không tồn tại")
-    
     # Xác thực mật khẩu hiện tại
-    if not verify_password(request.current_password, admin.password_hash):
+    if not verify_password(request.current_password, current_admin.password_hash):
         raise HTTPException(status_code=400, detail="Mật khẩu hiện tại không chính xác")
     
     # Kiểm tra mật khẩu mới khác mật khẩu cũ
     new_password_hash = hash_password(request.new_password)
-    if admin.password_hash == new_password_hash:
+    if current_admin.password_hash == new_password_hash:
         raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
     
     # Cập nhật mật khẩu
-    admin.password_hash = new_password_hash
-    admin.password_updated_at = datetime.now()
+    current_admin.password_hash = new_password_hash
+    current_admin.password_updated_at = datetime.now()
     
     try:
         db.commit()
@@ -140,22 +101,18 @@ def change_password_with_current(
 
 
 @router.get("/password-status")
-def check_password_status(db: Session = Depends(get_db)):
+def check_password_status(current_admin: Admin = Depends(get_current_admin)):
     """Kiểm tra trạng thái mật khẩu (có hết hạn không)"""
-    admin = db.query(Admin).first()
-    if not admin:
-        raise HTTPException(status_code=404, detail="Admin không tồn tại")
-    
-    is_expired = check_password_expiry(admin)
+    is_expired = check_password_expiry(current_admin)
     days_until_expiry = None
     
-    if not is_expired and admin.password_updated_at:
-        expiry_date = admin.password_updated_at + timedelta(days=90)
+    if not is_expired and current_admin.password_updated_at:
+        expiry_date = current_admin.password_updated_at + timedelta(days=90)
         days_until_expiry = (expiry_date - datetime.now()).days
     
     return {
         "is_expired": is_expired,
         "days_until_expiry": days_until_expiry,
-        "last_updated": admin.password_updated_at,
+        "last_updated": current_admin.password_updated_at,
         "message": "Mật khẩu đã hết hạn, vui lòng đổi mật khẩu" if is_expired else "Mật khẩu còn hiệu lực"
     }

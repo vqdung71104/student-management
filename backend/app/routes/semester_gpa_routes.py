@@ -1,15 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.__init__ import SemesterGPA
+from app.models.__init__ import SemesterGPA, Student
 from app.schemas.semester_gpa_schema import SemesterGPACreate, SemesterGPAUpdate, SemesterGPAResponse
+from app.utils.jwt_utils import get_current_student
 
 router = APIRouter(prefix="/semester-gpa", tags=["Semester GPA"])
 
 #    Create semester GPA
 @router.post("/", response_model=SemesterGPAResponse)
-def create_semester_gpa(semester_gpa_data: SemesterGPACreate, db: Session = Depends(get_db)):
+def create_semester_gpa(
+    semester_gpa_data: SemesterGPACreate,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     db_semester_gpa = SemesterGPA(**semester_gpa_data.dict())
+    db_semester_gpa.student_id = current_student.id
     db.add(db_semester_gpa)
     db.commit()
     db.refresh(db_semester_gpa)
@@ -17,12 +23,19 @@ def create_semester_gpa(semester_gpa_data: SemesterGPACreate, db: Session = Depe
 
 #    Get all semester GPAs
 @router.get("/", response_model=list[SemesterGPAResponse])
-def get_semester_gpas(db: Session = Depends(get_db)):
-    return db.query(SemesterGPA).all()
+def get_semester_gpas(
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    return db.query(SemesterGPA).filter(SemesterGPA.student_id == current_student.id).all()
 
 #    Get semester GPA by ID
 @router.get("/{semester_gpa_id}", response_model=SemesterGPAResponse)
-def get_semester_gpa(semester_gpa_id: int, db: Session = Depends(get_db)):
+def get_semester_gpa(
+    semester_gpa_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     semester_gpa = db.query(SemesterGPA).filter(SemesterGPA.id == semester_gpa_id).first()
     if not semester_gpa:
         raise HTTPException(status_code=404, detail="Semester GPA not found")
@@ -30,7 +43,12 @@ def get_semester_gpa(semester_gpa_id: int, db: Session = Depends(get_db)):
 
 #    Update semester GPA
 @router.put("/{semester_gpa_id}", response_model=SemesterGPAResponse)
-def update_semester_gpa(semester_gpa_id: int, semester_gpa_update: SemesterGPAUpdate, db: Session = Depends(get_db)):
+def update_semester_gpa(
+    semester_gpa_id: int,
+    semester_gpa_update: SemesterGPAUpdate,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     semester_gpa = db.query(SemesterGPA).filter(SemesterGPA.id == semester_gpa_id).first()
     if not semester_gpa:
         raise HTTPException(status_code=404, detail="Semester GPA not found")
@@ -44,7 +62,11 @@ def update_semester_gpa(semester_gpa_id: int, semester_gpa_update: SemesterGPAUp
 
 #    Delete semester GPA
 @router.delete("/{semester_gpa_id}")
-def delete_semester_gpa(semester_gpa_id: int, db: Session = Depends(get_db)):
+def delete_semester_gpa(
+    semester_gpa_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     semester_gpa = db.query(SemesterGPA).filter(SemesterGPA.id == semester_gpa_id).first()
     if not semester_gpa:
         raise HTTPException(status_code=404, detail="Semester GPA not found")

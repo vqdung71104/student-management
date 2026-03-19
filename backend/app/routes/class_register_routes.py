@@ -4,13 +4,19 @@ from typing import List
 from app.db.database import get_db
 from app.models.__init__ import ClassRegister, Student
 from app.schemas.class_register_schema import ClassRegisterCreate, ClassRegisterUpdate, ClassRegisterResponse
+from app.utils.jwt_utils import get_current_student
 
 router = APIRouter(prefix="/class-registers", tags=["Class Registers"])
 
 #    Create class register
 @router.post("/", response_model=ClassRegisterResponse)
-def create_class_register(register_data: ClassRegisterCreate, db: Session = Depends(get_db)):
+def create_class_register(
+    register_data: ClassRegisterCreate,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     db_register = ClassRegister(**register_data.dict())
+    db_register.student_id = current_student.id
     db.add(db_register)
     db.commit()
     db.refresh(db_register)
@@ -18,12 +24,19 @@ def create_class_register(register_data: ClassRegisterCreate, db: Session = Depe
 
 #    Get all class registers
 @router.get("/", response_model=list[ClassRegisterResponse])
-def get_class_registers(db: Session = Depends(get_db)):
-    return db.query(ClassRegister).all()
+def get_class_registers(
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    return db.query(ClassRegister).filter(ClassRegister.student_id == current_student.id).all()
 
 #    Get class register by ID
 @router.get("/{register_id}", response_model=ClassRegisterResponse)
-def get_class_register(register_id: int, db: Session = Depends(get_db)):
+def get_class_register(
+    register_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     register = db.query(ClassRegister).filter(ClassRegister.id == register_id).first()
     if not register:
         raise HTTPException(status_code=404, detail="Class register not found")
@@ -31,13 +44,21 @@ def get_class_register(register_id: int, db: Session = Depends(get_db)):
 
 #    Get class registers by student database ID (internal ID)
 @router.get("/student/{student_id}", response_model=list[ClassRegisterResponse])
-def get_class_registers_by_student_db_id(student_id: int, db: Session = Depends(get_db)):
+def get_class_registers_by_student_db_id(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_id).all()
     return registers
 
 #    Get class registers by student MSSV
 @router.get("/student-mssv/{student_id}", response_model=List[ClassRegisterResponse])
-def get_class_registers_by_student_mssv(student_id: str, db: Session = Depends(get_db)):
+def get_class_registers_by_student_mssv(
+    student_id: str,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     """Get all class registers for a student by student_id (MSSV)"""
     # First find the student by student_id
     student = db.query(Student).filter(Student.student_id == student_id).first()
@@ -51,19 +72,35 @@ def get_class_registers_by_student_mssv(student_id: str, db: Session = Depends(g
     return registers
 
 @router.get("/student-by-id/{student_db_id}", response_model=List[ClassRegisterResponse])
-def get_class_registers_by_student_id(student_db_id: int, db: Session = Depends(get_db)):
+def get_class_registers_by_student_id(
+    student_db_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_db_id).all()
     return registers
 
 #    Get class registers by class ID
 @router.get("/class/{class_id}", response_model=list[ClassRegisterResponse])
-def get_class_registers_by_class(class_id: int, db: Session = Depends(get_db)):
-    registers = db.query(ClassRegister).filter(ClassRegister.class_id == class_id).all()
+def get_class_registers_by_class(
+    class_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    registers = db.query(ClassRegister).filter(
+        ClassRegister.class_id == class_id,
+        ClassRegister.student_id == current_student.id,
+    ).all()
     return registers
 
 #    Update class register
 @router.put("/{register_id}", response_model=ClassRegisterResponse)
-def update_class_register(register_id: int, register_update: ClassRegisterUpdate, db: Session = Depends(get_db)):
+def update_class_register(
+    register_id: int,
+    register_update: ClassRegisterUpdate,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     register = db.query(ClassRegister).filter(ClassRegister.id == register_id).first()
     if not register:
         raise HTTPException(status_code=404, detail="Class register not found")
@@ -77,7 +114,11 @@ def update_class_register(register_id: int, register_update: ClassRegisterUpdate
 
 #    Delete class register
 @router.delete("/{register_id}")
-def delete_class_register(register_id: int, db: Session = Depends(get_db)):
+def delete_class_register(
+    register_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     register = db.query(ClassRegister).filter(ClassRegister.id == register_id).first()
     if not register:
         raise HTTPException(status_code=404, detail="Class register not found")

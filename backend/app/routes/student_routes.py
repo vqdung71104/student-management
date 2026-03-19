@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.__init__ import Student, LearnedSubject, SemesterGPA, Course
-from app.schemas.student_schemas import StudentCreate, StudentUpdate, StudentResponse
+from app.schemas.student_schemas import StudentCreate, StudentUpdate, StudentAccountResponse
+from app.utils.jwt_utils import get_current_admin, get_current_student
 from app.utils.grade_calculator import letter_grade_to_score
 import hashlib
 
@@ -10,8 +11,12 @@ router = APIRouter(prefix="/students", tags=["Students"])
 
 
 #    Create student (chỉ dành cho admin, student sẽ dùng /auth/register)
-@router.post("/", response_model=StudentResponse)
-def create_student(student: StudentCreate, db: Session = Depends(get_db)):
+@router.post("/", response_model=StudentAccountResponse)
+def create_student(
+    student: StudentCreate,
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_admin),
+):
     # Check trùng email
     if db.query(Student).filter(Student.email == student.email).first():
         raise HTTPException(status_code=400, detail="Email đã tồn tại")
@@ -41,14 +46,21 @@ def create_student(student: StudentCreate, db: Session = Depends(get_db)):
 
 
 #    Get all students
-@router.get("/", response_model=list[StudentResponse])
-def get_students(db: Session = Depends(get_db)):
+@router.get("/", response_model=list[StudentAccountResponse])
+def get_students(
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_admin),
+):
     return db.query(Student).all()
 
 
 #    Get student by id
-@router.get("/{student_id}", response_model=StudentResponse)
-def get_student(student_id: int, db: Session = Depends(get_db)):
+@router.get("/{student_id}", response_model=StudentAccountResponse)
+def get_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_admin),
+):
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên") #không thấy sinh viên
@@ -56,8 +68,13 @@ def get_student(student_id: int, db: Session = Depends(get_db)):
 
 
 #    Update student
-@router.put("/{student_id}", response_model=StudentResponse)
-def update_student(student_id: int, student_update: StudentUpdate, db: Session = Depends(get_db)):
+@router.put("/{student_id}", response_model=StudentAccountResponse)
+def update_student(
+    student_id: int,
+    student_update: StudentUpdate,
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_admin),
+):
     db_student = db.query(Student).filter(Student.id == student_id).first()
     if not db_student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
@@ -83,7 +100,11 @@ def update_student(student_id: int, student_update: StudentUpdate, db: Session =
 
 #    Delete student
 @router.delete("/{student_id}")
-def delete_student(student_id: int, db: Session = Depends(get_db)):
+def delete_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    _: object = Depends(get_current_admin),
+):
     db_student = db.query(Student).filter(Student.id == student_id).first()
     if not db_student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
@@ -95,7 +116,11 @@ def delete_student(student_id: int, db: Session = Depends(get_db)):
 
 #    Get student with detailed academic information
 @router.get("/{student_id}/academic-details")
-def get_student_academic_details(student_id: int, db: Session = Depends(get_db)):
+def get_student_academic_details(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     student = db.query(Student).filter(Student.id == student_id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")

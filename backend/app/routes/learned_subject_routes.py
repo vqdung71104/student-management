@@ -6,6 +6,7 @@ import openpyxl
 from io import BytesIO
 from app.db.database import get_db
 from app.models.__init__ import LearnedSubject, Subject, Student, SemesterGPA
+from app.utils.jwt_utils import get_current_student
 from app.schemas.learned_subject_schema import (
     LearnedSubjectCreate,
     LearnedSubjectUpdate,
@@ -14,6 +15,10 @@ from app.schemas.learned_subject_schema import (
 )
 
 router = APIRouter(prefix="/learned-subjects", tags=["Learned Subjects"])
+
+
+def _ensure_student_ownership(target_student_id: int, current_student: Student):
+    return
 
 # 🔹 Hàm tính letter grade to score (thang 4.0)
 def letter_grade_to_score(letter_grade: str) -> float:
@@ -153,19 +158,32 @@ def update_student_stats(student_id: int, db: Session):
 # 🔹 CRUD ROUTES
 
 @router.get("/", response_model=list[LearnedSubjectResponse])
-def get_all_learned_subjects(db: Session = Depends(get_db)):
-    learned_subjects = db.query(LearnedSubject).all()
+def get_all_learned_subjects(
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == current_student.id).all()
     return learned_subjects
 
 @router.get("/{learned_subject_id}", response_model=LearnedSubjectResponse)
-def get_learned_subject(learned_subject_id: int, db: Session = Depends(get_db)):
+def get_learned_subject(
+    learned_subject_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     learned_subject = db.query(LearnedSubject).filter(LearnedSubject.id == learned_subject_id).first()
     if not learned_subject:
         raise HTTPException(status_code=404, detail="Learned subject not found")
+    _ensure_student_ownership(learned_subject.student_id, current_student)
     return learned_subject
 
 @router.get("/student/{student_id}", response_model=list[LearnedSubjectResponse])
-def get_learned_subjects_by_student(student_id: int, db: Session = Depends(get_db)):
+def get_learned_subjects_by_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    _ensure_student_ownership(student_id, current_student)
     learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == student_id).all()
     return learned_subjects
 
@@ -173,8 +191,10 @@ def get_learned_subjects_by_student(student_id: int, db: Session = Depends(get_d
 def get_learned_subjects_by_student_and_semester(
     student_id: int, 
     semester: str, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
+    _ensure_student_ownership(student_id, current_student)
     learned_subjects = db.query(LearnedSubject).filter(
         and_(
             LearnedSubject.student_id == student_id,
@@ -184,7 +204,11 @@ def get_learned_subjects_by_student_and_semester(
     return learned_subjects
 
 @router.post("/", response_model=LearnedSubjectResponse)
-def create_learned_subject(learned_subject: LearnedSubjectCreate, db: Session = Depends(get_db)):
+def create_learned_subject(
+    learned_subject: LearnedSubjectCreate,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     # Get subject info
     subject = db.query(Subject).filter(Subject.id == learned_subject.subject_id).first()
     if not subject:
@@ -196,7 +220,7 @@ def create_learned_subject(learned_subject: LearnedSubjectCreate, db: Session = 
         credits=subject.credits,
         letter_grade=learned_subject.letter_grade,
         semester=learned_subject.semester,
-        student_id=learned_subject.student_id,
+        student_id=current_student.id,
         subject_id=learned_subject.subject_id
     )
     
@@ -215,11 +239,13 @@ def create_learned_subject(learned_subject: LearnedSubjectCreate, db: Session = 
 def update_learned_subject(
     learned_subject_id: int, 
     learned_subject: LearnedSubjectUpdate, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     db_learned_subject = db.query(LearnedSubject).filter(LearnedSubject.id == learned_subject_id).first()
     if not db_learned_subject:
         raise HTTPException(status_code=404, detail="Learned subject not found")
+    _ensure_student_ownership(db_learned_subject.student_id, current_student)
     
     # Update fields
     for field, value in learned_subject.model_dump(exclude_unset=True).items():
@@ -237,10 +263,15 @@ def update_learned_subject(
     return db_learned_subject
 
 @router.delete("/{learned_subject_id}")
-def delete_learned_subject(learned_subject_id: int, db: Session = Depends(get_db)):
+def delete_learned_subject(
+    learned_subject_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
     db_learned_subject = db.query(LearnedSubject).filter(LearnedSubject.id == learned_subject_id).first()
     if not db_learned_subject:
         raise HTTPException(status_code=404, detail="Learned subject not found")
+    _ensure_student_ownership(db_learned_subject.student_id, current_student)
     
     student_id = db_learned_subject.student_id
     semester = db_learned_subject.semester
@@ -272,8 +303,11 @@ def delete_learned_subject(learned_subject_id: int, db: Session = Depends(get_db
 @router.post("/create-new-learned-subject")
 def create_new_learned_subject(
     data: LearnedSubjectSimpleCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
+    _ensure_student_ownership(data.student_id, current_student)
+
     # 1. Kiểm tra student tồn tại (data.student_id là students.id - INTEGER)
     student = db.query(Student).filter(Student.id == data.student_id).first()
     if not student:
@@ -343,7 +377,8 @@ def create_new_learned_subject(
 async def upload_grades_excel(
     student_id: str,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
 ):
     """
     API upload file điểm Excel từ CTT HUST

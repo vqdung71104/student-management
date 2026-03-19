@@ -64,6 +64,18 @@ class StudentResponse(BaseModel):
         from_attributes = True
 
 
+class StudentAccountResponse(BaseModel):
+    """Restricted student account view for admin account-management APIs."""
+    id: int
+    student_name: str
+    email: EmailStr
+    course_id: int
+    department_id: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 # Student Password Management Schemas
 class StudentChangePasswordRequest(BaseModel):
     current_password: str
