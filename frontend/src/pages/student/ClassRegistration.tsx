@@ -27,6 +27,7 @@ interface Class {
   status: string
   linked_class_ids?: number[]
   subject?: {
+    id?: number
     subject_name: string
     credits: number
   }
@@ -358,8 +359,10 @@ const ClassRegistration = () => {
       (classItem.subject_name || '').toLowerCase().includes(searchLower) ||
       (classItem.instructor_name || '').toLowerCase().includes(searchLower)
     const matchStatus = filterStatus === null || (classItem.status || '') === filterStatus
-    const classSubjectId = classItem.subject_id
-    const matchRegisteredSubject = !showRegisteredSubjectOnly || registeredSubjectIds.includes(String(classSubjectId))
+    const classSubjectId = classItem.subject?.id ?? classItem.subject_id
+    const matchRegisteredSubject =
+      !showRegisteredSubjectOnly ||
+      (classSubjectId !== undefined && classSubjectId !== null && registeredSubjectIds.includes(String(classSubjectId)))
 
     // Check if already registered
     const isRegistered = registeredClasses.some(reg => reg.class_id === classItem.id)
