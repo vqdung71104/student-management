@@ -134,6 +134,8 @@ venv.bak/
 # Local virtualenv
 .venv/
 .env/
+.env
+.env.*
 # Logs
 *.log
 logs/
