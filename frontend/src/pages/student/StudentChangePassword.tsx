@@ -5,7 +5,7 @@ const StudentChangePassword = () => {
   const { userInfo } = useAuth()
   const [currentStep, setCurrentStep] = useState<'current' | 'otp' | 'success'>('current')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   
   // Form data for current password method

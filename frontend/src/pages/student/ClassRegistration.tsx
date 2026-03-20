@@ -358,7 +358,7 @@ const ClassRegistration = () => {
       (classItem.subject_name || '').toLowerCase().includes(searchLower) ||
       (classItem.instructor_name || '').toLowerCase().includes(searchLower)
     const matchStatus = filterStatus === null || (classItem.status || '') === filterStatus
-    const classSubjectId = classItem.subject_id ?? classItem.subject?.id
+    const classSubjectId = classItem.subject_id
     const matchRegisteredSubject = !showRegisteredSubjectOnly || registeredSubjectIds.includes(String(classSubjectId))
 
     // Check if already registered
