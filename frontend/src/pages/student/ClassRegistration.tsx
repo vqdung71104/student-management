@@ -60,17 +60,33 @@ const ClassRegistration = () => {
   const [tablePageSize, setTablePageSize] = useState(10)
   const [tablePage, setTablePage] = useState(1)
 
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    return {
+      ...options,
+      credentials: 'include',
+      headers,
+    }
+  }
+
   // Fetch available classes (only for subjects student registered)
   const fetchClasses = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/classes/')
+      const response = await fetch('/api/classes/', getAuthRequestOptions())
       if (response.ok) {
         const allClasses = await response.json()
         console.log('All classes fetched:', allClasses.length)
 
         // Fetch registration counts for all classes
-        const registrationResponse = await fetch('/api/class-registers/')
+        const registrationResponse = await fetch('/api/class-registers/', getAuthRequestOptions())
         let registrationCounts: { [key: number]: number } = {}
 
         if (registrationResponse.ok) {
@@ -128,13 +144,13 @@ const ClassRegistration = () => {
 
     try {
       // Use student ID endpoint
-      const response = await fetch(`/api/class-registers/student/${userInfo.id}`)
+      const response = await fetch(`/api/class-registers/student/${userInfo.id}`, getAuthRequestOptions())
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered classes data:', registersData)
 
         // Fetch class information for each registered class
-        const classesResponse = await fetch('/api/classes/')
+        const classesResponse = await fetch('/api/classes/', getAuthRequestOptions())
         if (classesResponse.ok) {
           const allClasses = await classesResponse.json()
 
@@ -193,13 +209,13 @@ const ClassRegistration = () => {
 
       console.log('Registering main class:', registerData)
 
-      const response = await fetch('/api/class-registers', {
+      const response = await fetch('/api/class-registers', getAuthRequestOptions({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(registerData),
-      })
+      }))
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -211,7 +227,7 @@ const ClassRegistration = () => {
       const linkedRegistrations = []
       if (linkedClassIds.length > 0) {
         console.log('Fetching all classes to find linked classes...')
-        const allClassesResponse = await fetch('/api/classes/')
+        const allClassesResponse = await fetch('/api/classes/', getAuthRequestOptions())
         if (allClassesResponse.ok) {
           const allClasses = await allClassesResponse.json()
 
@@ -230,13 +246,13 @@ const ClassRegistration = () => {
 
                 console.log(`Registering linked class ${linkedClassId} (DB ID: ${linkedClass.id}):`, linkedRegisterData)
 
-                const linkedResponse = await fetch('/api/class-registers', {
+                const linkedResponse = await fetch('/api/class-registers', getAuthRequestOptions({
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
                   },
                   body: JSON.stringify(linkedRegisterData),
-                })
+                }))
 
                 if (linkedResponse.ok) {
                   linkedRegistrations.push(linkedClassId)
@@ -276,9 +292,9 @@ const ClassRegistration = () => {
     console.log('Attempting to cancel registration with ID:', registerId)
     try {
       setLoading(true)
-      const response = await fetch(`/api/class-registers/${registerId}`, {
+      const response = await fetch(`/api/class-registers/${registerId}`, getAuthRequestOptions({
         method: 'DELETE'
-      })
+      }))
 
       if (response.ok) {
         message.success('Hủy đăng ký thành công!')

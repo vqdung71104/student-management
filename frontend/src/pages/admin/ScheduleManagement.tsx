@@ -242,6 +242,18 @@ const ScheduleManagement = () => {
   const mainScrollRef = useRef<HTMLDivElement>(null)
   const bottomScrollRef = useRef<HTMLDivElement>(null)
 
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    return {
+      ...options,
+      credentials: 'include',
+      headers: {
+        ...(options.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  }
+
   useEffect(() => {
     fetchClasses()
   }, [])
@@ -268,14 +280,17 @@ const ScheduleManagement = () => {
 
   const fetchClasses = async () => {
     try {
-      const response = await fetch('/api/classes/')
+      const response = await fetch('/api/classes/', getAuthRequestOptions())
       if (response.ok) {
         const data = await response.json()
         // Fetch current student count for each class
         const classesWithStudentCount = await Promise.all(
           data.map(async (classItem: any) => {
             try {
-              const registersResponse = await fetch(`/api/class-registers/class/${classItem.id}`)
+              const registersResponse = await fetch(
+                `/api/class-registers/class/${classItem.id}`,
+                getAuthRequestOptions()
+              )
               if (registersResponse.ok) {
                 const registers = await registersResponse.json()
                 return {

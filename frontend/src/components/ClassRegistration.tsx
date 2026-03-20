@@ -50,6 +50,18 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   const [searchText, setSearchText] = useState('')
   const filterStatus: string | null = null
 
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    return {
+      ...options,
+      credentials: 'include',
+      headers: {
+        ...(options.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  }
+
   // Fetch available classes
   const fetchClasses = async () => {
     try {
@@ -71,7 +83,10 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   // Fetch registered classes
   const fetchRegisteredClasses = async () => {
     try {
-      const response = await fetch(`/api/class-registers/student/${studentInfo.student_id}`)
+      const response = await fetch(
+        `/api/class-registers/student/${studentInfo.student_id}`,
+        getAuthRequestOptions()
+      )
       if (response.ok) {
         const data = await response.json()
         setRegisteredClasses(data)
@@ -87,7 +102,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   const registerClass = async (classId: number) => {
     try {
       setLoading(true)
-      const response = await fetch('/api/class-registers/', {
+      const response = await fetch('/api/class-registers/', getAuthRequestOptions({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -99,7 +114,7 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
           register_type: 'Bình thường',
           register_status: 'Đang chờ'
         }),
-      })
+      }))
 
       if (response.ok) {
         message.success('Đăng ký lớp học thành công!')
@@ -123,9 +138,9 @@ const ClassRegistration = ({ studentInfo }: ClassRegistrationProps) => {
   const cancelRegistration = async (registerId: number) => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/class-registers/${registerId}`, {
+      const response = await fetch(`/api/class-registers/${registerId}`, getAuthRequestOptions({
         method: 'DELETE'
-      })
+      }))
 
       if (response.ok) {
         message.success('Hủy đăng ký thành công!')

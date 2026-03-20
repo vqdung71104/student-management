@@ -21,6 +21,21 @@ const Schedule = () => {
   const [classes, setClasses] = useState<ClassSchedule[]>([])
   const [loading, setLoading] = useState(true)
 
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+    return {
+      ...options,
+      credentials: 'include',
+      headers,
+    }
+  }
+
   const daysOfWeek = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
   const daysOfWeekFull = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
 
@@ -42,7 +57,7 @@ const Schedule = () => {
         return
       }
 
-      const classRegisterResponse = await fetch(`/api/class-registers/student/${userInfo.id}`)
+      const classRegisterResponse = await fetch(`/api/class-registers/student/${userInfo.id}`, getAuthRequestOptions())
 
       if (classRegisterResponse.ok) {
         const classRegisters = await classRegisterResponse.json()
@@ -50,7 +65,7 @@ const Schedule = () => {
         const classDetails = await Promise.all(
           classRegisters.map(async (register: any) => {
             try {
-              const classResponse = await fetch(`/api/classes/${register.class_id}`)
+              const classResponse = await fetch(`/api/classes/${register.class_id}`, getAuthRequestOptions())
               if (classResponse.ok) {
                 const classData = await classResponse.json()
                 const subjectData = classData.subject

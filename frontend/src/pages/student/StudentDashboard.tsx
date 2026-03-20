@@ -14,13 +14,28 @@ const StudentDashboard = () => {
   const [recentGrades, setRecentGrades] = useState<Array<{ subject: string, grade: string }>>([])
   const [upcomingSchedule, setUpcomingSchedule] = useState<Array<{ subject: string, time: string, room: string, day: string }>>([])
 
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+    return {
+      ...options,
+      credentials: 'include',
+      headers,
+    }
+  }
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       if (!userInfo?.id) return
 
       try {
         // Lấy thông tin chi tiết học tập
-        const response = await fetch(`/api/students/${userInfo.id}/academic-details`)
+        const response = await fetch(`/api/students/${userInfo.id}/academic-details`, getAuthRequestOptions())
         if (response.ok) {
           const data = await response.json()
           console.log('Academic details data:', data) // Debug log
@@ -47,7 +62,7 @@ const StudentDashboard = () => {
         }
 
         // Lấy lịch học tuần này  
-        const scheduleResponse = await fetch(`/api/class-registers/student/${userInfo.id}`)
+        const scheduleResponse = await fetch(`/api/class-registers/student/${userInfo.id}`, getAuthRequestOptions())
         if (scheduleResponse.ok) {
           const classRegisters = await scheduleResponse.json()
           console.log('Class registers data:', classRegisters) // Debug log
@@ -56,7 +71,7 @@ const StudentDashboard = () => {
           const upcomingData = await Promise.all(
             classRegisters.slice(0, 3).map(async (register: any) => {
               try {
-                const classResponse = await fetch(`/api/classes/${register.class_id}`)
+                const classResponse = await fetch(`/api/classes/${register.class_id}`, getAuthRequestOptions())
                 if (classResponse.ok) {
                   const classData = await classResponse.json()
 
@@ -66,7 +81,7 @@ const StudentDashboard = () => {
                     return null
                   }
 
-                  const subjectResponse = await fetch(`/api/subjects/${classData.subject_id}`)
+                  const subjectResponse = await fetch(`/api/subjects/${classData.subject_id}`, getAuthRequestOptions())
                   if (subjectResponse.ok) {
                     const subjectData = await subjectResponse.json()
 

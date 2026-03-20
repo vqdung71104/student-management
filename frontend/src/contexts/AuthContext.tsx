@@ -86,6 +86,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (response.ok) {
         const data = await response.json()
+        if (data.access_token) {
+          localStorage.setItem('access_token', data.access_token)
+        }
         if (data.user_type === 'student') {
           setUserRole('student')
           setUserInfo(data.user_info)
@@ -156,6 +159,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (response.ok) {
         // Auto login after registration
+        if (data.access_token) {
+          localStorage.setItem('access_token', data.access_token)
+        }
         setUserRole('student')
         setUserInfo(data.user_info)
         setIsAuthenticated(true)
@@ -174,6 +180,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUserRole(null)
     setUserInfo(null)
     localStorage.removeItem('authState')
+    localStorage.removeItem('access_token')
   }
 
   const value = {

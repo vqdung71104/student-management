@@ -217,7 +217,7 @@ const StudentChangePassword = () => {
         <div className="bg-white rounded-lg shadow-md p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-6 text-center">Đổi mật khẩu</h1>
           
-          <div className="mb-6">
+          {/* <div className="mb-6">
             <p className="text-sm text-gray-600 mb-4">Email của bạn: <span className="font-medium">{userInfo?.email}</span></p>
             
             <div className="flex space-x-4 mb-4">
@@ -248,7 +248,7 @@ const StudentChangePassword = () => {
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-600 text-sm">{error}</p>
             </div>
-          )}
+          )}*/}
 
           {successMessage && !currentStep.includes('success') && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">

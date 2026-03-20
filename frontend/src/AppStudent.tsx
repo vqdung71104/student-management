@@ -83,6 +83,18 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   ])
   const [chatInput, setChatInput] = useState('')
 
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    return {
+      ...options,
+      credentials: 'include',
+      headers: {
+        ...(options.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }
+  }
+
  
   const toggleChatbot = () => {
     setChatbotOpen(!chatbotOpen)
@@ -125,7 +137,10 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
   const fetchScheduleData = async () => {
     try {
       if (studentInfo?.id) {
-        const response = await fetch(`/api/class-registers/student/${studentInfo.id}`)
+        const response = await fetch(
+          `/api/class-registers/student/${studentInfo.id}`,
+          getAuthRequestOptions()
+        )
         if (response.ok) {
           const data: ScheduleItem[] = await response.json()
           setScheduleData(data)
