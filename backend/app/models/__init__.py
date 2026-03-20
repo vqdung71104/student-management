@@ -11,4 +11,5 @@ from .semester_gpa_model import SemesterGPA
 from .feedback_model import Feedback, FAQ
 from .admin_model import Admin
 from .chat_history_model import ChatConversation, ChatMessage
+from .password_reset_token_model import PasswordResetToken
 

@@ -29,6 +29,16 @@ class Settings:
     ALGORITHM: str = os.getenv("ALGORITHM", "HS256")
     raw_value = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
     ACCESS_TOKEN_EXPIRE_MINUTES = int(raw_value) if raw_value and raw_value.strip() else 30
+
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", 587))
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "").strip()
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "").replace(" ", "").strip()
+    SMTP_SENDER: str = os.getenv("SMTP_SENDER", SMTP_USERNAME)
+
+    FRONTEND_BASE_URL: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+    RESET_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("RESET_TOKEN_EXPIRE_MINUTES", 15))
+    RATE_LIMIT_RESET_PER_HOUR: int = int(os.getenv("RATE_LIMIT_RESET_PER_HOUR", 5))
     
 
     HOST: str = os.getenv("HOST", "127.0.0.1")

@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import StudentsManagement from './pages/admin/StudentsManagement'
 import SubjectsManagement from './pages/admin/SubjectsManagement'
@@ -50,6 +52,28 @@ function AppRoutes() {
             <Register />
           )
         } 
+      />
+
+      <Route
+        path="/forgot-password"
+        element={
+          isAuthenticated ? (
+            <Navigate to={userRole === 'admin' ? '/admin' : '/student'} replace />
+          ) : (
+            <ForgotPassword />
+          )
+        }
+      />
+
+      <Route
+        path="/reset-password"
+        element={
+          isAuthenticated ? (
+            <Navigate to={userRole === 'admin' ? '/admin' : '/student'} replace />
+          ) : (
+            <ResetPassword />
+          )
+        }
       />
       
       {/* Admin Routes */}

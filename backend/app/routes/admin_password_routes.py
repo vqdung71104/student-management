@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.admin_model import Admin
 from app.utils.jwt_utils import get_current_admin
+from app.utils.password_utils import hash_password, verify_password
 from app.schemas.admin_schema import (
     ChangePasswordRequest, 
     RequestPasswordResetRequest, 
@@ -10,26 +11,9 @@ from app.schemas.admin_schema import (
     PasswordResetResponse,
     AdminResponse
 )
-from app.services.email_service import email_service
-import hashlib
 from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/admin", tags=["Admin Password Management"])
-
-
-def hash_password(password: str) -> str:
-    """Hash password using SHA256"""
-    return hashlib.sha256(password.encode()).hexdigest()
-
-
-def verify_password(password: str, hashed_password: str) -> bool:
-    """Verify password against hash (support both MD5 and SHA256)"""
-    # Try SHA256 first (new format)
-    if hashlib.sha256(password.encode()).hexdigest() == hashed_password:
-        return True
-    # Fallback to MD5 (old format)
-    return hashlib.md5(password.encode()).hexdigest() == hashed_password
-
 
 def check_password_expiry(admin: Admin) -> bool:
     """Kiểm tra xem mật khẩu có hết hạn không (3 tháng)"""

@@ -3,38 +3,18 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.student_model import Student
 from app.utils.jwt_utils import get_current_student
+from app.utils.password_utils import hash_password, verify_password
 from app.schemas.student_schemas import (
     StudentChangePasswordRequest, 
     StudentRequestPasswordResetRequest, 
     StudentVerifyOTPRequest,
     StudentPasswordResetResponse
 )
-from app.services.email_service import email_service
 from pydantic import BaseModel, validator
-import hashlib
 import re
 from datetime import datetime
 
 router = APIRouter(prefix="/student", tags=["Student Password Management"])
-
-
-def hash_password_sha256(password: str) -> str:
-    """Hash password using SHA256"""
-    return hashlib.sha256(password.encode()).hexdigest()
-
-
-def hash_password_md5(password: str) -> str:
-    """Hash password using MD5 (for backward compatibility)"""
-    return hashlib.md5(password.encode()).hexdigest()
-
-
-def verify_password(password: str, hashed_password: str) -> bool:
-    """Verify password against hash (support both MD5 and SHA256)"""
-    # Try SHA256 first (new format)
-    if hash_password_sha256(password) == hashed_password:
-        return True
-    # Fallback to MD5 (old format)
-    return hash_password_md5(password) == hashed_password
 
 
 @router.post("/request-password-reset", response_model=StudentPasswordResetResponse)
@@ -106,7 +86,7 @@ def change_password_with_current(
         raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
     
     # Cập nhật mật khẩu với SHA256
-    current_student.password = hash_password_sha256(request.new_password)
+    current_student.password = hash_password(request.new_password)
     current_student.password_updated_at = datetime.now()
     
     try:

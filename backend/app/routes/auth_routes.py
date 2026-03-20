@@ -1,10 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.__init__ import Student, Admin
 from app.utils.jwt_utils import create_access_token, get_current_student, get_current_user
 from pydantic import BaseModel, EmailStr, validator
-import hashlib
+from datetime import datetime
+
+from app.core.config import settings
+from app.services.email_service import email_service
+from app.services.password_reset_service import password_reset_service
+from app.utils.password_utils import hash_password, verify_password, needs_rehash
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -37,18 +42,34 @@ class LoginResponse(BaseModel):
     token_type: str
 
 
-def hash_password_sha256(password: str) -> str:
-    """Hash password using SHA256"""
-    return hashlib.sha256(password.encode()).hexdigest()
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
 
 
-def verify_password(password: str, hashed_password: str) -> bool:
-    """Verify password against hash (support both MD5 and SHA256)"""
-    # Try SHA256 first (new format)
-    if hashlib.sha256(password.encode()).hexdigest() == hashed_password:
-        return True
-    # Fallback to MD5 (old format)
-    return hashlib.md5(password.encode()).hexdigest() == hashed_password
+class ForgotPasswordResponse(BaseModel):
+    message: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+    @validator('new_password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
+        return v
+
+
+def _set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+        max_age=30 * 24 * 60 * 60,
+    )
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -59,21 +80,19 @@ def login(request: LoginRequest, response: Response, db: Session = Depends(get_d
     # Admin đăng nhập với database (check by email)
     admin = db.query(Admin).filter(Admin.email == request.email).first()
     if admin and verify_password(request.password, admin.password_hash):
+        if needs_rehash(admin.password_hash):
+            admin.password_hash = hash_password(request.password)
+            admin.password_updated_at = datetime.now()
+            db.commit()
+
         # Create JWT token for admin
         token = create_access_token(data={
             "user_id": admin.id,
             "user_type": "admin",
             "email": admin.email
         })
-        
-        response.set_cookie(
-            key="access_token",
-            value=token,
-            httponly=True,
-            samesite="lax",
-            secure=False,
-            max_age=30 * 24 * 60 * 60,
-        )
+
+        _set_auth_cookie(response, token)
 
         return LoginResponse(
             user_type="admin",
@@ -91,21 +110,19 @@ def login(request: LoginRequest, response: Response, db: Session = Depends(get_d
     # Admin đăng nhập với database (check by username for backward compatibility)
     admin_by_username = db.query(Admin).filter(Admin.username == request.email).first()
     if admin_by_username and verify_password(request.password, admin_by_username.password_hash):
+        if needs_rehash(admin_by_username.password_hash):
+            admin_by_username.password_hash = hash_password(request.password)
+            admin_by_username.password_updated_at = datetime.now()
+            db.commit()
+
         # Create JWT token for admin
         token = create_access_token(data={
             "user_id": admin_by_username.id,
             "user_type": "admin",
             "email": admin_by_username.email
         })
-        
-        response.set_cookie(
-            key="access_token",
-            value=token,
-            httponly=True,
-            samesite="lax",
-            secure=False,
-            max_age=30 * 24 * 60 * 60,
-        )
+
+        _set_auth_cookie(response, token)
 
         return LoginResponse(
             user_type="admin",
@@ -124,21 +141,19 @@ def login(request: LoginRequest, response: Response, db: Session = Depends(get_d
     student = db.query(Student).filter(Student.email == request.email).first()
     
     if student and verify_password(request.password, student.password):
+        if needs_rehash(student.password):
+            student.password = hash_password(request.password)
+            student.password_updated_at = datetime.now()
+            db.commit()
+
         # Create JWT token for student
         token = create_access_token(data={
             "user_id": student.id,
             "user_type": "student",
             "email": student.email
         })
-        
-        response.set_cookie(
-            key="access_token",
-            value=token,
-            httponly=True,
-            samesite="lax",
-            secure=False,
-            max_age=30 * 24 * 60 * 60,
-        )
+
+        _set_auth_cookie(response, token)
 
         return LoginResponse(
             user_type="student",
@@ -167,7 +182,7 @@ def register(request: RegisterRequest, response: Response, db: Session = Depends
         raise HTTPException(status_code=400, detail="Email đã được sử dụng")
     
     # Hash password
-    hashed_password = hashlib.md5(request.password.encode()).hexdigest()
+    hashed_password = hash_password(request.password)
     
     # Tạo sinh viên mới
     new_student = Student(
@@ -197,14 +212,7 @@ def register(request: RegisterRequest, response: Response, db: Session = Depends
         "email": new_student.email
     })
     
-    response.set_cookie(
-        key="access_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=False,
-        max_age=30 * 24 * 60 * 60,
-    )
+    _set_auth_cookie(response, token)
 
     return LoginResponse(
         user_type="student",
@@ -235,7 +243,8 @@ def change_password(
         raise HTTPException(status_code=400, detail="Mật khẩu mới phải khác mật khẩu hiện tại")
 
     # Update với mật khẩu mới
-    current_student.password = hashlib.sha256(new_password.encode()).hexdigest()
+    current_student.password = hash_password(new_password)
+    current_student.password_updated_at = datetime.now()
     db.commit()
     
     return {"message": "Đổi mật khẩu thành công"}
@@ -264,3 +273,76 @@ def me(current_user = Depends(get_current_user)):
             "student_name": current_user.student_name,
         },
     }
+
+
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    # Always return neutral response to avoid account enumeration.
+    neutral = ForgotPasswordResponse(
+        message="Nếu email tồn tại, hệ thống đã gửi link đặt lại mật khẩu."
+    )
+
+    user_type, user_id = password_reset_service.find_user_by_email(db, payload.email)
+    if not user_type or not user_id:
+        print(f"[FORGOT_PASSWORD] email not found: {payload.email}")
+        return neutral
+
+    if not password_reset_service.check_rate_limit(db, payload.email):
+        print(f"[FORGOT_PASSWORD] rate limit exceeded for: {payload.email}")
+        return neutral
+
+    client_ip = request.client.host if request.client else None
+    user_agent = request.headers.get("user-agent")
+    token = password_reset_service.create_reset_token(
+        db=db,
+        user_type=user_type,
+        user_id=user_id,
+        email=payload.email,
+        request_ip=client_ip,
+        user_agent=user_agent,
+    )
+    print(f"[FORGOT_PASSWORD] token created for {payload.email} ({user_type}:{user_id})")
+
+    reset_url = f"{settings.FRONTEND_BASE_URL.rstrip('/')}/reset-password?token={token}"
+    sent = email_service.send_reset_password_email(payload.email, reset_url)
+    if not sent:
+        print(f"[FORGOT_PASSWORD] send mail failed for: {payload.email}")
+    else:
+        print(f"[FORGOT_PASSWORD] send mail success for: {payload.email}")
+    return neutral
+
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    token_row = password_reset_service.verify_reset_token(db, payload.token)
+    if not token_row:
+        raise HTTPException(status_code=400, detail="Token không hợp lệ hoặc đã hết hạn")
+
+    if token_row.user_type == "student":
+        user = db.query(Student).filter(Student.id == token_row.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User không tồn tại")
+        user.password = hash_password(payload.new_password)
+        user.password_updated_at = datetime.now()
+    elif token_row.user_type == "admin":
+        user = db.query(Admin).filter(Admin.id == token_row.user_id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User không tồn tại")
+        user.password_hash = hash_password(payload.new_password)
+        user.password_updated_at = datetime.now()
+    else:
+        raise HTTPException(status_code=400, detail="Token không hợp lệ")
+
+    db.commit()
+    password_reset_service.mark_token_used(db, token_row)
+    return {"message": "Đặt lại mật khẩu thành công"}
+
+
+@router.get("/reset-password/validate")
+def validate_reset_password_token(token: str, db: Session = Depends(get_db)):
+    token_row = password_reset_service.verify_reset_token(db, token)
+    return {"valid": bool(token_row)}

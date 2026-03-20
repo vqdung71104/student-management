@@ -79,6 +79,46 @@ class AuthService {
       headers,
     });
   }
+
+  static async requestForgotPassword(email: string): Promise<{ message: string }> {
+    const response = await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || 'Request forgot password failed');
+    }
+
+    return data;
+  }
+
+  static async validateResetToken(token: string): Promise<boolean> {
+    const response = await fetch(`/api/auth/reset-password/validate?token=${encodeURIComponent(token)}`);
+    const data = await response.json();
+    return Boolean(data.valid);
+  }
+
+  static async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const response = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.detail || 'Reset password failed');
+    }
+
+    return data;
+  }
 }
 
 export default AuthService;

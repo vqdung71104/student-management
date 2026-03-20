@@ -2,7 +2,6 @@ import json
 import sys
 import os
 import unicodedata
-import hashlib
 from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -23,6 +22,7 @@ from app.models.feedback_model import FAQ, Feedback
 from app.models.learned_subject_model import LearnedSubject
 from app.models.admin_model import Admin
 from app.models.semester_gpa_model import SemesterGPA
+from app.utils.password_utils import hash_password
 
 def create_database_session():
     """Create database session"""
@@ -43,6 +43,7 @@ def clear_all_data(db):
         
         # Clear all tables
         db.execute(text("DELETE FROM admins"))
+        db.execute(text("DELETE FROM password_reset_tokens"))
         db.execute(text("DELETE FROM feedbacks"))
         db.execute(text("DELETE FROM faqs"))
         db.execute(text("DELETE FROM class_registers"))
@@ -58,6 +59,7 @@ def clear_all_data(db):
         
         # Reset auto-increment counters
         db.execute(text("ALTER TABLE otp_verifications AUTO_INCREMENT = 1"))
+        db.execute(text("ALTER TABLE password_reset_tokens AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE admins AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE notifications AUTO_INCREMENT = 1"))
         db.execute(text("ALTER TABLE departments AUTO_INCREMENT = 1"))
@@ -335,9 +337,9 @@ def populate_students(db, students_data):
                 print(f"Course with course_id '{json_course_id}' not found, skipping student {student_data.get('student_name')}")
                 continue
             
-            # Hash password với MD5
+            # Hash password with bcrypt
             password = student_data.get('password', '123456')
-            hashed_password = hashlib.md5(password.encode()).hexdigest()
+            hashed_password = hash_password(password)
             
             # Map JSON fields to model fields (new simplified format)
             student = Student(
@@ -521,9 +523,9 @@ def populate_admin(db):
             print("   Admin already exists, skipping...")
             return
         
-        # Hash password using SHA256
+        # Hash password using bcrypt
         password = "admin123"  # Strong default password
-        password_hash = hashlib.sha256(password.encode()).hexdigest()
+        password_hash = hash_password(password)
         
         admin = Admin(
             username="admin",
