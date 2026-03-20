@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input } from 'antd'
-import { SearchOutlined, HomeOutlined, CalendarOutlined } from '@ant-design/icons'
+import { SearchOutlined, HomeOutlined, CalendarOutlined, CheckCircleFilled } from '@ant-design/icons'
 
 const { Text } = Typography
 
@@ -56,6 +56,8 @@ const ClassRegistration = () => {
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedClass, setSelectedClass] = useState<Class | null>(null)
   const [searchText, setSearchText] = useState('')
+  const [showRegisteredSubjectOnly, setShowRegisteredSubjectOnly] = useState(false)
+  const [registeredSubjectIds, setRegisteredSubjectIds] = useState<string[]>([])
   const filterStatus: string | null = null
   const [tablePageSize, setTablePageSize] = useState(10)
   const [tablePage, setTablePage] = useState(1)
@@ -177,6 +179,32 @@ const ClassRegistration = () => {
       }
     } catch (error) {
       console.error('Error fetching registered classes:', error)
+    }
+  }
+
+  const fetchRegisteredSubjects = async () => {
+    if (!userInfo?.id) return
+
+    try {
+      const response = await fetch(`/api/subject-registers/student/${userInfo.id}`, getAuthRequestOptions())
+      if (!response.ok) {
+        setRegisteredSubjectIds([])
+        return
+      }
+
+      const subjectRegisters = await response.json()
+      const uniqueIds = new Set<string>()
+      for (const register of subjectRegisters as any[]) {
+        const rawSubjectId = register?.subject_id
+        if (rawSubjectId !== null && rawSubjectId !== undefined && rawSubjectId !== '') {
+          uniqueIds.add(String(rawSubjectId))
+        }
+      }
+      const ids: string[] = Array.from(uniqueIds)
+      setRegisteredSubjectIds(ids)
+    } catch (error) {
+      console.error('Error fetching registered subjects for class filter:', error)
+      setRegisteredSubjectIds([])
     }
   }
 
@@ -317,6 +345,7 @@ const ClassRegistration = () => {
     if (userInfo?.id) {
       fetchClasses()
       fetchRegisteredClasses()
+      fetchRegisteredSubjects()
     }
   }, [userInfo])
 
@@ -329,11 +358,13 @@ const ClassRegistration = () => {
       (classItem.subject_name || '').toLowerCase().includes(searchLower) ||
       (classItem.instructor_name || '').toLowerCase().includes(searchLower)
     const matchStatus = filterStatus === null || (classItem.status || '') === filterStatus
+    const classSubjectId = classItem.subject_id ?? classItem.subject?.id
+    const matchRegisteredSubject = !showRegisteredSubjectOnly || registeredSubjectIds.includes(String(classSubjectId))
 
     // Check if already registered
     const isRegistered = registeredClasses.some(reg => reg.class_id === classItem.id)
 
-    return matchSearch && matchStatus && !isRegistered
+    return matchSearch && matchStatus && matchRegisteredSubject && !isRegistered
   })
 
   const availableClassesColumns = [
@@ -543,6 +574,31 @@ const ClassRegistration = () => {
           pagination={false}
           locale={{ emptyText: 'Chưa có lớp học nào được đăng ký' }}
         />
+      </Card>
+
+      <Card size="small" bodyStyle={{ padding: '12px 16px' }}>
+        <div className="flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => setShowRegisteredSubjectOnly(prev => !prev)}
+            className={`inline-flex items-center gap-3 rounded-full border px-4 py-2 text-sm font-medium transition-colors ${
+              showRegisteredSubjectOnly
+                ? 'border-green-500 bg-green-50 text-green-700'
+                : 'border-gray-300 bg-white text-gray-700 hover:border-green-400'
+            }`}
+          >
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full border ${
+                showRegisteredSubjectOnly
+                  ? 'border-green-600 bg-green-600 text-white'
+                  : 'border-gray-300 bg-white text-transparent'
+              }`}
+            >
+              <CheckCircleFilled className="text-xs" />
+            </span>
+            <span>Lọc theo học phần đã đăng ký</span>
+          </button>
+        </div>
       </Card>
 
       {/* Available Classes */}
