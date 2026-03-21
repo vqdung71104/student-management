@@ -4,7 +4,7 @@ Tests Rasa NLU + TF-IDF Fallback classifier
 """
 import sys
 import time
-sys.path.insert(0, 'C:/Users/Admin/student-management/backend')
+sys.path.insert(0, 'D:/student-management/backend')
 
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 import asyncio

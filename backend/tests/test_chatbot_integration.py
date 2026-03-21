@@ -3,7 +3,7 @@ End-to-End Chatbot Integration Test
 Tests complete chatbot flow from user input to response
 """
 import sys
-sys.path.insert(0, 'C:/Users/Admin/student-management/backend')
+sys.path.insert(0, 'D:/student-management/backend')
 
 from app.db.database import SessionLocal
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier

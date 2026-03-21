@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
-import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input } from 'antd'
+import { Button, Table, Modal, message, Space, Tag, Typography, Card, Input, Select } from 'antd'
 import { SearchOutlined, BookOutlined, PlusOutlined, CalendarOutlined } from '@ant-design/icons'
 
 const { Text } = Typography
@@ -10,7 +10,7 @@ interface Subject {
   subject_name: string
   subject_id: string
   credits: number
-  semester: number
+  semester: number | null
   subject_type: string
   duration: number
   description?: string
@@ -19,10 +19,16 @@ interface Subject {
 interface SubjectRegister {
   id: number
   student_id: number
-  subject_id: number
+  subject_id: string | number
+  subject_db_id?: number
   subject_name: string
   credits: number
   register_date: string
+}
+
+interface LearnedSubject {
+  subject_id: number
+  letter_grade?: string | null
 }
 
 const SubjectRegistration = () => {
@@ -33,22 +39,53 @@ const SubjectRegistration = () => {
   const [modalVisible, setModalVisible] = useState(false)
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null)
   const [searchText, setSearchText] = useState('')
-  const filterSemester: number | null = null
+  const [filterSemester, setFilterSemester] = useState<number | 'all'>('all')
   const filterType: string | null = null
   const [studentData, setStudentData] = useState<any>(null)
+  const [learnedSubjects, setLearnedSubjects] = useState<LearnedSubject[]>([])
   const [tablePageSize, setTablePageSize] = useState(10)
   const [tablePage, setTablePage] = useState(1)
+
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    }
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    return {
+      ...options,
+      credentials: 'include',
+      headers,
+    }
+  }
+
+  const getLearnedStatus = (subjectDbId: number) => {
+    const learned = learnedSubjects.find((item) => item.subject_id === subjectDbId)
+    if (!learned) {
+      return { text: 'Chưa học', color: 'default' as const }
+    }
+
+    if ((learned.letter_grade || '').toUpperCase() === 'F') {
+      return { text: 'Đang trượt', color: 'red' as const }
+    }
+
+    return { text: 'Đã học', color: 'green' as const }
+  }
 
   // Fetch student data first
   const fetchStudentData = async () => {
     if (!userInfo?.id) return
 
     try {
-      const response = await fetch(`/api/students/${userInfo.id}`)
+      const response = await fetch(`/api/students/${userInfo.id}/academic-details`, getAuthRequestOptions())
       if (response.ok) {
         const data = await response.json()
-        console.log('Student data:', data)
-        setStudentData(data)
+        console.log('Student academic details:', data)
+        setStudentData(data?.student || null)
+        setLearnedSubjects(data?.learned_subjects || [])
       }
     } catch (error) {
       console.error('Error fetching student data:', error)
@@ -93,10 +130,15 @@ const SubjectRegistration = () => {
             const response = await fetch(`/api/subjects/${courseSubject.subject_id}`)
             if (response.ok) {
               const subjectData = await response.json()
+              const semesterValue =
+                typeof courseSubject.learning_semester === 'number'
+                  ? courseSubject.learning_semester
+                  : (typeof subjectData.semester === 'number' ? subjectData.semester : null)
+
               // Add course_subject info to subject data
               return {
                 ...subjectData,
-                learning_semester: courseSubject.learning_semester,
+                semester: semesterValue,
                 course_subject_id: courseSubject.id
               }
             }
@@ -128,13 +170,13 @@ const SubjectRegistration = () => {
     if (!userInfo?.id) return
 
     try {
-      const response = await fetch(`/api/subject-registers/student/${userInfo.id}`)
+      const response = await fetch(`/api/subject-registers/student/${userInfo.id}`, getAuthRequestOptions())
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered subjects data:', registersData)
 
         // Fetch subject information for each registered subject
-        const subjectsResponse = await fetch('/api/subjects/')
+        const subjectsResponse = await fetch('/api/subjects/', getAuthRequestOptions())
         if (subjectsResponse.ok) {
           const allSubjects = await subjectsResponse.json()
 
@@ -143,6 +185,7 @@ const SubjectRegistration = () => {
             const subjectInfo = allSubjects.find((subject: any) => subject.id === register.subject_id)
             return {
               ...register,
+              subject_db_id: subjectInfo?.id || register.subject_id,
               subject_id: subjectInfo?.subject_id || 'N/A', // Using subject.subject_id as subject code
               subject_name: subjectInfo?.subject_name || register.subject_name || 'N/A',
               credits: subjectInfo?.credits || register.credits || 0
@@ -255,15 +298,23 @@ const SubjectRegistration = () => {
         subjectName.toLowerCase().includes(searchLower) ||
         subjectCode.toLowerCase().includes(searchLower)
 
-      const matchSemester = filterSemester === null || subject.semester === filterSemester
+      const matchSemester = filterSemester === 'all' || subject.semester === filterSemester
       const matchType = filterType === null || subject.subject_type === filterType
 
       // Check if already registered
-      const isRegistered = registeredSubjects.some(reg => reg.subject_id === subject.id)
+      const isRegistered = registeredSubjects.some(reg => reg.subject_db_id === subject.id)
 
       return matchSearch && matchSemester && matchType && !isRegistered
     })
   }, [subjects, searchText, filterSemester, filterType, registeredSubjects])
+
+  const semesterFilterOptions = [
+    { value: 'all', label: 'Tất cả học kỳ' },
+    ...Array.from({ length: 10 }, (_, index) => ({
+      value: index + 1,
+      label: `Học kỳ ${index + 1}`
+    }))
+  ]
 
   const availableSubjectsColumns = [
     {
@@ -285,6 +336,16 @@ const SubjectRegistration = () => {
       )
     },
     {
+      title: 'Đã học',
+      key: 'learned_status',
+      width: 120,
+      align: 'center' as const,
+      render: (_: any, record: Subject) => {
+        const status = getLearnedStatus(record.id)
+        return <Tag color={status.color}>{status.text}</Tag>
+      }
+    },
+    {
       title: 'Số tín chỉ',
       dataIndex: 'credits',
       key: 'credits',
@@ -296,11 +357,12 @@ const SubjectRegistration = () => {
     },
     {
       title: 'Học kỳ',
-      key: 'newest_semester',
+      dataIndex: 'semester',
+      key: 'semester',
       width: 100,
       align: 'center' as const,
-      render: () => (
-        <Tag color="green">HK {studentData?.newest_semester || 'N/A'}</Tag>
+      render: (semester: number | null) => (
+        <Tag color="green">HK {semester ?? 'N/A'}</Tag>
       )
     },
 
@@ -442,6 +504,15 @@ const SubjectRegistration = () => {
         title="Danh sách học phần có thể đăng ký"
         extra={
           <Space>
+            <Select
+              value={filterSemester}
+              onChange={(value) => {
+                setFilterSemester(value)
+                setTablePage(1)
+              }}
+              options={semesterFilterOptions}
+              style={{ width: 160 }}
+            />
             <Input
               placeholder="Tìm kiếm học phần..."
               prefix={<SearchOutlined />}
@@ -517,7 +588,7 @@ const SubjectRegistration = () => {
             </div>
             <div>
               <Text strong>Học kỳ: </Text>
-              <Tag color="green">HK {selectedSubject.semester}</Tag>
+              <Tag color="green">HK {selectedSubject.semester ?? 'N/A'}</Tag>
             </div>
 
             {selectedSubject.description && (

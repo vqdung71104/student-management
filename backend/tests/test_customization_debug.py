@@ -1,6 +1,6 @@
 """Quick test to debug SQL customization - ALL 3 TEST CASES"""
 import sys
-sys.path.insert(0, 'C:/Users/Admin/student-management/backend')
+sys.path.insert(0, 'D:/student-management/backend')
 
 from app.services.nl2sql_service import NL2SQLService
 

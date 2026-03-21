@@ -2,7 +2,7 @@
 Test NL2SQL Service - SQL Generation and Entity Extraction
 """
 import sys
-sys.path.insert(0, 'C:/Users/Admin/student-management/backend')
+sys.path.insert(0, 'D:/student-management/backend')
 
 from app.services.nl2sql_service import NL2SQLService
 import asyncio

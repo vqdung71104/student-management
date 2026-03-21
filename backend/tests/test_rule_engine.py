@@ -3,7 +3,7 @@ Test Subject Suggestion Rule Engine
 Run: python backend/app/tests/test_rule_engine.py
 """
 import sys
-sys.path.insert(0, 'C:/Users/Admin/student-management/backend')
+sys.path.insert(0, 'D:/student-management/backend')
 
 from app.rules import SubjectSuggestionRuleEngine
 from app.db.database import SessionLocal

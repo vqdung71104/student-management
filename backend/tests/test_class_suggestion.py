@@ -1,6 +1,6 @@
 """Test class registration suggestion with new logic"""
 import sys
-sys.path.insert(0, 'C:/Users/Admin/student-management/backend')
+sys.path.insert(0, 'D:/student-management/backend')
 
 from app.db.database import SessionLocal
 from sqlalchemy import text
