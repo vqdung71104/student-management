@@ -28,6 +28,7 @@ interface Class {
   linked_class_ids?: number[]
   subject?: {
     id?: number
+    subject_id?: string
     subject_name: string
     credits: number
   }
@@ -44,7 +45,8 @@ interface ClassRegister {
   // Added fields from enriched data
   class_name?: string
   class_code?: string | number
-  subject_name?: string
+  subject_code?: string
+  subject_db_id?: number
   classroom?: string
   teacher_name?: string
 }
@@ -164,7 +166,8 @@ const ClassRegistration = () => {
               ...register,
               class_name: classInfo?.class_name || 'Unknown',
               class_code: classInfo?.class_id || 'N/A',
-              subject_name: classInfo?.subject?.subject_name || 'N/A',
+              subject_code: classInfo?.subject?.subject_id || 'N/A',
+              subject_db_id: classInfo?.subject?.id || classInfo?.subject_id,
               classroom: classInfo?.classroom || 'N/A',
               teacher_name: classInfo?.teacher_name || 'N/A'
             }
@@ -370,6 +373,14 @@ const ClassRegistration = () => {
     return matchSearch && matchStatus && matchRegisteredSubject && !isRegistered
   })
 
+  const selectedClassSubjectDbId = selectedClass?.subject?.id ?? selectedClass?.subject_id
+  const hasRegisteredClassInSameSubject =
+    selectedClassSubjectDbId !== undefined && selectedClassSubjectDbId !== null
+      ? registeredClasses.some(
+        (reg) => reg.subject_db_id === selectedClassSubjectDbId && reg.class_id !== selectedClass?.id
+      )
+      : false
+
   const availableClassesColumns = [
     {
       title: 'Mã lớp',
@@ -384,7 +395,7 @@ const ClassRegistration = () => {
       render: (record: any) => (
         <div>
           <div className="font-medium">{record.class_name || 'N/A'}</div>
-          <div className="text-xs text-gray-500">{record.subject?.subject_name || 'N/A'}</div>
+          <div className="text-xs text-gray-500">{record.subject?.subject_id || 'N/A'}</div>
         </div>
       )
     },
@@ -468,7 +479,7 @@ const ClassRegistration = () => {
             <strong>{record.class_name || record.class_info}</strong>
           </div>
           <div className="text-sm text-gray-500">
-            Mã lớp: {record.class_code || 'N/A'} | Học phần: {record.subject_name || 'N/A'}
+            Mã lớp: {record.class_code || 'N/A'} | Học phần: {record.subject_code || 'N/A'}
           </div>
           <div className="text-sm text-gray-500">
             Phòng: {record.classroom || 'N/A'} | GV: {record.teacher_name || 'N/A'}
@@ -670,6 +681,11 @@ const ClassRegistration = () => {
       >
         {selectedClass && (
           <div className="space-y-3">
+            {hasRegisteredClassInSameSubject && (
+              <div className="text-center text-xl font-bold text-red-600">
+                !!!Học phần đã có lớp được đăng ký
+              </div>
+            )}
             <div>
               <Text strong>Mã lớp: </Text>
               <Text>{selectedClass.class_id}</Text>
@@ -680,7 +696,7 @@ const ClassRegistration = () => {
             </div>
             <div>
               <Text strong>Học phần: </Text>
-              <Text>{selectedClass.subject?.subject_name || 'N/A'}</Text>
+              <Text>{selectedClass.subject?.subject_id || 'N/A'}</Text>
               <Tag color="blue" className="ml-2">{selectedClass.subject?.credits || 0} TC</Tag>
             </div>
             <div>

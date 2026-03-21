@@ -92,8 +92,6 @@
 /* Class Block */
 .class-block {
     position: absolute;
-    left: 4px;
-    right: 4px;
     border-radius: 8px;
     padding: 8px;
     cursor: pointer;
@@ -255,4 +253,27 @@
     height: 8px;
     background: #ef4444;
     border-radius: 50%;
+}
+
+.class-block-selected {
+    outline: 3px solid rgba(30, 64, 175, 0.85);
+    z-index: 15;
+}
+
+.class-block-conflict {
+    border-color: rgba(220, 38, 38, 0.85);
+    box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.45), 0 3px 10px rgba(220, 38, 38, 0.2);
+}
+
+.conflict-chip {
+    align-self: flex-start;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 700;
+    color: #991b1b;
+    background: rgba(254, 226, 226, 0.95);
+    border: 1px solid rgba(239, 68, 68, 0.6);
+    border-radius: 999px;
+    padding: 3px 7px;
+    margin-bottom: 2px;
 }
