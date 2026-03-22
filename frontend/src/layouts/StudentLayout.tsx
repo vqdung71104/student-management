@@ -294,7 +294,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
               </button>
 
               {/* Notification Bell */}
-              <div className="relative">
+              {/* <div className="relative">
                 <button 
                   className={`h-8 w-8 rounded-md flex items-center justify-center text-xs transition-all duration-200 relative ${
                     notificationOpen 
@@ -352,7 +352,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     )}
                   </div>
                 )}
-              </div>
+              </div> */}
 
               {/* Logout Button */}
               <button

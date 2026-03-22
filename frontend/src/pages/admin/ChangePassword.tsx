@@ -209,7 +209,7 @@ const ChangePassword = () => {
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
           {/* Tab Navigation */}
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mb-6">
-            <button
+            {/* <button
               onClick={() => setMode('password')}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                 mode === 'password' 
@@ -218,8 +218,8 @@ const ChangePassword = () => {
               }`}
             >
               Đổi mật khẩu
-            </button>
-            <button
+            </button>*/}
+            {/* <button
               onClick={() => setMode('forgot')}
               className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
                 mode === 'forgot' || mode === 'otp'
@@ -228,7 +228,7 @@ const ChangePassword = () => {
               }`}
             >
               Quên mật khẩu
-            </button>
+            </button> */}
           </div>
 
           {/* Success/Error Messages */}
