@@ -48,6 +48,7 @@ _SECTION_HEADERS = {
     "schedule_view":                 "📅 Thời khóa biểu",
     "subject_registration_suggestion": "💡 Gợi ý môn học nên đăng ký",
     "class_registration_suggestion": "🗓️ Gợi ý lớp học phù hợp",
+    "modify_schedule": "🛠️ Điều chỉnh thời khóa biểu",
     "student_info":                  "👤 Thông tin sinh viên",
 }
 
@@ -122,10 +123,15 @@ async def _process_single_query(
     confidence = intent_result["confidence"]
 
     # ── Rule-engine intents ───────────────────────────────────────────────────
-    if intent in ("subject_registration_suggestion", "class_registration_suggestion") \
+    if intent in ("subject_registration_suggestion", "class_registration_suggestion", "modify_schedule") \
             and confidence in ("high", "medium"):
         if intent == "subject_registration_suggestion":
             result = await chatbot_service.process_subject_suggestion(
+                student_id=student_id,
+                question=normalized_text,
+            )
+        elif intent == "modify_schedule":
+            result = await chatbot_service.process_modify_schedule(
                 student_id=student_id,
                 question=normalized_text,
             )
@@ -134,11 +140,19 @@ async def _process_single_query(
                 student_id=student_id,
                 question=normalized_text,
             )
+
+        result_data = result.get("data")
+        if result_data is not None and not isinstance(result_data, list):
+            if isinstance(result_data, dict):
+                result_data = [result_data]
+            else:
+                result_data = [{"value": result_data}]
+
         return ChatResponseWithData(
             text=result["text"],
             intent=result["intent"],
             confidence=result["confidence"],
-            data=result.get("data"),
+            data=result_data,
             sql=None,
             sql_error=result.get("error"),
         )
@@ -501,7 +515,7 @@ async def chat(
         conv_manager = get_conversation_manager()
         state = conv_manager.get_state(effective_student_id)
 
-        if state and state.stage == 'collecting':
+        if state and state.stage in ('collecting', 'choose_subject_source'):
             print(f"🔄 [ROUTE] Active conversation for student {effective_student_id}")
             normalized_message = text_preprocessor.preprocess(message.message)
             result = await chatbot_service.process_class_suggestion(

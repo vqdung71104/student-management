@@ -2,7 +2,8 @@
 Chatbot Service - Business logic for chatbot interactions
 Integrates Rule Engine for intelligent subject/class suggestions
 """
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+from datetime import time as dtime, timedelta
 from sqlalchemy.orm import Session
 from app.rules.subject_suggestion_rules import SubjectSuggestionRuleEngine
 from app.rules.class_suggestion_rules import ClassSuggestionRuleEngine
@@ -33,6 +34,265 @@ class ChatbotService:
         except Exception as e:
             print(f"⚠️ [ChatbotService] FuzzyMatcher not available: {e}")
             self._fuzzy_matcher = None
+
+    def _has_class_data(self) -> bool:
+        from app.models.class_model import Class
+        return self.db.query(Class.id).first() is not None
+
+    def _class_data_notice_text(self) -> str:
+        return "⚠️ Hiện tại chưa có thông tin lớp học trong hệ thống."
+
+    def _source_selection_question_text(self) -> str:
+        return "Bạn muốn đăng ký theo học phần bạn đã đăng ký hay học phần hệ thống gợi ý?"
+
+    def _parse_subject_source_choice(self, answer: str) -> Optional[str]:
+        txt = (answer or "").lower().strip()
+
+        registered_patterns = [
+            "đã đăng ký", "da dang ky", "hoc phan da dang ky", "1", "đăng ký rồi", "dang ky roi"
+        ]
+        suggested_patterns = [
+            "gợi ý", "goi y", "hệ thống", "he thong", "2", "đề xuất", "de xuat"
+        ]
+
+        if any(p in txt for p in registered_patterns):
+            return "registered"
+        if any(p in txt for p in suggested_patterns):
+            return "suggested"
+        return None
+
+    def _is_schedule_advice_query(self, question: str) -> bool:
+        txt = (question or "").lower()
+        trigger_a = any(k in txt for k in ["thời khóa biểu", "thoi khoa bieu", "lịch học", "lich hoc"])
+        trigger_b = any(k in txt for k in ["nên", "nen", "cần", "can"]) and any(
+            k in txt for k in ["đăng ký thêm", "dang ky them", "thêm môn", "them mon"]
+        )
+        return trigger_a and trigger_b
+
+    def _get_registered_subject_ids(self, student_id: int) -> List[int]:
+        from app.models.subject_register_model import SubjectRegister
+        rows = self.db.query(SubjectRegister.subject_id).filter(SubjectRegister.student_id == student_id).all()
+        return list({r[0] for r in rows if r and r[0] is not None})
+
+    def _parse_days(self, study_date: Optional[str]) -> List[str]:
+        if not study_date:
+            return []
+        return [d.strip() for d in study_date.split(',') if d.strip()]
+
+    def _to_time_obj(self, value) -> Optional[dtime]:
+        if value is None:
+            return None
+        if isinstance(value, dtime):
+            return value
+        if isinstance(value, timedelta):
+            total_seconds = int(value.total_seconds())
+            hours, rem = divmod(total_seconds, 3600)
+            minutes = rem // 60
+            if 0 <= hours <= 23:
+                return dtime(hours, minutes)
+            return None
+        if isinstance(value, str):
+            parts = value.split(':')
+            if len(parts) >= 2:
+                try:
+                    return dtime(int(parts[0]), int(parts[1]))
+                except Exception:
+                    return None
+        return None
+
+    def _has_time_overlap(self, a_start: Optional[dtime], a_end: Optional[dtime], b_start: Optional[dtime], b_end: Optional[dtime]) -> bool:
+        if not a_start or not a_end or not b_start or not b_end:
+            return False
+        return a_start < b_end and b_start < a_end
+
+    def _has_schedule_overlap(self, a: Dict, b: Dict) -> bool:
+        days_a = set(a.get('days', []))
+        days_b = set(b.get('days', []))
+        if not days_a.intersection(days_b):
+            return False
+
+        weeks_a = set(a.get('weeks', []))
+        weeks_b = set(b.get('weeks', []))
+        if weeks_a and weeks_b and not weeks_a.intersection(weeks_b):
+            return False
+
+        return self._has_time_overlap(a.get('start_time'), a.get('end_time'), b.get('start_time'), b.get('end_time'))
+
+    def _grade_ge_b(self, letter_grade: Optional[str]) -> bool:
+        if not letter_grade:
+            return False
+        return letter_grade.strip().upper() in {"A+", "A", "B+", "B"}
+
+    def _format_class_brief(self, cls: Dict) -> str:
+        return f"{cls.get('class_id', 'N/A')} ({cls.get('subject_code', 'N/A')})"
+
+    def _audit_and_recommend_schedule(self, student_id: int) -> Dict:
+        from collections import defaultdict
+        from app.models.student_model import Student
+        from app.models.class_register_model import ClassRegister
+        from app.models.class_model import Class
+        from app.models.subject_model import Subject
+        from app.models.course_subject_model import CourseSubject
+        from app.models.learned_subject_model import LearnedSubject
+
+        student = self.db.query(Student).filter(Student.id == student_id).first()
+        if not student:
+            return {
+                "text": "❌ Không tìm thấy thông tin sinh viên.",
+                "intent": "class_registration_suggestion",
+                "confidence": "high",
+                "data": None,
+            }
+
+        registered_rows = (
+            self.db.query(ClassRegister, Class, Subject)
+            .join(Class, ClassRegister.class_id == Class.id)
+            .join(Subject, Class.subject_id == Subject.id)
+            .filter(ClassRegister.student_id == student_id)
+            .all()
+        )
+
+        registered_classes: List[Dict] = []
+        for reg, cls, subj in registered_rows:
+            registered_classes.append({
+                "register_id": reg.id,
+                "class_db_id": cls.id,
+                "class_id": cls.class_id,
+                "class_name": cls.class_name,
+                "subject_db_id": subj.id,
+                "subject_code": subj.subject_id,
+                "subject_name": subj.subject_name,
+                "credits": subj.credits or 0,
+                "days": self._parse_days(cls.study_date),
+                "weeks": list(cls.study_week or []),
+                "start_time": self._to_time_obj(cls.study_time_start),
+                "end_time": self._to_time_obj(cls.study_time_end),
+            })
+
+        course_subject_ids = {
+            row[0] for row in self.db.query(CourseSubject.subject_id).filter(CourseSubject.course_id == student.course_id).all()
+        }
+
+        learned_rows = self.db.query(LearnedSubject.subject_id, LearnedSubject.letter_grade).filter(
+            LearnedSubject.student_id == student_id
+        ).all()
+        learned_ge_b_subjects = {sid for sid, grade in learned_rows if sid is not None and self._grade_ge_b(grade)}
+
+        drop_reasons: Dict[int, List[str]] = defaultdict(list)
+
+        for cls in registered_classes:
+            if cls["subject_db_id"] not in course_subject_ids:
+                drop_reasons[cls["class_db_id"]].append("Học phần không thuộc chương trình đào tạo")
+            if cls["subject_db_id"] in learned_ge_b_subjects:
+                drop_reasons[cls["class_db_id"]].append("Bạn đã học học phần này với điểm từ B trở lên")
+
+        by_subject = defaultdict(list)
+        for cls in registered_classes:
+            by_subject[cls["subject_db_id"]].append(cls)
+        for _, items in by_subject.items():
+            if len(items) > 1:
+                all_class_ids = ", ".join(str(i.get("class_id", "N/A")) for i in items)
+                for cls in items:
+                    drop_reasons[cls["class_db_id"]].append(f"Đăng ký trùng học phần với các lớp: {all_class_ids}")
+
+        for i in range(len(registered_classes)):
+            for j in range(i + 1, len(registered_classes)):
+                a = registered_classes[i]
+                b = registered_classes[j]
+                if self._has_schedule_overlap(a, b):
+                    drop_reasons[a["class_db_id"]].append(
+                        f"Xung đột lịch với lớp {b.get('class_id', 'N/A')} ({b.get('subject_code', 'N/A')})"
+                    )
+                    drop_reasons[b["class_db_id"]].append(
+                        f"Xung đột lịch với lớp {a.get('class_id', 'N/A')} ({a.get('subject_code', 'N/A')})"
+                    )
+
+        drop_lines: List[str] = []
+        class_by_id = {c["class_db_id"]: c for c in registered_classes}
+        for class_db_id, reasons in drop_reasons.items():
+            cls = class_by_id.get(class_db_id)
+            if not cls:
+                continue
+            uniq_reasons = list(dict.fromkeys(reasons))
+            drop_lines.append(f"- {self._format_class_brief(cls)}: " + "; ".join(uniq_reasons))
+
+        registered_subject_ids = {c["subject_db_id"] for c in registered_classes}
+        current_credits = sum(c.get("credits", 0) for c in registered_classes)
+        target_credits = 28
+
+        needed_subject_ids = [
+            sid for sid in course_subject_ids
+            if sid not in learned_ge_b_subjects and sid not in registered_subject_ids
+        ]
+
+        candidate_rows = (
+            self.db.query(Class, Subject)
+            .join(Subject, Class.subject_id == Subject.id)
+            .filter(Class.subject_id.in_(needed_subject_ids))
+            .all()
+            if needed_subject_ids else []
+        )
+
+        candidates_by_subject: Dict[int, List[Dict]] = defaultdict(list)
+        for cls, subj in candidate_rows:
+            candidates_by_subject[subj.id].append({
+                "class_db_id": cls.id,
+                "class_id": cls.class_id,
+                "class_name": cls.class_name,
+                "subject_db_id": subj.id,
+                "subject_code": subj.subject_id,
+                "subject_name": subj.subject_name,
+                "credits": subj.credits or 0,
+                "days": self._parse_days(cls.study_date),
+                "weeks": list(cls.study_week or []),
+                "start_time": self._to_time_obj(cls.study_time_start),
+                "end_time": self._to_time_obj(cls.study_time_end),
+            })
+
+        selected_new_classes: List[Dict] = []
+        occupied = list(registered_classes)
+
+        if current_credits < target_credits:
+            for subject_id in sorted(candidates_by_subject.keys()):
+                options = sorted(candidates_by_subject[subject_id], key=lambda x: str(x.get("class_id", "")))
+                chosen = None
+                for option in options:
+                    if any(self._has_schedule_overlap(option, occ) for occ in occupied):
+                        continue
+                    chosen = option
+                    break
+                if chosen:
+                    selected_new_classes.append(chosen)
+                    occupied.append(chosen)
+                    current_credits += chosen.get("credits", 0)
+                    if current_credits >= target_credits:
+                        break
+
+        add_lines = [
+            f"- {self._format_class_brief(cls)}: {cls.get('subject_name', '')}"
+            for cls in selected_new_classes
+        ]
+
+        sections = []
+        if drop_lines:
+            sections.append("Lớp nên xem xét bỏ:\n" + "\n".join(drop_lines))
+        if add_lines:
+            sections.append("Lớp có thể đăng ký thêm:\n" + "\n".join(add_lines))
+
+        if not sections:
+            final_text = "Thời khóa biểu của bạn rất ổn, không có xung đột thời gian, không còn học phần nào cần đăng ký."
+        else:
+            final_text = "\n\n".join(sections)
+
+        return {
+            "text": final_text,
+            "intent": "class_registration_suggestion",
+            "confidence": "high",
+            "data": [{
+                "consider_drop": drop_lines,
+                "suggest_add": add_lines,
+            }],
+        }
     
     async def process_subject_suggestion(
         self, 
@@ -138,6 +398,10 @@ class ChatbotService:
             
             print(f"🎯 [CLASS_SUGGESTION] Processing for student {student_id}")
             print(f"📝 [CLASS_SUGGESTION] Question: {question}")
+
+            if self._is_schedule_advice_query(question):
+                print("🔍 [CLASS_SUGGESTION] Schedule audit mode activated")
+                return self._audit_and_recommend_schedule(student_id)
             
             # Validate student_id
             if not student_id:
@@ -152,10 +416,63 @@ class ChatbotService:
             # Initialize services
             conv_manager = get_conversation_manager()
             pref_service = PreferenceCollectionService()
+            class_data_notice = self._class_data_notice_text() if not self._has_class_data() else ""
             
             # Check for active conversation
             state = conv_manager.get_state(student_id)
             
+            if state and state.stage == 'choose_subject_source':
+                selected_source = self._parse_subject_source_choice(question)
+                if not selected_source:
+                    text = self._source_selection_question_text()
+                    if class_data_notice:
+                        text = f"{class_data_notice}\n\n{text}"
+                    return {
+                        "text": text,
+                        "intent": "class_registration_suggestion",
+                        "confidence": "high",
+                        "data": None,
+                        "conversation_state": "collecting",
+                        "question_type": "single_choice",
+                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"]
+                    }
+
+                state.subject_source_choice = selected_source
+                if selected_source == 'registered':
+                    selected_subject_ids = self._get_registered_subject_ids(student_id)
+                    state.subject_ids_seed = selected_subject_ids
+                    if not selected_subject_ids:
+                        state.subject_source_choice = 'suggested'
+                        warning_text = "⚠️ Bạn chưa đăng ký học phần, vui lòng đăng ký học phần trước."
+                    else:
+                        warning_text = ""
+                else:
+                    state.subject_ids_seed = []
+                    warning_text = ""
+
+                state.stage = 'collecting'
+                next_question = pref_service.get_next_question(state.preferences)
+                state.current_question = next_question
+                conv_manager.save_state(state)
+
+                prefix_parts = []
+                if class_data_notice:
+                    prefix_parts.append(class_data_notice)
+                if warning_text:
+                    prefix_parts.append(warning_text)
+                prefix_text = "\n\n".join(prefix_parts)
+                next_text = next_question.question if next_question else "Bạn còn yêu cầu gì cụ thể cho lớp học không?"
+
+                return {
+                    "text": (f"{prefix_text}\n\n{next_text}" if prefix_text else next_text),
+                    "intent": "class_registration_suggestion",
+                    "confidence": "high",
+                    "data": None,
+                    "conversation_state": "collecting",
+                    "question_type": next_question.type if next_question else "free_text",
+                    "question_options": next_question.options if next_question else None
+                }
+
             if state and state.stage == 'collecting':
                 # User is answering a preference question
                 print(f"🔄 [CONVERSATION] Continuing conversation for student {student_id}")
@@ -182,7 +499,9 @@ class ChatbotService:
                         student_id=student_id,
                         preferences=state.preferences,
                         subject_id=subject_id,
-                        nlq_constraints_dict=getattr(state, 'nlq_constraints', None)
+                        nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
+                        subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                        subject_ids_seed=getattr(state, 'subject_ids_seed', [])
                     )
                 else:
                     # Ask next question
@@ -216,6 +535,8 @@ class ChatbotService:
                     intent='class_registration_suggestion'
                 )
                 state.preferences = initial_preferences
+                state.subject_source_choice = None
+                state.subject_ids_seed = []
 
                 # Extract hard constraints (time/day) from initial message
                 try:
@@ -239,33 +560,28 @@ class ChatbotService:
                         student_id=student_id,
                         preferences=state.preferences,
                         subject_id=subject_id,
-                        nlq_constraints_dict=state.nlq_constraints
+                        nlq_constraints_dict=state.nlq_constraints,
+                        subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                        subject_ids_seed=getattr(state, 'subject_ids_seed', [])
                     )
                 else:
-                    # Start collecting missing preferences
-                    state.stage = 'collecting'
-                    next_question = pref_service.get_next_question(state.preferences)
-                    state.current_question = next_question
+                    # Start with source selection question before preference questions
+                    state.stage = 'choose_subject_source'
+                    state.current_question = None
                     conv_manager.save_state(state)
-                    
-                    # Show what we extracted + ask first question
-                    extracted_summary = ""
-                    if any([
-                        initial_preferences.day.prefer_days,
-                        initial_preferences.day.avoid_days,
-                        initial_preferences.time.time_period,
-                        initial_preferences.time.avoid_time_periods
-                    ]):
-                        extracted_summary = f"\n\n✅ Tôi đã hiểu một số sở thích từ câu hỏi của bạn:\n{pref_service.format_preference_summary(initial_preferences)}\n"
-                    
+
+                    question_text = self._source_selection_question_text()
+                    if class_data_notice:
+                        question_text = f"{class_data_notice}\n\n{question_text}"
+
                     return {
-                        "text": f"Để gợi ý chính xác nhất, tôi cần biết thêm về sở thích của bạn.{extracted_summary}\n{next_question.question}",
+                        "text": question_text,
                         "intent": "class_registration_suggestion",
                         "confidence": "high",
                         "data": None,
                         "conversation_state": "collecting",
-                        "question_type": next_question.type,
-                        "question_options": next_question.options
+                        "question_type": "single_choice",
+                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"]
                     }
         
         except Exception as e:
@@ -278,13 +594,48 @@ class ChatbotService:
                 "confidence": "high",
                 "data": None
             }
+
+    async def process_modify_schedule(self, student_id: int, question: str) -> Dict:
+        """
+        Dedicated intent handler for timetable adjustment/audit.
+
+        This runs schedule audit logic and returns:
+        - classes to consider dropping + reasons
+        - classes to consider adding (until 28 credits target)
+        """
+        try:
+            if not student_id:
+                return {
+                    "text": "⚠️ Vui lòng đăng nhập để được tư vấn điều chỉnh thời khóa biểu.",
+                    "intent": "modify_schedule",
+                    "confidence": "high",
+                    "data": None,
+                    "requires_auth": True,
+                }
+
+            result = self._audit_and_recommend_schedule(student_id)
+            result["intent"] = "modify_schedule"
+            return result
+        except Exception as e:
+            print(f"❌ [MODIFY_SCHEDULE] Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "text": f"⚠️ Có lỗi xảy ra khi phân tích thời khóa biểu: {str(e)}",
+                "intent": "modify_schedule",
+                "confidence": "low",
+                "data": None,
+                "error": str(e),
+            }
     
     async def _generate_class_suggestions_with_preferences(
         self,
         student_id: int,
         preferences,
         subject_id: Optional[str] = None,
-        nlq_constraints_dict: Optional[Dict] = None
+        nlq_constraints_dict: Optional[Dict] = None,
+        subject_source: str = "suggested",
+        subject_ids_seed: Optional[List[int]] = None,
     ) -> Dict:
         """
         Generate class suggestions with collected preferences
@@ -301,11 +652,31 @@ class ChatbotService:
             preferences_dict = preferences.to_dict()
             print(f"⚙️ [CLASS_SUGGESTION] Preferences dict: {preferences_dict}")
             
-            # First, get subject suggestions from rule engine
+            from app.models.subject_model import Subject
+
+            # First, get subject candidates based on source
             subject_result = self.subject_rule_engine.suggest_subjects(student_id)
-            
-            # Get list of suggested subjects
-            suggested_subjects = subject_result['suggested_subjects']
+
+            if subject_source == 'registered' and subject_ids_seed:
+                registered_subject_rows = (
+                    self.db.query(Subject)
+                    .filter(Subject.id.in_(subject_ids_seed))
+                    .all()
+                )
+                suggested_subjects = [
+                    {
+                        "id": s.id,
+                        "subject_id": s.subject_id,
+                        "subject_name": s.subject_name,
+                        "credits": s.credits or 0,
+                        "priority_reason": "Theo học phần bạn đã đăng ký"
+                    }
+                    for s in registered_subject_rows
+                ]
+                if not suggested_subjects:
+                    suggested_subjects = subject_result['suggested_subjects']
+            else:
+                suggested_subjects = subject_result['suggested_subjects']
             print(f"📊 [SUBJECT_SUGGESTION] Total subjects from rule engine: {len(suggested_subjects)}")
             print(f"📊 [SUBJECT_SUGGESTION] Total credits: {subject_result.get('total_credits', 0)}")
             print(f"📊 [SUBJECT_SUGGESTION] Max credits allowed: {subject_result.get('max_credits_allowed', 0)}")
@@ -349,7 +720,7 @@ class ChatbotService:
                     subject_ids=[subj['id']],
                     preferences=preferences_dict,
                     registered_classes=[],
-                    min_suggestions=3  # Get at least 3 classes
+                    min_suggestions=2  # Reduce candidate size to speed up response
                 )
                 
                 # Apply preference filter BEFORE combination (Early Pruning Optimization)
@@ -377,8 +748,8 @@ class ChatbotService:
                     except Exception as _he:
                         print(f"  ⚠️ Hard constraint filter error: {_he}")
 
-                # Take top 3-5 classes after filtering
-                subject_suggested = filtered_classes[:5]
+                # Keep top candidates per subject to limit combination explosion
+                subject_suggested = filtered_classes[:4]
                 print(f"  ✅ After preference filter: {len(subject_suggested)} classes")
                 
                 # Get filter statistics
@@ -397,7 +768,7 @@ class ChatbotService:
             combinations = combo_generator.generate_combinations(
                 classes_by_subject=classes_by_subject,
                 preferences=preferences_dict,
-                max_combinations=100
+                max_combinations=40
             )
             
             # Return top 3 combinations

@@ -880,7 +880,7 @@ class TfidfIntentClassifier:
                     max_score = overlap_ratio
         
         return max_score
-    
+
     async def classify_intent(self, message: str) -> Dict:
         """
         Phân loại intent của message sử dụng TF-IDF và Cosine Similarity
@@ -944,7 +944,7 @@ class TfidfIntentClassifier:
                 "method": "tfidf_word2vec_hybrid",
                 "message": "Empty message"
             }
-        
+
         try:
             # Phase 3: Use adaptive weights based on message length
             weights = self._calculate_adaptive_weights(message)
@@ -1118,6 +1118,7 @@ class TfidfIntentClassifier:
             "student_info": "xem thông tin sinh viên",
             "schedule_view": "xem thời khóa biểu",
             "schedule_info": "xem lịch học tạm thời",
+            "modify_schedule": "điều chỉnh thời khóa biểu đã đăng ký",
             "prerequisite_check": "kiểm tra môn tiên quyết",
             "course_info": "hỏi thông tin khóa học",
             "department_info": "hỏi thông tin khoa",

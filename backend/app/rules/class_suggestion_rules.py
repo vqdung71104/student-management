@@ -202,11 +202,12 @@ class ClassSuggestionRuleEngine:
                 'study_time_end': study_time_end,
                 'study_week': study_week_list,  # Study week as LIST for conflict detection
                 'teacher_name': row[8],
-                'subject_id': row[10],
-                'subject_name': row[11],
-                'credits': row[12],
-                'registered_count': row[13],
-                'available_slots': row[9] - row[13]
+                'subject_id': row[9],
+                'subject_name': row[10],
+                'credits': row[11],
+                'registered_count': row[12],
+                # capacity is not stored in classes table, keep available slots as unknown
+                'available_slots': None
             })
         
         return classes

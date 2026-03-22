@@ -307,6 +307,26 @@
       "description": "Xem thời khóa biểu tạm thời sau đăng ký"
     },
     {
+      "tag": "modify_schedule",
+      "patterns": [
+        "với thời khóa biểu tôi đang đăng ký, nên đăng ký thêm lớp nào không",
+        "với tkb hiện tại tôi nên đăng ký thêm lớp nào",
+        "xem giúp tôi tkb và gợi ý đăng ký thêm lớp",
+        "thời khóa biểu hiện tại có lớp nào nên bỏ không",
+        "tkb của tôi có lớp nào đăng ký nhầm không",
+        "thời khóa biểu của tôi có lớp nào trùng lịch không",
+        "với thời khóa biểu hiện tại cần bổ sung lớp nào",
+        "tkb hiện tại cần cập nhật lớp nào",
+        "thời khóa biểu hiện tại cần thay đổi lớp nào",
+        "với tkb này nên thêm môn nào",
+        "kiểm tra tkb và đề xuất bỏ lớp hoặc đăng ký thêm",
+        "xem thời khóa biểu và tối ưu đăng ký lớp",
+        "thời khóa biểu hiện tại có ổn không, cần đăng ký thêm gì",
+        "với thời khóa biểu đã đăng ký nên học thêm lớp nào"
+      ],
+      "description": "Rà soát thời khóa biểu đã đăng ký và đề xuất lớp nên bỏ/thêm"
+    },
+    {
       "tag": "registration_time",
       "patterns": [
         "bao giờ là thời điểm đăng ký lớp",
