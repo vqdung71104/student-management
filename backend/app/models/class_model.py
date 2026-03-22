@@ -11,7 +11,7 @@ class Class(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     subject_id = Column(Integer, ForeignKey("subjects.id"))
-    class_id = Column(String(255), unique=True)
+    class_id = Column(String(255))
     class_name = Column(String(255))
     linked_class_ids = Column(String(255))
     class_type = Column(String(255))
@@ -44,9 +44,14 @@ class Class(Base):
     @validates("study_time_start", "study_time_end")
     def validate_time(self, key, value):
         """Đảm bảo thời gian có format hh:mm và lưu thành datetime.time"""
+        if value is None:
+            return None
         if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized or normalized.lower() in {"null", "none", "n/a", "na", "-", "--"}:
+                return None
             try:
-                parsed = datetime.strptime(value, "%H:%M").time()
+                parsed = datetime.strptime(normalized, "%H:%M").time()
                 return parsed
             except ValueError:
                 raise ValueError(f"{key} must be in format HH:MM (e.g. 09:05)")

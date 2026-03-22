@@ -21,8 +21,13 @@ class ClassBase(BaseModel):
     @classmethod
     def validate_study_date(cls, value: Optional[str]):
         """Đảm bảo study_date chỉ chứa ngày hợp lệ (Monday..Sunday)"""
-        if not value:
-            return value
+        if value is None:
+            return None
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized or normalized.lower() in {"null", "none", "n/a", "na", "-", "--"}:
+                return None
+            value = normalized
 
         valid_days = {
             "Monday", "Tuesday", "Wednesday", "Thursday",
@@ -42,6 +47,11 @@ class ClassBase(BaseModel):
         """Đảm bảo giờ đúng định dạng HH:MM"""
         if value is None:
             return value
+        if isinstance(value, str):
+            normalized = value.strip()
+            if not normalized or normalized.lower() in {"null", "none", "n/a", "na", "-", "--"}:
+                return None
+            value = normalized
         if isinstance(value, time):
             return value
         if isinstance(value, str):

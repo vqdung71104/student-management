@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.__init__ import Class
+from app.models.__init__ import Class, ClassRegister
 from app.schemas.class_schema import ClassCreate, ClassUpdate, ClassResponse
 from pydantic import BaseModel
 from typing import List
+from sqlalchemy import text
 
 router = APIRouter(prefix="/classes", tags=["Classes"])
 
@@ -20,14 +21,6 @@ class TeacherUpdateRequest(BaseModel):
 #    Create class
 @router.post("/", response_model=ClassResponse)
 def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
-    # Check if class_id already exists
-    existing_class = db.query(Class).filter(Class.class_id == class_data.class_id).first()
-    if existing_class:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Class with class_id '{class_data.class_id}' already exists"
-        )
-    
     # Convert data to dict and handle special fields
     class_dict = class_data.dict()
     
@@ -46,6 +39,37 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+#    Purge all classes (used by Excel replace-import flow)
+@router.delete("/purge-all")
+def purge_all_classes(db: Session = Depends(get_db)):
+    try:
+        # Temporary import mode: allow duplicate class_id values from Excel rows.
+        unique_indexes = db.execute(text("""
+            SELECT INDEX_NAME
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'classes'
+              AND COLUMN_NAME = 'class_id'
+              AND NON_UNIQUE = 0
+              AND INDEX_NAME <> 'PRIMARY'
+        """)).fetchall()
+
+        for row in unique_indexes:
+            index_name = row[0]
+            db.execute(text(f"ALTER TABLE classes DROP INDEX `{index_name}`"))
+
+        deleted_registers = db.query(ClassRegister).delete(synchronize_session=False)
+        deleted_classes = db.query(Class).delete(synchronize_session=False)
+        db.commit()
+        return {
+            "message": "Purged all class registrations and classes successfully",
+            "deleted_class_registers": deleted_registers,
+            "deleted_classes": deleted_classes,
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to purge classes: {str(e)}")
 
 #    Get all classes
 @router.get("/", response_model=list[ClassResponse])

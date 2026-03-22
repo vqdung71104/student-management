@@ -6,8 +6,20 @@ interface ExcelUploadProps {
   onClose: () => void
 }
 
+const NULL_LIKE_VALUES = new Set(['null', 'n/a', 'na', 'none', '-', '--'])
+
+const normalizeCellValue = (value: unknown): string => {
+  if (value === null || value === undefined) return ''
+  const trimmed = String(value).trim()
+  if (!trimmed) return ''
+  return NULL_LIKE_VALUES.has(trimmed.toLowerCase()) ? '' : trimmed
+}
+
+const hasMeaningfulValue = (value: unknown): boolean => normalizeCellValue(value) !== ''
+
 // Utility functions for data conversion
 const convertDayOfWeek = (dayNumber: string): string => {
+  if (!dayNumber) return ''
   const dayMap: { [key: string]: string } = {
     '2': 'Monday',
     '3': 'Tuesday',
@@ -17,7 +29,36 @@ const convertDayOfWeek = (dayNumber: string): string => {
     '7': 'Saturday',
     '8': 'Sunday'
   }
-  return dayMap[dayNumber] || dayNumber
+
+  const normalized = dayNumber.trim()
+  if (!normalized) return ''
+  const lowered = normalized.toLowerCase()
+  if (NULL_LIKE_VALUES.has(lowered)) return ''
+
+  const dayNameSet = new Set(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
+
+  const tokens = normalized
+    .split(',')
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0)
+
+  if (tokens.length === 0) return ''
+
+  const converted: string[] = []
+  for (const token of tokens) {
+    if (dayMap[token]) {
+      converted.push(dayMap[token])
+      continue
+    }
+    if (dayNameSet.has(token)) {
+      converted.push(token)
+      continue
+    }
+    // Unknown token: ignore it to keep import resilient.
+  }
+
+  if (converted.length === 0) return ''
+  return Array.from(new Set(converted)).join(',')
 }
 
 const convertTimeSlot = (timeSlot: string): { startTime: string, endTime: string } => {
@@ -162,7 +203,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
 
       for (const row of dataRows) {
         // Skip empty rows
-        if (!row || row.every(cell => !cell || cell.toString().trim() === '')) {
+        if (!row || row.every(cell => !hasMeaningfulValue(cell))) {
           continue
         }
 
@@ -170,21 +211,22 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
 
         headers.forEach((header, index) => {
           const fieldName = fieldMapping[header as keyof typeof fieldMapping]
-          if (fieldName && row[index]) {
-            classData[fieldName] = row[index].toString().trim()
+          const normalizedValue = normalizeCellValue(row[index])
+          if (fieldName && normalizedValue) {
+            classData[fieldName] = normalizedValue
           }
         })
 
         // Validate required fields
-        if (classData.semester && classData.class_code && classData.subject_code && classData.subject_name) {
+        if (classData.class_code && classData.subject_code && classData.subject_name) {
           // Convert the data to match our API requirements
           const timeSlotData = convertTimeSlot(classData.time_slot)
           const convertedClassData = {
             ...classData,
-            day_of_week_converted: convertDayOfWeek(classData.day_of_week),
+            day_of_week_converted: convertDayOfWeek(classData.day_of_week || ''),
             study_time_start: timeSlotData.startTime,
             study_time_end: timeSlotData.endTime,
-            study_weeks: parseStudyWeeks(classData.weeks)
+            study_weeks: parseStudyWeeks(classData.weeks || '')
           }
           parsedData.push(convertedClassData)
         }
@@ -269,7 +311,7 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
             const allParsedData: any[] = []
 
             for (const row of dataRows) {
-              if (!row || row.every(cell => !cell || cell.toString().trim() === '')) {
+              if (!row || row.every(cell => !hasMeaningfulValue(cell))) {
                 continue
               }
 
@@ -277,20 +319,21 @@ const ExcelUpload = ({ onDataParsed, onClose }: ExcelUploadProps) => {
 
               headers.forEach((header, index) => {
                 const fieldName = fieldMapping[header as keyof typeof fieldMapping]
-                if (fieldName && row[index]) {
-                  classData[fieldName] = row[index].toString().trim()
+                const normalizedValue = normalizeCellValue(row[index])
+                if (fieldName && normalizedValue) {
+                  classData[fieldName] = normalizedValue
                 }
               })
 
-              if (classData.semester && classData.class_code && classData.subject_code && classData.subject_name) {
+              if (classData.class_code && classData.subject_code && classData.subject_name) {
                 // Convert the data to match our API requirements
                 const timeSlotData = convertTimeSlot(classData.time_slot)
                 const convertedClassData = {
                   ...classData,
-                  day_of_week_converted: convertDayOfWeek(classData.day_of_week),
+                  day_of_week_converted: convertDayOfWeek(classData.day_of_week || ''),
                   study_time_start: timeSlotData.startTime,
                   study_time_end: timeSlotData.endTime,
-                  study_weeks: parseStudyWeeks(classData.weeks)
+                  study_weeks: parseStudyWeeks(classData.weeks || '')
                 }
                 allParsedData.push(convertedClassData)
               }

@@ -403,21 +403,34 @@ const ScheduleManagement = () => {
     setShowExcelUpload(false)
     
     try {
+      await clearAllClassesBeforeImport()
       const successCount = await createClassesFromExcel(excelData)
       
       // Refresh the list
       await fetchClasses()
       
-      // Show success message only if all succeeded
+      // Show success message only if all rows were imported exactly once
       if (successCount === excelData.length) {
-        alert(`✅ Tạo thành công tất cả ${successCount} lớp học!`)
+        alert(`✅ Tải lên thành công ${successCount}/${excelData.length} dòng lớp học!`)
+      } else {
+        alert(`⚠️ Đã tải lên ${successCount}/${excelData.length} dòng. Vui lòng kiểm tra lại file và console (F12).`)
       }
-      // Error details are already shown in createClassesFromExcel function
     } catch (error) {
       console.error('Error creating classes:', error)
       alert('❌ Có lỗi xảy ra khi tạo lớp học. Vui lòng kiểm tra console (F12) để biết chi tiết.')
     } finally {
       setCreateLoading(false)
+    }
+  }
+
+  const clearAllClassesBeforeImport = async () => {
+    const response = await fetch('/api/classes/purge-all', getAuthRequestOptions({
+      method: 'DELETE',
+    }))
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Không thể xóa dữ liệu lớp cũ trước khi import: ${errorText}`)
     }
   }
 
@@ -476,34 +489,14 @@ const ScheduleManagement = () => {
       console.error('Error fetching subjects:', error)
     }
     
-    // Check for existing classes to avoid duplicates
-    let existingClassIds: Set<string> = new Set()
-    try {
-      const classesResponse = await fetch('/api/classes/')
-      if (classesResponse.ok) {
-        const existingClasses = await classesResponse.json()
-        existingClassIds = new Set(existingClasses.map((c: any) => c.class_id))
-      }
-    } catch (error) {
-      console.error('Error fetching existing classes:', error)
-    }
-    
     console.log(` Starting bulk upload: ${excelData.length} classes`)
-    console.log(` Found ${existingClassIds.size} existing classes in database`)
     
     for (let i = 0; i < excelData.length; i++) {
       const row = excelData[i]
       const classCode = row.class_code || `Row_${i + 1}`
       
       try {
-        // Validation 1: Check duplicate class_id
-        if (existingClassIds.has(row.class_code)) {
-          errors.push({ class_code: classCode, reason: '❌ Duplicate: Class ID already exists' })
-          console.warn(`⚠️ Skipping ${classCode}: Already exists in database`)
-          continue
-        }
-        
-        // Validation 2: Check required fields
+        // Validation: Check required fields
         if (!row.class_code || !row.subject_name || !row.subject_code) {
           errors.push({ class_code: classCode, reason: '❌ Missing required fields (class_code, subject_name, subject_code)' })
           console.warn(`⚠️ Skipping ${classCode}: Missing required fields`)
@@ -519,6 +512,31 @@ const ScheduleManagement = () => {
         }
 
         // Map Excel fields to API fields according to ClassCreate schema
+        const asOptionalString = (value: unknown): string | undefined => {
+          if (value === null || value === undefined) return undefined
+          const normalized = String(value).trim()
+          if (!normalized) return undefined
+          const lowered = normalized.toLowerCase()
+          if (['null', 'none', 'n/a', 'na', '-', '--'].includes(lowered)) return undefined
+          return normalized
+        }
+
+        const asOptionalStringList = (value: unknown): string[] | undefined => {
+          const normalized = asOptionalString(value)
+          return normalized ? [normalized] : undefined
+        }
+
+        const asOptionalWeekList = (value: unknown): number[] | undefined => {
+          if (!Array.isArray(value)) return undefined
+          const cleaned = value.filter((item) => Number.isInteger(item) && item > 0)
+          return cleaned.length > 0 ? cleaned : undefined
+        }
+
+        const asTimeOrMidnight = (value: unknown): string => {
+          const normalized = asOptionalString(value)
+          return normalized ?? '00:00'
+        }
+
         const classData = {
           // Required fields mapped from Excel
           class_id: row.class_code,
@@ -526,14 +544,14 @@ const ScheduleManagement = () => {
           subject_id: subjectId,
           
           // Optional fields mapped from Excel
-          linked_class_ids: row.class_code_attached ? [row.class_code_attached] : [],
-          class_type: row.class_type || '',
-          classroom: row.room || '',
-          study_date: row.day_of_week_converted || '',
-          study_time_start: row.study_time_start || '',
-          study_time_end: row.study_time_end || '',
-          teacher_name: row.teacher_name || '',
-          study_week: row.study_weeks || []
+          linked_class_ids: asOptionalStringList(row.class_code_attached),
+          class_type: asOptionalString(row.class_type),
+          classroom: asOptionalString(row.room),
+          study_date: asOptionalString(row.day_of_week_converted),
+          study_time_start: asTimeOrMidnight(row.study_time_start),
+          study_time_end: asTimeOrMidnight(row.study_time_end),
+          teacher_name: asOptionalString(row.teacher_name),
+          study_week: asOptionalWeekList(row.study_weeks) ?? []
         }
 
         console.log(`📤 [${i + 1}/${excelData.length}] Creating class: ${classCode}`)
@@ -548,7 +566,6 @@ const ScheduleManagement = () => {
 
         if (response.ok) {
           successCount++
-          existingClassIds.add(row.class_code) // Add to set to prevent duplicates in same batch
           console.log(`✅ [${i + 1}/${excelData.length}] Success: ${classCode}`)
         } else {
           const errorText = await response.text()
