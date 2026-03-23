@@ -46,7 +46,7 @@ def get_classes(db: Session = Depends(get_db)):
     return db.query(Class).all()
 
 #    Get class by ID
-@router.get("/{class_id}", response_model=ClassResponse)
+@router.get("/{class_id:int}", response_model=ClassResponse)
 def get_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
@@ -54,7 +54,7 @@ def get_class(class_id: int, db: Session = Depends(get_db)):
     return class_obj
 
 #    Update class
-@router.put("/{class_id}", response_model=ClassResponse)
+@router.put("/{class_id:int}", response_model=ClassResponse)
 def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
@@ -109,7 +109,7 @@ def purge_all_classes(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to purge classes: {str(e)}")
 
 #    Delete class by ID
-@router.delete("/{class_id}")
+@router.delete("/{class_id:int}")
 def delete_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
