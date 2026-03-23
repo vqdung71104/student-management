@@ -197,7 +197,4 @@ jobs:
               docker compose -f docker-compose.prod.yml pull
               docker compose -f docker-compose.prod.yml up -d
               docker image prune -f
-              sleep 15
-              docker compose -f docker-compose.prod.yml exec -T backend sh -c "PYTHONPATH=/app python scripts/db/populate_data.py"
-            
-             
+              

@@ -40,37 +40,6 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-#    Purge all classes (used by Excel replace-import flow)
-@router.delete("/purge-all")
-def purge_all_classes(db: Session = Depends(get_db)):
-    try:
-        # Temporary import mode: allow duplicate class_id values from Excel rows.
-        unique_indexes = db.execute(text("""
-            SELECT INDEX_NAME
-            FROM information_schema.STATISTICS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'classes'
-              AND COLUMN_NAME = 'class_id'
-              AND NON_UNIQUE = 0
-              AND INDEX_NAME <> 'PRIMARY'
-        """)).fetchall()
-
-        for row in unique_indexes:
-            index_name = row[0]
-            db.execute(text(f"ALTER TABLE classes DROP INDEX `{index_name}`"))
-
-        deleted_registers = db.query(ClassRegister).delete(synchronize_session=False)
-        deleted_classes = db.query(Class).delete(synchronize_session=False)
-        db.commit()
-        return {
-            "message": "Purged all class registrations and classes successfully",
-            "deleted_class_registers": deleted_registers,
-            "deleted_classes": deleted_classes,
-        }
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Failed to purge classes: {str(e)}")
-
 #    Get all classes
 @router.get("/", response_model=list[ClassResponse])
 def get_classes(db: Session = Depends(get_db)):
@@ -108,7 +77,38 @@ def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends
     db.refresh(class_obj)
     return class_obj
 
-#    Delete class
+#    Purge all classes (must be before /{class_id} to match correctly)
+@router.delete("/purge-all")
+def purge_all_classes(db: Session = Depends(get_db)):
+    try:
+        # Temporary import mode: allow duplicate class_id values from Excel rows.
+        unique_indexes = db.execute(text("""
+            SELECT INDEX_NAME
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'classes'
+              AND COLUMN_NAME = 'class_id'
+              AND NON_UNIQUE = 0
+              AND INDEX_NAME <> 'PRIMARY'
+        """)).fetchall()
+
+        for row in unique_indexes:
+            index_name = row[0]
+            db.execute(text(f"ALTER TABLE classes DROP INDEX `{index_name}`"))
+
+        deleted_registers = db.query(ClassRegister).delete(synchronize_session=False)
+        deleted_classes = db.query(Class).delete(synchronize_session=False)
+        db.commit()
+        return {
+            "message": "Purged all class registrations and classes successfully",
+            "deleted_class_registers": deleted_registers,
+            "deleted_classes": deleted_classes,
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to purge classes: {str(e)}")
+
+#    Delete class by ID
 @router.delete("/{class_id}")
 def delete_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
