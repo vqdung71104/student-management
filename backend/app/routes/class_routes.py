@@ -41,7 +41,7 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 #    Purge all classes (used by Excel replace-import flow)
-@router.delete("/purge-all/")
+@router.delete("/actions/purge-all/")
 def purge_all_classes(db: Session = Depends(get_db)):
     try:
         # Temporary import mode: allow duplicate class_id values from Excel rows.

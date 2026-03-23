@@ -424,7 +424,7 @@ const ScheduleManagement = () => {
   }
 
   const clearAllClassesBeforeImport = async () => {
-    const response = await fetch('/api/classes/purge-all/', getAuthRequestOptions({
+    const response = await fetch('/api/classes/actions/purge-all/', getAuthRequestOptions({
       method: 'DELETE',
     }))
 
