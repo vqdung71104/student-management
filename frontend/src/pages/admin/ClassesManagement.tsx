@@ -158,7 +158,7 @@ const ClassesManagement = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa lớp học này?')) return
     
     try {
-      const response = await fetch(`/api/classes/${classId}`, {
+      const response = await fetch(`/api/classes/actions/delete/${classId}`, {
         method: 'DELETE',
       })
       

@@ -40,6 +40,23 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
+#    Delete single class by ID (under actions namespace)
+@router.delete("/actions/delete/{class_id}")
+def delete_class_action(class_id: int, db: Session = Depends(get_db)):
+    try:
+        class_obj = db.query(Class).filter(Class.id == class_id).first()
+        if not class_obj:
+            raise HTTPException(status_code=404, detail="Class not found")
+        db.delete(class_obj)
+        db.commit()
+        return {"message": "Class deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete class: {str(e)}")
+
+
 #    Purge all classes (used by Excel replace-import flow)
 @router.delete("/actions/purge-all/")
 def purge_all_classes(db: Session = Depends(get_db)):
