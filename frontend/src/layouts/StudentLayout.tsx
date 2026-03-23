@@ -15,18 +15,14 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const location = useLocation()
   const { logout } = useAuth()
   const { language, changeLanguage, t } = useStudentLanguage()
-  const { notifications, loading, hasMore, loadMore, formatDate } = useNotifications()
+  const { formatDate } = useNotifications()
   const [chatbotOpen, setChatbotOpen] = useState(false)
-  const [notificationOpen, setNotificationOpen] = useState(false)
   const [studyMenuOpen, setStudyMenuOpen] = useState(false)
   const [supportMenuOpen, setSupportMenuOpen] = useState(false)
   const [registrationMenuOpen, setRegistrationMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<any>(null)
-
-  // Since new notification system doesn't have isRead, we show all notifications
-  const unreadCount = notifications.length > 0 ? notifications.length : 0
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true)
@@ -46,15 +42,10 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     setStudyMenuOpen(false)
     setSupportMenuOpen(false)
     setRegistrationMenuOpen(false)
-    setNotificationOpen(false)
   }
 
   const toggleChatbot = () => {
     setChatbotOpen(!chatbotOpen)
-  }
-
-  const handleNotificationClick = (notification: any) => {
-    setSelectedNotification(notification)
   }
 
   const isActive = (path: string) => {
