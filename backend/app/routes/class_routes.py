@@ -40,45 +40,8 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-#    Get all classes
-@router.get("/", response_model=list[ClassResponse])
-def get_classes(db: Session = Depends(get_db)):
-    return db.query(Class).all()
-
-#    Get class by ID
-@router.get("/{class_id:int}", response_model=ClassResponse)
-def get_class(class_id: int, db: Session = Depends(get_db)):
-    class_obj = db.query(Class).filter(Class.id == class_id).first()
-    if not class_obj:
-        raise HTTPException(status_code=404, detail="Class not found")
-    return class_obj
-
-#    Update class
-@router.put("/{class_id:int}", response_model=ClassResponse)
-def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends(get_db)):
-    class_obj = db.query(Class).filter(Class.id == class_id).first()
-    if not class_obj:
-        raise HTTPException(status_code=404, detail="Class not found")
-
-    update_dict = class_update.dict(exclude_unset=True)
-    
-    # Handle special fields
-    for key, value in update_dict.items():
-        if key == "linked_class_ids" and value is not None:
-            if isinstance(value, list):
-                value = ",".join(value) if value else ""
-        #   XÓA PHẦN NÀY - không cần convert enum nữa
-        # elif key == "class_type" and value is not None:
-        #     value = value.value
-        
-        setattr(class_obj, key, value)
-
-    db.commit()
-    db.refresh(class_obj)
-    return class_obj
-
-#    Purge all classes (must be before /{class_id} to match correctly)
-@router.delete("/purge-all")
+#    Purge all classes (used by Excel replace-import flow)
+@router.delete("/purge-all/")
 def purge_all_classes(db: Session = Depends(get_db)):
     try:
         # Temporary import mode: allow duplicate class_id values from Excel rows.
@@ -108,10 +71,54 @@ def purge_all_classes(db: Session = Depends(get_db)):
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to purge classes: {str(e)}")
 
-#    Delete class by ID
-@router.delete("/{class_id:int}")
-def delete_class(class_id: int, db: Session = Depends(get_db)):
+#    Get all classes
+@router.get("/", response_model=list[ClassResponse])
+def get_classes(db: Session = Depends(get_db)):
+    return db.query(Class).all()
+
+#    Get class by ID
+@router.get("/{class_id}", response_model=ClassResponse)
+def get_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
+    if not class_obj:
+        raise HTTPException(status_code=404, detail="Class not found")
+    return class_obj
+
+#    Update class
+@router.put("/{class_id}", response_model=ClassResponse)
+def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends(get_db)):
+    class_obj = db.query(Class).filter(Class.id == class_id).first()
+    if not class_obj:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    update_dict = class_update.dict(exclude_unset=True)
+    
+    # Handle special fields
+    for key, value in update_dict.items():
+        if key == "linked_class_ids" and value is not None:
+            if isinstance(value, list):
+                value = ",".join(value) if value else ""
+        #   XÓA PHẦN NÀY - không cần convert enum nữa
+        # elif key == "class_type" and value is not None:
+        #     value = value.value
+        
+        setattr(class_obj, key, value)
+
+    db.commit()
+    db.refresh(class_obj)
+    return class_obj
+
+#    Delete class
+@router.delete("/{class_id}")
+def delete_class(class_id: str, db: Session = Depends(get_db)): # Đổi thành str
+    try:
+        # Ép kiểu sang int bên trong
+        target_id = int(class_id)
+    except ValueError:
+        # Nếu không phải số, có thể đây là một request lỗi hoặc nhầm route
+        raise HTTPException(status_code=400, detail="Invalid class ID format")
+
+    class_obj = db.query(Class).filter(Class.id == target_id).first()
     if not class_obj:
         raise HTTPException(status_code=404, detail="Class not found")
     db.delete(class_obj)

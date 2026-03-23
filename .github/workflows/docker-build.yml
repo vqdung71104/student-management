@@ -194,8 +194,6 @@ jobs:
               cd student-app
               git pull origin main
               echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-              docker compose -f docker-compose.prod.yml pull backend frontend
-              # Always recreate backend so new API routes are applied after each push
-              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend
-              docker compose -f docker-compose.prod.yml up -d frontend
+              docker compose -f docker-compose.prod.yml pull
+              docker compose -f docker-compose.prod.yml up -d
               docker image prune -f              
