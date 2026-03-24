@@ -191,7 +191,11 @@ async def _process_single_query(
                         r["study_time_end"] = r["study_time_end"].strftime("%H:%M")
 
                 return ChatResponseWithData(
-                    text=(f"✅ Tìm thấy {len(rows)} lớp học phù hợp." if rows else "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn."),
+                    text=(
+                        f"✅ Tìm thấy {len({str(r.get('class_id')) for r in rows if r.get('class_id') is not None}) or len(rows)} lớp học phù hợp."
+                        if rows
+                        else "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn."
+                    ),
                     intent="class_info",
                     confidence="high",
                     data=rows,
@@ -451,7 +455,18 @@ def _enrich_subject_or_class_data(
 
 def _append_learning_context_to_text(intent: str, base_text: str, data: List[Dict[str, Any]]) -> str:
     """Append high-level learning context for subject/class intents."""
-    statuses = [row.get("_student_learning_status") for row in data if row.get("_student_learning_status")]
+    # For class rows, count logical classes (same class_id appears multiple sessions).
+    rows_for_stats = data
+    if intent == "class_info":
+        by_class_code: Dict[str, Dict[str, Any]] = {}
+        for row in data:
+            class_code = row.get("class_id")
+            key = str(class_code) if class_code is not None else str(row.get("id"))
+            if key not in by_class_code:
+                by_class_code[key] = row
+        rows_for_stats = list(by_class_code.values())
+
+    statuses = [row.get("_student_learning_status") for row in rows_for_stats if row.get("_student_learning_status")]
     if not statuses:
         return base_text
 
@@ -620,6 +635,17 @@ def _generate_response_text(
 ) -> str:
     """Generate response text based on intent, confidence and data"""
 
+    def _logical_class_count(rows: List[Dict[str, Any]]) -> int:
+        if not rows:
+            return 0
+        class_keys = set()
+        for row in rows:
+            if row.get("class_id") is not None:
+                class_keys.add(str(row.get("class_id")))
+            elif row.get("id") is not None:
+                class_keys.add(f"id:{row.get('id')}")
+        return len(class_keys) if class_keys else len(rows)
+
     if sql_error:
         return f"Xin lỗi, có lỗi khi truy vấn dữ liệu: {sql_error}"
 
@@ -644,9 +670,9 @@ def _generate_response_text(
         elif intent == "subject_info":
             return f"Thông tin về học phần (tìm thấy {len(data)} kết quả):"
         elif intent == "class_info":
-            return f"Danh sách lớp học (tìm thấy {len(data)} lớp):"
+            return f"Danh sách lớp học (tìm thấy {_logical_class_count(data)} lớp):"
         elif intent == "schedule_view":
-            return f"Các môn/lớp bạn đã đăng ký (tìm thấy {len(data)} lớp):"
+            return f"Các môn/lớp bạn đã đăng ký (tìm thấy {_logical_class_count(data)} lớp):"
 
     intent_friendly_name = classifier.get_intent_friendly_name(intent)
     return f"Bạn định {intent_friendly_name} phải không?"

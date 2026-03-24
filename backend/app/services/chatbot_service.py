@@ -126,6 +126,64 @@ class ChatbotService:
     def _format_class_brief(self, cls: Dict) -> str:
         return f"{cls.get('class_id', 'N/A')} ({cls.get('subject_code', 'N/A')})"
 
+    def _to_time_text(self, value) -> str:
+        if value is None:
+            return "N/A"
+        if isinstance(value, dtime):
+            return value.strftime("%H:%M")
+        if isinstance(value, timedelta):
+            total_seconds = int(value.total_seconds())
+            hours, rem = divmod(total_seconds, 3600)
+            minutes = rem // 60
+            if 0 <= hours <= 23:
+                return f"{hours:02d}:{minutes:02d}"
+        return str(value)
+
+    def _aggregate_classes_for_text(self, classes: List[Dict]) -> List[Dict]:
+        """Aggregate rows with same class_id into one logical class for text rendering."""
+        from collections import OrderedDict
+
+        groups: "OrderedDict[str, Dict]" = OrderedDict()
+        for cls in classes:
+            class_code = str(cls.get("class_id", "N/A"))
+            group = groups.get(class_code)
+            if not group:
+                group = {
+                    "class_id": cls.get("class_id", "N/A"),
+                    "subject_id": cls.get("subject_id") or cls.get("subject_code", "N/A"),
+                    "subject_name": cls.get("subject_name", ""),
+                    "credits": cls.get("credits", 0),
+                    "classroom": cls.get("classroom") or "TBA",
+                    "teacher_name": cls.get("teacher_name") or "TBA",
+                    "priority_reason": cls.get("priority_reason", ""),
+                    "seats_available": cls.get("seats_available"),
+                    "fully_satisfies": cls.get("fully_satisfies", False),
+                    "violation_count": cls.get("violation_count", 0),
+                    "violations": list(cls.get("violations", []) or []),
+                    "slots": [],
+                }
+                groups[class_code] = group
+
+            slot = f"{cls.get('study_date') or 'N/A'} {self._to_time_text(cls.get('study_time_start'))}-{self._to_time_text(cls.get('study_time_end'))}"
+            if slot not in group["slots"]:
+                group["slots"].append(slot)
+
+            if (group.get("teacher_name") in ("", "TBA", "Chưa có GV")) and cls.get("teacher_name"):
+                group["teacher_name"] = cls.get("teacher_name")
+            if (group.get("classroom") in ("", "TBA", "N/A")) and cls.get("classroom"):
+                group["classroom"] = cls.get("classroom")
+            if not group.get("priority_reason") and cls.get("priority_reason"):
+                group["priority_reason"] = cls.get("priority_reason")
+            if group.get("seats_available") is None and cls.get("seats_available") is not None:
+                group["seats_available"] = cls.get("seats_available")
+            group["fully_satisfies"] = bool(group.get("fully_satisfies")) or bool(cls.get("fully_satisfies"))
+            group["violation_count"] = max(group.get("violation_count", 0), cls.get("violation_count", 0) or 0)
+            for v in (cls.get("violations") or []):
+                if v not in group["violations"]:
+                    group["violations"].append(v)
+
+        return list(groups.values())
+
     def _audit_and_recommend_schedule(self, student_id: int) -> Dict:
         from collections import defaultdict
         from app.models.student_model import Student
@@ -186,12 +244,15 @@ class ChatbotService:
             if cls["subject_db_id"] in learned_ge_b_subjects:
                 drop_reasons[cls["class_db_id"]].append("Bạn đã học học phần này với điểm từ B trở lên")
 
+        # Duplicate subject should be detected only when student has different class_id groups
+        # for the same subject, not multiple rows of the same class_id.
         by_subject = defaultdict(list)
         for cls in registered_classes:
             by_subject[cls["subject_db_id"]].append(cls)
         for _, items in by_subject.items():
-            if len(items) > 1:
-                all_class_ids = ", ".join(str(i.get("class_id", "N/A")) for i in items)
+            distinct_class_codes = sorted({str(i.get("class_id", "N/A")) for i in items})
+            if len(distinct_class_codes) > 1:
+                all_class_ids = ", ".join(distinct_class_codes)
                 for cls in items:
                     drop_reasons[cls["class_db_id"]].append(f"Đăng ký trùng học phần với các lớp: {all_class_ids}")
 
@@ -199,6 +260,9 @@ class ChatbotService:
             for j in range(i + 1, len(registered_classes)):
                 a = registered_classes[i]
                 b = registered_classes[j]
+                if str(a.get("class_id")) == str(b.get("class_id")):
+                    # Same logical class split into multiple sessions - not a conflict.
+                    continue
                 if self._has_schedule_overlap(a, b):
                     drop_reasons[a["class_db_id"]].append(
                         f"Xung đột lịch với lớp {b.get('class_id', 'N/A')} ({b.get('subject_code', 'N/A')})"
@@ -209,15 +273,31 @@ class ChatbotService:
 
         drop_lines: List[str] = []
         class_by_id = {c["class_db_id"]: c for c in registered_classes}
+        reasons_by_class_code: Dict[str, List[str]] = defaultdict(list)
+        sample_by_class_code: Dict[str, Dict] = {}
         for class_db_id, reasons in drop_reasons.items():
             cls = class_by_id.get(class_db_id)
             if not cls:
                 continue
+            class_code = str(cls.get("class_id", "N/A"))
+            sample_by_class_code[class_code] = cls
+            reasons_by_class_code[class_code].extend(reasons)
+
+        for class_code, reasons in reasons_by_class_code.items():
+            sample_cls = sample_by_class_code[class_code]
             uniq_reasons = list(dict.fromkeys(reasons))
-            drop_lines.append(f"- {self._format_class_brief(cls)}: " + "; ".join(uniq_reasons))
+            drop_lines.append(f"- {self._format_class_brief(sample_cls)}: " + "; ".join(uniq_reasons))
 
         registered_subject_ids = {c["subject_db_id"] for c in registered_classes}
-        current_credits = sum(c.get("credits", 0) for c in registered_classes)
+
+        # Credits should not be multiplied by the number of weekly sessions.
+        # Count each subject once.
+        subject_credit_map: Dict[int, int] = {}
+        for c in registered_classes:
+            sid = c.get("subject_db_id")
+            if sid is not None and sid not in subject_credit_map:
+                subject_credit_map[sid] = c.get("credits", 0) or 0
+        current_credits = sum(subject_credit_map.values())
         target_credits = 28
 
         needed_subject_ids = [
@@ -268,10 +348,14 @@ class ChatbotService:
                     if current_credits >= target_credits:
                         break
 
-        add_lines = [
-            f"- {self._format_class_brief(cls)}: {cls.get('subject_name', '')}"
-            for cls in selected_new_classes
-        ]
+        add_lines = []
+        seen_add_class_codes = set()
+        for cls in selected_new_classes:
+            code = str(cls.get("class_id", "N/A"))
+            if code in seen_add_class_codes:
+                continue
+            seen_add_class_codes.add(code)
+            add_lines.append(f"- {self._format_class_brief(cls)}: {cls.get('subject_name', '')}")
 
         sections = []
         if drop_lines:
@@ -1230,14 +1314,16 @@ class ChatbotService:
                 response.append(f"    • {m['continuous_study_days']} ngày học liên tục (>5h)")
             
             response.append(f"\n  📚 Danh sách lớp:")
-            
-            # Group by subject for display
-            for cls in combo['classes']:
+
+            # Render logical classes (same class_id with multiple sessions -> one class)
+            logical_classes = self._aggregate_classes_for_text(combo['classes'])
+            for cls in logical_classes:
                 response.append(f"    • {cls['subject_id']} - {cls['subject_name']} ({cls['credits']} TC)")
-                response.append(f"      Lớp {cls['class_id']}: {cls['study_date']} {cls['study_time_start']}-{cls['study_time_end']}")
+                response.append(f"      Lớp {cls['class_id']} ({len(cls['slots'])} buổi/tuần)")
+                for slot in cls['slots']:
+                    response.append(f"        - {slot}")
                 response.append(f"      Phòng {cls['classroom']} - {cls['teacher_name'] if cls['teacher_name'] else 'TBA'}")
-               
-                
+
                 if cls.get('priority_reason'):
                     response.append(f"      💡 {cls['priority_reason']}")
             
@@ -1312,25 +1398,24 @@ class ChatbotService:
         response.append(f"\n📚 Tìm thấy {len(classes)} lớp cho {len(classes_by_subject)} môn:\n")
         
         for idx, (subject_id, subject_classes) in enumerate(classes_by_subject.items(), 1):
-            first_class = subject_classes[0]
+            logical_classes = self._aggregate_classes_for_text(subject_classes)
+            first_class = logical_classes[0]
             priority_reason = first_class.get('priority_reason', '')
             
             response.append(f"{idx}. {subject_id} - {first_class['subject_name']} ({first_class['credits']} TC)")
             if priority_reason:
                 response.append(f"   💡 {priority_reason}")
-            response.append(f"   Có {len(subject_classes)} lớp khả dụng:")
+            response.append(f"   Có {len(logical_classes)} lớp khả dụng:")
             
-            for cls in subject_classes[:3]:  # Show max 3 classes per subject
-                time_info = ""
-                if cls['study_time_start'] and cls['study_time_end']:
-                    time_info = f"{cls['study_time_start']}-{cls['study_time_end']}"
+            for cls in logical_classes[:3]:  # Show max 3 logical classes per subject
+                time_info = "; ".join(cls.get('slots', []))
                 
                 # Add satisfaction badge
                 fully_satisfied = cls.get('fully_satisfies', False)
                 violation_count = cls.get('violation_count', 0)
                 badge = "✅" if fully_satisfied else (f"⚠️" if violation_count > 0 else "")
                 
-                class_line = f"     • {cls['class_id']}: {cls['study_date']} {time_info} "
+                class_line = f"     • {cls['class_id']} ({len(cls.get('slots', []))} buổi/tuần): {time_info} "
                 class_line += f"- Phòng {cls['classroom']} - GV: {cls['teacher_name']} "
                 class_line += f"({cls['seats_available']} chỗ trống) {badge}"
                 
@@ -1341,8 +1426,8 @@ class ChatbotService:
                     violations_str = ', '.join(cls['violations'][:2])
                     response.append(f"       ⚠️ {violations_str}")
             
-            if len(subject_classes) > 3:
-                response.append(f"     ... và {len(subject_classes) - 3} lớp khác")
+            if len(logical_classes) > 3:
+                response.append(f"     ... và {len(logical_classes) - 3} lớp khác")
             
             response.append("")
         
