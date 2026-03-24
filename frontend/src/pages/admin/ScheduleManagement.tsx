@@ -424,14 +424,22 @@ const ScheduleManagement = () => {
   }
 
   const clearAllClassesBeforeImport = async () => {
-    const response = await fetch('/api/classes/actions/purge-all/', getAuthRequestOptions({
-      method: 'DELETE',
-    }))
+    const candidates = [
+      '/api/classes/actions/purge-all',
+      '/api/classes/actions/purge-all/',
+      '/api/classes/purge-all',
+    ]
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Không thể xóa dữ liệu lớp cũ trước khi import: ${errorText}`)
+    let lastError = ''
+    for (const url of candidates) {
+      const response = await fetch(url, getAuthRequestOptions({ method: 'DELETE' }))
+      if (response.ok) return
+      if (response.status === 404) continue
+      lastError = await response.text()
+      break
     }
+
+    throw new Error(`Không thể xóa dữ liệu lớp cũ trước khi import: ${lastError || 'Not Found'}`)
   }
 
   const createSubjectIfNotExists = async (subjectCode: string, subjectName: string): Promise<number> => {

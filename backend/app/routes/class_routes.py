@@ -57,33 +57,38 @@ def delete_class_action(class_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to delete class: {str(e)}")
 
 
-#    Purge all classes (used by Excel replace-import flow)
-@router.delete("/actions/purge-all/")
+def _purge_all_classes(db: Session):
+    # Temporary import mode: allow duplicate class_id values from Excel rows.
+    unique_indexes = db.execute(text("""
+        SELECT INDEX_NAME
+        FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'classes'
+          AND COLUMN_NAME = 'class_id'
+          AND NON_UNIQUE = 0
+          AND INDEX_NAME <> 'PRIMARY'
+    """)).fetchall()
+
+    for row in unique_indexes:
+        index_name = row[0]
+        db.execute(text(f"ALTER TABLE classes DROP INDEX `{index_name}`"))
+
+    deleted_registers = db.query(ClassRegister).delete(synchronize_session=False)
+    deleted_classes = db.query(Class).delete(synchronize_session=False)
+    db.commit()
+    return {
+        "message": "Purged all class registrations and classes successfully",
+        "deleted_class_registers": deleted_registers,
+        "deleted_classes": deleted_classes,
+    }
+
+
+#    Purge all classes (accept both slash/no-slash)
+@router.delete("/actions/purge-all")
+@router.delete("/actions/purge-all/", include_in_schema=False)
 def purge_all_classes(db: Session = Depends(get_db)):
     try:
-        # Temporary import mode: allow duplicate class_id values from Excel rows.
-        unique_indexes = db.execute(text("""
-            SELECT INDEX_NAME
-            FROM information_schema.STATISTICS
-            WHERE TABLE_SCHEMA = DATABASE()
-              AND TABLE_NAME = 'classes'
-              AND COLUMN_NAME = 'class_id'
-              AND NON_UNIQUE = 0
-              AND INDEX_NAME <> 'PRIMARY'
-        """)).fetchall()
-
-        for row in unique_indexes:
-            index_name = row[0]
-            db.execute(text(f"ALTER TABLE classes DROP INDEX `{index_name}`"))
-
-        deleted_registers = db.query(ClassRegister).delete(synchronize_session=False)
-        deleted_classes = db.query(Class).delete(synchronize_session=False)
-        db.commit()
-        return {
-            "message": "Purged all class registrations and classes successfully",
-            "deleted_class_registers": deleted_registers,
-            "deleted_classes": deleted_classes,
-        }
+        return _purge_all_classes(db)
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to purge classes: {str(e)}")
@@ -94,7 +99,7 @@ def get_classes(db: Session = Depends(get_db)):
     return db.query(Class).all()
 
 #    Get class by ID
-@router.get("/{class_id}", response_model=ClassResponse)
+@router.get("/{class_id:int}", response_model=ClassResponse)
 def get_class(class_id: int, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
@@ -102,7 +107,7 @@ def get_class(class_id: int, db: Session = Depends(get_db)):
     return class_obj
 
 #    Update class
-@router.put("/{class_id}", response_model=ClassResponse)
+@router.put("/{class_id:int}", response_model=ClassResponse)
 def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends(get_db)):
     class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
@@ -126,16 +131,9 @@ def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends
     return class_obj
 
 #    Delete class
-@router.delete("/{class_id}")
-def delete_class(class_id: str, db: Session = Depends(get_db)): # Đổi thành str
-    try:
-        # Ép kiểu sang int bên trong
-        target_id = int(class_id)
-    except ValueError:
-        # Nếu không phải số, có thể đây là một request lỗi hoặc nhầm route
-        raise HTTPException(status_code=400, detail="Invalid class ID format")
-
-    class_obj = db.query(Class).filter(Class.id == target_id).first()
+@router.delete("/{class_id:int}")
+def delete_class(class_id: int, db: Session = Depends(get_db)):
+    class_obj = db.query(Class).filter(Class.id == class_id).first()
     if not class_obj:
         raise HTTPException(status_code=404, detail="Class not found")
     db.delete(class_obj)
