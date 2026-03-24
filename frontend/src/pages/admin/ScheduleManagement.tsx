@@ -424,22 +424,30 @@ const ScheduleManagement = () => {
   }
 
   const clearAllClassesBeforeImport = async () => {
-    const candidates = [
-      '/api/classes/actions/purge-all',
-      '/api/classes/actions/purge-all/',
-      '/api/classes/purge-all',
-    ]
-
-    let lastError = ''
-    for (const url of candidates) {
-      const response = await fetch(url, getAuthRequestOptions({ method: 'DELETE' }))
-      if (response.ok) return
-      if (response.status === 404) continue
-      lastError = await response.text()
-      break
+    const listResponse = await fetch('/api/classes/', getAuthRequestOptions())
+    if (!listResponse.ok) {
+      const errorText = await listResponse.text()
+      throw new Error(`Không thể lấy danh sách lớp để xóa: ${errorText}`)
     }
 
-    throw new Error(`Không thể xóa dữ liệu lớp cũ trước khi import: ${lastError || 'Not Found'}`)
+    const classList = await listResponse.json()
+    for (const classItem of classList) {
+      const id = classItem?.id
+      if (!id) continue
+
+      let deleted = false
+      for (const deleteUrl of [`/api/classes/actions/delete/${id}`, `/api/classes/${id}`]) {
+        const deleteResponse = await fetch(deleteUrl, getAuthRequestOptions({ method: 'DELETE' }))
+        if (deleteResponse.ok || deleteResponse.status === 404) {
+          deleted = true
+          break
+        }
+      }
+
+      if (!deleted) {
+        throw new Error(`Không thể xóa lớp ID ${id}`)
+      }
+    }
   }
 
   const createSubjectIfNotExists = async (subjectCode: string, subjectName: string): Promise<number> => {

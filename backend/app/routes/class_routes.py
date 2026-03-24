@@ -18,6 +18,18 @@ class TeacherUpdate(BaseModel):
 class TeacherUpdateRequest(BaseModel):
     updates: List[TeacherUpdate]
 
+
+def _delete_class_with_registers(db: Session, class_id: int):
+    class_obj = db.query(Class).filter(Class.id == class_id).first()
+    if not class_obj:
+        raise HTTPException(status_code=404, detail="Class not found")
+
+    # Delete dependent class registrations first to avoid FK constraint errors.
+    db.query(ClassRegister).filter(ClassRegister.class_id == class_id).delete(synchronize_session=False)
+    db.delete(class_obj)
+    db.commit()
+    return {"message": "Class deleted successfully"}
+
 #    Create class
 @router.post("/", response_model=ClassResponse)
 def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
@@ -44,12 +56,7 @@ def create_class(class_data: ClassCreate, db: Session = Depends(get_db)):
 @router.delete("/actions/delete/{class_id}")
 def delete_class_action(class_id: int, db: Session = Depends(get_db)):
     try:
-        class_obj = db.query(Class).filter(Class.id == class_id).first()
-        if not class_obj:
-            raise HTTPException(status_code=404, detail="Class not found")
-        db.delete(class_obj)
-        db.commit()
-        return {"message": "Class deleted successfully"}
+        return _delete_class_with_registers(db, class_id)
     except HTTPException:
         raise
     except Exception as e:
@@ -133,12 +140,13 @@ def update_class(class_id: int, class_update: ClassUpdate, db: Session = Depends
 #    Delete class
 @router.delete("/{class_id:int}")
 def delete_class(class_id: int, db: Session = Depends(get_db)):
-    class_obj = db.query(Class).filter(Class.id == class_id).first()
-    if not class_obj:
-        raise HTTPException(status_code=404, detail="Class not found")
-    db.delete(class_obj)
-    db.commit()
-    return {"message": "Class deleted successfully"}
+    try:
+        return _delete_class_with_registers(db, class_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete class: {str(e)}")
 
 #    Update teachers from Excel
 @router.post("/update-teachers")
