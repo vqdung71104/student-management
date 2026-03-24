@@ -222,88 +222,76 @@ const ClassRegistration = () => {
     try {
       setLoading(true)
 
-      // Find the selected class to get its linked classes
-      const selectedClassData = classes.find(cls => cls.id === classId)
-      const linkedClassIds = selectedClassData?.linked_class_ids || []
-
-      console.log('Main class ID:', classId)
-      console.log('Main class data:', selectedClassData)
-      console.log('Linked class IDs (class_id values):', linkedClassIds)
-
-      // Register main class
-      const registerData = {
-        student_id: userInfo.id,
-        class_id: classId,
-        class_info: 'Đang mở',
-        register_type: 'Đăng ký online',
-        register_status: 'Đăng ký thành công'
+      // Always use full class list so duplicate class_id rows (multiple study days) are handled together.
+      const allClassesResponse = await fetch('/api/classes/', getAuthRequestOptions())
+      if (!allClassesResponse.ok) {
+        throw new Error('Không thể tải danh sách lớp để đăng ký')
       }
 
-      console.log('Registering main class:', registerData)
-
-      const response = await fetch('/api/class-registers', getAuthRequestOptions({
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(registerData),
-      }))
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || 'Đăng ký lớp chính thất bại')
+      const allClasses = await allClassesResponse.json()
+      const selectedClassData = allClasses.find((cls: any) => cls.id === classId)
+      if (!selectedClassData) {
+        throw new Error('Không tìm thấy lớp đã chọn')
       }
 
-      // Register linked classes if any
-      // Need to fetch all classes to find linked classes (since they're filtered out from main list)
-      const linkedRegistrations = []
-      if (linkedClassIds.length > 0) {
-        console.log('Fetching all classes to find linked classes...')
-        const allClassesResponse = await fetch('/api/classes/', getAuthRequestOptions())
-        if (allClassesResponse.ok) {
-          const allClasses = await allClassesResponse.json()
+      const classCode = String(selectedClassData.class_id)
+      const sameClassCodeRows = allClasses.filter((cls: any) => String(cls.class_id) === classCode)
 
-          for (const linkedClassId of linkedClassIds) {
-            if (linkedClassId !== selectedClassData?.class_id) { // Don't register self again
-              // Find the class with this class_id to get its database id
-              const linkedClass = allClasses.find((cls: any) => cls.class_id === linkedClassId)
-              if (linkedClass) {
-                const linkedRegisterData = {
-                  student_id: userInfo.id,
-                  class_id: linkedClass.id, // Use database ID, not class_id
-                  class_info: 'Đang mở',
-                  register_type: 'Đăng ký online',
-                  register_status: 'Đăng ký thành công'
-                }
+      // Backward-compatible: if linked_class_ids exists, include those rows too.
+      const linkedCodes = new Set((selectedClassData.linked_class_ids || []).map((x: any) => String(x)))
+      const linkedRows = allClasses.filter((cls: any) => linkedCodes.has(String(cls.class_id)))
 
-                console.log(`Registering linked class ${linkedClassId} (DB ID: ${linkedClass.id}):`, linkedRegisterData)
+      const candidateRowsById = new Map<number, any>()
+      ;[...sameClassCodeRows, ...linkedRows].forEach((row: any) => {
+        if (row?.id) candidateRowsById.set(row.id, row)
+      })
 
-                const linkedResponse = await fetch('/api/class-registers', getAuthRequestOptions({
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify(linkedRegisterData),
-                }))
+      const alreadyRegisteredIds = new Set(registeredClasses.map((reg) => reg.class_id))
+      const rowsToRegister = Array.from(candidateRowsById.values()).filter((row: any) => !alreadyRegisteredIds.has(row.id))
 
-                if (linkedResponse.ok) {
-                  linkedRegistrations.push(linkedClassId)
-                } else {
-                  const errorData = await linkedResponse.json()
-                  console.warn(`Failed to register linked class ${linkedClassId}:`, errorData)
-                }
-              } else {
-                console.warn(`Could not find linked class with class_id ${linkedClassId} in all classes`)
-              }
-            }
-          }
+      if (rowsToRegister.length === 0) {
+        message.info(`Bạn đã đăng ký đầy đủ lớp ${classCode} rồi`)
+        setModalVisible(false)
+        setSelectedClass(null)
+        return
+      }
+
+      const failedRows: string[] = []
+      let successCount = 0
+
+      for (const row of rowsToRegister) {
+        const registerData = {
+          student_id: userInfo.id,
+          class_id: row.id,
+          class_info: 'Đang mở',
+          register_type: 'Đăng ký online',
+          register_status: 'Đăng ký thành công'
+        }
+
+        const response = await fetch('/api/class-registers', getAuthRequestOptions({
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(registerData),
+        }))
+
+        if (response.ok) {
+          successCount += 1
         } else {
-          console.error('Failed to fetch all classes for linked class registration')
+          failedRows.push(`${row.class_name || row.class_id}`)
         }
       }
 
-      const totalRegistered = 1 + linkedRegistrations.length
-      message.success(`Đăng ký thành công ${totalRegistered} lớp học!${linkedRegistrations.length > 0 ? ` (Bao gồm ${linkedRegistrations.length} lớp kèm)` : ''}`)
+      if (successCount === 0) {
+        throw new Error('Đăng ký thất bại cho tất cả buổi học của lớp đã chọn')
+      }
+
+      if (failedRows.length > 0) {
+        message.warning(`Đã đăng ký ${successCount}/${rowsToRegister.length} buổi của lớp ${classCode}. Một số buổi chưa đăng ký được.`)
+      } else {
+        message.success(`Đăng ký thành công lớp ${classCode} với ${successCount} buổi học trong tuần!`)
+      }
 
       setModalVisible(false)
       setSelectedClass(null)
@@ -367,8 +355,10 @@ const ClassRegistration = () => {
       !showRegisteredSubjectOnly ||
       (classSubjectId !== undefined && classSubjectId !== null && registeredSubjectIds.includes(String(classSubjectId)))
 
-    // Check if already registered
-    const isRegistered = registeredClasses.some(reg => reg.class_id === classItem.id)
+    // Treat rows with the same class_id as one class group.
+    const isRegistered = registeredClasses.some(
+      reg => reg.class_id === classItem.id || String(reg.class_code) === String(classItem.class_id)
+    )
 
     return matchSearch && matchStatus && matchRegisteredSubject && !isRegistered
   })
@@ -377,7 +367,10 @@ const ClassRegistration = () => {
   const hasRegisteredClassInSameSubject =
     selectedClassSubjectDbId !== undefined && selectedClassSubjectDbId !== null
       ? registeredClasses.some(
-        (reg) => reg.subject_db_id === selectedClassSubjectDbId && reg.class_id !== selectedClass?.id
+        (reg) =>
+          reg.subject_db_id === selectedClassSubjectDbId &&
+          reg.class_id !== selectedClass?.id &&
+          String(reg.class_code) !== String(selectedClass?.class_id)
       )
       : false
 

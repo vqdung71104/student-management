@@ -322,7 +322,16 @@
         "kiểm tra tkb và đề xuất bỏ lớp hoặc đăng ký thêm",
         "xem thời khóa biểu và tối ưu đăng ký lớp",
         "thời khóa biểu hiện tại có ổn không, cần đăng ký thêm gì",
-        "với thời khóa biểu đã đăng ký nên học thêm lớp nào"
+        "với thời khóa biểu đã đăng ký nên học thêm lớp nào",
+        "tkb hiện tại cần cập nhật thêm gì không",
+        "thời khóa biểu hiện tại có cần thay đổi gì không",
+        "tkb hiện tại đã ổn chưa",
+        "thời khóa biểu hiện tại ổn chưa",
+        "thời khóa biểu hiện tại cần bổ sung gì không",
+        "tkb  hiện tại cần bổ sung gì không",
+        "với thới khóa biểu hiện tại, cần bổ sung gì không",
+        "với thới khóa biểu hiện tại, cần thay đổi gì không",
+        "với tkb hiện tại, cần cập nhật gì không"
       ],
       "description": "Rà soát thời khóa biểu đã đăng ký và đề xuất lớp nên bỏ/thêm"
     },
