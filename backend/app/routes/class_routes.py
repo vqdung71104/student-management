@@ -64,6 +64,38 @@ def delete_class_action(class_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Failed to delete class: {str(e)}")
 
 
+#    Delete all class registers (must run before deleting all classes)
+@router.delete("/actions/delete-all-registers")
+@router.delete("/actions/delete-all-registers/", include_in_schema=False)
+def delete_all_class_registers(db: Session = Depends(get_db)):
+    try:
+        deleted_registers = db.query(ClassRegister).delete(synchronize_session=False)
+        db.commit()
+        return {
+            "message": "Deleted all class registers successfully",
+            "deleted_class_registers": deleted_registers,
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete all class registers: {str(e)}")
+
+
+#    Delete all classes (call after delete-all-registers)
+@router.delete("/actions/delete-all-classes")
+@router.delete("/actions/delete-all-classes/", include_in_schema=False)
+def delete_all_classes(db: Session = Depends(get_db)):
+    try:
+        deleted_classes = db.query(Class).delete(synchronize_session=False)
+        db.commit()
+        return {
+            "message": "Deleted all classes successfully",
+            "deleted_classes": deleted_classes,
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete all classes: {str(e)}")
+
+
 def _purge_all_classes(db: Session):
     # Temporary import mode: allow duplicate class_id values from Excel rows.
     unique_indexes = db.execute(text("""

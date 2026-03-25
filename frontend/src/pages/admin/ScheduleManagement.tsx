@@ -424,29 +424,22 @@ const ScheduleManagement = () => {
   }
 
   const clearAllClassesBeforeImport = async () => {
-    const listResponse = await fetch('/api/classes/', getAuthRequestOptions())
-    if (!listResponse.ok) {
-      const errorText = await listResponse.text()
-      throw new Error(`Không thể lấy danh sách lớp để xóa: ${errorText}`)
+    const deleteRegistersResponse = await fetch(
+      '/api/classes/actions/delete-all-registers',
+      getAuthRequestOptions({ method: 'DELETE' })
+    )
+    if (!deleteRegistersResponse.ok) {
+      const errorText = await deleteRegistersResponse.text()
+      throw new Error(`Không thể xóa toàn bộ class-registers: ${errorText}`)
     }
 
-    const classList = await listResponse.json()
-    for (const classItem of classList) {
-      const id = classItem?.id
-      if (!id) continue
-
-      let deleted = false
-      for (const deleteUrl of [`/api/classes/actions/delete/${id}`, `/api/classes/${id}`]) {
-        const deleteResponse = await fetch(deleteUrl, getAuthRequestOptions({ method: 'DELETE' }))
-        if (deleteResponse.ok || deleteResponse.status === 404) {
-          deleted = true
-          break
-        }
-      }
-
-      if (!deleted) {
-        throw new Error(`Không thể xóa lớp ID ${id}`)
-      }
+    const deleteClassesResponse = await fetch(
+      '/api/classes/actions/delete-all-classes',
+      getAuthRequestOptions({ method: 'DELETE' })
+    )
+    if (!deleteClassesResponse.ok) {
+      const errorText = await deleteClassesResponse.text()
+      throw new Error(`Không thể xóa toàn bộ classes: ${errorText}`)
     }
   }
 
