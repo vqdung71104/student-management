@@ -5,11 +5,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    proxy: {
+  proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000', // Dùng IP cứng để tránh trễ DNS
         changeOrigin: true,
         secure: false,
+        timeout: 60000,      // Cho phép chờ tối đa 60 giây
+        proxyTimeout: 60000, // Thời gian chờ phản hồi từ Backend
       }
     }
   }

@@ -425,7 +425,7 @@ const ScheduleManagement = () => {
 
   const clearAllClassesBeforeImport = async () => {
     const deleteRegistersResponse = await fetch(
-      '/api/classes/actions/delete-all-registers',
+      '/api/classes/actions/delete-all-registers/',
       getAuthRequestOptions({ method: 'DELETE' })
     )
     if (!deleteRegistersResponse.ok) {
@@ -434,7 +434,7 @@ const ScheduleManagement = () => {
     }
 
     const deleteClassesResponse = await fetch(
-      '/api/classes/actions/delete-all-classes',
+      '/api/classes/actions/delete-all-classes/',
       getAuthRequestOptions({ method: 'DELETE' })
     )
     if (!deleteClassesResponse.ok) {
