@@ -194,8 +194,13 @@ jobs:
               cd student-app
               git pull origin main
               echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+              echo "Cleaning up old images to make space..."
+              docker image prune -f
+              echo "Pulling new images..."
               docker compose -f docker-compose.prod.yml pull backend frontend
               # Always recreate backend so new API routes are applied after each push
+              echo "Restarting containers..."
               docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend
               docker compose -f docker-compose.prod.yml up -d frontend
-              docker image prune -f              
+              docker image prune -f  
+              docker image prune -a -f --filter "until=24h"
