@@ -9,9 +9,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_DEFAULT_TIMEOUT=300
 
+# Base này chỉ giữ lại những gì Runtime thực sự cần
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
     default-libmysqlclient-dev \
     pkg-config \
     curl \
@@ -20,26 +19,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # ============================================
-# Stage 2: Python dependencies
-# NOTE: torch is installed CPU-only to reduce image size from ~8 GB to ~3 GB
+# Stage 2: Builder — Dùng để biên dịch (Có gcc/g++)
 # ============================================
-FROM base AS dependencies
+FROM base AS builder
+
+# Cài đặt gcc/g++ ở đây để phục vụ việc build thư viện
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-# 1) Upgrade pip
 RUN pip install --upgrade pip
 
-# 2) Install PyTorch CPU-only FIRST (avoids pulling CUDA wheels ~2.5 GB extra)
-RUN pip install torch==2.1.2 --index-url https://download.pytorch.org/whl/cpu
-
-# 3) Install remaining packages (torch already satisfied, so it won't reinstall)
-RUN pip install -r requirements.txt
+# Cài đặt mọi thứ vào thư mục /install để copy sang stage sau cho sạch
+RUN pip install --no-cache-dir --prefix=/install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ============================================
 # Stage 3: Development (hot-reload)
 # ============================================
-FROM dependencies AS development
+FROM builder AS development
+# Copy thư viện từ folder /install vào path mặc định của python
+COPY --from=builder /install /usr/local
 
 COPY . .
 
@@ -53,7 +56,10 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 # ============================================
 # Stage 4: Production
 # ============================================
-FROM dependencies AS production
+FROM base AS production
+
+# Lấy "thành phẩm" thư viện đã build xong, không lấy gcc/g++
+COPY --from=builder /install /usr/local
 
 COPY main.py .
 COPY app ./app
