@@ -204,6 +204,3 @@ jobs:
               docker compose -f docker-compose.prod.yml up -d frontend
               docker image prune -f  
               docker image prune -a -f --filter "until=24h"
-              sleep 15              
-              docker compose -f docker-compose.prod.yml exec -T backend sh -c "PYTHONPATH=/app python scripts/db/recreate_tables.py"
-              docker compose -f docker-compose.prod.yml exec -T backend sh -c "PYTHONPATH=/app python scripts/db/populate_data.py"
