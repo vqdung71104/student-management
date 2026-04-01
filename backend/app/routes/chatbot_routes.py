@@ -526,8 +526,8 @@ async def chat(
         response_payload: ChatResponseWithData
 
         # ── Active conversation shortcut (preference collection in progress) ──
-        from app.services.conversation_state import get_conversation_manager
-        conv_manager = get_conversation_manager()
+        from app.services.conversation_state import get_conversation_state_manager
+        conv_manager = get_conversation_state_manager()
         state = conv_manager.get_state(effective_student_id)
 
         if state and state.stage in ('collecting', 'choose_subject_source'):

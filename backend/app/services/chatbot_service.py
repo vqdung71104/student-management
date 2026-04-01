@@ -61,6 +61,67 @@ class ChatbotService:
             return "suggested"
         return None
 
+    def _is_valid_preference_answer(self, question_key: str, before: Dict, after: Dict, answer: str) -> bool:
+        """Check whether a user answer actually updates expected preference fields."""
+        normalized_answer = (answer or "").strip().lower()
+
+        if question_key == 'day':
+            before_day = before.get('day', {})
+            after_day = after.get('day', {})
+            return bool(
+                after_day.get('prefer_days')
+                or after_day.get('avoid_days')
+                or after_day.get('is_not_important')
+                or before_day != after_day
+            )
+
+        if question_key == 'time':
+            after_time = after.get('time', {})
+            return bool(
+                after_time.get('prefer_early_start')
+                or after_time.get('prefer_late_start')
+                or after_time.get('is_not_important')
+            )
+
+        if question_key == 'continuous':
+            after_cont = after.get('continuous', {})
+            negative_markers = ['2', 'không', 'ko', 'khoảng nghỉ']
+            return bool(
+                after_cont.get('prefer_continuous')
+                or after_cont.get('is_not_important')
+                or any(marker in normalized_answer for marker in negative_markers)
+            )
+
+        if question_key == 'free_days':
+            after_free = after.get('free_days', {})
+            negative_markers = ['2', 'không', 'ko', 'học đều']
+            return bool(
+                after_free.get('prefer_free_days')
+                or after_free.get('is_not_important')
+                or any(marker in normalized_answer for marker in negative_markers)
+            )
+
+        if question_key == 'specific':
+            after_specific = after.get('specific', {})
+            return bool(
+                after_specific.get('preferred_teachers')
+                or after_specific.get('specific_class_ids')
+                or after_specific.get('specific_times')
+            )
+
+        return before != after
+
+    def _build_retry_question_text(self, question_key: str, original_question: str) -> str:
+        hints = {
+            'day': "Mình chưa đọc được ngày học. Bạn có thể nhập kiểu: 'Thứ 2, Thứ 3, Thứ 4' hoặc 't2,t3,t4'.",
+            'time': "Mình chưa hiểu lựa chọn. Bạn trả lời: 1 (học sớm), 2 (học muộn), hoặc 3 (không quan trọng).",
+            'continuous': "Bạn trả lời: 1 (có), 2 (không), hoặc 3 (không quan trọng).",
+            'free_days': "Bạn trả lời: 1 (có), 2 (không), hoặc 3 (không quan trọng).",
+            'specific': "Bạn có thể nêu giáo viên/mã lớp cụ thể, hoặc trả lời 'không'.",
+        }
+        hint = hints.get(question_key, "Bạn vui lòng trả lời lại theo đúng câu hỏi.")
+        return f"{hint}\n\n{original_question}"
+
     def _is_schedule_advice_query(self, question: str) -> bool:
         txt = (question or "").lower()
         trigger_a = any(k in txt for k in ["thời khóa biểu", "thoi khoa bieu", "lịch học", "lich hoc"])
@@ -197,7 +258,7 @@ class ChatbotService:
         if not student:
             return {
                 "text": "❌ Không tìm thấy thông tin sinh viên.",
-                "intent": "class_registration_suggestion",
+                "intent": "modify_schedule",
                 "confidence": "high",
                 "data": None,
             }
@@ -477,7 +538,7 @@ class ChatbotService:
             Dict with text response and class suggestions OR next question
         """
         try:
-            from app.services.conversation_state import get_conversation_manager
+            from app.services.conversation_state import get_conversation_state_manager
             from app.services.preference_service import PreferenceCollectionService
             
             print(f"🎯 [CLASS_SUGGESTION] Processing for student {student_id}")
@@ -498,7 +559,7 @@ class ChatbotService:
                 }
             
             # Initialize services
-            conv_manager = get_conversation_manager()
+            conv_manager = get_conversation_state_manager()
             pref_service = PreferenceCollectionService()
             class_data_notice = self._class_data_notice_text() if not self._has_class_data() else ""
             
@@ -564,11 +625,35 @@ class ChatbotService:
                 
                 # Parse user response
                 if state.current_question:
+                    before_preferences = state.preferences.dict()
                     state.preferences = pref_service.parse_user_response(
                         response=question,
                         question_key=state.current_question.key,
                         current_preferences=state.preferences
                     )
+                    after_preferences = state.preferences.dict()
+
+                    if not self._is_valid_preference_answer(
+                        state.current_question.key,
+                        before_preferences,
+                        after_preferences,
+                        question,
+                    ):
+                        retry_text = self._build_retry_question_text(
+                            state.current_question.key,
+                            state.current_question.question,
+                        )
+                        conv_manager.save_state(state)
+                        return {
+                            "text": retry_text,
+                            "intent": "class_registration_suggestion",
+                            "confidence": "high",
+                            "data": None,
+                            "conversation_state": "collecting",
+                            "question_type": state.current_question.type,
+                            "question_options": state.current_question.options,
+                        }
+
                     state.questions_asked.append(state.current_question.key)
                     print(f"✅ [CONVERSATION] Updated preferences: {state.preferences.dict()}")
                 
@@ -854,6 +939,23 @@ class ChatbotService:
                 preferences=preferences_dict,
                 max_combinations=40
             )
+
+            if not combinations:
+                from app.services.conversation_state import get_conversation_state_manager
+                get_conversation_state_manager().delete_state(student_id)
+                return {
+                    "text": "⚠️ Hiện chưa tìm được tổ hợp lớp phù hợp với điều kiện hiện tại. Bạn có thể nới lỏng một số tiêu chí để mình gợi ý tốt hơn.",
+                    "intent": "class_registration_suggestion",
+                    "confidence": "high",
+                    "data": [],
+                    "metadata": {
+                        "total_subjects": len(suggested_subjects),
+                        "total_combinations": 0,
+                        "preferences_applied": preferences_dict,
+                    },
+                    "rule_engine_used": True,
+                    "conversation_state": "completed"
+                }
             
             # Return top 3 combinations
             top_combinations = combinations[:3]
@@ -905,8 +1007,8 @@ class ChatbotService:
             )
             
             # Clear conversation state after generating suggestions
-            from app.services.conversation_state import get_conversation_manager
-            get_conversation_manager().delete_state(student_id)
+            from app.services.conversation_state import get_conversation_state_manager
+            get_conversation_state_manager().delete_state(student_id)
             
             return {
                 "text": text_response,
@@ -1399,6 +1501,11 @@ class ChatbotService:
         
         for idx, (subject_id, subject_classes) in enumerate(classes_by_subject.items(), 1):
             logical_classes = self._aggregate_classes_for_text(subject_classes)
+            if not logical_classes:
+                response.append(f"{idx}. {subject_id} - Chưa có lớp khả dụng")
+                response.append("")
+                continue
+
             first_class = logical_classes[0]
             priority_reason = first_class.get('priority_reason', '')
             

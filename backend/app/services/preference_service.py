@@ -4,6 +4,7 @@ Handles multi-turn conversation for collecting user preferences
 """
 from typing import Dict, List, Optional, Tuple
 import re
+import unicodedata
 from app.schemas.preference_schema import (
     CompletePreference, 
     TimePreference, 
@@ -45,6 +46,68 @@ class PreferenceCollectionService:
     
     def __init__(self):
         pass
+
+    def _normalize_response_text(self, text: str) -> str:
+        normalized = unicodedata.normalize('NFC', (text or '').strip().lower())
+        normalized = re.sub(r'\s+', ' ', normalized)
+
+        typo_replacements = {
+            'thú': 'thứ',
+            'thu ': 'thứ ',
+            'thu,': 'thứ,',
+            'thu2': 'thứ 2',
+            'thu3': 'thứ 3',
+            'thu4': 'thứ 4',
+            'thu5': 'thứ 5',
+            'thu6': 'thứ 6',
+            'thu7': 'thứ 7',
+        }
+        for wrong, right in typo_replacements.items():
+            normalized = normalized.replace(wrong, right)
+
+        normalized = re.sub(r'\bthứ\s*,', 'thứ ', normalized)
+        normalized = re.sub(r'\bthứ\s*([2-7])\b', r'thứ \1', normalized)
+        return normalized
+
+    def _extract_days_from_response(self, response_lower: str) -> List[str]:
+        day_map = {
+            '2': 'Monday',
+            '3': 'Tuesday',
+            '4': 'Wednesday',
+            '5': 'Thursday',
+            '6': 'Friday',
+            '7': 'Saturday',
+        }
+
+        extracted_days: List[str] = []
+
+        compact_patterns = [
+            r'\bth[ứu]\s*([2-7](?:\s*,\s*[2-7])+)',
+            r'\bt\s*([2-7](?:\s*,\s*[2-7])+)',
+            r'\bt([2-7](?:\s*,\s*[2-7])+)',
+        ]
+        for pattern in compact_patterns:
+            for match in re.findall(pattern, response_lower):
+                for num in re.findall(r'[2-7]', match):
+                    en_day = day_map.get(num)
+                    if en_day and en_day not in extracted_days:
+                        extracted_days.append(en_day)
+
+        for full_match in re.findall(r'\bth[ứu]\s*([2-7])\b', response_lower):
+            en_day = day_map.get(full_match)
+            if en_day and en_day not in extracted_days:
+                extracted_days.append(en_day)
+
+        for short_match in re.findall(r'\bt\s*([2-7])\b', response_lower):
+            en_day = day_map.get(short_match)
+            if en_day and en_day not in extracted_days:
+                extracted_days.append(en_day)
+
+        for vn_day, en_day in self.DAY_MAPPING.items():
+            if vn_day in response_lower and en_day not in extracted_days:
+                extracted_days.append(en_day)
+
+        return extracted_days
     
     def extract_initial_preferences(self, question: str) -> CompletePreference:
         """
@@ -221,7 +284,7 @@ class PreferenceCollectionService:
         Returns:
             Updated CompletePreference
         """
-        response_lower = response.lower().strip()
+        response_lower = self._normalize_response_text(response)
         
         if question_key == 'day':
             # Parse day preference
@@ -234,36 +297,15 @@ class PreferenceCollectionService:
                 return current_preferences
             
             has_negation = any(neg in response_lower for neg in ['không', 'tránh', 'ko'])
-            
-            # First, try to parse compact format: "thứ 2,3,4" or "t2,3,4"
-            compact_pattern = r'th[ứu]\s*(\d+)(?:\s*,\s*(\d+))+'
-            compact_matches = re.findall(compact_pattern, response_lower)
-            if compact_matches:
-                # Extract all numbers after "thứ"
-                numbers_str = re.search(r'th[ứu]\s*([\d,\s]+)', response_lower)
-                if numbers_str:
-                    numbers = re.findall(r'\d+', numbers_str.group(1))
-                    day_map = {'2': 'Monday', '3': 'Tuesday', '4': 'Wednesday', 
-                              '5': 'Thursday', '6': 'Friday', '7': 'Saturday'}
-                    for num in numbers:
-                        if num in day_map:
-                            en_day = day_map[num]
-                            if has_negation:
-                                if en_day not in current_preferences.day.avoid_days:
-                                    current_preferences.day.avoid_days.append(en_day)
-                            else:
-                                if en_day not in current_preferences.day.prefer_days:
-                                    current_preferences.day.prefer_days.append(en_day)
-            
-            # Then, try standard format
-            for vn_day, en_day in self.DAY_MAPPING.items():
-                if vn_day in response_lower:
-                    if has_negation:
-                        if en_day not in current_preferences.day.avoid_days:
-                            current_preferences.day.avoid_days.append(en_day)
-                    else:
-                        if en_day not in current_preferences.day.prefer_days:
-                            current_preferences.day.prefer_days.append(en_day)
+            parsed_days = self._extract_days_from_response(response_lower)
+
+            for en_day in parsed_days:
+                if has_negation:
+                    if en_day not in current_preferences.day.avoid_days:
+                        current_preferences.day.avoid_days.append(en_day)
+                else:
+                    if en_day not in current_preferences.day.prefer_days:
+                        current_preferences.day.prefer_days.append(en_day)
         
         elif question_key == 'time':
             # Parse time preference (CHẺ SET prefer_early_start hoặc prefer_late_start)

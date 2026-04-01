@@ -139,6 +139,10 @@ class ScheduleCombinationGenerator:
         
         # Step 5: Sort by score (highest first)
         scored_combinations.sort(key=lambda x: x['score'], reverse=True)
+
+        if not scored_combinations:
+            print("  ⚠️ No combinations available after scoring")
+            return []
         
         print(f"  🏆 Top score: {scored_combinations[0]['score']:.1f}")
         print(f"  📊 Score range: {scored_combinations[-1]['score']:.1f} - {scored_combinations[0]['score']:.1f}")
@@ -234,6 +238,9 @@ class ScheduleCombinationGenerator:
         all_ends = []
         
         for day, day_classes in schedule_by_day.items():
+            if not day_classes:
+                continue
+
             # Sort by start time
             day_classes_sorted = sorted(day_classes, key=lambda x: self._parse_time(x['study_time_start']))
             

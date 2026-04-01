@@ -106,7 +106,13 @@ class ConversationStateManager:
     def has_active_conversation(self, student_id: int) -> bool:
         """Check if student has active conversation"""
         state = self.get_state(student_id)
-        return state is not None and state.stage in ['initial', 'collecting']
+        return state is not None and state.stage in [
+            'initial',
+            'collecting',
+            'collecting_preferences',
+            'generating_combinations',
+            'choose_subject_source',
+        ]
 
 
 # Global instance (in-memory for development)
@@ -155,7 +161,11 @@ class RedisConversationStateManager:
             ConversationState or None if not found/expired
         """
         key = self._get_key(student_id)
-        data = self.redis_cache.get(key)
+        try:
+            data = self.redis_cache.get(key)
+        except Exception as e:
+            print(f"⚠️ [REDIS] Read failed for student {student_id}, fallback to in-memory: {e}")
+            return get_conversation_manager().get_state(student_id)
         
         if data:
             try:
@@ -188,9 +198,16 @@ class RedisConversationStateManager:
         
         # Convert to dict and save with TTL
         data = state.to_dict()
-        self.redis_cache.set(key, data, ttl=self.ttl_seconds)
-        
-        print(f"💾 [REDIS] Saved conversation state for student {student_id}")
+        try:
+            ok = self.redis_cache.set(key, data, ttl=self.ttl_seconds)
+            if not ok:
+                print(f"⚠️ [REDIS] Save returned False for student {student_id}, fallback to in-memory")
+                get_conversation_manager().save_state(state)
+                return
+            print(f"💾 [REDIS] Saved conversation state for student {student_id}")
+        except Exception as e:
+            print(f"⚠️ [REDIS] Save failed for student {student_id}, fallback to in-memory: {e}")
+            get_conversation_manager().save_state(state)
     
     def delete_conversation_state(self, student_id: int):
         """
@@ -200,8 +217,13 @@ class RedisConversationStateManager:
             student_id: Student ID
         """
         key = self._get_key(student_id)
-        self.redis_cache.delete(key)
-        print(f"🗑️ [REDIS] Deleted conversation state for student {student_id}")
+        try:
+            self.redis_cache.delete(key)
+            print(f"🗑️ [REDIS] Deleted conversation state for student {student_id}")
+        except Exception as e:
+            print(f"⚠️ [REDIS] Delete failed for student {student_id}, fallback cleanup in-memory: {e}")
+        finally:
+            get_conversation_manager().delete_state(student_id)
     
     def has_active_conversation(self, student_id: int) -> bool:
         """
@@ -249,3 +271,11 @@ def get_redis_conversation_manager() -> RedisConversationStateManager:
             return get_conversation_manager()
     
     return _redis_conversation_manager
+
+
+def get_conversation_state_manager():
+    """
+    Preferred manager accessor used by routes/services.
+    Redis-first with automatic in-memory fallback.
+    """
+    return get_redis_conversation_manager()
