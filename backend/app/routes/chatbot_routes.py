@@ -122,6 +122,12 @@ async def _process_single_query(
     intent = intent_result["intent"]
     confidence = intent_result["confidence"]
 
+    # Guardrail: source-choice answers ("đã đăng ký" / "hệ thống gợi ý") must stay in
+    # class_registration_suggestion flow even if classifier drifts.
+    if intent == "subject_registration_suggestion" and chatbot_service._parse_subject_source_choice(normalized_text):
+        intent = "class_registration_suggestion"
+        confidence = "high"
+
     # ── Rule-engine intents ───────────────────────────────────────────────────
     if intent in ("subject_registration_suggestion", "class_registration_suggestion", "modify_schedule") \
             and confidence in ("high", "medium"):

@@ -69,6 +69,24 @@ class PreferenceCollectionService:
         normalized = re.sub(r'\bthứ\s*([2-7])\b', r'thứ \1', normalized)
         return normalized
 
+    def _is_not_important(self, text: str) -> bool:
+        return any(
+            phrase in text
+            for phrase in [
+                'không quan trọng',
+                'ko quan trọng',
+                'khong quan trong',
+                'không ưu tiên',
+                'khong uu tien',
+            ]
+        )
+
+    def _is_negative_choice(self, text: str) -> bool:
+        return any(
+            marker in text
+            for marker in ['không', 'ko', 'khong', 'khỏi', 'khong can']
+        )
+
     def _extract_days_from_response(self, response_lower: str) -> List[str]:
         day_map = {
             '2': 'Monday',
@@ -285,6 +303,7 @@ class PreferenceCollectionService:
             Updated CompletePreference
         """
         response_lower = self._normalize_response_text(response)
+        is_not_important = self._is_not_important(response_lower)
         
         if question_key == 'day':
             # Parse day preference
@@ -292,11 +311,11 @@ class PreferenceCollectionService:
             # Or "Không quan trọng" / "3" (option 3)
             
             # Check for "not important" response
-            if any(phrase in response_lower for phrase in ['không quan trọng', 'ko quan trọng', 'không đề cập']):
+            if is_not_important or any(phrase in response_lower for phrase in ['không đề cập', 'khong de cap']):
                 current_preferences.day.is_not_important = True
                 return current_preferences
             
-            has_negation = any(neg in response_lower for neg in ['không', 'tránh', 'ko'])
+            has_negation = self._is_negative_choice(response_lower) or ('tránh' in response_lower)
             parsed_days = self._extract_days_from_response(response_lower)
 
             for en_day in parsed_days:
@@ -315,6 +334,10 @@ class PreferenceCollectionService:
             elif '2' in response_lower or 'muộn' in response_lower or 'học muộn' in response_lower:
                 current_preferences.time.prefer_late_start = True
                 current_preferences.time.prefer_early_start = False  # Clear opposite
+            elif is_not_important:
+                current_preferences.time.is_not_important = True
+                current_preferences.time.prefer_early_start = False
+                current_preferences.time.prefer_late_start = False
             else:
                 # Option 3: không quan trọng - set flag
                 current_preferences.time.is_not_important = True
@@ -324,30 +347,30 @@ class PreferenceCollectionService:
         elif question_key == 'continuous':
             # Parse continuous preference
             # CHECK OPTION 3 FIRST (before checking 'không' alone)
-            if '3' in response_lower or 'không quan trọng' in response_lower or 'ko quan trọng' in response_lower:
+            if '3' in response_lower or is_not_important:
                 # Option 3: không quan trọng
                 current_preferences.continuous.is_not_important = True
             elif '1' in response_lower or 'có' in response_lower or 'liên tục' in response_lower:
                 current_preferences.continuous.prefer_continuous = True
-            elif '2' in response_lower or ('không' in response_lower and 'quan trọng' not in response_lower) or 'khoảng nghỉ' in response_lower:
+            elif '2' in response_lower or (self._is_negative_choice(response_lower) and 'quan trọng' not in response_lower and 'quan trong' not in response_lower) or 'khoảng nghỉ' in response_lower:
                 # Option 2: không muốn học liên tục
                 current_preferences.continuous.prefer_continuous = False
         
         elif question_key == 'free_days':
             # Parse free days preference
             # CHECK OPTION 3 FIRST (before checking 'không' alone)
-            if '3' in response_lower or 'không quan trọng' in response_lower or 'ko quan trọng' in response_lower:
+            if '3' in response_lower or is_not_important:
                 # Option 3: không quan trọng
                 current_preferences.free_days.is_not_important = True
             elif '1' in response_lower or 'có' in response_lower or 'tối đa' in response_lower or 'nghỉ' in response_lower:
                 current_preferences.free_days.prefer_free_days = True
-            elif '2' in response_lower or ('không' in response_lower and 'quan trọng' not in response_lower) or 'đều' in response_lower:
+            elif '2' in response_lower or (self._is_negative_choice(response_lower) and 'quan trọng' not in response_lower and 'quan trong' not in response_lower) or 'đều' in response_lower:
                 # Option 2: không muốn tối đa hóa ngày nghỉ
                 current_preferences.free_days.prefer_free_days = False
         
         elif question_key == 'specific':
             # Parse specific requirements
-            if 'không' in response_lower and len(response_lower) < 15:
+            if self._is_negative_choice(response_lower) and len(response_lower) < 20:
                 # User said "không" - mark as answered but no requirements
                 # Set a placeholder to indicate question was answered
                 current_preferences.specific.specific_times = {'answered': 'no_requirements'}

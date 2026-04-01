@@ -85,7 +85,7 @@ class ChatbotService:
 
         if question_key == 'continuous':
             after_cont = after.get('continuous', {})
-            negative_markers = ['2', 'không', 'ko', 'khoảng nghỉ']
+            negative_markers = ['2', 'không', 'ko', 'khong', 'khoảng nghỉ']
             return bool(
                 after_cont.get('prefer_continuous')
                 or after_cont.get('is_not_important')
@@ -94,7 +94,7 @@ class ChatbotService:
 
         if question_key == 'free_days':
             after_free = after.get('free_days', {})
-            negative_markers = ['2', 'không', 'ko', 'học đều']
+            negative_markers = ['2', 'không', 'ko', 'khong', 'học đều']
             return bool(
                 after_free.get('prefer_free_days')
                 or after_free.get('is_not_important')
@@ -707,6 +707,10 @@ class ChatbotService:
                 state.subject_source_choice = None
                 state.subject_ids_seed = []
 
+                # If user directly answers source choice without prior state,
+                # continue class-suggestion flow instead of forcing re-ask.
+                direct_source_choice = self._parse_subject_source_choice(question)
+
                 # Extract hard constraints (time/day) from initial message
                 try:
                     from app.services.constraint_extractor import get_constraint_extractor
@@ -734,6 +738,41 @@ class ChatbotService:
                         subject_ids_seed=getattr(state, 'subject_ids_seed', [])
                     )
                 else:
+                    if direct_source_choice:
+                        state.subject_source_choice = direct_source_choice
+                        if direct_source_choice == 'registered':
+                            selected_subject_ids = self._get_registered_subject_ids(student_id)
+                            state.subject_ids_seed = selected_subject_ids
+                            if not selected_subject_ids:
+                                state.subject_source_choice = 'suggested'
+                                warning_text = "⚠️ Bạn chưa đăng ký học phần, vui lòng đăng ký học phần trước."
+                            else:
+                                warning_text = ""
+                        else:
+                            state.subject_ids_seed = []
+                            warning_text = ""
+
+                        state.stage = 'collecting'
+                        next_question = pref_service.get_next_question(state.preferences)
+                        state.current_question = next_question
+                        conv_manager.save_state(state)
+
+                        next_text = next_question.question if next_question else "Bạn còn yêu cầu gì cụ thể cho lớp học không?"
+                        if warning_text:
+                            next_text = f"{warning_text}\n\n{next_text}"
+                        if class_data_notice:
+                            next_text = f"{class_data_notice}\n\n{next_text}"
+
+                        return {
+                            "text": next_text,
+                            "intent": "class_registration_suggestion",
+                            "confidence": "high",
+                            "data": None,
+                            "conversation_state": "collecting",
+                            "question_type": next_question.type if next_question else "free_text",
+                            "question_options": next_question.options if next_question else None
+                        }
+
                     # Start with source selection question before preference questions
                     state.stage = 'choose_subject_source'
                     state.current_question = None
