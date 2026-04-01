@@ -79,3 +79,33 @@ def test_free_days_accepts_unaccented_not_important():
     )
 
     assert updated.free_days.is_not_important is True
+
+
+def test_free_days_negative_answer_marks_as_answered():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    updated = service.parse_user_response(
+        response="không",
+        question_key="free_days",
+        current_preferences=prefs,
+    )
+
+    assert updated.free_days.prefer_free_days is False
+    assert updated.free_days.has_answer is True
+    assert 'free_days' not in updated.get_missing_preferences()
+
+
+def test_free_days_option_2_full_text_marks_as_answered():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    updated = service.parse_user_response(
+        response="2, không, tôi muốn học đều các ngày",
+        question_key="free_days",
+        current_preferences=prefs,
+    )
+
+    assert updated.free_days.prefer_free_days is False
+    assert updated.free_days.has_answer is True
+    assert 'free_days' not in updated.get_missing_preferences()

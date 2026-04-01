@@ -87,6 +87,8 @@ class ChatbotService:
             after_cont = after.get('continuous', {})
             negative_markers = ['2', 'không', 'ko', 'khong', 'khoảng nghỉ']
             return bool(
+                after_cont.get('has_answer')
+                or
                 after_cont.get('prefer_continuous')
                 or after_cont.get('is_not_important')
                 or any(marker in normalized_answer for marker in negative_markers)
@@ -96,6 +98,8 @@ class ChatbotService:
             after_free = after.get('free_days', {})
             negative_markers = ['2', 'không', 'ko', 'khong', 'học đều']
             return bool(
+                after_free.get('has_answer')
+                or
                 after_free.get('prefer_free_days')
                 or after_free.get('is_not_important')
                 or any(marker in normalized_answer for marker in negative_markers)

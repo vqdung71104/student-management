@@ -350,11 +350,16 @@ class PreferenceCollectionService:
             if '3' in response_lower or is_not_important:
                 # Option 3: không quan trọng
                 current_preferences.continuous.is_not_important = True
+                current_preferences.continuous.has_answer = True
             elif '1' in response_lower or 'có' in response_lower or 'liên tục' in response_lower:
                 current_preferences.continuous.prefer_continuous = True
+                current_preferences.continuous.is_not_important = False
+                current_preferences.continuous.has_answer = True
             elif '2' in response_lower or (self._is_negative_choice(response_lower) and 'quan trọng' not in response_lower and 'quan trong' not in response_lower) or 'khoảng nghỉ' in response_lower:
                 # Option 2: không muốn học liên tục
                 current_preferences.continuous.prefer_continuous = False
+                current_preferences.continuous.is_not_important = False
+                current_preferences.continuous.has_answer = True
         
         elif question_key == 'free_days':
             # Parse free days preference
@@ -362,11 +367,16 @@ class PreferenceCollectionService:
             if '3' in response_lower or is_not_important:
                 # Option 3: không quan trọng
                 current_preferences.free_days.is_not_important = True
+                current_preferences.free_days.has_answer = True
             elif '1' in response_lower or 'có' in response_lower or 'tối đa' in response_lower or 'nghỉ' in response_lower:
                 current_preferences.free_days.prefer_free_days = True
+                current_preferences.free_days.is_not_important = False
+                current_preferences.free_days.has_answer = True
             elif '2' in response_lower or (self._is_negative_choice(response_lower) and 'quan trọng' not in response_lower and 'quan trong' not in response_lower) or 'đều' in response_lower:
                 # Option 2: không muốn tối đa hóa ngày nghỉ
                 current_preferences.free_days.prefer_free_days = False
+                current_preferences.free_days.is_not_important = False
+                current_preferences.free_days.has_answer = True
         
         elif question_key == 'specific':
             # Parse specific requirements

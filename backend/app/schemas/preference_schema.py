@@ -27,12 +27,14 @@ class ContinuousPreference(BaseModel):
     """Continuous study preference"""
     prefer_continuous: bool = False   # Học liên tục nhiều lớp 1 buổi (>5h/day)
     is_not_important: bool = False    # User said "Không quan trọng"
+    has_answer: bool = False          # User has answered this question (including "không")
 
 
 class FreeDaysPreference(BaseModel):
     """Free days preference"""
     prefer_free_days: bool = False    # Tối đa hóa ngày nghỉ
     is_not_important: bool = False    # User said "Không quan trọng"
+    has_answer: bool = False          # User has answered this question (including "không")
 
 
 class SpecificRequirement(BaseModel):
@@ -117,13 +119,13 @@ class CompletePreference(BaseModel):
         
         # 3. Check continuous preference: has answer OR marked not important
         has_continuous_pref = bool(
-            self.continuous.prefer_continuous or
+            self.continuous.has_answer or
             self.continuous.is_not_important
         )
         
         # 4. Check free_days preference: has answer OR marked not important
         has_free_days_pref = bool(
-            self.free_days.prefer_free_days or
+            self.free_days.has_answer or
             self.free_days.is_not_important
         )
         
@@ -156,11 +158,11 @@ class CompletePreference(BaseModel):
             missing.append('time')
         
         # 3. Check continuous preference: missing if no answer AND not marked as not important
-        if not (self.continuous.prefer_continuous or self.continuous.is_not_important):
+        if not (self.continuous.has_answer or self.continuous.is_not_important):
             missing.append('continuous')
         
         # 4. Check free_days preference: missing if no answer AND not marked as not important
-        if not (self.free_days.prefer_free_days or self.free_days.is_not_important):
+        if not (self.free_days.has_answer or self.free_days.is_not_important):
             missing.append('free_days')
         
         # 5. Check specific requirements: missing if not answered at all
