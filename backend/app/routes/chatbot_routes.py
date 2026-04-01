@@ -200,6 +200,9 @@ async def _process_single_query(
             has_structured_filters = any([
                 bool(constraints.subject_codes),
                 bool(constraints.subject_names),
+                bool(constraints.class_ids),
+                bool(constraints.class_names),
+                bool(constraints.subject_ids),
                 bool(constraints.days),
                 bool(constraints.session),
                 bool(constraints.day_session_constraints),
@@ -213,7 +216,11 @@ async def _process_single_query(
             ])
 
             if has_structured_filters:
-                print(f"🔍 [CLASS_INFO] codes={constraints.subject_codes} names={constraints.subject_names}")
+                print(
+                    f"🔍 [CLASS_INFO] codes={constraints.subject_codes} names={constraints.subject_names} "
+                    f"class_ids={constraints.class_ids} class_names={constraints.class_names} "
+                    f"subject_ids={constraints.subject_ids}"
+                )
                 svc = ClassQueryService(db)
                 rows = svc.query(constraints)
                 import datetime

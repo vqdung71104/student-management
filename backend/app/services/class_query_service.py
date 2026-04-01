@@ -136,6 +136,9 @@ class ClassQueryService:
         resolved_ids = self._resolve_subjects(constraints)
 
         has_non_subject_filters = any([
+            bool(constraints.class_ids),
+            bool(constraints.class_names),
+            bool(constraints.subject_ids),
             bool(constraints.days),
             bool(constraints.session),
             bool(constraints.day_session_constraints),
@@ -161,6 +164,20 @@ class ClassQueryService:
         # 4. Subject filter (optional if user only asks by room/time/day)
         if resolved_ids:
             q = q.filter(Subject.subject_id.in_(resolved_ids))
+
+        # 4.1 Direct class-table filters
+        if constraints.subject_ids:
+            q = q.filter(Class.subject_id.in_(constraints.subject_ids))
+
+        if constraints.class_ids:
+            class_id_terms = [t.strip() for t in constraints.class_ids if t and t.strip()]
+            if class_id_terms:
+                q = q.filter(or_(*[Class.class_id.ilike(f"%{term}%") for term in class_id_terms]))
+
+        if constraints.class_names:
+            class_name_terms = [t.strip() for t in constraints.class_names if t and t.strip()]
+            if class_name_terms:
+                q = q.filter(or_(*[Class.class_name.ilike(f"%{term}%") for term in class_name_terms]))
 
         
 

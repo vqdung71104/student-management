@@ -102,6 +102,11 @@ class ClassQueryConstraints(BaseModel):
     # Raw subject name fragments for fuzzy matching
     subject_names: List[str] = Field(default_factory=list)
 
+    # Direct class-table filters (for class_info)
+    class_ids: List[str] = Field(default_factory=list)
+    class_names: List[str] = Field(default_factory=list)
+    subject_ids: List[int] = Field(default_factory=list)
+
     # OR or AND between multiple entries in subject_codes/names
     subject_logic: str = "OR"   # "OR" | "AND"
 
@@ -208,6 +213,9 @@ class ConstraintExtractor:
 
         # 2. Subject name fragments (NL keywords → candidates for fuzzy)
         c.subject_names, c.subject_logic = self._extract_subject_names(text, text_lower, c.subject_codes)
+
+        # 2.1 Direct class-table filters (class_id/class_name/subject_id)
+        c.class_ids, c.class_names, c.subject_ids = self._extract_class_table_filters(text, text_lower)
 
         # 3. Semester
         if re.search(r'\bkỳ này\b|\bhiện tại\b|\bkỳ hiện\b', text_lower):
@@ -344,6 +352,9 @@ class ConstraintExtractor:
                 # Skip generic / noise fragments that are not subject names
                 if candidate in {"học", "lớp", "môn", "học phần", "thông tin"}:
                     continue
+                # Likely class_id token, not a subject name (e.g. 762021, C12345)
+                if re.match(r'^[a-z]?\d{4,}$', candidate, re.IGNORECASE):
+                    continue
                 if re.match(r'^(?:ở|phòng|phong|tòa|toa)\b', candidate):
                     continue
                 if re.search(r'\b(?:thời gian|bắt đầu|kết thúc|lúc\s+\d|\d{1,2}[hg:]\d{0,2})\b', candidate):
@@ -363,6 +374,43 @@ class ConstraintExtractor:
         logic = "OR" if re.search(r'\bhoặc\b', text_lower) else "AND"
 
         return names, logic
+
+    def _extract_class_table_filters(self, text: str, text_lower: str) -> Tuple[List[str], List[str], List[int]]:
+        """
+        Extract direct filters for classes table:
+        - class_id: 'lớp 762021', 'class_id 762021', 'mã lớp 762021'
+        - class_name: 'class_name ...', 'tên lớp ...'
+        - subject_id: 'subject_id 123', 'id học phần 123'
+        """
+        class_ids: List[str] = []
+        class_names: List[str] = []
+        subject_ids: List[int] = []
+
+        # class_id via explicit labels
+        for m in re.finditer(r'(?:class[_\s-]*id|mã\s+lớp)\s*[:#-]?\s*([a-z0-9_-]{2,})', text, re.IGNORECASE):
+            val = m.group(1).strip().upper()
+            if val and val not in class_ids:
+                class_ids.append(val)
+
+        # class_id via natural phrase: "lớp 762021" or "lớp C12345"
+        for m in re.finditer(r'\blớp\s+([a-z]?\d{4,}|[a-z]{1,3}\d{3,})\b', text_lower, re.IGNORECASE):
+            val = m.group(1).strip().upper()
+            if val and val not in class_ids:
+                class_ids.append(val)
+
+        # class_name via explicit labels
+        for m in re.finditer(r'(?:class[_\s-]*name|tên\s+lớp)\s*[:#-]?\s*([^\?\n\.]+)', text, re.IGNORECASE):
+            name = m.group(1).strip(" ,;:-")
+            if name and name.lower() not in {"lớp", "class", "name"} and name not in class_names:
+                class_names.append(name)
+
+        # subject_id in classes table (integer FK)
+        for m in re.finditer(r'(?:subject[_\s-]*id|id\s*học\s*phần|id\s*môn)\s*[:#-]?\s*(\d+)', text_lower, re.IGNORECASE):
+            sid = int(m.group(1))
+            if sid not in subject_ids:
+                subject_ids.append(sid)
+
+        return class_ids, class_names, subject_ids
 
     def _extract_day_session_groups(self, text: str) -> List[DaySessionConstraint]:
         """
