@@ -52,9 +52,34 @@ _SECTION_HEADERS = {
     "student_info":                  "👤 Thông tin sinh viên",
 }
 
+_REGISTRATION_REMINDER_HTML = (
+    "<div style='color:#d32f2f;font-size:20px;font-weight:800;line-height:1.4;'>"
+    "⚠️ LƯU Ý QUAN TRỌNG: Sinh viên cần xem xét đăng ký học phần thực tập theo nhu cầu cá nhân; "
+    "đồng thời kiểm tra đăng ký các học phần liên quan đến đồ án đúng tiến độ nhà trường và nhu cầu của mình."
+    "</div>"
+)
+
 
 def _section_header(intent: str) -> str:
     return _SECTION_HEADERS.get(intent, f"ℹ️ {intent}")
+
+
+def _prepend_registration_reminder(intent: str, text: str) -> str:
+    """Prepend a prominent reminder for registration-related intents."""
+    if intent not in {
+        "class_registration_suggestion",
+        "subject_registration_suggestion",
+        "modify_schedule",
+    }:
+        return text
+
+    if not text:
+        return _REGISTRATION_REMINDER_HTML
+
+    if "LƯU Ý QUAN TRỌNG" in text:
+        return text
+
+    return f"{_REGISTRATION_REMINDER_HTML}\n\n{text}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -154,8 +179,10 @@ async def _process_single_query(
             else:
                 result_data = [{"value": result_data}]
 
+        display_text = _prepend_registration_reminder(result["intent"], result["text"])
+
         return ChatResponseWithData(
-            text=result["text"],
+            text=display_text,
             intent=result["intent"],
             confidence=result["confidence"],
             data=result_data,
