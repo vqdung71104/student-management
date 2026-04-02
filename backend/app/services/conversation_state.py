@@ -28,6 +28,7 @@ class ConversationState:
         self.nlq_constraints: Optional[Dict] = None  # Constraint extractor result (serialised)
         self.subject_source_choice: Optional[str] = None  # 'registered' | 'suggested'
         self.subject_ids_seed: list = []
+        self.supplemental_preference_keys: list = []
         self.timestamp: datetime = datetime.now()
     
     def to_dict(self) -> Dict:
@@ -45,6 +46,7 @@ class ConversationState:
             'nlq_constraints': self.nlq_constraints,
             'subject_source_choice': self.subject_source_choice,
             'subject_ids_seed': self.subject_ids_seed,
+            'supplemental_preference_keys': self.supplemental_preference_keys,
             'timestamp': self.timestamp.isoformat()
         }
     
@@ -67,6 +69,7 @@ class ConversationState:
         state.nlq_constraints = data.get('nlq_constraints')
         state.subject_source_choice = data.get('subject_source_choice')
         state.subject_ids_seed = data.get('subject_ids_seed', [])
+        state.supplemental_preference_keys = data.get('supplemental_preference_keys', [])
         state.timestamp = datetime.fromisoformat(data['timestamp'])
         return state
     

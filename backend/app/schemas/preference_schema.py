@@ -14,6 +14,7 @@ class TimePreference(BaseModel):
     avoid_early_start: bool = False   # Tránh học sớm
     avoid_late_end: bool = False      # Tránh học muộn
     is_not_important: bool = False    # User said "Không quan trọng"
+    has_answer: bool = False          # User has provided time preference from any turn
 
 
 class DayPreference(BaseModel):
@@ -21,6 +22,7 @@ class DayPreference(BaseModel):
     prefer_days: List[str] = Field(default_factory=list)  # ['Monday', 'Tuesday']
     avoid_days: List[str] = Field(default_factory=list)   # ['Saturday', 'Sunday']
     is_not_important: bool = False    # User said "Không quan trọng"
+    has_answer: bool = False          # User has provided day preference from any turn
 
 
 class ContinuousPreference(BaseModel):
@@ -42,6 +44,7 @@ class SpecificRequirement(BaseModel):
     preferred_teachers: List[str] = Field(default_factory=list)
     specific_class_ids: List[str] = Field(default_factory=list)
     specific_times: Optional[Dict[str, str]] = None  # {'start': '08:00', 'end': '12:00'}
+    has_answer: bool = False          # User has answered specific requirement question
 
 
 class CompletePreference(BaseModel):
@@ -105,6 +108,7 @@ class CompletePreference(BaseModel):
         """
         # 1. Check day preference: has answer OR marked not important
         has_day_pref = bool(
+            self.day.has_answer or
             self.day.prefer_days or 
             self.day.avoid_days or 
             self.day.is_not_important
@@ -112,8 +116,13 @@ class CompletePreference(BaseModel):
         
         # 2. Check time preference: has answer OR marked not important
         has_time_pref = bool(
+            self.time.has_answer or
+            self.time.time_period or
+            self.time.avoid_time_periods or
             self.time.prefer_early_start or
             self.time.prefer_late_start or
+            self.time.avoid_early_start or
+            self.time.avoid_late_end or
             self.time.is_not_important
         )
         
@@ -131,6 +140,7 @@ class CompletePreference(BaseModel):
         
         # 5. Check specific requirements: at least answered (even if "không")
         has_specific_answered = bool(
+            self.specific.has_answer or
             self.specific.preferred_teachers or
             self.specific.specific_class_ids or
             self.specific.specific_times
@@ -150,11 +160,20 @@ class CompletePreference(BaseModel):
         missing = []
         
         # 1. Check day preference: missing if no answer AND not marked as not important
-        if not (self.day.prefer_days or self.day.avoid_days or self.day.is_not_important):
+        if not (self.day.has_answer or self.day.prefer_days or self.day.avoid_days or self.day.is_not_important):
             missing.append('day')
         
         # 2. Check time preference: missing if no answer AND not marked as not important
-        if not (self.time.prefer_early_start or self.time.prefer_late_start or self.time.is_not_important):
+        if not (
+            self.time.has_answer or
+            self.time.time_period or
+            self.time.avoid_time_periods or
+            self.time.prefer_early_start or
+            self.time.prefer_late_start or
+            self.time.avoid_early_start or
+            self.time.avoid_late_end or
+            self.time.is_not_important
+        ):
             missing.append('time')
         
         # 3. Check continuous preference: missing if no answer AND not marked as not important
@@ -166,7 +185,8 @@ class CompletePreference(BaseModel):
             missing.append('free_days')
         
         # 5. Check specific requirements: missing if not answered at all
-        if not (self.specific.preferred_teachers or
+        if not (self.specific.has_answer or
+            self.specific.preferred_teachers or
                 self.specific.specific_class_ids or
                 self.specific.specific_times):
             missing.append('specific')

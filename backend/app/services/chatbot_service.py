@@ -61,6 +61,58 @@ class ChatbotService:
             return "suggested"
         return None
 
+    def _append_supplemental_keys(self, state, keys: List[str]):
+        if not keys:
+            return
+        existing = set(getattr(state, 'supplemental_preference_keys', []) or [])
+        for key in keys:
+            if key not in existing:
+                existing.add(key)
+        state.supplemental_preference_keys = sorted(existing)
+
+    def _merge_constraints_into_preferences(self, preferences, constraints_dict: Optional[Dict]) -> List[str]:
+        """Map extracted NL constraints into preference categories to avoid re-asking."""
+        if not constraints_dict:
+            return []
+
+        captured: List[str] = []
+        day_map = {
+            'monday': 'Monday',
+            'tuesday': 'Tuesday',
+            'wednesday': 'Wednesday',
+            'thursday': 'Thursday',
+            'friday': 'Friday',
+            'saturday': 'Saturday',
+            'sunday': 'Sunday',
+        }
+
+        days = constraints_dict.get('days') or []
+        if isinstance(days, list):
+            day_changed = False
+            for day in days:
+                if not day:
+                    continue
+                normalized = day_map.get(str(day).strip().lower())
+                if normalized and normalized not in preferences.day.prefer_days:
+                    preferences.day.prefer_days.append(normalized)
+                    day_changed = True
+            if day_changed:
+                preferences.day.has_answer = True
+                captured.append('day')
+
+        session = (constraints_dict.get('session') or '').strip().lower()
+        if session in ('morning', 'afternoon') and not preferences.time.time_period:
+            preferences.time.time_period = session
+            preferences.time.has_answer = True
+            captured.append('time')
+
+        if constraints_dict.get('time_from') or constraints_dict.get('start_time_exact') or constraints_dict.get('avoid_start_times') or constraints_dict.get('avoid_end_times'):
+            preferences.time.has_answer = True
+            if 'time' not in captured:
+                captured.append('time')
+
+        return captured
+
     def _is_valid_preference_answer(self, question_key: str, before: Dict, after: Dict, answer: str) -> bool:
         """Check whether a user answer actually updates expected preference fields."""
         normalized_answer = (answer or "").strip().lower()
@@ -72,15 +124,20 @@ class ChatbotService:
                 after_day.get('prefer_days')
                 or after_day.get('avoid_days')
                 or after_day.get('is_not_important')
+                or after_day.get('has_answer')
                 or before_day != after_day
             )
 
         if question_key == 'time':
             after_time = after.get('time', {})
             return bool(
+                after_time.get('time_period')
+                or after_time.get('avoid_time_periods')
+                or
                 after_time.get('prefer_early_start')
                 or after_time.get('prefer_late_start')
                 or after_time.get('is_not_important')
+                or after_time.get('has_answer')
             )
 
         if question_key == 'continuous':
@@ -111,6 +168,7 @@ class ChatbotService:
                 after_specific.get('preferred_teachers')
                 or after_specific.get('specific_class_ids')
                 or after_specific.get('specific_times')
+                or after_specific.get('has_answer')
             )
 
         return before != after
@@ -635,6 +693,15 @@ class ChatbotService:
                         question_key=state.current_question.key,
                         current_preferences=state.preferences
                     )
+
+                    # Capture extra preferences embedded in the same answer text.
+                    state.preferences, supplemental_keys = pref_service.merge_supplemental_preferences(
+                        response=question,
+                        current_preferences=state.preferences,
+                        skip_keys={state.current_question.key},
+                    )
+                    self._append_supplemental_keys(state, supplemental_keys)
+
                     after_preferences = state.preferences.dict()
 
                     if not self._is_valid_preference_answer(
@@ -710,6 +777,7 @@ class ChatbotService:
                 state.preferences = initial_preferences
                 state.subject_source_choice = None
                 state.subject_ids_seed = []
+                state.supplemental_preference_keys = []
 
                 # If user directly answers source choice without prior state,
                 # continue class-suggestion flow instead of forcing re-ask.
@@ -721,6 +789,11 @@ class ChatbotService:
                     _extractor = get_constraint_extractor()
                     _constraints = _extractor.extract(question, query_type="class_registration_suggestion")
                     state.nlq_constraints = _constraints.dict()
+                    constraint_keys = self._merge_constraints_into_preferences(
+                        preferences=state.preferences,
+                        constraints_dict=state.nlq_constraints,
+                    )
+                    self._append_supplemental_keys(state, constraint_keys)
                     print(f"🔒 [CONSTRAINTS] Extracted: days={_constraints.days} session={_constraints.session} avoid_start={_constraints.avoid_start_times}")
                 except Exception as _ce:
                     print(f"⚠️ [CONSTRAINTS] Extract failed: {_ce}")

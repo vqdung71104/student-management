@@ -2,7 +2,7 @@
 Preference Collection Service
 Handles multi-turn conversation for collecting user preferences
 """
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 import re
 import unicodedata
 from app.schemas.preference_schema import (
@@ -87,6 +87,58 @@ class PreferenceCollectionService:
             for marker in ['không', 'ko', 'khong', 'khỏi', 'khong can']
         )
 
+    def _is_no_specific_requirement(self, text: str) -> bool:
+        return any(
+            phrase in text
+            for phrase in [
+                'không có yêu cầu',
+                'khong co yeu cau',
+                'không yêu cầu gì',
+                'khong yeu cau gi',
+                'không cần yêu cầu',
+                'khong can yeu cau',
+                'không cần gì thêm',
+                'khong can gi them',
+            ]
+        )
+
+    def _merge_unique_list(self, target: List[str], source: List[str]) -> bool:
+        changed = False
+        for item in source:
+            if item not in target:
+                target.append(item)
+                changed = True
+        return changed
+
+    def _mark_derived_answers(self, preferences: CompletePreference):
+        if preferences.day.prefer_days or preferences.day.avoid_days or preferences.day.is_not_important:
+            preferences.day.has_answer = True
+
+        if (
+            preferences.time.time_period
+            or preferences.time.avoid_time_periods
+            or preferences.time.prefer_early_start
+            or preferences.time.prefer_late_start
+            or preferences.time.avoid_early_start
+            or preferences.time.avoid_late_end
+            or preferences.time.is_not_important
+        ):
+            preferences.time.has_answer = True
+
+        if preferences.continuous.prefer_continuous or preferences.continuous.is_not_important:
+            preferences.continuous.has_answer = True
+
+        if preferences.free_days.prefer_free_days or preferences.free_days.is_not_important:
+            preferences.free_days.has_answer = True
+
+        if (
+            preferences.specific.preferred_teachers
+            or preferences.specific.specific_class_ids
+            or preferences.specific.specific_times
+            or preferences.specific.has_answer
+        ):
+            preferences.specific.has_answer = True
+
     def _extract_days_from_response(self, response_lower: str) -> List[str]:
         day_map = {
             '2': 'Monday',
@@ -132,7 +184,7 @@ class PreferenceCollectionService:
         Extract preferences from initial user question
         Similar to existing _extract_preferences_from_question
         """
-        question_lower = question.lower()
+        question_lower = self._normalize_response_text(question)
         preferences = CompletePreference()
         
         # Extract time preferences
@@ -151,8 +203,108 @@ class PreferenceCollectionService:
         # Extract specific requirements
         specific_req = self._extract_specific_requirements(question_lower)
         preferences.specific = specific_req
+
+        if self._is_no_specific_requirement(question_lower):
+            preferences.specific.has_answer = True
+
+        self._mark_derived_answers(preferences)
         
         return preferences
+
+    def merge_supplemental_preferences(
+        self,
+        response: str,
+        current_preferences: CompletePreference,
+        skip_keys: Optional[Set[str]] = None,
+    ) -> Tuple[CompletePreference, List[str]]:
+        """
+        Parse free-text response for supplemental preferences and merge without
+        overriding already-collected values.
+        """
+        skip_keys = skip_keys or set()
+        extracted = self.extract_initial_preferences(response)
+        captured_keys: List[str] = []
+
+        if 'day' not in skip_keys:
+            changed = False
+            changed = self._merge_unique_list(current_preferences.day.prefer_days, extracted.day.prefer_days) or changed
+            changed = self._merge_unique_list(current_preferences.day.avoid_days, extracted.day.avoid_days) or changed
+            if extracted.day.is_not_important and not current_preferences.day.is_not_important:
+                current_preferences.day.is_not_important = True
+                changed = True
+            if changed:
+                current_preferences.day.has_answer = True
+                captured_keys.append('day')
+
+        if 'time' not in skip_keys:
+            changed = False
+            if extracted.time.time_period and not current_preferences.time.time_period:
+                current_preferences.time.time_period = extracted.time.time_period
+                changed = True
+            changed = self._merge_unique_list(current_preferences.time.avoid_time_periods, extracted.time.avoid_time_periods) or changed
+            if extracted.time.prefer_early_start and not current_preferences.time.prefer_early_start:
+                current_preferences.time.prefer_early_start = True
+                changed = True
+            if extracted.time.prefer_late_start and not current_preferences.time.prefer_late_start:
+                current_preferences.time.prefer_late_start = True
+                changed = True
+            if extracted.time.avoid_early_start and not current_preferences.time.avoid_early_start:
+                current_preferences.time.avoid_early_start = True
+                changed = True
+            if extracted.time.avoid_late_end and not current_preferences.time.avoid_late_end:
+                current_preferences.time.avoid_late_end = True
+                changed = True
+            if extracted.time.is_not_important and not current_preferences.time.is_not_important:
+                current_preferences.time.is_not_important = True
+                changed = True
+            if changed:
+                current_preferences.time.has_answer = True
+                captured_keys.append('time')
+
+        if 'continuous' not in skip_keys:
+            changed = False
+            if extracted.continuous.has_answer and not current_preferences.continuous.has_answer:
+                current_preferences.continuous.has_answer = True
+                changed = True
+            if extracted.continuous.prefer_continuous != current_preferences.continuous.prefer_continuous and extracted.continuous.has_answer:
+                current_preferences.continuous.prefer_continuous = extracted.continuous.prefer_continuous
+                changed = True
+            if extracted.continuous.is_not_important and not current_preferences.continuous.is_not_important:
+                current_preferences.continuous.is_not_important = True
+                changed = True
+            if changed:
+                captured_keys.append('continuous')
+
+        if 'free_days' not in skip_keys:
+            changed = False
+            if extracted.free_days.has_answer and not current_preferences.free_days.has_answer:
+                current_preferences.free_days.has_answer = True
+                changed = True
+            if extracted.free_days.prefer_free_days != current_preferences.free_days.prefer_free_days and extracted.free_days.has_answer:
+                current_preferences.free_days.prefer_free_days = extracted.free_days.prefer_free_days
+                changed = True
+            if extracted.free_days.is_not_important and not current_preferences.free_days.is_not_important:
+                current_preferences.free_days.is_not_important = True
+                changed = True
+            if changed:
+                captured_keys.append('free_days')
+
+        if 'specific' not in skip_keys:
+            changed = False
+            changed = self._merge_unique_list(current_preferences.specific.preferred_teachers, extracted.specific.preferred_teachers) or changed
+            changed = self._merge_unique_list(current_preferences.specific.specific_class_ids, extracted.specific.specific_class_ids) or changed
+            if not current_preferences.specific.specific_times and extracted.specific.specific_times:
+                current_preferences.specific.specific_times = extracted.specific.specific_times
+                changed = True
+            if extracted.specific.has_answer and not current_preferences.specific.has_answer:
+                current_preferences.specific.has_answer = True
+                changed = True
+            if changed:
+                current_preferences.specific.has_answer = True
+                captured_keys.append('specific')
+
+        self._mark_derived_answers(current_preferences)
+        return current_preferences, captured_keys
     
     def _extract_time_preferences(self, question: str) -> TimePreference:
         """Extract time-related preferences"""
@@ -184,6 +336,7 @@ class PreferenceCollectionService:
                 else:
                     # Positive preference
                     time_pref.time_period = period
+                time_pref.has_answer = True
                 break
         
         # Check early/late preferences
@@ -192,12 +345,14 @@ class PreferenceCollectionService:
                 time_pref.avoid_early_start = True
             else:
                 time_pref.prefer_early_start = True
+            time_pref.has_answer = True
         
         if 'học muộn' in question or 'muộn' in question or 'đến muộn' in question:
             if has_negation_before(question, 'muộn'):
                 time_pref.avoid_late_end = True
             else:
                 time_pref.prefer_late_start = True
+            time_pref.has_answer = True
         
         return time_pref
     
@@ -220,11 +375,13 @@ class PreferenceCollectionService:
                 if has_negation_before(question, vn_day):
                     if en_day not in day_pref.avoid_days:
                         day_pref.avoid_days.append(en_day)
+                        day_pref.has_answer = True
                 else:
                     # Check context for prefer
                     if any(keyword in question for keyword in ['muốn học', 'thích học', 'học vào']):
                         if en_day not in day_pref.prefer_days:
                             day_pref.prefer_days.append(en_day)
+                            day_pref.has_answer = True
         
         return day_pref
     
@@ -239,10 +396,12 @@ class PreferenceCollectionService:
                 continuous_pref.prefer_continuous = False
             else:
                 continuous_pref.prefer_continuous = True
+            continuous_pref.has_answer = True
         
         # Free days
         if any(keyword in question for keyword in ['nghỉ nhiều', 'ít ngày', 'học ít ngày', 'tối đa hóa ngày nghỉ']):
             free_days_pref.prefer_free_days = True
+            free_days_pref.has_answer = True
         
         return continuous_pref, free_days_pref
     
@@ -255,12 +414,14 @@ class PreferenceCollectionService:
         teacher_matches = re.findall(teacher_pattern, question)
         if teacher_matches:
             specific_req.preferred_teachers = teacher_matches
+            specific_req.has_answer = True
         
         # Extract class IDs
         class_id_pattern = r'\b(\d{6})\b'
         class_id_matches = re.findall(class_id_pattern, question)
         if class_id_matches:
             specific_req.specific_class_ids = class_id_matches
+            specific_req.has_answer = True
         
         return specific_req
     
@@ -313,6 +474,7 @@ class PreferenceCollectionService:
             # Check for "not important" response
             if is_not_important or any(phrase in response_lower for phrase in ['không đề cập', 'khong de cap']):
                 current_preferences.day.is_not_important = True
+                current_preferences.day.has_answer = True
                 return current_preferences
             
             has_negation = self._is_negative_choice(response_lower) or ('tránh' in response_lower)
@@ -325,24 +487,31 @@ class PreferenceCollectionService:
                 else:
                     if en_day not in current_preferences.day.prefer_days:
                         current_preferences.day.prefer_days.append(en_day)
+
+            if parsed_days:
+                current_preferences.day.has_answer = True
         
         elif question_key == 'time':
             # Parse time preference (CHẺ SET prefer_early_start hoặc prefer_late_start)
             if '1' in response_lower or 'sớm' in response_lower or 'học sớm' in response_lower:
                 current_preferences.time.prefer_early_start = True
                 current_preferences.time.prefer_late_start = False  # Clear opposite
+                current_preferences.time.has_answer = True
             elif '2' in response_lower or 'muộn' in response_lower or 'học muộn' in response_lower:
                 current_preferences.time.prefer_late_start = True
                 current_preferences.time.prefer_early_start = False  # Clear opposite
+                current_preferences.time.has_answer = True
             elif is_not_important:
                 current_preferences.time.is_not_important = True
                 current_preferences.time.prefer_early_start = False
                 current_preferences.time.prefer_late_start = False
+                current_preferences.time.has_answer = True
             else:
                 # Option 3: không quan trọng - set flag
                 current_preferences.time.is_not_important = True
                 current_preferences.time.prefer_early_start = False
                 current_preferences.time.prefer_late_start = False
+                current_preferences.time.has_answer = True
         
         elif question_key == 'continuous':
             # Parse continuous preference
@@ -381,9 +550,8 @@ class PreferenceCollectionService:
         elif question_key == 'specific':
             # Parse specific requirements
             if self._is_negative_choice(response_lower) and len(response_lower) < 20:
-                # User said "không" - mark as answered but no requirements
-                # Set a placeholder to indicate question was answered
-                current_preferences.specific.specific_times = {'answered': 'no_requirements'}
+                # User said "không" - mark as answered without forcing placeholder payload
+                current_preferences.specific.has_answer = True
             else:
                 specific = self._extract_specific_requirements(response_lower)
                 if specific.preferred_teachers:
@@ -392,7 +560,11 @@ class PreferenceCollectionService:
                     current_preferences.specific.specific_class_ids.extend(specific.specific_class_ids)
                 # If no specific found but user responded, mark as answered
                 if not specific.preferred_teachers and not specific.specific_class_ids:
-                    current_preferences.specific.specific_times = {'answered': 'no_requirements'}
+                    current_preferences.specific.has_answer = True
+                else:
+                    current_preferences.specific.has_answer = True
+
+        self._mark_derived_answers(current_preferences)
         
         return current_preferences
     

@@ -109,3 +109,45 @@ def test_free_days_option_2_full_text_marks_as_answered():
     assert updated.free_days.prefer_free_days is False
     assert updated.free_days.has_answer is True
     assert 'free_days' not in updated.get_missing_preferences()
+
+
+def test_extract_initial_preferences_marks_answered_from_single_input():
+    service = PreferenceCollectionService()
+
+    updated = service.extract_initial_preferences(
+        "tôi muốn học lớp buổi sáng, học thứ 2 và thứ 4"
+    )
+
+    assert updated.time.time_period == "morning"
+    assert updated.time.has_answer is True
+    assert "Monday" in updated.day.prefer_days
+    assert "Wednesday" in updated.day.prefer_days
+    assert updated.day.has_answer is True
+    assert "time" not in updated.get_missing_preferences()
+    assert "day" not in updated.get_missing_preferences()
+
+
+def test_merge_supplemental_preferences_captures_extra_fields_in_same_reply():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    # User is answering day question but includes extra preferences in same sentence.
+    prefs = service.parse_user_response(
+        response="Thứ 2, thứ 4 và tôi muốn học muộn, không cần yêu cầu gì thêm",
+        question_key="day",
+        current_preferences=prefs,
+    )
+
+    prefs, captured_keys = service.merge_supplemental_preferences(
+        response="Thứ 2, thứ 4 và tôi muốn học muộn, không cần yêu cầu gì thêm",
+        current_preferences=prefs,
+        skip_keys={"day"},
+    )
+
+    assert "time" in captured_keys
+    assert "specific" in captured_keys
+    assert prefs.time.prefer_late_start is True
+    assert prefs.time.has_answer is True
+    assert prefs.specific.has_answer is True
+    assert "time" not in prefs.get_missing_preferences()
+    assert "specific" not in prefs.get_missing_preferences()
