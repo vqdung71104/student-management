@@ -560,7 +560,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       {/* Chatbot */}
       {chatbotOpen && (
         <div
-          className="chatbot-resizable fixed right-4 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden relative"
+          className="chatbot-resizable fixed right-4 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden"
           style={{
             width: `${chatbotWidth}px`,
             bottom: `${CHATBOT_BUTTON_BOTTOM + CHATBOT_BUTTON_SIZE}px`,
