@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useStudentLanguage } from '../pages/student/useStudentLanguage'
@@ -11,6 +11,12 @@ interface StudentLayoutProps {
 }
 
 const StudentLayout = ({ children }: StudentLayoutProps) => {
+  const CHATBOT_MIN_WIDTH = 384
+  const CHATBOT_MAX_WIDTH = 768
+  const CHATBOT_RIGHT_OFFSET = 16 // 16px from right edge
+  const CHATBOT_BUTTON_SIZE = 64 // p-4 + icon size ~64px
+  const CHATBOT_BUTTON_BOTTOM = 16 // bottom-4 = 1rem = 16px
+
   const navigate = useNavigate()
   const location = useLocation()
   const { logout } = useAuth()
@@ -23,6 +29,9 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<any>(null)
+  const [chatbotWidth, setChatbotWidth] = useState(CHATBOT_MIN_WIDTH)
+  const [isResizingChatbot, setIsResizingChatbot] = useState(false)
+  const chatbotResizeStartRef = useRef<{ x: number; width: number } | null>(null)
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true)
@@ -51,6 +60,88 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const isActive = (path: string) => {
     return location.pathname === path || location.pathname.startsWith(path + '/')
   }
+
+  const getViewportMaxChatbotWidth = () => {
+    if (typeof window === 'undefined') {
+      return CHATBOT_MAX_WIDTH
+    }
+    // Ensure chat window fits within viewport with offset on each side
+    return Math.max(
+      CHATBOT_MIN_WIDTH,
+      Math.min(CHATBOT_MAX_WIDTH, window.innerWidth - CHATBOT_RIGHT_OFFSET * 2)
+    )
+  }
+
+  const handleChatbotResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    event.stopPropagation()
+    chatbotResizeStartRef.current = {
+      x: event.clientX,
+      width: chatbotWidth,
+    }
+    setIsResizingChatbot(true)
+  }
+
+  useEffect(() => {
+    if (!isResizingChatbot) {
+      return
+    }
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (!chatbotResizeStartRef.current) {
+        return
+      }
+
+      const { x, width } = chatbotResizeStartRef.current
+      const deltaX = event.clientX - x
+      const dynamicMaxWidth = getViewportMaxChatbotWidth()
+      const nextWidth = Math.max(
+        CHATBOT_MIN_WIDTH,
+        Math.min(dynamicMaxWidth, width - deltaX)
+      )
+      setChatbotWidth(nextWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingChatbot(false)
+      chatbotResizeStartRef.current = null
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingChatbot])
+
+  useEffect(() => {
+    if (!isResizingChatbot) {
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+      return
+    }
+
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizingChatbot])
+
+  useEffect(() => {
+    const syncWidthToViewport = () => {
+      const dynamicMaxWidth = getViewportMaxChatbotWidth()
+      setChatbotWidth((prev) => Math.min(prev, dynamicMaxWidth))
+    }
+
+    syncWidthToViewport()
+    window.addEventListener('resize', syncWidthToViewport)
+    return () => window.removeEventListener('resize', syncWidthToViewport)
+  }, [])
 
   return (
     <div className="min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
@@ -468,8 +559,21 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
 
       {/* Chatbot */}
       {chatbotOpen && (
-        <div className="fixed bottom-20 right-4 w-96 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden">
+        <div
+          className="chatbot-resizable fixed right-4 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden relative"
+          style={{
+            width: `${chatbotWidth}px`,
+            bottom: `${CHATBOT_BUTTON_BOTTOM + CHATBOT_BUTTON_SIZE}px`,
+          }}
+        >
           <ChatBot />
+          <div
+            className="absolute top-0 left-0 h-full w-3 cursor-ew-resize z-20 group"
+            onMouseDown={handleChatbotResizeStart}
+            title="Kéo cạnh trái để thay đổi chiều rộng"
+          >
+            <div className="absolute left-0 top-0 h-full w-[2px] bg-slate-300 group-hover:bg-blue-500 transition-colors duration-150" />
+          </div>
           <button
             onClick={toggleChatbot}
             className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-700 hover:text-gray-900 rounded-full p-1.5 shadow-lg hover:shadow-xl transition-all duration-200 z-10"

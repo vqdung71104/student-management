@@ -6,6 +6,57 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 
+class PreferenceSummaryItem(BaseModel):
+    key: str = Field(..., description="Mã preference")
+    label: str = Field(..., description="Nhãn hiển thị thân thiện")
+    value: str = Field(..., description="Giá trị đã ghi nhận")
+    status: str = Field(..., description="Trạng thái hiển thị cho UI")
+
+
+class MissingPreferenceItem(BaseModel):
+    key: str = Field(..., description="Mã preference còn thiếu")
+    label: str = Field(..., description="Nhãn hiển thị thân thiện")
+    hint: str = Field(..., description="Gợi ý trả lời ngắn cho người dùng")
+
+
+class PreferenceProgress(BaseModel):
+    completed: int = Field(..., description="Số nhóm preference đã có")
+    total: int = Field(..., description="Tổng số nhóm preference")
+    percent: int = Field(..., description="Phần trăm hoàn thành")
+
+
+class ClassSuggestionUiMetadata(BaseModel):
+    title: str = Field(..., description="Tiêu đề thân thiện")
+    subtitle: str = Field(..., description="Mô tả ngắn")
+    status: str = Field(..., description="Trạng thái hiện tại")
+    message: Optional[str] = Field(None, description="Thông điệp bổ sung")
+
+
+class ClassSuggestionConversationMetadata(BaseModel):
+    stage: str = Field(..., description="Trạng thái hội thoại hiện tại")
+    next_step: str = Field(..., description="Bước tiếp theo")
+    progress: PreferenceProgress = Field(..., description="Tiến độ thu thập preference")
+    source_choice: str = Field(..., description="Nguồn học phần đang dùng")
+    subject_ids_seed_count: int = Field(..., description="Số học phần hạt giống")
+    nlq_constraints: Optional[Dict[str, Any]] = Field(None, description="Ràng buộc NL đã trích xuất")
+    current_question: Optional[Dict[str, Any]] = Field(None, description="Câu hỏi hiện tại nếu đang collecting")
+
+
+class ClassSuggestionPreferencesMetadata(BaseModel):
+    captured: List[PreferenceSummaryItem] = Field(default_factory=list, description="Preference đã ghi nhận")
+    missing: List[MissingPreferenceItem] = Field(default_factory=list, description="Preference còn thiếu")
+    auto_captured_keys: List[str] = Field(default_factory=list, description="Preference bắt tự động từ input")
+    summary: Dict[str, Any] = Field(default_factory=dict, description="Snapshot preference dạng dict")
+
+
+class ClassSuggestionMetadata(BaseModel):
+    ui: ClassSuggestionUiMetadata = Field(..., description="Khối hiển thị thân thiện cho FE")
+    conversation: ClassSuggestionConversationMetadata = Field(..., description="Trạng thái hội thoại")
+    preferences: ClassSuggestionPreferencesMetadata = Field(..., description="Tổng hợp preference")
+    notes: List[str] = Field(default_factory=list, description="Ghi chú hiển thị nhẹ")
+    result: Optional[Dict[str, Any]] = Field(None, description="Kết quả tóm tắt sau khi tạo gợi ý")
+
+
 class ChatMessage(BaseModel):
     """Schema cho tin nhắn chat từ user"""
     message: str = Field(..., description="Tin nhắn từ người dùng", min_length=1)
@@ -40,6 +91,7 @@ class ChatResponse(BaseModel):
 class ChatResponseWithData(ChatResponse):
     """Schema cho response từ chatbot kèm data từ database"""
     data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu từ database")
+    metadata: Optional[ClassSuggestionMetadata] = Field(None, description="Metadata thân thiện cho UI của class suggestion")
     sql: Optional[str] = Field(None, description="SQL query đã thực thi")
     sql_error: Optional[str] = Field(None, description="Lỗi SQL (nếu có)")
     is_compound: bool = Field(False, description="True nếu câu hỏi là compound query (nhiều intent)")

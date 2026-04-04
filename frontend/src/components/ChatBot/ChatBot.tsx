@@ -14,6 +14,7 @@ import type {
   ChatResponse,
   ChatConversation,
   ChatHistoryMessage,
+  ClassSuggestionMetadata,
 } from '../../services/chatbot.service';
 import { useAuth } from '../../contexts/AuthContext';
 import './ChatBot.css';
@@ -25,6 +26,7 @@ interface Message {
   timestamp: Date;
   intent?: string;
   data?: any[];
+  metadata?: ClassSuggestionMetadata;
   is_compound?: boolean;
   parts?: Array<{
     intent: string;
@@ -96,6 +98,7 @@ const ChatBot: React.FC = () => {
       isUser: item.role === 'user',
       timestamp: new Date(item.created_at),
       intent: item.intent,
+      metadata: item.data_json?.metadata,
       data: Array.isArray(item.data_json)
         ? item.data_json
         : Array.isArray(item.data_json?.data)
@@ -203,6 +206,7 @@ const ChatBot: React.FC = () => {
         timestamp: new Date(),
         intent: response.intent,
         data: response.data,
+        metadata: response.metadata,
         is_compound: response.is_compound,
         parts: response.parts,
       };
@@ -471,6 +475,77 @@ const ChatBot: React.FC = () => {
     );
   };
 
+  const renderClassSuggestionMetadata = (metadata?: ClassSuggestionMetadata) => {
+    if (!metadata) return null;
+
+    const captured = metadata.preferences?.captured || [];
+    const missing = metadata.preferences?.missing || [];
+    const autoCapturedKeys = metadata.preferences?.auto_captured_keys || [];
+    const progress = metadata.conversation?.progress;
+    const currentQuestion = metadata.conversation?.current_question;
+
+    return (
+      <div className="class-suggestion-metadata">
+        <div className="metadata-banner">
+          <div className="metadata-banner-title">{metadata.ui?.title || 'Mình đã ghi nhận yêu cầu của bạn'}</div>
+          <div className="metadata-banner-subtitle">{metadata.ui?.subtitle || 'Mình sẽ giữ lại thông tin đã có và hỏi nốt phần còn thiếu.'}</div>
+          {metadata.ui?.message && <div className="metadata-banner-message">{metadata.ui.message}</div>}
+        </div>
+
+        <div className="metadata-grid">
+          <div className="metadata-panel">
+            <div className="metadata-panel-title">Đã ghi nhận</div>
+            <div className="metadata-chips">
+              {captured.length > 0 ? captured.map((item) => (
+                <span key={item.key} className="metadata-chip metadata-chip-success">
+                  <strong>{item.label}:</strong>&nbsp;{item.value}
+                </span>
+              )) : (
+                <span className="metadata-empty">Chưa có preference nào được ghi nhận.</span>
+              )}
+            </div>
+            {autoCapturedKeys.length > 0 && (
+              <div className="metadata-hint-row">
+                Tự động bắt được: {autoCapturedKeys.join(', ')}
+              </div>
+            )}
+          </div>
+
+          <div className="metadata-panel">
+            <div className="metadata-panel-title">Còn thiếu</div>
+            <div className="metadata-chips">
+              {missing.length > 0 ? missing.map((item) => (
+                <span key={item.key} className="metadata-chip metadata-chip-warning">
+                  <strong>{item.label}:</strong>&nbsp;{item.hint}
+                </span>
+              )) : (
+                <span className="metadata-empty">Không còn thông tin nào cần hỏi thêm.</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="metadata-footer">
+          <div className="metadata-progress">
+            <span className="metadata-progress-label">Tiến độ</span>
+            <div className="metadata-progress-bar">
+              <span style={{ width: `${progress?.percent ?? 0}%` }} />
+            </div>
+            <span className="metadata-progress-text">
+              {progress?.completed ?? 0}/{progress?.total ?? 0} nhóm preference đã có
+            </span>
+          </div>
+          {currentQuestion && metadata.conversation?.next_step !== 'done' && (
+            <div className="metadata-next-step">
+              <span className="metadata-next-label">Câu hỏi tiếp theo</span>
+              <div className="metadata-next-question">{currentQuestion.question}</div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const handleNewConversation = async () => {
     if (isLoading) {
       return;
@@ -672,6 +747,7 @@ const ChatBot: React.FC = () => {
                     __html: formatMessageText(message.text)
                   }}
                 />
+                {!message.isUser && message.intent === 'class_registration_suggestion' && renderClassSuggestionMetadata(message.metadata)}
                 {message.is_compound && message.parts
                   ? renderCompoundParts(message.parts)
                   : message.data && message.data.length > 0 && (

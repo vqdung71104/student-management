@@ -186,6 +186,7 @@ async def _process_single_query(
             intent=result["intent"],
             confidence=result["confidence"],
             data=result_data,
+            metadata=result.get("metadata"),
             sql=None,
             sql_error=result.get("error"),
         )
@@ -582,6 +583,7 @@ async def chat(
                 intent=result["intent"],
                 confidence=result["confidence"],
                 data=result.get("data"),
+                metadata=result.get("metadata"),
                 sql=None,
                 sql_error=result.get("error"),
             )

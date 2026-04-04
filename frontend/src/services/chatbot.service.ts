@@ -15,6 +15,7 @@ export interface ChatResponse {
   intent: string;
   confidence: string;
   data?: any[];
+  metadata?: ClassSuggestionMetadata;
   sql?: string;
   sql_error?: string;
   is_compound?: boolean;
@@ -29,6 +30,63 @@ export interface ChatResponse {
     sql_error?: string | null;
     query: string;
   }>;
+}
+
+export interface PreferenceSummaryItem {
+  key: string;
+  label: string;
+  value: string;
+  status: string;
+}
+
+export interface MissingPreferenceItem {
+  key: string;
+  label: string;
+  hint: string;
+}
+
+export interface PreferenceProgress {
+  completed: number;
+  total: number;
+  percent: number;
+}
+
+export interface ClassSuggestionMetadata {
+  ui: {
+    title: string;
+    subtitle: string;
+    status: string;
+    message?: string | null;
+  };
+  conversation: {
+    stage: string;
+    next_step: string;
+    progress: PreferenceProgress;
+    source_choice: string;
+    subject_ids_seed_count: number;
+    nlq_constraints?: Record<string, any> | null;
+    current_question?: {
+      key: string;
+      label: string;
+      question: string;
+      options?: string[] | null;
+      type: string;
+    } | null;
+  };
+  preferences: {
+    captured: PreferenceSummaryItem[];
+    missing: MissingPreferenceItem[];
+    auto_captured_keys: string[];
+    summary: Record<string, any>;
+  };
+  notes: string[];
+  result?: {
+    total_subjects?: number;
+    total_combinations?: number;
+    student_cpa?: number;
+    current_semester?: string;
+    preferences_applied?: Record<string, any>;
+  } | null;
 }
 
 export interface Intent {

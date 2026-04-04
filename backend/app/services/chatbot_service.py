@@ -70,6 +70,214 @@ class ChatbotService:
                 existing.add(key)
         state.supplemental_preference_keys = sorted(existing)
 
+    def _friendly_preference_label(self, key: str) -> str:
+        labels = {
+            'day': 'Ngày học',
+            'time': 'Thời gian học',
+            'continuous': 'Học liên tục',
+            'free_days': 'Ngày nghỉ',
+            'specific': 'Yêu cầu cụ thể',
+        }
+        return labels.get(key, key)
+
+    def _friendly_question_hint(self, key: str) -> str:
+        hints = {
+            'day': 'Ví dụ: Thứ 2, Thứ 4, Thứ 6',
+            'time': 'Ví dụ: Học sớm, học muộn, hoặc không quan trọng',
+            'continuous': 'Ví dụ: Có, không, hoặc không quan trọng',
+            'free_days': 'Ví dụ: Muốn nghỉ nhiều ngày hơn hoặc không quan trọng',
+            'specific': 'Ví dụ: Giáo viên yêu thích, mã lớp cụ thể, hoặc trả lời không',
+        }
+        return hints.get(key, '')
+
+    def _build_preference_snapshot(self, preferences) -> List[Dict]:
+        snapshot: List[Dict] = []
+
+        if preferences.day.prefer_days or preferences.day.avoid_days or preferences.day.is_not_important:
+            day_value = []
+            if preferences.day.prefer_days:
+                day_value.append(f"Ưu tiên: {', '.join(preferences.day.prefer_days)}")
+            if preferences.day.avoid_days:
+                day_value.append(f"Tránh: {', '.join(preferences.day.avoid_days)}")
+            if preferences.day.is_not_important:
+                day_value.append('Không quan trọng')
+            snapshot.append({
+                'key': 'day',
+                'label': self._friendly_preference_label('day'),
+                'value': '; '.join(day_value) if day_value else 'Đã ghi nhận',
+                'status': 'đã có thông tin',
+            })
+
+        if (
+            preferences.time.time_period
+            or preferences.time.avoid_time_periods
+            or preferences.time.prefer_early_start
+            or preferences.time.prefer_late_start
+            or preferences.time.avoid_early_start
+            or preferences.time.avoid_late_end
+            or preferences.time.is_not_important
+        ):
+            time_value = []
+            if preferences.time.time_period:
+                time_value.append('Buổi sáng' if preferences.time.time_period == 'morning' else 'Buổi chiều')
+            if preferences.time.avoid_time_periods:
+                avoided = ['Buổi sáng' if period == 'morning' else 'Buổi chiều' for period in preferences.time.avoid_time_periods]
+                time_value.append(f"Tránh: {', '.join(avoided)}")
+            if preferences.time.prefer_early_start:
+                time_value.append('Ưu tiên học sớm')
+            if preferences.time.prefer_late_start:
+                time_value.append('Ưu tiên học muộn')
+            if preferences.time.is_not_important:
+                time_value.append('Không quan trọng')
+            snapshot.append({
+                'key': 'time',
+                'label': self._friendly_preference_label('time'),
+                'value': '; '.join(time_value) if time_value else 'Đã ghi nhận',
+                'status': 'đã có thông tin',
+            })
+
+        if preferences.continuous.has_answer or preferences.continuous.prefer_continuous or preferences.continuous.is_not_important:
+            if preferences.continuous.is_not_important:
+                continuous_value = 'Không quan trọng'
+            elif preferences.continuous.prefer_continuous:
+                continuous_value = 'Ưu tiên học liên tục'
+            else:
+                continuous_value = 'Không muốn học liên tục'
+            snapshot.append({
+                'key': 'continuous',
+                'label': self._friendly_preference_label('continuous'),
+                'value': continuous_value,
+                'status': 'đã có thông tin',
+            })
+
+        if preferences.free_days.has_answer or preferences.free_days.prefer_free_days or preferences.free_days.is_not_important:
+            if preferences.free_days.is_not_important:
+                free_days_value = 'Không quan trọng'
+            elif preferences.free_days.prefer_free_days:
+                free_days_value = 'Ưu tiên nghỉ nhiều ngày hơn'
+            else:
+                free_days_value = 'Không ưu tiên nghỉ nhiều ngày'
+            snapshot.append({
+                'key': 'free_days',
+                'label': self._friendly_preference_label('free_days'),
+                'value': free_days_value,
+                'status': 'đã có thông tin',
+            })
+
+        if preferences.specific.has_answer or preferences.specific.preferred_teachers or preferences.specific.specific_class_ids or preferences.specific.specific_times:
+            specific_parts = []
+            if preferences.specific.preferred_teachers:
+                specific_parts.append(f"Giáo viên: {', '.join(preferences.specific.preferred_teachers)}")
+            if preferences.specific.specific_class_ids:
+                specific_parts.append(f"Mã lớp: {', '.join(preferences.specific.specific_class_ids)}")
+            if preferences.specific.specific_times:
+                specific_parts.append('Có yêu cầu thời gian cụ thể')
+            if not specific_parts:
+                specific_parts.append('Không có yêu cầu cụ thể thêm')
+            snapshot.append({
+                'key': 'specific',
+                'label': self._friendly_preference_label('specific'),
+                'value': '; '.join(specific_parts),
+                'status': 'đã có thông tin',
+            })
+
+        return snapshot
+
+    def _build_class_suggestion_metadata(
+        self,
+        preferences,
+        conversation_stage: str,
+        current_question: Optional[Dict] = None,
+        subject_source: str = 'suggested',
+        subject_ids_seed: Optional[List[int]] = None,
+        nlq_constraints_dict: Optional[Dict] = None,
+        state=None,
+        next_step: str = 'ask_next_question',
+        message: Optional[str] = None,
+    ) -> Dict:
+        subject_source_labels = {
+            'registered': 'Học phần đã đăng ký',
+            'suggested': 'Học phần hệ thống gợi ý',
+        }
+        missing_keys = preferences.get_missing_preferences()
+        missing_items = [
+            {
+                'key': key,
+                'label': self._friendly_preference_label(key),
+                'hint': self._friendly_question_hint(key),
+            }
+            for key in missing_keys
+        ]
+        captured_items = self._build_preference_snapshot(preferences)
+
+        auto_captured_keys = []
+        if state is not None:
+            auto_captured_keys = list(getattr(state, 'supplemental_preference_keys', []) or [])
+
+        completed_count = max(0, 5 - len(missing_keys))
+        progress_percent = int((completed_count / 5) * 100) if 5 else 0
+
+        metadata = {
+            'ui': {
+                'title': 'Mình đã nhận được một phần yêu cầu của bạn',
+                'subtitle': 'Các thông tin đã có sẽ được giữ lại, phần còn thiếu mình sẽ hỏi tiếp để không làm bạn nhập lại.',
+                'status': 'Đang xử lý gợi ý lớp học',
+            },
+            'conversation': {
+                'stage': conversation_stage,
+                'next_step': next_step,
+                'progress': {
+                    'completed': completed_count,
+                    'total': 5,
+                    'percent': progress_percent,
+                },
+                'source_choice': subject_source_labels.get(subject_source, subject_source),
+                'subject_ids_seed_count': len(subject_ids_seed or []),
+            },
+            'preferences': {
+                'captured': captured_items,
+                'missing': missing_items,
+                'auto_captured_keys': auto_captured_keys,
+                'summary': preferences.to_dict(),
+            },
+            'notes': [
+                'Thông tin trong cùng câu trả lời được tự động ghi nhận.',
+                'Nếu bạn bổ sung thêm ý mới, hệ thống sẽ cập nhật mà không hỏi lại phần đã có.',
+            ],
+        }
+
+        if nlq_constraints_dict:
+            metadata['conversation']['nlq_constraints'] = {
+                'days': nlq_constraints_dict.get('days', []),
+                'session': nlq_constraints_dict.get('session'),
+                'time_from': nlq_constraints_dict.get('time_from'),
+                'subject_codes': nlq_constraints_dict.get('subject_codes', []),
+            }
+
+        if current_question:
+            metadata['conversation']['current_question'] = {
+                'key': current_question.key,
+                'label': self._friendly_preference_label(current_question.key),
+                'question': current_question.question,
+                'options': current_question.options,
+                'type': current_question.type,
+            }
+
+        if message:
+            metadata['ui']['message'] = message
+
+        return metadata
+
+    def _build_friendly_error_metadata(self, message: str) -> Dict:
+        return {
+            'ui': {
+                'title': 'Mình gặp một lỗi nhỏ khi xử lý yêu cầu',
+                'subtitle': 'Bạn có thể thử lại, mình sẽ giữ cách trả lời ngắn gọn và rõ ràng hơn.',
+                'status': 'Không thể hoàn tất ngay lúc này',
+                'message': message,
+            }
+        }
+
     def _merge_constraints_into_preferences(self, preferences, constraints_dict: Optional[Dict]) -> List[str]:
         """Map extracted NL constraints into preference categories to avoid re-asking."""
         if not constraints_dict:
@@ -617,7 +825,8 @@ class ChatbotService:
                     "intent": "class_registration_suggestion",
                     "confidence": "high",
                     "data": None,
-                    "requires_auth": True
+                    "requires_auth": True,
+                    "metadata": self._build_friendly_error_metadata("Bạn cần đăng nhập để tiếp tục nhận gợi ý lớp học.")
                 }
             
             # Initialize services
@@ -641,7 +850,18 @@ class ChatbotService:
                         "data": None,
                         "conversation_state": "collecting",
                         "question_type": "single_choice",
-                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"]
+                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"],
+                        "metadata": self._build_class_suggestion_metadata(
+                            preferences=state.preferences,
+                            conversation_stage=state.stage,
+                            current_question=None,
+                            subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                            subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                            nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
+                            state=state,
+                            next_step='choose_subject_source',
+                            message='Mình cần bạn chọn nguồn học phần trước khi gợi ý lớp học.',
+                        )
                     }
 
                 state.subject_source_choice = selected_source
@@ -677,7 +897,18 @@ class ChatbotService:
                     "data": None,
                     "conversation_state": "collecting",
                     "question_type": next_question.type if next_question else "free_text",
-                    "question_options": next_question.options if next_question else None
+                    "question_options": next_question.options if next_question else None,
+                    "metadata": self._build_class_suggestion_metadata(
+                        preferences=state.preferences,
+                        conversation_stage=state.stage,
+                        current_question=next_question,
+                        subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                        subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                        nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
+                        state=state,
+                        next_step='ask_next_question',
+                        message='Mình đã ghi nhận phần trả lời của bạn và sẽ hỏi nốt phần còn thiếu.',
+                    )
                 }
 
             if state and state.stage == 'collecting':
@@ -723,6 +954,17 @@ class ChatbotService:
                             "conversation_state": "collecting",
                             "question_type": state.current_question.type,
                             "question_options": state.current_question.options,
+                            "metadata": self._build_class_suggestion_metadata(
+                                preferences=state.preferences,
+                                conversation_stage=state.stage,
+                                current_question=state.current_question,
+                                subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                                subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                                nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
+                                state=state,
+                                next_step='retry_current_question',
+                                message='Mình chưa đọc rõ câu trả lời vừa rồi, bạn trả lời lại ngắn gọn theo gợi ý bên dưới nhé.',
+                            ),
                         }
 
                     state.questions_asked.append(state.current_question.key)
@@ -741,7 +983,9 @@ class ChatbotService:
                         subject_id=subject_id,
                         nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
                         subject_source=getattr(state, 'subject_source_choice', 'suggested'),
-                        subject_ids_seed=getattr(state, 'subject_ids_seed', [])
+                        subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                        conversation_stage='completed',
+                        conversation_state=state,
                     )
                 else:
                     # Ask next question
@@ -756,7 +1000,18 @@ class ChatbotService:
                         "data": None,
                         "conversation_state": "collecting",
                         "question_type": next_question.type,
-                        "question_options": next_question.options
+                        "question_options": next_question.options,
+                        "metadata": self._build_class_suggestion_metadata(
+                            preferences=state.preferences,
+                            conversation_stage=state.stage,
+                            current_question=next_question,
+                            subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                            subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                            nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
+                            state=state,
+                            next_step='ask_next_question',
+                            message='Mình đã tự động lấy được một phần thông tin từ câu bạn vừa gửi.',
+                        ),
                     }
             
             else:
@@ -812,7 +1067,9 @@ class ChatbotService:
                         subject_id=subject_id,
                         nlq_constraints_dict=state.nlq_constraints,
                         subject_source=getattr(state, 'subject_source_choice', 'suggested'),
-                        subject_ids_seed=getattr(state, 'subject_ids_seed', [])
+                        subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                        conversation_stage='completed',
+                        conversation_state=state,
                     )
                 else:
                     if direct_source_choice:
@@ -847,7 +1104,18 @@ class ChatbotService:
                             "data": None,
                             "conversation_state": "collecting",
                             "question_type": next_question.type if next_question else "free_text",
-                            "question_options": next_question.options if next_question else None
+                            "question_options": next_question.options if next_question else None,
+                            "metadata": self._build_class_suggestion_metadata(
+                                preferences=state.preferences,
+                                conversation_stage=state.stage,
+                                current_question=next_question,
+                                subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                                subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                                nlq_constraints_dict=state.nlq_constraints,
+                                state=state,
+                                next_step='ask_next_question',
+                                message='Mình đã nhận được thêm thông tin từ câu của bạn.',
+                            ),
                         }
 
                     # Start with source selection question before preference questions
@@ -866,7 +1134,18 @@ class ChatbotService:
                         "data": None,
                         "conversation_state": "collecting",
                         "question_type": "single_choice",
-                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"]
+                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"],
+                        "metadata": self._build_class_suggestion_metadata(
+                            preferences=state.preferences,
+                            conversation_stage=state.stage,
+                            current_question=None,
+                            subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                            subject_ids_seed=getattr(state, 'subject_ids_seed', []),
+                            nlq_constraints_dict=state.nlq_constraints,
+                            state=state,
+                            next_step='choose_subject_source',
+                            message='Mình cần xác nhận nguồn học phần trước khi đi tiếp.',
+                        ),
                     }
         
         except Exception as e:
@@ -877,7 +1156,8 @@ class ChatbotService:
                 "text": f"⚠️ Có lỗi xảy ra: {str(e)}",
                 "intent": "class_registration_suggestion",
                 "confidence": "high",
-                "data": None
+                "data": None,
+                "metadata": self._build_friendly_error_metadata("Đã có lỗi khi xử lý gợi ý lớp học. Bạn thử gửi lại câu hỏi nhé.")
             }
 
     async def process_modify_schedule(self, student_id: int, question: str) -> Dict:
@@ -921,6 +1201,8 @@ class ChatbotService:
         nlq_constraints_dict: Optional[Dict] = None,
         subject_source: str = "suggested",
         subject_ids_seed: Optional[List[int]] = None,
+        conversation_stage: str = "completed",
+        conversation_state=None,
     ) -> Dict:
         """
         Generate class suggestions with collected preferences
@@ -979,7 +1261,18 @@ class ChatbotService:
                         "text": f"⚠️ Môn {subject_id} không nằm trong danh sách gợi ý cho bạn.",
                         "intent": "class_registration_suggestion",
                         "confidence": "high",
-                        "data": None
+                        "data": None,
+                        "metadata": self._build_class_suggestion_metadata(
+                            preferences=preferences,
+                            conversation_stage=conversation_stage,
+                            current_question=None,
+                            subject_source=subject_source,
+                            subject_ids_seed=subject_ids_seed,
+                            nlq_constraints_dict=nlq_constraints_dict,
+                            state=conversation_state,
+                            next_step='done',
+                            message=f'Hiện tại mình chưa tìm thấy gợi ý phù hợp riêng cho môn {subject_id}.',
+                        )
                     }
                 print(f"🔍 [CLASS_SUGGESTION] Filtered from {original_count} to {len(suggested_subjects)} subjects")
             # NOTE: Không limit số môn, sử dụng tất cả môn mà rule engine gợi ý
@@ -1068,6 +1361,28 @@ class ChatbotService:
                         "total_subjects": len(suggested_subjects),
                         "total_combinations": 0,
                         "preferences_applied": preferences_dict,
+                        "ui": {
+                            "title": "Mình chưa tìm được tổ hợp phù hợp",
+                            "subtitle": "Bạn có thể nới một vài tiêu chí để mình gợi ý dễ hơn.",
+                            "status": "Không có tổ hợp phù hợp",
+                        },
+                        "conversation": {
+                            "stage": conversation_stage,
+                            "next_step": "adjust_preferences",
+                            "source_choice": subject_source,
+                        },
+                        "preferences": {
+                            "captured": self._build_preference_snapshot(preferences),
+                            "missing": [
+                                {
+                                    'key': key,
+                                    'label': self._friendly_preference_label(key),
+                                    'hint': self._friendly_question_hint(key),
+                                }
+                                for key in preferences.get_missing_preferences()
+                            ],
+                            "auto_captured_keys": list(getattr(conversation_state, 'supplemental_preference_keys', []) or []),
+                        },
                     },
                     "rule_engine_used": True,
                     "conversation_state": "completed"
@@ -1132,11 +1447,24 @@ class ChatbotService:
                 "confidence": "high",
                 "data": formatted_combinations,
                 "metadata": {
-                    "total_subjects": len(suggested_subjects),
-                    "total_combinations": len(top_combinations),
-                    "student_cpa": subject_result['student_cpa'],
-                    "current_semester": subject_result['current_semester'],
-                    "preferences_applied": preferences_dict
+                    **self._build_class_suggestion_metadata(
+                        preferences=preferences,
+                        conversation_stage=conversation_stage,
+                        current_question=None,
+                        subject_source=subject_source,
+                        subject_ids_seed=subject_ids_seed,
+                        nlq_constraints_dict=nlq_constraints_dict,
+                        state=conversation_state,
+                        next_step='done',
+                        message='Mình đã tổng hợp các gợi ý lớp học phù hợp nhất cho bạn.',
+                    ),
+                    "result": {
+                        "total_subjects": len(suggested_subjects),
+                        "total_combinations": len(top_combinations),
+                        "student_cpa": subject_result['student_cpa'],
+                        "current_semester": subject_result['current_semester'],
+                        "preferences_applied": preferences_dict,
+                    }
                 },
                 "rule_engine_used": True,
                 "conversation_state": "completed"
@@ -1151,6 +1479,7 @@ class ChatbotService:
                 "intent": "class_registration_suggestion",
                 "confidence": "low",
                 "data": None,
+                "metadata": self._build_friendly_error_metadata("Mình gặp lỗi khi tạo danh sách lớp gợi ý. Bạn thử lại nhé."),
                 "error": str(e)
             }
     
