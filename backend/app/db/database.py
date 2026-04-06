@@ -32,6 +32,8 @@ engine = create_engine(
     DATABASE_URL, 
     echo=False, 
     future=True,
+    pool_pre_ping=True,
+    pool_recycle=3600,
     # Đảm bảo sử dụng UTF-8 encoding
     connect_args={
         "charset": "utf8mb4",

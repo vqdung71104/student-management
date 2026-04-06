@@ -4,6 +4,11 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('access_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export interface ChatMessage {
   message: string;
   student_id?: number;
@@ -30,6 +35,35 @@ export interface ChatResponse {
     sql_error?: string | null;
     query: string;
   }>;
+}
+
+export interface ChatStreamChunk {
+  type: 'status' | 'data' | 'error' | 'done';
+  stage?: 'preprocessing' | 'classification' | 'query' | 'formatting' | 'complete';
+  message?: string;
+  timestamp?: string;
+  partial_data?: any[];
+  data_count?: number;
+  total_count?: number;
+  text?: string;
+  intent?: string;
+  confidence?: string;
+  data?: any[];
+  metadata?: ClassSuggestionMetadata;
+  is_compound?: boolean;
+  parts?: Array<{
+    intent: string;
+    confidence: string;
+    text: string;
+    data?: any[];
+    sql_error?: string | null;
+    query: string;
+  }>;
+  conversation_id?: number;
+  message_id?: number;
+  created_at?: string;
+  error_code?: string;
+  error_detail?: string;
 }
 
 export interface PreferenceSummaryItem {
@@ -160,6 +194,7 @@ export const sendMessage = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify(body),
   });
@@ -169,6 +204,79 @@ export const sendMessage = async (
   }
 
   return response.json();
+};
+
+export const sendMessageStream = async (
+  message: string,
+  studentId: number | undefined,
+  conversationId: number | undefined,
+  onChunk: (chunk: ChatStreamChunk) => void,
+  signal?: AbortSignal,
+): Promise<ChatStreamChunk | null> => {
+  const body: ChatMessage = { message };
+  if (studentId) {
+    body.student_id = studentId;
+  }
+  if (conversationId) {
+    body.conversation_id = conversationId;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/chatbot/chat-stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      ...getAuthHeaders(),
+    },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error('Failed to start message stream');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+  let doneChunk: ChatStreamChunk | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+
+    buffer += decoder.decode(value, { stream: true });
+    const events = buffer.split('\n\n');
+    buffer = events.pop() || '';
+
+    for (const event of events) {
+      const lines = event.split('\n');
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) {
+          continue;
+        }
+        const payload = line.slice(6).trim();
+        if (!payload) {
+          continue;
+        }
+
+        try {
+          const chunk = JSON.parse(payload) as ChatStreamChunk;
+          onChunk(chunk);
+          if (chunk.type === 'done') {
+            doneChunk = chunk;
+          }
+        } catch (error) {
+          // Skip malformed chunks and keep stream alive.
+          console.warn('Malformed stream chunk:', error);
+        }
+      }
+    }
+  }
+
+  return doneChunk;
 };
 
 export const listConversations = async (

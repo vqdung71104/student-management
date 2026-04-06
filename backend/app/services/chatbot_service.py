@@ -45,6 +45,12 @@ class ChatbotService:
     def _source_selection_question_text(self) -> str:
         return "Bạn muốn đăng ký theo học phần bạn đã đăng ký hay học phần hệ thống gợi ý?"
 
+    def _normalize_subject_source_choice(self, value: Optional[str]) -> str:
+        """Return canonical subject source and never None for response metadata."""
+        if value in {"registered", "suggested"}:
+            return value
+        return "suggested"
+
     def _parse_subject_source_choice(self, answer: str) -> Optional[str]:
         txt = (answer or "").lower().strip()
 
@@ -231,7 +237,10 @@ class ChatbotService:
                     'total': 5,
                     'percent': progress_percent,
                 },
-                'source_choice': subject_source_labels.get(subject_source, subject_source),
+                'source_choice': subject_source_labels.get(
+                    self._normalize_subject_source_choice(subject_source),
+                    subject_source_labels['suggested'],
+                ),
                 'subject_ids_seed_count': len(subject_ids_seed or []),
             },
             'preferences': {
@@ -855,7 +864,7 @@ class ChatbotService:
                             preferences=state.preferences,
                             conversation_stage=state.stage,
                             current_question=None,
-                            subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                            subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                             subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                             nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
                             state=state,
@@ -902,7 +911,7 @@ class ChatbotService:
                         preferences=state.preferences,
                         conversation_stage=state.stage,
                         current_question=next_question,
-                        subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                        subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                         subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                         nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
                         state=state,
@@ -958,7 +967,7 @@ class ChatbotService:
                                 preferences=state.preferences,
                                 conversation_stage=state.stage,
                                 current_question=state.current_question,
-                                subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                                subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                                 subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                                 nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
                                 state=state,
@@ -982,7 +991,7 @@ class ChatbotService:
                         preferences=state.preferences,
                         subject_id=subject_id,
                         nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
-                        subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                        subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                         subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                         conversation_stage='completed',
                         conversation_state=state,
@@ -1005,7 +1014,7 @@ class ChatbotService:
                             preferences=state.preferences,
                             conversation_stage=state.stage,
                             current_question=next_question,
-                            subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                            subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                             subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                             nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
                             state=state,
@@ -1030,7 +1039,7 @@ class ChatbotService:
                     intent='class_registration_suggestion'
                 )
                 state.preferences = initial_preferences
-                state.subject_source_choice = None
+                state.subject_source_choice = 'suggested'
                 state.subject_ids_seed = []
                 state.supplemental_preference_keys = []
 
@@ -1066,7 +1075,7 @@ class ChatbotService:
                         preferences=state.preferences,
                         subject_id=subject_id,
                         nlq_constraints_dict=state.nlq_constraints,
-                        subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                        subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                         subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                         conversation_stage='completed',
                         conversation_state=state,
@@ -1109,7 +1118,7 @@ class ChatbotService:
                                 preferences=state.preferences,
                                 conversation_stage=state.stage,
                                 current_question=next_question,
-                                subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                                subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                                 subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                                 nlq_constraints_dict=state.nlq_constraints,
                                 state=state,
@@ -1139,7 +1148,7 @@ class ChatbotService:
                             preferences=state.preferences,
                             conversation_stage=state.stage,
                             current_question=None,
-                            subject_source=getattr(state, 'subject_source_choice', 'suggested'),
+                            subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                             subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                             nlq_constraints_dict=state.nlq_constraints,
                             state=state,
@@ -1988,3 +1997,195 @@ class ChatbotService:
         response.append("   ⚠️ = Có vi phạm tiêu chí nhưng vẫn khả dụng")
         
         return "\n".join(response)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Streaming processing method
+    # ─────────────────────────────────────────────────────────────────────────
+
+    async def process_query_with_streaming(
+        self,
+        normalized_text: str,
+        student_id: Optional[int],
+        intent: str,
+        confidence: str,
+    ):
+        """
+        Generator để streaming response từng giai đoạn xử lý
+        Yield StreamChunk objects cho từng status update
+        """
+        from datetime import datetime
+        from app.schemas.chatbot_schema import StreamChunk
+
+        # Phase 1: Preprocessing complete (returned from caller)
+        yield StreamChunk(
+            type="status",
+            stage="preprocessing",
+            message="✓ Chuẩn hóa dữ liệu hoàn tất",
+        )
+
+        # Phase 2: Intent classification complete (returned from caller)
+        yield StreamChunk(
+            type="status",
+            stage="classification",
+            message=f"✓ Phân loại: {intent} ({confidence})",
+        )
+
+        # Phase 3: Query processing start
+        yield StreamChunk(
+            type="status",
+            stage="query",
+            message="🔄 Đang truy vấn cơ sở dữ liệu...",
+        )
+
+        # Phase 4: Process based on intent
+        result_data = None
+        result_text = ""
+
+        if intent in ("subject_registration_suggestion", "class_registration_suggestion", "modify_schedule"):
+            # Rule engine path
+            if intent == "subject_registration_suggestion":
+                result = await self.process_subject_suggestion(
+                    student_id=student_id,
+                    question=normalized_text,
+                )
+            elif intent == "modify_schedule":
+                result = await self.process_modify_schedule(
+                    student_id=student_id,
+                    question=normalized_text,
+                )
+            else:
+                result = await self.process_class_suggestion(
+                    student_id=student_id,
+                    question=normalized_text,
+                )
+
+            result_data = result.get("data")
+            if result_data is not None and not isinstance(result_data, list):
+                if isinstance(result_data, dict):
+                    result_data = [result_data]
+                else:
+                    result_data = [{"value": result_data}]
+
+            result_text = result.get("text", "")
+            intent = result.get("intent", intent)
+            confidence = result.get("confidence", confidence)
+
+            # Stream progress
+            if result_data:
+                yield StreamChunk(
+                    type="data",
+                    stage="query",
+                    message=f"✓ Lấy được {len(result_data)} kết quả",
+                    partial_data=result_data[:5] if len(result_data) > 5 else result_data,
+                    data_count=len(result_data),
+                    total_count=len(result_data),
+                )
+
+        elif intent == "class_info":
+            # Constraint extractor path
+            try:
+                from app.services.constraint_extractor import get_constraint_extractor
+                from app.services.class_query_service import ClassQueryService
+
+                extractor = get_constraint_extractor()
+                constraints = extractor.extract(normalized_text, query_type="class_info")
+
+                has_structured_filters = any([
+                    bool(constraints.subject_codes),
+                    bool(constraints.subject_names),
+                    bool(constraints.class_ids),
+                    bool(constraints.class_names),
+                    bool(constraints.subject_ids),
+                    bool(constraints.days),
+                    bool(constraints.session),
+                    bool(constraints.day_session_constraints),
+                    bool(constraints.start_time_exact),
+                    bool(constraints.end_time_exact),
+                    bool(constraints.time_range),
+                    bool(constraints.time_from),
+                    bool(constraints.classroom_exact),
+                    bool(constraints.building_code),
+                    bool(constraints.room_code),
+                ])
+
+                if has_structured_filters:
+                    svc = ClassQueryService(self.db)
+                    rows = svc.query(constraints)
+
+                    import datetime as dt
+                    for r in rows:
+                        if isinstance(r.get("study_time_start"), dt.time):
+                            r["study_time_start"] = r["study_time_start"].strftime("%H:%M")
+                        if isinstance(r.get("study_time_end"), dt.time):
+                            r["study_time_end"] = r["study_time_end"].strftime("%H:%M")
+
+                    result_data = rows
+                    result_text = (
+                        f"✅ Tìm thấy {len({str(r.get('class_id')) for r in rows if r.get('class_id') is not None}) or len(rows)} lớp học phù hợp."
+                        if rows
+                        else "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn."
+                    )
+
+                    if result_data:
+                        yield StreamChunk(
+                            type="data",
+                            stage="query",
+                            message=f"✓ Lấy được {len(result_data)} lớp học",
+                            partial_data=result_data[:10],
+                            data_count=len(result_data),
+                            total_count=len(result_data),
+                        )
+
+            except Exception as ce:
+                print(f"⚠️ Constraint extractor error: {ce}")
+
+        else:
+            # NL2SQL path for other intents
+            try:
+                from app.services.nl2sql_service import NL2SQLService
+
+                nl2sql_service = NL2SQLService()
+                sql_result = await nl2sql_service.generate_sql(
+                    question=normalized_text,
+                    intent=intent,
+                    student_id=student_id,
+                    db=self.db,
+                )
+
+                sql_query = sql_result.get("sql")
+                if sql_query:
+                    from sqlalchemy import text
+
+                    result_rows = self.db.execute(text(sql_query))
+                    rows = result_rows.fetchall()
+                    if rows:
+                        columns = result_rows.keys()
+                        result_data = [dict(zip(columns, row)) for row in rows]
+                    else:
+                        result_data = []
+
+                    result_text = f"✅ Tìm thấy {len(result_data)} kết quả" if result_data else "Không tìm thấy dữ liệu phù hợp."
+
+                    if result_data:
+                        yield StreamChunk(
+                            type="data",
+                            stage="query",
+                            message=f"✓ Lấy được {len(result_data)} bản ghi",
+                            partial_data=result_data[:10],
+                            data_count=len(result_data),
+                            total_count=len(result_data),
+                        )
+
+            except Exception as e:
+                print(f"⚠️ NL2SQL error: {e}")
+                result_text = "Xin lỗi, không thể xử lý câu hỏi của bạn lúc này."
+
+        # Phase 5: Complete - send full response
+        yield StreamChunk(
+            type="done",
+            stage="complete",
+            text=result_text or "Hoàn tất xử lý",
+            intent=intent,
+            confidence=confidence,
+            data=result_data,
+        )

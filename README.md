@@ -227,6 +227,11 @@ MYSQL_HOST=localhost
 MYSQL_PORT=3306
 MYSQL_DB=student_management
 
+# Redis (local run)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
 # JWT
 SECRET_KEY=your_secret_key
 ALGORITHM=HS256
@@ -237,6 +242,13 @@ GOOGLE_API_KEY=your_api_key
 USE_PHOBERT=true
 USE_GEMINI=true
 CHATBOT_STRATEGY=hybrid
+```
+
+When running with Docker Compose, backend must use service hostnames in the container network:
+
+```env
+MYSQL_HOST=mysql
+REDIS_HOST=redis
 ```
 
 ### Frontend (.env)

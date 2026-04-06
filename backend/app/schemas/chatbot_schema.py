@@ -199,3 +199,63 @@ class ConversationMessagesResponse(BaseModel):
     has_more: bool = False
     items: List[ChatHistoryMessageItem]
     cache_hit: bool = False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Streaming Schema
+# ─────────────────────────────────────────────────────────────────────────────
+
+class StreamChunk(BaseModel):
+    """Schema cho streaming response chunks"""
+    type: str = Field(..., description="Loại chunk: status|data|error|done", pattern="^(status|data|error|done)$")
+    stage: Optional[str] = Field(None, description="Giai đoạn xử lý: preprocessing|classification|query|formatting|complete")
+    message: Optional[str] = Field(None, description="Thông báo cho user")
+    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Thời điểm gửi chunk")
+    partial_data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu một phần (khi type=data)")
+    data_count: Optional[int] = Field(None, description="Số lượng bản ghi hiện tại")
+    total_count: Optional[int] = Field(None, description="Tổng số bản ghi dự kiến")
+    
+    # Full response (khi type=done)
+    text: Optional[str] = Field(None, description="Câu trả lời hoàn chỉnh")
+    intent: Optional[str] = Field(None, description="Intent được phân loại")
+    confidence: Optional[str] = Field(None, description="Độ tin cậy")
+    data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu hoàn chỉnh")
+    metadata: Optional[ClassSuggestionMetadata] = Field(None, description="Metadata cho UI")
+    is_compound: Optional[bool] = Field(None, description="Có phải compound query")
+    parts: Optional[List[Dict[str, Any]]] = Field(None, description="Kết quả từng phần")
+    conversation_id: Optional[int] = Field(None, description="ID hội thoại")
+    message_id: Optional[int] = Field(None, description="ID assistant message")
+    
+    # Error info (khi type=error)
+    error_code: Optional[str] = Field(None, description="Mã lỗi")
+    error_detail: Optional[str] = Field(None, description="Chi tiết lỗi")
+    
+    class Config:
+        json_schema_extra = {
+            "examples": {
+                "status": {
+                    "type": "status",
+                    "stage": "preprocessing",
+                    "message": "✓ Chuẩn hóa dữ liệu",
+                    "timestamp": "2025-04-06T10:30:00Z"
+                },
+                "data": {
+                    "type": "data",
+                    "stage": "query",
+                    "message": "Đã lấy 5/120 môn",
+                    "partial_data": [{"subject_name": "Giải tích 1"}],
+                    "data_count": 5,
+                    "total_count": 120,
+                    "timestamp": "2025-04-06T10:30:02Z"
+                },
+                "done": {
+                    "type": "done",
+                    "stage": "complete",
+                    "text": "✅ Tìm thấy 120 môn",
+                    "intent": "learned_subjects_view",
+                    "confidence": "high",
+                    "data": [{"subject_name": "Giải tích 1"}],
+                    "timestamp": "2025-04-06T10:30:04Z"
+                }
+            }
+        }

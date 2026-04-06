@@ -26,7 +26,7 @@ class ConversationState:
         self.current_question: Optional[PreferenceQuestion] = None
         self.pending_question: Optional[Dict] = None  # NEW: Pending question details
         self.nlq_constraints: Optional[Dict] = None  # Constraint extractor result (serialised)
-        self.subject_source_choice: Optional[str] = None  # 'registered' | 'suggested'
+        self.subject_source_choice: Optional[str] = 'suggested'  # 'registered' | 'suggested'
         self.subject_ids_seed: list = []
         self.supplemental_preference_keys: list = []
         self.timestamp: datetime = datetime.now()
@@ -67,7 +67,7 @@ class ConversationState:
             state.current_question = PreferenceQuestion(**data['current_question'])
         state.pending_question = data.get('pending_question')
         state.nlq_constraints = data.get('nlq_constraints')
-        state.subject_source_choice = data.get('subject_source_choice')
+        state.subject_source_choice = data.get('subject_source_choice') or 'suggested'
         state.subject_ids_seed = data.get('subject_ids_seed', [])
         state.supplemental_preference_keys = data.get('supplemental_preference_keys', [])
         state.timestamp = datetime.fromisoformat(data['timestamp'])

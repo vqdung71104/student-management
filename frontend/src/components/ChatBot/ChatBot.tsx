@@ -4,6 +4,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   sendMessage,
+  sendMessageStream,
   exportScheduleToExcel,
   listConversations,
   getConversationMessages,
@@ -12,6 +13,7 @@ import {
 } from '../../services/chatbot.service';
 import type {
   ChatResponse,
+  ChatStreamChunk,
   ChatConversation,
   ChatHistoryMessage,
   ClassSuggestionMetadata,
@@ -37,6 +39,24 @@ interface Message {
     query: string;
   }>;
 }
+
+type StreamStage = 'preprocessing' | 'classification' | 'query' | 'formatting' | 'complete';
+
+const STREAM_STAGE_PROGRESS: Record<StreamStage, number> = {
+  preprocessing: 20,
+  classification: 45,
+  query: 75,
+  formatting: 90,
+  complete: 100,
+};
+
+const STREAM_STAGE_LABEL: Record<StreamStage, string> = {
+  preprocessing: 'Chuẩn hóa câu hỏi',
+  classification: 'Phân loại ý định',
+  query: 'Truy vấn dữ liệu',
+  formatting: 'Định dạng kết quả',
+  complete: 'Hoàn tất',
+};
 
 const ChatBot: React.FC = () => {
   const { userInfo } = useAuth();
@@ -65,8 +85,12 @@ const ChatBot: React.FC = () => {
   } | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [streamingStatus, setStreamingStatus] = useState<string>('');
+  const [streamingStage, setStreamingStage] = useState<StreamStage>('preprocessing');
+  const [streamingProgress, setStreamingProgress] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
 
   // Auto scroll to bottom when new message added
   const scrollToBottom = () => {
@@ -178,9 +202,11 @@ const ChatBot: React.FC = () => {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    const outgoingText = inputValue;
+
     const userMessage: Message = {
       id: Date.now(),
-      text: inputValue,
+      text: outgoingText,
       isUser: true,
       timestamp: new Date(),
     };
@@ -188,27 +214,79 @@ const ChatBot: React.FC = () => {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
     setIsLoading(true);
+    setStreamingStatus('Đang gửi câu hỏi...');
+    setStreamingStage('preprocessing');
+    setStreamingProgress(10);
+    streamAbortRef.current = new AbortController();
 
     try {
-      // Send message with student_id from userInfo
-      const response: ChatResponse = await sendMessage(inputValue, userInfo?.id, activeConversationId || undefined);
+      const doneChunk = await sendMessageStream(
+        outgoingText,
+        userInfo?.id,
+        activeConversationId || undefined,
+        (chunk: ChatStreamChunk) => {
+          if (chunk.stage) {
+            const nextStage = chunk.stage as StreamStage;
+            if (STREAM_STAGE_PROGRESS[nextStage] !== undefined) {
+              setStreamingStage(nextStage);
+              setStreamingProgress(STREAM_STAGE_PROGRESS[nextStage]);
+            }
+          }
 
-      if (response.conversation_id && response.conversation_id !== activeConversationId) {
-        setActiveConversationId(response.conversation_id);
-        localStorage.setItem(activeConversationStorageKey, String(response.conversation_id));
+          if (chunk.type === 'status' && chunk.message) {
+            setStreamingStatus(chunk.message);
+            return;
+          }
+
+          if (chunk.type === 'data' && chunk.message) {
+            setStreamingStatus(chunk.message);
+            setStreamingProgress((prev) => Math.max(prev, 82));
+            return;
+          }
+
+          if (chunk.type === 'error') {
+            throw new Error(chunk.error_detail || chunk.message || 'Streaming error');
+          }
+        },
+        streamAbortRef.current.signal,
+      );
+
+      if (!doneChunk) {
+        throw new Error('Không nhận được phản hồi cuối từ luồng streaming');
+      }
+
+      setStreamingStage('complete');
+      setStreamingProgress(100);
+
+      const finalResponse: ChatResponse = {
+        text: doneChunk.text || 'Hoàn tất xử lý',
+        intent: doneChunk.intent || 'unknown',
+        confidence: doneChunk.confidence || 'low',
+        data: doneChunk.data,
+        metadata: doneChunk.metadata,
+        is_compound: doneChunk.is_compound,
+        parts: doneChunk.parts,
+        conversation_id: doneChunk.conversation_id,
+        message_id: doneChunk.message_id,
+        created_at: doneChunk.created_at,
+      };
+
+      if (finalResponse.conversation_id && finalResponse.conversation_id !== activeConversationId) {
+        setActiveConversationId(finalResponse.conversation_id);
+        localStorage.setItem(activeConversationStorageKey, String(finalResponse.conversation_id));
         setIsHistoryOpen(true);
       }
 
       const botMessage: Message = {
         id: Date.now() + 1,
-        text: response.text,
+        text: finalResponse.text,
         isUser: false,
         timestamp: new Date(),
-        intent: response.intent,
-        data: response.data,
-        metadata: response.metadata,
-        is_compound: response.is_compound,
-        parts: response.parts,
+        intent: finalResponse.intent,
+        data: finalResponse.data,
+        metadata: finalResponse.metadata,
+        is_compound: finalResponse.is_compound,
+        parts: finalResponse.parts,
       };
 
       setMessages((prev) => [...prev, botMessage]);
@@ -222,19 +300,69 @@ const ChatBot: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        const cancelledMessage: Message = {
+          id: Date.now() + 1,
+          text: 'Bạn đã hủy yêu cầu trước khi hệ thống trả kết quả.',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, cancelledMessage]);
+        return;
+      }
 
-      const errorMessage: Message = {
-        id: Date.now() + 1,
-        text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
-        isUser: false,
-        timestamp: new Date(),
-      };
+      console.error('Error streaming message, fallback to normal API:', error);
 
-      setMessages((prev) => [...prev, errorMessage]);
+      try {
+        setStreamingStatus('Streaming lỗi, đang chuyển sang chế độ thường...');
+        const response: ChatResponse = await sendMessage(outgoingText, userInfo?.id, activeConversationId || undefined);
+
+        if (response.conversation_id && response.conversation_id !== activeConversationId) {
+          setActiveConversationId(response.conversation_id);
+          localStorage.setItem(activeConversationStorageKey, String(response.conversation_id));
+          setIsHistoryOpen(true);
+        }
+
+        const botMessage: Message = {
+          id: Date.now() + 1,
+          text: response.text,
+          isUser: false,
+          timestamp: new Date(),
+          intent: response.intent,
+          data: response.data,
+          metadata: response.metadata,
+          is_compound: response.is_compound,
+          parts: response.parts,
+        };
+
+        setMessages((prev) => [...prev, botMessage]);
+      } catch (fallbackError) {
+        console.error('Error sending message in fallback mode:', fallbackError);
+
+        const errorMessage: Message = {
+          id: Date.now() + 1,
+          text: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
+          isUser: false,
+          timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, errorMessage]);
+      }
     } finally {
+      streamAbortRef.current = null;
       setIsLoading(false);
+      setStreamingStatus('');
+      setStreamingProgress(0);
     }
+  };
+
+  const handleCancelStreaming = () => {
+    if (!isLoading) {
+      return;
+    }
+
+    setStreamingStatus('Đang hủy yêu cầu...');
+    streamAbortRef.current?.abort();
   };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -770,11 +898,24 @@ const ChatBot: React.FC = () => {
             <div className="message-content">
               <div className="message-avatar">  </div>
               <div className="message-bubble typing">
+                {streamingStatus && (
+                  <div className="message-text streaming-status-text" style={{ marginBottom: '8px' }}>
+                    {streamingStatus}
+                  </div>
+                )}
+                <div className="streaming-meta">
+                  <span className="streaming-stage-badge">{STREAM_STAGE_LABEL[streamingStage]}</span>
+                  <span className="streaming-progress-number">{streamingProgress}%</span>
+                </div>
+                <div className="streaming-progress-track">
+                  <span style={{ width: `${streamingProgress}%` }} />
+                </div>
                 <div className="typing-indicator">
                   <span></span>
                   <span></span>
                   <span></span>
                 </div>
+                <div className="typing-subtext">Bạn có thể hủy nếu muốn đổi câu hỏi.</div>
               </div>
             </div>
           </div>
@@ -793,21 +934,31 @@ const ChatBot: React.FC = () => {
           disabled={isLoading}
           rows={1}
         />
-        <button
-          onClick={handleSendMessage}
-          disabled={!inputValue.trim() || isLoading}
-          className="send-button"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            width="24"
-            height="24"
+        {isLoading ? (
+          <button
+            onClick={handleCancelStreaming}
+            className="cancel-button"
+            type="button"
           >
-            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-          </svg>
-        </button>
+            Hủy
+          </button>
+        ) : (
+          <button
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim() || isLoading}
+            className="send-button"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              width="24"
+              height="24"
+            >
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );

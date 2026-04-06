@@ -82,6 +82,24 @@ def _prepend_registration_reminder(intent: str, text: str) -> str:
     return f"{_REGISTRATION_REMINDER_HTML}\n\n{text}"
 
 
+def _sanitize_class_suggestion_metadata(metadata: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Keep response metadata compatible with Pydantic schema contract."""
+    if not isinstance(metadata, dict):
+        return metadata
+
+    conversation = metadata.get("conversation")
+    if not isinstance(conversation, dict):
+        return metadata
+
+    source_choice = conversation.get("source_choice")
+    if source_choice is None or (isinstance(source_choice, str) and not source_choice.strip()):
+        conversation["source_choice"] = "Học phần hệ thống gợi ý"
+    elif not isinstance(source_choice, str):
+        conversation["source_choice"] = str(source_choice)
+
+    return metadata
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Merge helper
 # ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +204,7 @@ async def _process_single_query(
             intent=result["intent"],
             confidence=result["confidence"],
             data=result_data,
-            metadata=result.get("metadata"),
+            metadata=_sanitize_class_suggestion_metadata(result.get("metadata")),
             sql=None,
             sql_error=result.get("error"),
         )
@@ -583,7 +601,7 @@ async def chat(
                 intent=result["intent"],
                 confidence=result["confidence"],
                 data=result.get("data"),
-                metadata=result.get("metadata"),
+                metadata=_sanitize_class_suggestion_metadata(result.get("metadata")),
                 sql=None,
                 sql_error=result.get("error"),
             )
@@ -748,6 +766,190 @@ async def get_available_intents():
             status_code=500,
             detail=f"Lỗi lấy danh sách intent: {str(e)}"
         )
+
+
+@router.post("/chat-stream")
+async def chat_stream(
+    message: ChatMessage,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    """
+    Endpoint streaming tin nhắn từ user với real-time status updates
+    
+    Trả về Server-Sent Events stream với nhiều StreamChunk:
+    - "status" chunks: cập nhật giai đoạn xử lý
+    - "data" chunks: dữ liệu một phần đã lấy được
+    - "done" chunk: phản hồi hoàn chỉnh
+    - "error" chunk: lỗi xảy ra
+    """
+    from fastapi.responses import StreamingResponse
+    from app.schemas.chatbot_schema import StreamChunk
+    import json
+    
+    async def event_generator():
+        def _emit(chunk: StreamChunk):
+            payload = chunk.model_dump(exclude_none=True, mode="json")
+            return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+        try:
+            effective_student_id = current_student.id
+            chatbot_service = ChatbotService(db)
+            history_service = ChatHistoryService(db)
+
+            print(f"📝 [STREAM] {message.message}")
+            yield _emit(StreamChunk(type="status", stage="preprocessing", message="Đang chuẩn hóa câu hỏi..."))
+            normalized_message = text_preprocessor.preprocess(message.message)
+            if normalized_message != message.message:
+                print(f"✨ [STREAM] {normalized_message}")
+
+            from app.services.conversation_state import get_conversation_state_manager
+            conv_manager = get_conversation_state_manager()
+            state = conv_manager.get_state(effective_student_id)
+
+            response_payload: ChatResponseWithData
+
+            # Keep identical behavior with /chat for active preference collection sessions.
+            if state and state.stage in ('collecting', 'choose_subject_source'):
+                yield _emit(StreamChunk(type="status", stage="classification", message="Đang tiếp tục hội thoại trước đó..."))
+
+                result = await chatbot_service.process_class_suggestion(
+                    student_id=effective_student_id,
+                    question=normalized_message,
+                )
+                response_payload = ChatResponseWithData(
+                    text=result["text"],
+                    intent=result["intent"],
+                    confidence=result["confidence"],
+                    data=result.get("data"),
+                    metadata=_sanitize_class_suggestion_metadata(result.get("metadata")),
+                    sql=None,
+                    sql_error=result.get("error"),
+                )
+            else:
+                yield _emit(StreamChunk(type="status", stage="classification", message="Đang phân loại ý định câu hỏi..."))
+
+                sub_queries = query_splitter.split(normalized_message)
+                print(f"🔀 [STREAM][SPLITTER] {len(sub_queries)} part(s): {[sq.detected_intent for sq in sub_queries]}")
+
+                if len(sub_queries) > 1:
+                    yield _emit(StreamChunk(type="status", stage="query", message="Phát hiện câu hỏi nhiều phần, đang xử lý từng phần..."))
+                    parts: List[ChatResponseWithData] = []
+
+                    for idx, sq in enumerate(sub_queries):
+                        yield _emit(
+                            StreamChunk(
+                                type="status",
+                                stage="query",
+                                message=f"Đang xử lý phần {idx + 1}/{len(sub_queries)}...",
+                            )
+                        )
+                        try:
+                            part_resp = await _process_single_query(
+                                normalized_text=sq.text,
+                                student_id=effective_student_id,
+                                db=db,
+                                chatbot_service=chatbot_service,
+                            )
+                        except Exception as part_err:
+                            print(f"⚠️ [STREAM][COMPOUND] Sub-query error: {part_err}")
+                            part_resp = ChatResponseWithData(
+                                text=f"⚠️ Không thể xử lý phần này: {str(part_err)}",
+                                intent=sq.detected_intent or "unknown",
+                                confidence="low",
+                                data=None,
+                                sql=None,
+                                sql_error=str(part_err),
+                            )
+
+                        if part_resp.data:
+                            preview = part_resp.data[:5]
+                            yield _emit(
+                                StreamChunk(
+                                    type="data",
+                                    stage="query",
+                                    message=f"Phần {idx + 1}: đã lấy {len(part_resp.data)} bản ghi",
+                                    partial_data=preview,
+                                    data_count=len(part_resp.data),
+                                    total_count=len(part_resp.data),
+                                )
+                            )
+                        parts.append(part_resp)
+
+                    response_payload = _merge_responses(parts, sub_queries)
+                else:
+                    yield _emit(StreamChunk(type="status", stage="query", message="Đang truy vấn dữ liệu..."))
+                    response_payload = await _process_single_query(
+                        normalized_text=normalized_message,
+                        student_id=effective_student_id,
+                        db=db,
+                        chatbot_service=chatbot_service,
+                    )
+                    if response_payload.data:
+                        preview = response_payload.data[:10]
+                        yield _emit(
+                            StreamChunk(
+                                type="data",
+                                stage="query",
+                                message=f"Đã lấy {len(response_payload.data)} bản ghi",
+                                partial_data=preview,
+                                data_count=len(response_payload.data),
+                                total_count=len(response_payload.data),
+                            )
+                        )
+
+            if effective_student_id:
+                try:
+                    conversation, _, assistant_message = history_service.save_chat_turn(
+                        student_pk=effective_student_id,
+                        user_content=message.message,
+                        assistant_payload=response_payload.model_dump(),
+                        conversation_id=message.conversation_id,
+                    )
+                    response_payload.conversation_id = conversation.id
+                    response_payload.message_id = assistant_message.id
+                    response_payload.created_at = assistant_message.created_at
+                except Exception as persist_err:
+                    print(f"⚠️ [STREAM][CHAT_HISTORY] Persist failed: {persist_err}")
+
+            yield _emit(
+                StreamChunk(
+                    type="done",
+                    stage="complete",
+                    text=response_payload.text,
+                    intent=response_payload.intent,
+                    confidence=response_payload.confidence,
+                    data=response_payload.data,
+                    metadata=response_payload.metadata,
+                    is_compound=response_payload.is_compound,
+                    parts=response_payload.parts,
+                    conversation_id=response_payload.conversation_id,
+                    message_id=response_payload.message_id,
+                )
+            )
+
+        except Exception as e:
+            print(f"❌ [STREAM] Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+
+            error_chunk = StreamChunk(
+                type="error",
+                message="Có lỗi xảy ra khi xử lý câu hỏi",
+                error_code="processing_error",
+                error_detail=str(e),
+            )
+            yield _emit(error_chunk)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 @router.get("/intents", response_model=IntentsResponse)

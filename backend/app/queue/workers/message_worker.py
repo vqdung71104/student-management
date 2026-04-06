@@ -67,7 +67,11 @@ class NotificationLog(Base):
 
 
 # Create database engine and session
-engine = create_engine(settings.SQLALCHEMY_DATABASE_URL)
+engine = create_engine(
+    settings.SQLALCHEMY_DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+)
 Base.metadata.create_all(engine)
 SessionLocal = sessionmaker(bind=engine)
 
