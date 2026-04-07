@@ -3,13 +3,18 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.__init__ import Course, CourseSubject, Subject, Student, LearnedSubject
 from app.schemas.course_schema import CourseCreate, CourseUpdate, CourseResponse
+from app.utils.jwt_utils import get_current_user
 
 router = APIRouter(prefix="/courses", tags=["Courses"])
 
 
 #    Create course
 @router.post("/", response_model=CourseResponse)
-def create_course(course_data: CourseCreate, db: Session = Depends(get_db)):
+def create_course(
+    course_data: CourseCreate,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
     # Kiểm tra xem course_id đã tồn tại chưa
     existing_course = db.query(Course).filter(Course.course_id == course_data.course_id).first()
     if existing_course:
@@ -104,7 +109,12 @@ def get_course(course_id: int, db: Session = Depends(get_db)):
 
 #    Update course
 @router.put("/{course_id}", response_model=CourseResponse)
-def update_course(course_id: int, course_update: CourseUpdate, db: Session = Depends(get_db)):
+def update_course(
+    course_id: int,
+    course_update: CourseUpdate,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -150,7 +160,11 @@ def update_course(course_id: int, course_update: CourseUpdate, db: Session = Dep
 
 #    Delete course
 @router.delete("/{course_id}")
-def delete_course(course_id: int, db: Session = Depends(get_db)):
+def delete_course(
+    course_id: int,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
     course = db.query(Course).filter(Course.id == course_id).first()
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")

@@ -42,11 +42,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Account management + system data: admin only
+# Account management + system data
 app.include_router(student_routes.router, prefix="/api", dependencies=[Depends(get_current_user)])
-app.include_router(department_routes.router, prefix="/api", dependencies=[Depends(get_current_user)])
+# Course/Department GET endpoints are public; write endpoints enforce auth at route level.
+app.include_router(department_routes.router, prefix="/api")
 app.include_router(class_routes.router, prefix="/api", dependencies=[Depends(get_current_user)])
-app.include_router(course_routes.router, prefix="/api", dependencies=[Depends(get_current_user)])
+app.include_router(course_routes.router, prefix="/api")
 app.include_router(course_subject_routes.router, prefix="/api", dependencies=[Depends(get_current_user)])
 app.include_router(subject_routes.router, prefix="/api", dependencies=[Depends(get_current_user)])
 

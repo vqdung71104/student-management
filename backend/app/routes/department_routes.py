@@ -7,12 +7,17 @@ from app.schemas.department_schema import (
     DepartmentUpdate,
     DepartmentResponse
 )
+from app.utils.jwt_utils import get_current_user
 
 router = APIRouter(prefix="/departments", tags=["Departments"])
 
 # CREATE Department
 @router.post("/", response_model=DepartmentResponse)
-def create_department(dept: DepartmentCreate, db: Session = Depends(get_db)):
+def create_department(
+    dept: DepartmentCreate,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
     # Check trùng ID
     existing = db.query(Department).filter(Department.id == dept.id).first()
     if existing:
@@ -35,7 +40,12 @@ def get_all_departments(db: Session = Depends(get_db)):
 
 # UPDATE Department
 @router.put("/{department_id}", response_model=DepartmentResponse)
-def update_department(department_id: str, dept_update: DepartmentUpdate, db: Session = Depends(get_db)):
+def update_department(
+    department_id: str,
+    dept_update: DepartmentUpdate,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
     department = db.query(Department).filter(Department.id == department_id).first()
     if not department:
         raise HTTPException(status_code=404, detail="Department not found")
@@ -49,7 +59,11 @@ def update_department(department_id: str, dept_update: DepartmentUpdate, db: Ses
 
 # DELETE Department
 @router.delete("/{department_id}")
-def delete_department(department_id: str, db: Session = Depends(get_db)):
+def delete_department(
+    department_id: str,
+    db: Session = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
     department = db.query(Department).filter(Department.id == department_id).first()
     if not department:
         raise HTTPException(status_code=404, detail="Department not found")
