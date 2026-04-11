@@ -151,3 +151,71 @@ def test_merge_supplemental_preferences_captures_extra_fields_in_same_reply():
     assert prefs.specific.has_answer is True
     assert "time" not in prefs.get_missing_preferences()
     assert "specific" not in prefs.get_missing_preferences()
+
+
+def test_specific_parser_accepts_explicit_no_requirement():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    updated = service.parse_user_response(
+        response="không có yêu cầu",
+        question_key="specific",
+        current_preferences=prefs,
+    )
+
+    assert updated.specific.has_answer is True
+    assert updated.specific.preferred_teachers == []
+    assert updated.specific.specific_class_ids == []
+    assert updated.specific.specific_times is None
+    assert "specific" not in updated.get_missing_preferences()
+
+
+def test_specific_parser_extracts_teacher_class_and_time():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    updated = service.parse_user_response(
+        response="Thầy Nguyễn Văn A, lớp CS101, từ 7h đến 9h",
+        question_key="specific",
+        current_preferences=prefs,
+    )
+
+    assert updated.specific.has_answer is True
+    assert updated.specific.preferred_teachers
+    assert any("Nguyễn" in teacher or "Van" in teacher or "Văn" in teacher for teacher in updated.specific.preferred_teachers)
+    assert "CS101" in updated.specific.specific_class_ids
+    assert updated.specific.specific_times == {"start": "07:00", "end": "09:00"}
+    assert "specific" not in updated.get_missing_preferences()
+
+
+def test_specific_parser_extracts_specific_subjects():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    updated = service.parse_user_response(
+        response="Môn IT3170, học phần cấu trúc dữ liệu",
+        question_key="specific",
+        current_preferences=prefs,
+    )
+
+    assert updated.specific.has_answer is True
+    assert "IT3170" in updated.specific.specific_subjects
+    assert any("cấu trúc dữ liệu" in subject.lower() for subject in updated.specific.specific_subjects)
+    assert "specific" not in updated.get_missing_preferences()
+
+
+def test_specific_parser_rejects_unparseable_response():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    updated = service.parse_user_response(
+        response="xyz abc 123",
+        question_key="specific",
+        current_preferences=prefs,
+    )
+
+    assert updated.specific.has_answer is False
+    assert updated.specific.preferred_teachers == []
+    assert updated.specific.specific_class_ids == []
+    assert updated.specific.specific_times is None
+    assert "specific" in updated.get_missing_preferences()

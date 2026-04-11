@@ -3,6 +3,7 @@ Chatbot Service - Business logic for chatbot interactions
 Integrates Rule Engine for intelligent subject/class suggestions
 """
 from typing import Dict, List, Optional, Tuple
+import re
 from datetime import time as dtime, timedelta
 from sqlalchemy.orm import Session
 from app.rules.subject_suggestion_rules import SubjectSuggestionRuleEngine
@@ -170,10 +171,12 @@ class ChatbotService:
                 'status': 'đã có thông tin',
             })
 
-        if preferences.specific.has_answer or preferences.specific.preferred_teachers or preferences.specific.specific_class_ids or preferences.specific.specific_times:
+        if preferences.specific.has_answer or preferences.specific.preferred_teachers or getattr(preferences.specific, 'specific_subjects', None) or preferences.specific.specific_class_ids or preferences.specific.specific_times:
             specific_parts = []
             if preferences.specific.preferred_teachers:
                 specific_parts.append(f"Giáo viên: {', '.join(preferences.specific.preferred_teachers)}")
+            if getattr(preferences.specific, 'specific_subjects', None):
+                specific_parts.append(f"Học phần: {', '.join(preferences.specific.specific_subjects)}")
             if preferences.specific.specific_class_ids:
                 specific_parts.append(f"Mã lớp: {', '.join(preferences.specific.specific_class_ids)}")
             if preferences.specific.specific_times:
@@ -389,11 +392,22 @@ class ChatbotService:
 
         if question_key == 'specific':
             after_specific = after.get('specific', {})
+            no_specific_markers = [
+                'không có yêu cầu',
+                'khong co yeu cau',
+                'không yêu cầu gì',
+                'khong yeu cau gi',
+                'không cần yêu cầu',
+                'khong can yeu cau',
+                'không cần gì thêm',
+                'khong can gi them',
+            ]
             return bool(
                 after_specific.get('preferred_teachers')
+                or after_specific.get('specific_subjects')
                 or after_specific.get('specific_class_ids')
                 or after_specific.get('specific_times')
-                or after_specific.get('has_answer')
+                or (after_specific.get('has_answer') and any(marker in normalized_answer for marker in no_specific_markers))
             )
 
         return before != after
@@ -1261,6 +1275,70 @@ class ChatbotService:
                     suggested_subjects = subject_result['suggested_subjects']
             else:
                 suggested_subjects = subject_result['suggested_subjects']
+
+            # Merge user-requested specific subjects into candidate list.
+            specific_subject_inputs = list(getattr(preferences.specific, 'specific_subjects', []) or [])
+            if specific_subject_inputs:
+                additional_subjects = []
+                for raw_value in specific_subject_inputs:
+                    token = (raw_value or '').strip()
+                    if not token:
+                        continue
+
+                    is_subject_code = bool(re.fullmatch(r'[A-Z]{2,4}\d{3,4}', token.upper()))
+                    if is_subject_code:
+                        matches = (
+                            self.db.query(Subject)
+                            .filter(Subject.subject_id.ilike(token.upper()))
+                            .all()
+                        )
+                    else:
+                        matches = (
+                            self.db.query(Subject)
+                            .filter(Subject.subject_name.ilike(f"%{token}%"))
+                            .all()
+                        )
+
+                    if not matches and is_subject_code:
+                        matches = (
+                            self.db.query(Subject)
+                            .filter(Subject.subject_id.ilike(f"{token.upper()}%"))
+                            .all()
+                        )
+
+                    for subject_row in matches:
+                        additional_subjects.append(
+                            {
+                                "id": subject_row.id,
+                                "subject_id": subject_row.subject_id,
+                                "subject_name": subject_row.subject_name,
+                                "credits": subject_row.credits or 0,
+                                "priority_reason": "Theo học phần bạn yêu cầu cụ thể",
+                            }
+                        )
+
+                if additional_subjects:
+                    merged_subjects: Dict[int, Dict] = {}
+                    specific_subject_ids: set[int] = set()
+                    for subject_item in suggested_subjects + additional_subjects:
+                        subject_pk = subject_item.get('id')
+                        if subject_pk is None:
+                            continue
+
+                        if subject_item.get('priority_reason') == 'Theo học phần bạn yêu cầu cụ thể':
+                            specific_subject_ids.add(subject_pk)
+
+                        if subject_pk not in merged_subjects:
+                            merged_subjects[subject_pk] = subject_item
+                            continue
+
+                        if subject_item.get('priority_reason') == 'Theo học phần bạn yêu cầu cụ thể':
+                            merged_subjects[subject_pk]['priority_reason'] = subject_item['priority_reason']
+
+                    suggested_subjects = sorted(
+                        merged_subjects.values(),
+                        key=lambda item: 0 if item.get('id') in specific_subject_ids else 1,
+                    )
             print(f"📊 [SUBJECT_SUGGESTION] Total subjects from rule engine: {len(suggested_subjects)}")
             print(f"📊 [SUBJECT_SUGGESTION] Total credits: {subject_result.get('total_credits', 0)}")
             print(f"📊 [SUBJECT_SUGGESTION] Max credits allowed: {subject_result.get('max_credits_allowed', 0)}")

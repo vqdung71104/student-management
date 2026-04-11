@@ -134,6 +134,7 @@ class PreferenceCollectionService:
         if (
             preferences.specific.preferred_teachers
             or preferences.specific.specific_class_ids
+            or preferences.specific.specific_subjects
             or preferences.specific.specific_times
             or preferences.specific.has_answer
         ):
@@ -293,6 +294,7 @@ class PreferenceCollectionService:
             changed = False
             changed = self._merge_unique_list(current_preferences.specific.preferred_teachers, extracted.specific.preferred_teachers) or changed
             changed = self._merge_unique_list(current_preferences.specific.specific_class_ids, extracted.specific.specific_class_ids) or changed
+            changed = self._merge_unique_list(current_preferences.specific.specific_subjects, extracted.specific.specific_subjects) or changed
             if not current_preferences.specific.specific_times and extracted.specific.specific_times:
                 current_preferences.specific.specific_times = extracted.specific.specific_times
                 changed = True
@@ -408,20 +410,99 @@ class PreferenceCollectionService:
     def _extract_specific_requirements(self, question: str) -> SpecificRequirement:
         """Extract specific requirements"""
         specific_req = SpecificRequirement()
+
+        def _normalize_teacher_name(raw_name: str) -> str:
+            cleaned = re.sub(r'\s+', ' ', (raw_name or '').strip())
+            return cleaned.title()
+
+        def _parse_time_token(token: str) -> Optional[str]:
+            normalized = (token or '').strip().lower().replace(' giờ', 'h').replace(' giờ ', 'h')
+            match = re.search(r'(\d{1,2})(?::(\d{2}))?\s*(h|:)?', normalized)
+            if not match:
+                return None
+
+            hour = int(match.group(1))
+            minute = int(match.group(2) or 0)
+            if hour > 23 or minute > 59:
+                return None
+            return f"{hour:02d}:{minute:02d}"
+
+        def _add_time_range(start_raw: str, end_raw: str) -> None:
+            start_time = _parse_time_token(start_raw)
+            end_time = _parse_time_token(end_raw)
+            if start_time and end_time:
+                specific_req.specific_times = {'start': start_time, 'end': end_time}
+                specific_req.has_answer = True
         
-        # Extract teacher names (simplified)
-        teacher_pattern = r'giáo viên\s+([A-ZĐĂÂÊÔƠƯ][a-zđăâêôơư]+(?:\s+[A-ZĐĂÂÊÔƠƯ][a-zđăâêôơư]+)*)'
-        teacher_matches = re.findall(teacher_pattern, question)
+        # Extract teacher names with a more permissive pattern.
+        teacher_pattern = r'(?:giáo viên|thầy|cô|gv|giảng viên)\s+([^\n,.;]+?)(?=(?:,|;|\bvà\b|\blớp\b|\bclass\b|\bmã lớp\b|\btừ\b|\bvào\b|$))'
+        teacher_matches = [
+            _normalize_teacher_name(match)
+            for match in re.findall(teacher_pattern, question)
+        ]
         if teacher_matches:
-            specific_req.preferred_teachers = teacher_matches
+            specific_req.preferred_teachers = list(dict.fromkeys(teacher_matches))
             specific_req.has_answer = True
         
-        # Extract class IDs
-        class_id_pattern = r'\b(\d{6})\b'
-        class_id_matches = re.findall(class_id_pattern, question)
+        # Extract class IDs and common class-code variants.
+        class_id_patterns = [
+            r'\b(?:lớp|lop|class)\s*[-:]?\s*([A-Z]{1,4}\d{2,6}|\d{3,8})\b',
+            r'\b(\d{6})\b',
+        ]
+        class_id_matches: List[str] = []
+        for pattern in class_id_patterns:
+            for match in re.findall(pattern, question, flags=re.IGNORECASE):
+                candidate = str(match).strip().upper()
+                if candidate and candidate not in class_id_matches:
+                    class_id_matches.append(candidate)
         if class_id_matches:
             specific_req.specific_class_ids = class_id_matches
             specific_req.has_answer = True
+
+        # Extract specific subject requests from subject code or subject name hints.
+        subject_matches: List[str] = []
+        subject_code_patterns = [
+            r'\b(?:môn|mon|học\s*phần|hoc\s*phan|subject)\s*[-:]?\s*([A-Z]{2,4}\d{3,4})\b',
+            r'\b([A-Z]{2,4}\d{3,4})\b',
+        ]
+        for pattern in subject_code_patterns:
+            for match in re.findall(pattern, question, flags=re.IGNORECASE):
+                candidate = str(match).strip().upper()
+                if candidate and candidate not in subject_matches:
+                    subject_matches.append(candidate)
+
+        subject_name_pattern = r'\b(?:môn|mon|học\s*phần|hoc\s*phan)\s*[-:]?\s*([^\n,.;]+?)(?=(?:,|;|\bvà\b|\blớp\b|\bclass\b|\btừ\b|\bvào\b|$))'
+        for match in re.findall(subject_name_pattern, question, flags=re.IGNORECASE):
+            candidate = re.sub(r'\s+', ' ', match.strip())
+            if not candidate:
+                continue
+            if re.fullmatch(r'[A-Z]{2,4}\d{3,4}', candidate, flags=re.IGNORECASE):
+                candidate = candidate.upper()
+            if candidate and candidate not in subject_matches:
+                subject_matches.append(candidate)
+
+        if subject_matches:
+            specific_req.specific_subjects = subject_matches
+            specific_req.has_answer = True
+
+        # Extract explicit time ranges for specific requirements.
+        time_range_patterns = [
+            r'(?:từ|tu)\s*(\d{1,2}(?::\d{2})?\s*(?:h|:)?(?:\d{2})?)\s*(?:đến|toi|toi)?\s*(\d{1,2}(?::\d{2})?\s*(?:h|:)?(?:\d{2})?)',
+            r'(\d{1,2}(?::\d{2})?\s*(?:h|:)?(?:\d{2})?)\s*(?:-|–|—)\s*(\d{1,2}(?::\d{2})?\s*(?:h|:)?(?:\d{2})?)',
+        ]
+        for pattern in time_range_patterns:
+            time_match = re.search(pattern, question, flags=re.IGNORECASE)
+            if time_match:
+                _add_time_range(time_match.group(1), time_match.group(2))
+                break
+
+        if not specific_req.specific_times:
+            single_time_match = re.search(r'(?:vào|từ|sau)\s*(\d{1,2}(?::\d{2})?\s*(?:h|:)?(?:\d{2})?)', question, flags=re.IGNORECASE)
+            if single_time_match:
+                start_time = _parse_time_token(single_time_match.group(1))
+                if start_time:
+                    specific_req.specific_times = {'start': start_time, 'end': start_time}
+                    specific_req.has_answer = True
         
         return specific_req
     
@@ -549,8 +630,7 @@ class PreferenceCollectionService:
         
         elif question_key == 'specific':
             # Parse specific requirements
-            if self._is_negative_choice(response_lower) and len(response_lower) < 20:
-                # User said "không" - mark as answered without forcing placeholder payload
+            if self._is_no_specific_requirement(response_lower):
                 current_preferences.specific.has_answer = True
             else:
                 specific = self._extract_specific_requirements(response_lower)
@@ -558,10 +638,17 @@ class PreferenceCollectionService:
                     current_preferences.specific.preferred_teachers.extend(specific.preferred_teachers)
                 if specific.specific_class_ids:
                     current_preferences.specific.specific_class_ids.extend(specific.specific_class_ids)
-                # If no specific found but user responded, mark as answered
-                if not specific.preferred_teachers and not specific.specific_class_ids:
-                    current_preferences.specific.has_answer = True
-                else:
+                if specific.specific_subjects:
+                    current_preferences.specific.specific_subjects.extend(specific.specific_subjects)
+                if specific.specific_times:
+                    current_preferences.specific.specific_times = specific.specific_times
+                # Only mark as answered when we actually extracted a specific requirement.
+                if (
+                    specific.preferred_teachers
+                    or specific.specific_class_ids
+                    or specific.specific_subjects
+                    or specific.specific_times
+                ):
                     current_preferences.specific.has_answer = True
 
         self._mark_derived_answers(current_preferences)
@@ -615,6 +702,8 @@ class PreferenceCollectionService:
         # Specific requirements
         if preferences.specific.preferred_teachers:
             lines.append(f"👨‍🏫 Giáo viên ưu tiên: {', '.join(preferences.specific.preferred_teachers)}")
+        if preferences.specific.specific_subjects:
+            lines.append(f"📘 Học phần cụ thể: {', '.join(preferences.specific.specific_subjects)}")
         if preferences.specific.specific_class_ids:
             lines.append(f"🎯 Mã lớp cụ thể: {', '.join(preferences.specific.specific_class_ids)}")
         

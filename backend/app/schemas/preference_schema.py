@@ -43,6 +43,7 @@ class SpecificRequirement(BaseModel):
     """Specific requirements"""
     preferred_teachers: List[str] = Field(default_factory=list)
     specific_class_ids: List[str] = Field(default_factory=list)
+    specific_subjects: List[str] = Field(default_factory=list)
     specific_times: Optional[Dict[str, str]] = None  # {'start': '08:00', 'end': '12:00'}
     has_answer: bool = False          # User has answered specific requirement question
 
@@ -90,6 +91,8 @@ class CompletePreference(BaseModel):
             result['preferred_teachers'] = self.specific.preferred_teachers
         if self.specific.specific_class_ids:
             result['specific_class_ids'] = self.specific.specific_class_ids
+        if self.specific.specific_subjects:
+            result['specific_subjects'] = self.specific.specific_subjects
         if self.specific.specific_times:
             result['specific_times'] = self.specific.specific_times
         
@@ -143,6 +146,7 @@ class CompletePreference(BaseModel):
             self.specific.has_answer or
             self.specific.preferred_teachers or
             self.specific.specific_class_ids or
+            self.specific.specific_subjects or
             self.specific.specific_times
         )
         
@@ -188,6 +192,7 @@ class CompletePreference(BaseModel):
         if not (self.specific.has_answer or
             self.specific.preferred_teachers or
                 self.specific.specific_class_ids or
+                self.specific.specific_subjects or
                 self.specific.specific_times):
             missing.append('specific')
         
@@ -241,6 +246,6 @@ PREFERENCE_QUESTIONS = {
         key='specific',
         question='🎯 Bạn còn yêu cầu nào cụ thể không?\n(Ví dụ: giáo viên yêu thích, mã lớp cụ thể, hoặc trả lời "không")',
         type='free_text',
-        maps_to=['preferred_teachers', 'specific_class_ids', 'specific_times']
+        maps_to=['preferred_teachers', 'specific_class_ids', 'specific_subjects', 'specific_times']
     )
 }
