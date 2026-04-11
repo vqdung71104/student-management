@@ -271,6 +271,14 @@ class ChatbotService:
                 'options': current_question.options,
                 'type': current_question.type,
             }
+        elif next_step == 'choose_subject_source':
+            metadata['conversation']['current_question'] = {
+                'key': 'subject_source',
+                'label': 'Nguồn học phần',
+                'question': self._source_selection_question_text(),
+                'options': ['Học phần đã đăng ký', 'Học phần hệ thống gợi ý'],
+                'type': 'single_choice',
+            }
 
         if message:
             metadata['ui']['message'] = message

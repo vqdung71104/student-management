@@ -40,6 +40,14 @@ interface Message {
   }>;
 }
 
+interface InteractiveQuestion {
+  key: string;
+  label: string;
+  question: string;
+  options?: string[] | null;
+  type: 'single_choice' | 'multi_choice' | 'free_text';
+}
+
 type StreamStage = 'preprocessing' | 'classification' | 'query' | 'formatting' | 'complete';
 
 const STREAM_STAGE_PROGRESS: Record<StreamStage, number> = {
@@ -88,6 +96,7 @@ const ChatBot: React.FC = () => {
   const [streamingStatus, setStreamingStatus] = useState<string>('');
   const [streamingStage, setStreamingStage] = useState<StreamStage>('preprocessing');
   const [streamingProgress, setStreamingProgress] = useState<number>(0);
+  const [pendingMultiOptions, setPendingMultiOptions] = useState<Record<number, string[]>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
@@ -199,10 +208,12 @@ const ChatBot: React.FC = () => {
     bootstrap();
   }, [userInfo?.id]);
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+  const sendChatMessage = async (rawText: string) => {
+    if (!rawText.trim() || isLoading) {
+      return;
+    }
 
-    const outgoingText = inputValue;
+    const outgoingText = rawText.trim();
 
     const userMessage: Message = {
       id: Date.now(),
@@ -354,6 +365,66 @@ const ChatBot: React.FC = () => {
       setStreamingStatus('');
       setStreamingProgress(0);
     }
+  };
+
+  const handleSendMessage = async () => {
+    await sendChatMessage(inputValue);
+  };
+
+  const normalizeOptionPayload = (questionKey: string, selectedOptions: string[]): string => {
+    if (selectedOptions.length === 0) {
+      return '';
+    }
+
+    if (questionKey === 'day') {
+      return selectedOptions.join(', ');
+    }
+
+    return selectedOptions.join(', ');
+  };
+
+  const handleSingleOptionSelect = async (option: string) => {
+    if (isLoading) {
+      return;
+    }
+
+    await sendChatMessage(option);
+  };
+
+  const handleToggleMultiOption = (messageId: number, option: string) => {
+    if (isLoading) {
+      return;
+    }
+
+    setPendingMultiOptions((prev) => {
+      const current = prev[messageId] || [];
+      const exists = current.includes(option);
+      const next = exists ? current.filter((item) => item !== option) : [...current, option];
+      return {
+        ...prev,
+        [messageId]: next,
+      };
+    });
+  };
+
+  const handleConfirmMultiChoice = async (messageId: number, questionKey: string) => {
+    if (isLoading) {
+      return;
+    }
+
+    const selected = pendingMultiOptions[messageId] || [];
+    const payload = normalizeOptionPayload(questionKey, selected);
+
+    if (!payload) {
+      return;
+    }
+
+    setPendingMultiOptions((prev) => ({
+      ...prev,
+      [messageId]: [],
+    }));
+
+    await sendChatMessage(payload);
   };
 
   const handleCancelStreaming = () => {
@@ -603,14 +674,49 @@ const ChatBot: React.FC = () => {
     );
   };
 
-  const renderClassSuggestionMetadata = (metadata?: ClassSuggestionMetadata) => {
+  const buildInteractiveQuestion = (metadata?: ClassSuggestionMetadata): InteractiveQuestion | null => {
+    if (!metadata) {
+      return null;
+    }
+
+    const currentQuestion = metadata.conversation?.current_question;
+    if (currentQuestion && currentQuestion.type) {
+      return {
+        key: currentQuestion.key,
+        label: currentQuestion.label,
+        question: currentQuestion.question,
+        options: currentQuestion.options,
+        type: currentQuestion.type as InteractiveQuestion['type'],
+      };
+    }
+
+    if (metadata.conversation?.next_step === 'choose_subject_source') {
+      return {
+        key: 'subject_source',
+        label: 'Nguồn học phần',
+        question: 'Bạn muốn mình lấy nguồn học phần nào?',
+        options: ['Học phần đã đăng ký', 'Học phần hệ thống gợi ý'],
+        type: 'single_choice',
+      };
+    }
+
+    return null;
+  };
+
+  const renderClassSuggestionMetadata = (
+    metadata?: ClassSuggestionMetadata,
+    messageId?: number,
+    isLatestInteractiveMessage: boolean = false,
+  ) => {
     if (!metadata) return null;
 
     const captured = metadata.preferences?.captured || [];
     const missing = metadata.preferences?.missing || [];
     const autoCapturedKeys = metadata.preferences?.auto_captured_keys || [];
     const progress = metadata.conversation?.progress;
-    const currentQuestion = metadata.conversation?.current_question;
+    const interactiveQuestion = buildInteractiveQuestion(metadata);
+    const selectedMultiOptions = messageId ? (pendingMultiOptions[messageId] || []) : [];
+    const canInteract = isLatestInteractiveMessage && metadata.conversation?.next_step !== 'done';
 
     return (
       <div className="class-suggestion-metadata">
@@ -663,16 +769,92 @@ const ChatBot: React.FC = () => {
               {progress?.completed ?? 0}/{progress?.total ?? 0} nhóm preference đã có
             </span>
           </div>
-          {currentQuestion && metadata.conversation?.next_step !== 'done' && (
+          {interactiveQuestion && metadata.conversation?.next_step !== 'done' && (
             <div className="metadata-next-step">
               <span className="metadata-next-label">Câu hỏi tiếp theo</span>
-              <div className="metadata-next-question">{currentQuestion.question}</div>
+              <div className="metadata-next-question">{interactiveQuestion.question}</div>
             </div>
           )}
         </div>
+
+        {canInteract && interactiveQuestion && (
+          <div className="metadata-option-block">
+            {interactiveQuestion.type === 'single_choice' && Array.isArray(interactiveQuestion.options) && interactiveQuestion.options.length > 0 && (
+              <div className="metadata-option-grid">
+                {interactiveQuestion.options.map((option) => (
+                  <button
+                    key={`${interactiveQuestion.key}-${option}`}
+                    type="button"
+                    className="metadata-option-btn"
+                    onClick={() => handleSingleOptionSelect(option)}
+                    disabled={isLoading}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {interactiveQuestion.type === 'multi_choice' && Array.isArray(interactiveQuestion.options) && interactiveQuestion.options.length > 0 && messageId !== undefined && (
+              <>
+                <div className="metadata-option-grid">
+                  {interactiveQuestion.options.map((option) => {
+                    const isSelected = selectedMultiOptions.includes(option);
+                    return (
+                      <button
+                        key={`${interactiveQuestion.key}-${option}`}
+                        type="button"
+                        className={`metadata-option-btn ${isSelected ? 'selected' : ''}`}
+                        onClick={() => handleToggleMultiOption(messageId, option)}
+                        disabled={isLoading}
+                      >
+                        {option}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="metadata-option-actions">
+                  <span className="metadata-option-hint">Đã chọn: {selectedMultiOptions.length}</span>
+                  <button
+                    type="button"
+                    className="metadata-option-confirm-btn"
+                    onClick={() => handleConfirmMultiChoice(messageId, interactiveQuestion.key)}
+                    disabled={isLoading || selectedMultiOptions.length === 0}
+                  >
+                    Xác nhận
+                  </button>
+                </div>
+              </>
+            )}
+
+            {interactiveQuestion.type === 'free_text' && interactiveQuestion.key === 'specific' && (
+              <div className="metadata-option-actions">
+                <button
+                  type="button"
+                  className="metadata-option-btn quick-option"
+                  onClick={() => handleSingleOptionSelect('không có yêu cầu')}
+                  disabled={isLoading}
+                >
+                  Không có yêu cầu
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
+
+  const latestInteractiveMessageId = [...messages]
+    .reverse()
+    .find((msg) => {
+      if (msg.isUser || msg.intent !== 'class_registration_suggestion' || !msg.metadata) {
+        return false;
+      }
+
+      const question = buildInteractiveQuestion(msg.metadata);
+      return Boolean(question) && msg.metadata.conversation?.next_step !== 'done';
+    })?.id;
 
   const handleNewConversation = async () => {
     if (isLoading) {
@@ -875,7 +1057,11 @@ const ChatBot: React.FC = () => {
                     __html: formatMessageText(message.text)
                   }}
                 />
-                {!message.isUser && message.intent === 'class_registration_suggestion' && renderClassSuggestionMetadata(message.metadata)}
+                {!message.isUser && message.intent === 'class_registration_suggestion' && renderClassSuggestionMetadata(
+                  message.metadata,
+                  message.id,
+                  message.id === latestInteractiveMessageId,
+                )}
                 {message.is_compound && message.parts
                   ? renderCompoundParts(message.parts)
                   : message.data && message.data.length > 0 && (
