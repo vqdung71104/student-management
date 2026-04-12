@@ -14,10 +14,12 @@ class ConversationState:
         self, 
         student_id: int,
         session_id: str,
+        conversation_id: Optional[int] = None,
         intent: str = 'class_registration_suggestion'
     ):
         self.student_id = student_id
         self.session_id = session_id
+        self.conversation_id = conversation_id
         self.intent = intent
         self.stage: str = 'initial'  # 'initial', 'collecting_preferences', 'generating_combinations', 'completed'
         self.preferences: CompletePreference = CompletePreference()
@@ -36,6 +38,7 @@ class ConversationState:
         return {
             'student_id': self.student_id,
             'session_id': self.session_id,
+            'conversation_id': self.conversation_id,
             'intent': self.intent,
             'stage': self.stage,
             'preferences': self.preferences.dict(),
@@ -56,6 +59,7 @@ class ConversationState:
         state = cls(
             student_id=data['student_id'],
             session_id=data['session_id'],
+            conversation_id=data.get('conversation_id', data['student_id']),
             intent=data['intent']
         )
         state.stage = data['stage']
@@ -82,33 +86,35 @@ class ConversationStateManager:
     """Manages conversation states using in-memory storage (for testing/development)"""
     
     def __init__(self):
-        # In-memory storage: {student_id: ConversationState}
+        # In-memory storage: {conversation_id: ConversationState}
         self._states: Dict[int, ConversationState] = {}
     
-    def get_state(self, student_id: int) -> Optional[ConversationState]:
-        """Get conversation state for student"""
-        state = self._states.get(student_id)
+    def get_state(self, conversation_id: int) -> Optional[ConversationState]:
+        """Get conversation state for conversation"""
+        state = self._states.get(conversation_id)
         
         # Check if expired
         if state and state.is_expired():
-            self.delete_state(student_id)
+            self.delete_state(conversation_id)
             return None
         
         return state
     
     def save_state(self, state: ConversationState):
         """Save conversation state"""
+        if state.conversation_id is None:
+            raise ValueError("conversation_id is required to save conversation state")
         state.timestamp = datetime.now()
-        self._states[state.student_id] = state
+        self._states[state.conversation_id] = state
     
-    def delete_state(self, student_id: int):
+    def delete_state(self, conversation_id: int):
         """Delete conversation state"""
-        if student_id in self._states:
-            del self._states[student_id]
+        if conversation_id in self._states:
+            del self._states[conversation_id]
     
-    def has_active_conversation(self, student_id: int) -> bool:
-        """Check if student has active conversation"""
-        state = self.get_state(student_id)
+    def has_active_conversation(self, conversation_id: int) -> bool:
+        """Check if conversation has active conversation"""
+        state = self.get_state(conversation_id)
         return state is not None and state.stage in [
             'initial',
             'collecting',
@@ -149,34 +155,36 @@ class RedisConversationStateManager:
         self.ttl_seconds = ttl_seconds
         self.key_prefix = "conversation:class_suggestion"
     
-    def _get_key(self, student_id: int) -> str:
-        """Generate Redis key for student conversation"""
-        return f"{self.key_prefix}:{student_id}"
+    def _get_key(self, conversation_id: int) -> str:
+        """Generate Redis key for conversation"""
+        return f"{self.key_prefix}:{conversation_id}"
     
-    def get_conversation_state(self, student_id: int) -> Optional[ConversationState]:
+    def get_conversation_state(self, conversation_id: int) -> Optional[ConversationState]:
         """
         Get conversation state from Redis
         
         Args:
-            student_id: Student ID
+            conversation_id: Conversation ID
         
         Returns:
             ConversationState or None if not found/expired
         """
-        key = self._get_key(student_id)
+        key = self._get_key(conversation_id)
         try:
             data = self.redis_cache.get(key)
         except Exception as e:
-            print(f"⚠️ [REDIS] Read failed for student {student_id}, fallback to in-memory: {e}")
-            return get_conversation_manager().get_state(student_id)
+            print(f"⚠️ [REDIS] Read failed for conversation {conversation_id}, fallback to in-memory: {e}")
+            return get_conversation_manager().get_state(conversation_id)
         
         if data:
             try:
                 state = ConversationState.from_dict(data)
+                if state.conversation_id is None:
+                    state.conversation_id = conversation_id
                 
                 # Check if expired
                 if state.is_expired(ttl_minutes=self.ttl_seconds // 60):
-                    self.delete_conversation_state(student_id)
+                    self.delete_conversation_state(conversation_id)
                     return None
                 
                 return state
@@ -186,15 +194,17 @@ class RedisConversationStateManager:
         
         return None
     
-    def save_conversation_state(self, student_id: int, state: ConversationState):
+    def save_conversation_state(self, conversation_id: int, state: ConversationState):
         """
         Save conversation state to Redis
         
         Args:
-            student_id: Student ID
+            conversation_id: Conversation ID
             state: ConversationState to save
         """
-        key = self._get_key(student_id)
+        if state.conversation_id is None:
+            state.conversation_id = conversation_id
+        key = self._get_key(conversation_id)
         
         # Update timestamp
         state.timestamp = datetime.now()
@@ -204,50 +214,52 @@ class RedisConversationStateManager:
         try:
             ok = self.redis_cache.set(key, data, ttl=self.ttl_seconds)
             if not ok:
-                print(f"⚠️ [REDIS] Save returned False for student {student_id}, fallback to in-memory")
+                print(f"⚠️ [REDIS] Save returned False for conversation {conversation_id}, fallback to in-memory")
                 get_conversation_manager().save_state(state)
                 return
-            print(f"💾 [REDIS] Saved conversation state for student {student_id}")
+            print(f"💾 [REDIS] Saved conversation state for conversation {conversation_id}")
         except Exception as e:
-            print(f"⚠️ [REDIS] Save failed for student {student_id}, fallback to in-memory: {e}")
+            print(f"⚠️ [REDIS] Save failed for conversation {conversation_id}, fallback to in-memory: {e}")
             get_conversation_manager().save_state(state)
     
-    def delete_conversation_state(self, student_id: int):
+    def delete_conversation_state(self, conversation_id: int):
         """
         Delete conversation state from Redis
         
         Args:
-            student_id: Student ID
+            conversation_id: Conversation ID
         """
-        key = self._get_key(student_id)
+        key = self._get_key(conversation_id)
         try:
             self.redis_cache.delete(key)
-            print(f"🗑️ [REDIS] Deleted conversation state for student {student_id}")
+            print(f"🗑️ [REDIS] Deleted conversation state for conversation {conversation_id}")
         except Exception as e:
-            print(f"⚠️ [REDIS] Delete failed for student {student_id}, fallback cleanup in-memory: {e}")
+            print(f"⚠️ [REDIS] Delete failed for conversation {conversation_id}, fallback cleanup in-memory: {e}")
         finally:
-            get_conversation_manager().delete_state(student_id)
+            get_conversation_manager().delete_state(conversation_id)
     
-    def has_active_conversation(self, student_id: int) -> bool:
+    def has_active_conversation(self, conversation_id: int) -> bool:
         """
         Check if student has active conversation
         
         Args:
-            student_id: Student ID
+            conversation_id: Conversation ID
         
         Returns:
             True if active conversation exists
         """
-        state = self.get_conversation_state(student_id)
+        state = self.get_conversation_state(conversation_id)
         return state is not None and state.stage in ['initial', 'collecting_preferences', 'generating_combinations']
     
-    def get_state(self, student_id: int) -> Optional[ConversationState]:
+    def get_state(self, conversation_id: int) -> Optional[ConversationState]:
         """Alias for get_conversation_state (backward compatibility)"""
-        return self.get_conversation_state(student_id)
+        return self.get_conversation_state(conversation_id)
     
     def save_state(self, state: ConversationState):
         """Alias for save_conversation_state (backward compatibility)"""
-        self.save_conversation_state(state.student_id, state)
+        if state.conversation_id is None:
+            raise ValueError("conversation_id is required to save conversation state")
+        self.save_conversation_state(state.conversation_id, state)
 
 
 # Global Redis-based manager instance

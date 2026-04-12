@@ -81,7 +81,7 @@ class ChatResponse(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "text": "Bạn định hướng dẫn đăng ký học phần phải không?",
+                "text": "Bạn muốn gợi ý đăng ký học phần phải không?",
                 "intent": "registration_guide",
                 "confidence": "high"
             }

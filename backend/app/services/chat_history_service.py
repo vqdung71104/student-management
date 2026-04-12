@@ -100,15 +100,46 @@ class ChatHistoryService:
         data = assistant_payload.get("data")
         is_compound = assistant_payload.get("is_compound")
         parts = assistant_payload.get("parts")
+        metadata = assistant_payload.get("metadata")
+        conversation_state_snapshot = assistant_payload.get("_conversation_state_snapshot")
 
-        if data is None and not is_compound and not parts:
+        if data is None and not is_compound and not parts and not metadata and not conversation_state_snapshot:
             return None
 
         return {
             "data": data,
             "is_compound": bool(is_compound),
             "parts": parts,
+            "metadata": metadata,
+            "conversation_state_snapshot": conversation_state_snapshot,
         }
+
+    def get_latest_assistant_message(self, student_pk: int, conversation_id: int) -> Optional[Dict[str, Any]]:
+        conversation = (
+            self.db.query(ChatConversation)
+            .filter(
+                ChatConversation.id == conversation_id,
+                ChatConversation.student_pk == student_pk,
+            )
+            .first()
+        )
+        if not conversation:
+            raise ValueError("Conversation not found or access denied")
+
+        message = (
+            self.db.query(ChatMessage)
+            .filter(
+                ChatMessage.conversation_id == conversation_id,
+                ChatMessage.role == "assistant",
+            )
+            .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+            .first()
+        )
+
+        if not message:
+            return None
+
+        return self._message_to_dict(message)
 
     def create_conversation(self, student_pk: int, title: Optional[str] = None) -> ChatConversation:
         conversation = ChatConversation(
@@ -371,6 +402,13 @@ class ChatHistoryService:
 
         self.db.delete(conversation)
         self.db.commit()
+
+        try:
+            from app.services.conversation_state import get_conversation_state_manager
+
+            get_conversation_state_manager().delete_state(conversation_id)
+        except Exception as exc:
+            print(f"[CHAT_HISTORY] Failed to clear conversation state for conversation {conversation_id}: {exc}")
 
         self._invalidate_list_cache(student_pk)
         self._invalidate_messages_cache(conversation_id)

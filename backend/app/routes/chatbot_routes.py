@@ -10,6 +10,7 @@ from app.services.chatbot_service import ChatbotService
 from app.services.text_preprocessor import get_text_preprocessor
 from app.services.query_splitter import get_query_splitter, SubQuery
 from app.services.chat_history_service import ChatHistoryService
+from app.services.conversation_state import ConversationState, get_conversation_state_manager
 from app.schemas.chatbot_schema import (
     ChatMessage, 
     IntentsResponse, 
@@ -21,10 +22,12 @@ from app.schemas.chatbot_schema import (
     ChatConversationListResponse,
     ConversationMessagesResponse,
 )
+from app.schemas.preference_schema import CompletePreference, PreferenceQuestion, PREFERENCE_QUESTIONS
 from app.db.database import get_db
 from app.models.student_model import Student
 from app.utils.jwt_utils import get_current_student
 from sqlalchemy import text
+import uuid
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -100,6 +103,176 @@ def _sanitize_class_suggestion_metadata(metadata: Optional[Dict[str, Any]]) -> O
     return metadata
 
 
+def _normalize_subject_source_from_label(value: Optional[str]) -> str:
+    if not value or not isinstance(value, str):
+        return "suggested"
+    lowered = value.strip().lower()
+    if "đăng ký" in lowered and "hệ thống" not in lowered:
+        return "registered"
+    return "suggested"
+
+
+def _restore_preferences_from_summary(summary: Optional[Dict[str, Any]]) -> CompletePreference:
+    prefs = CompletePreference()
+    if not isinstance(summary, dict):
+        return prefs
+
+    # Time preferences
+    if summary.get("time_period") in ("morning", "afternoon"):
+        prefs.time.time_period = summary.get("time_period")
+    if isinstance(summary.get("avoid_time_periods"), list):
+        prefs.time.avoid_time_periods = [
+            period for period in summary.get("avoid_time_periods", []) if period in ("morning", "afternoon")
+        ]
+    prefs.time.prefer_early_start = bool(summary.get("prefer_early_start", False))
+    prefs.time.prefer_late_start = bool(summary.get("prefer_late_start", False))
+    prefs.time.avoid_early_start = bool(summary.get("avoid_early_start", False))
+    prefs.time.avoid_late_end = bool(summary.get("avoid_late_end", False))
+    prefs.time.is_not_important = bool(summary.get("time_is_not_important", False))
+    prefs.time.has_answer = bool(
+        prefs.time.time_period
+        or prefs.time.avoid_time_periods
+        or prefs.time.prefer_early_start
+        or prefs.time.prefer_late_start
+        or prefs.time.avoid_early_start
+        or prefs.time.avoid_late_end
+        or prefs.time.is_not_important
+    )
+
+    # Day preferences
+    if isinstance(summary.get("prefer_days"), list):
+        prefs.day.prefer_days = [str(day) for day in summary.get("prefer_days", [])]
+    if isinstance(summary.get("avoid_days"), list):
+        prefs.day.avoid_days = [str(day) for day in summary.get("avoid_days", [])]
+    prefs.day.is_not_important = bool(summary.get("day_is_not_important", False))
+    prefs.day.has_answer = bool(prefs.day.prefer_days or prefs.day.avoid_days or prefs.day.is_not_important)
+
+    # Boolean preferences where "false" is ambiguous without full state snapshot.
+    prefs.continuous.prefer_continuous = bool(summary.get("prefer_continuous", False))
+    prefs.continuous.is_not_important = bool(summary.get("continuous_is_not_important", False))
+    prefs.continuous.has_answer = bool(prefs.continuous.prefer_continuous or prefs.continuous.is_not_important)
+
+    prefs.free_days.prefer_free_days = bool(summary.get("prefer_free_days", False))
+    prefs.free_days.is_not_important = bool(summary.get("free_days_is_not_important", False))
+    prefs.free_days.has_answer = bool(prefs.free_days.prefer_free_days or prefs.free_days.is_not_important)
+
+    # Specific requirements
+    if isinstance(summary.get("preferred_teachers"), list):
+        prefs.specific.preferred_teachers = [str(item) for item in summary.get("preferred_teachers", [])]
+    if isinstance(summary.get("specific_class_ids"), list):
+        prefs.specific.specific_class_ids = [str(item) for item in summary.get("specific_class_ids", [])]
+    if isinstance(summary.get("specific_subjects"), list):
+        prefs.specific.specific_subjects = [str(item) for item in summary.get("specific_subjects", [])]
+    if isinstance(summary.get("specific_times"), dict):
+        prefs.specific.specific_times = summary.get("specific_times")
+    prefs.specific.has_answer = bool(
+        prefs.specific.preferred_teachers
+        or prefs.specific.specific_class_ids
+        or prefs.specific.specific_subjects
+        or prefs.specific.specific_times
+    )
+
+    return prefs
+
+
+def _build_assistant_payload_for_history(
+    response_payload: ChatResponseWithData,
+    conversation_id: int,
+) -> Dict[str, Any]:
+    assistant_payload = response_payload.model_dump()
+    conv_manager = get_conversation_state_manager()
+    state = conv_manager.get_state(conversation_id)
+
+    if state and state.stage in ("collecting", "choose_subject_source"):
+        assistant_payload["_conversation_state_snapshot"] = state.to_dict()
+
+    return assistant_payload
+
+
+def _hydrate_state_from_history_if_needed(
+    history_service: ChatHistoryService,
+    student_id: int,
+    conversation_id: int,
+) -> Optional[ConversationState]:
+    conv_manager = get_conversation_state_manager()
+    state = conv_manager.get_state(conversation_id)
+    if state:
+        return state
+
+    latest_assistant = history_service.get_latest_assistant_message(
+        student_pk=student_id,
+        conversation_id=conversation_id,
+    )
+    if not latest_assistant:
+        return None
+
+    if latest_assistant.get("intent") != "class_registration_suggestion":
+        return None
+
+    data_json = latest_assistant.get("data_json")
+    if not isinstance(data_json, dict):
+        return None
+
+    snapshot = data_json.get("conversation_state_snapshot")
+    if isinstance(snapshot, dict):
+        try:
+            restored = ConversationState.from_dict(snapshot)
+            restored.student_id = student_id
+            restored.conversation_id = conversation_id
+            conv_manager.save_state(restored)
+            return restored
+        except Exception as exc:
+            print(f"⚠️ [HYDRATE] Failed to restore conversation snapshot {conversation_id}: {exc}")
+
+    metadata = data_json.get("metadata")
+    if not isinstance(metadata, dict):
+        return None
+
+    conversation_meta = metadata.get("conversation")
+    if not isinstance(conversation_meta, dict):
+        return None
+
+    stage = str(conversation_meta.get("stage") or "").strip()
+    next_step = str(conversation_meta.get("next_step") or "").strip()
+
+    if stage == "completed" or next_step == "done":
+        return None
+
+    if stage not in {"collecting", "choose_subject_source"}:
+        return None
+
+    restored = ConversationState(
+        student_id=student_id,
+        session_id=f"rehydrate-{uuid.uuid4()}",
+        conversation_id=conversation_id,
+        intent="class_registration_suggestion",
+    )
+    restored.stage = stage
+
+    preferences_meta = metadata.get("preferences") if isinstance(metadata.get("preferences"), dict) else {}
+    restored.preferences = _restore_preferences_from_summary(preferences_meta.get("summary"))
+    restored.supplemental_preference_keys = list(preferences_meta.get("auto_captured_keys", []) or [])
+    restored.subject_source_choice = _normalize_subject_source_from_label(conversation_meta.get("source_choice"))
+    restored.nlq_constraints = conversation_meta.get("nlq_constraints") if isinstance(conversation_meta.get("nlq_constraints"), dict) else None
+
+    current_question = conversation_meta.get("current_question")
+    if stage == "collecting" and isinstance(current_question, dict):
+        question_key = current_question.get("key")
+        if question_key in PREFERENCE_QUESTIONS:
+            template = PREFERENCE_QUESTIONS[question_key]
+            restored.current_question = PreferenceQuestion(
+                key=template.key,
+                question=current_question.get("question") or template.question,
+                options=current_question.get("options") or template.options,
+                type=current_question.get("type") or template.type,
+                maps_to=template.maps_to,
+            )
+
+    conv_manager.save_state(restored)
+    print(f"♻️ [HYDRATE] Restored class suggestion state for conversation {conversation_id} from history")
+    return restored
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Merge helper
 # ─────────────────────────────────────────────────────────────────────────────
@@ -155,6 +328,7 @@ def _merge_responses(
 async def _process_single_query(
     normalized_text: str,
     student_id: Optional[int],
+    conversation_id: Optional[int],
     db: Session,
     chatbot_service: ChatbotService,
 ) -> ChatResponseWithData:
@@ -188,6 +362,7 @@ async def _process_single_query(
             result = await chatbot_service.process_class_suggestion(
                 student_id=student_id,
                 question=normalized_text,
+                conversation_id=conversation_id,
             )
 
         result_data = result.get("data")
@@ -582,19 +757,28 @@ async def chat(
 
         chatbot_service = ChatbotService(db)
         history_service = ChatHistoryService(db)
+        conversation = history_service.get_or_create_conversation(
+            student_pk=effective_student_id,
+            conversation_id=message.conversation_id,
+            first_message=message.message,
+        )
+        effective_conversation_id = conversation.id
         response_payload: ChatResponseWithData
 
         # ── Active conversation shortcut (preference collection in progress) ──
-        from app.services.conversation_state import get_conversation_state_manager
-        conv_manager = get_conversation_state_manager()
-        state = conv_manager.get_state(effective_student_id)
+        state = _hydrate_state_from_history_if_needed(
+            history_service=history_service,
+            student_id=effective_student_id,
+            conversation_id=effective_conversation_id,
+        )
 
         if state and state.stage in ('collecting', 'choose_subject_source'):
-            print(f"🔄 [ROUTE] Active conversation for student {effective_student_id}")
+            print(f"🔄 [ROUTE] Active conversation for conversation {effective_conversation_id}")
             normalized_message = text_preprocessor.preprocess(message.message)
             result = await chatbot_service.process_class_suggestion(
                 student_id=effective_student_id,
                 question=normalized_message,
+                conversation_id=effective_conversation_id,
             )
             response_payload = ChatResponseWithData(
                 text=result["text"],
@@ -610,8 +794,11 @@ async def chat(
                     conversation, _, assistant_message = history_service.save_chat_turn(
                         student_pk=effective_student_id,
                         user_content=message.message,
-                        assistant_payload=response_payload.model_dump(),
-                        conversation_id=message.conversation_id,
+                        assistant_payload=_build_assistant_payload_for_history(
+                            response_payload=response_payload,
+                            conversation_id=effective_conversation_id,
+                        ),
+                        conversation_id=effective_conversation_id,
                     )
                     response_payload.conversation_id = conversation.id
                     response_payload.message_id = assistant_message.id
@@ -638,6 +825,7 @@ async def chat(
                     part_resp = await _process_single_query(
                         normalized_text=sq.text,
                         student_id=effective_student_id,
+                        conversation_id=effective_conversation_id,
                         db=db,
                         chatbot_service=chatbot_service,
                     )
@@ -659,6 +847,7 @@ async def chat(
             response_payload = await _process_single_query(
                 normalized_text=normalized_message,
                 student_id=effective_student_id,
+                conversation_id=effective_conversation_id,
                 db=db,
                 chatbot_service=chatbot_service,
             )
@@ -668,8 +857,11 @@ async def chat(
                 conversation, _, assistant_message = history_service.save_chat_turn(
                     student_pk=effective_student_id,
                     user_content=message.message,
-                    assistant_payload=response_payload.model_dump(),
-                    conversation_id=message.conversation_id,
+                    assistant_payload=_build_assistant_payload_for_history(
+                        response_payload=response_payload,
+                        conversation_id=effective_conversation_id,
+                    ),
+                    conversation_id=effective_conversation_id,
                 )
                 response_payload.conversation_id = conversation.id
                 response_payload.message_id = assistant_message.id
@@ -796,6 +988,12 @@ async def chat_stream(
             effective_student_id = current_student.id
             chatbot_service = ChatbotService(db)
             history_service = ChatHistoryService(db)
+            conversation = history_service.get_or_create_conversation(
+                student_pk=effective_student_id,
+                conversation_id=message.conversation_id,
+                first_message=message.message,
+            )
+            effective_conversation_id = conversation.id
 
             print(f"📝 [STREAM] {message.message}")
             yield _emit(StreamChunk(type="status", stage="preprocessing", message="Đang chuẩn hóa câu hỏi..."))
@@ -803,9 +1001,11 @@ async def chat_stream(
             if normalized_message != message.message:
                 print(f"✨ [STREAM] {normalized_message}")
 
-            from app.services.conversation_state import get_conversation_state_manager
-            conv_manager = get_conversation_state_manager()
-            state = conv_manager.get_state(effective_student_id)
+            state = _hydrate_state_from_history_if_needed(
+                history_service=history_service,
+                student_id=effective_student_id,
+                conversation_id=effective_conversation_id,
+            )
 
             response_payload: ChatResponseWithData
 
@@ -816,6 +1016,7 @@ async def chat_stream(
                 result = await chatbot_service.process_class_suggestion(
                     student_id=effective_student_id,
                     question=normalized_message,
+                    conversation_id=effective_conversation_id,
                 )
                 response_payload = ChatResponseWithData(
                     text=result["text"],
@@ -848,6 +1049,7 @@ async def chat_stream(
                             part_resp = await _process_single_query(
                                 normalized_text=sq.text,
                                 student_id=effective_student_id,
+                                conversation_id=effective_conversation_id,
                                 db=db,
                                 chatbot_service=chatbot_service,
                             )
@@ -882,6 +1084,7 @@ async def chat_stream(
                     response_payload = await _process_single_query(
                         normalized_text=normalized_message,
                         student_id=effective_student_id,
+                        conversation_id=effective_conversation_id,
                         db=db,
                         chatbot_service=chatbot_service,
                     )
@@ -903,8 +1106,11 @@ async def chat_stream(
                     conversation, _, assistant_message = history_service.save_chat_turn(
                         student_pk=effective_student_id,
                         user_content=message.message,
-                        assistant_payload=response_payload.model_dump(),
-                        conversation_id=message.conversation_id,
+                        assistant_payload=_build_assistant_payload_for_history(
+                            response_payload=response_payload,
+                            conversation_id=effective_conversation_id,
+                        ),
+                        conversation_id=effective_conversation_id,
                     )
                     response_payload.conversation_id = conversation.id
                     response_payload.message_id = assistant_message.id

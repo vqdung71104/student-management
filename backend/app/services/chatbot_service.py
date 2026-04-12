@@ -817,6 +817,7 @@ class ChatbotService:
         self,
         student_id: int,
         question: str,
+        conversation_id: Optional[int] = None,
         subject_id: Optional[str] = None
     ) -> Dict:
         """
@@ -833,6 +834,7 @@ class ChatbotService:
         Args:
             student_id: Student ID
             question: User's question (used for preference extraction)
+            conversation_id: Conversation ID for conversation-scoped state
             subject_id: Optional specific subject ID to filter
         
         Returns:
@@ -842,7 +844,7 @@ class ChatbotService:
             from app.services.conversation_state import get_conversation_state_manager
             from app.services.preference_service import PreferenceCollectionService
             
-            print(f"🎯 [CLASS_SUGGESTION] Processing for student {student_id}")
+            print(f"🎯 [CLASS_SUGGESTION] Processing for student {student_id}, conversation {conversation_id}")
             print(f"📝 [CLASS_SUGGESTION] Question: {question}")
 
             if self._is_schedule_advice_query(question):
@@ -866,7 +868,17 @@ class ChatbotService:
             class_data_notice = self._class_data_notice_text() if not self._has_class_data() else ""
             
             # Check for active conversation
-            state = conv_manager.get_state(student_id)
+            if conversation_id is None:
+                return {
+                    "text": "⚠️ Thiếu conversation_id để xử lý gợi ý lớp học. Vui lòng thử lại từ cuộc trò chuyện hiện tại.",
+                    "intent": "class_registration_suggestion",
+                    "confidence": "high",
+                    "data": None,
+                    "requires_auth": True,
+                    "metadata": self._build_friendly_error_metadata("Thiếu conversation_id cho trạng thái hội thoại hiện tại.")
+                }
+
+            state = conv_manager.get_state(conversation_id)
             
             if state and state.stage == 'choose_subject_source':
                 selected_source = self._parse_subject_source_choice(question)
@@ -1058,6 +1070,7 @@ class ChatbotService:
                 state = ConversationState(
                     student_id=student_id,
                     session_id=str(uuid.uuid4()),
+                    conversation_id=conversation_id,
                     intent='class_registration_suggestion'
                 )
                 state.preferences = initial_preferences
@@ -1446,7 +1459,7 @@ class ChatbotService:
 
             if not combinations:
                 from app.services.conversation_state import get_conversation_state_manager
-                get_conversation_state_manager().delete_state(student_id)
+                get_conversation_state_manager().delete_state(conversation_state.conversation_id or conversation_id)
                 return {
                     "text": "⚠️ Hiện chưa tìm được tổ hợp lớp phù hợp với điều kiện hiện tại. Bạn có thể nới lỏng một số tiêu chí để mình gợi ý tốt hơn.",
                     "intent": "class_registration_suggestion",
@@ -1534,7 +1547,7 @@ class ChatbotService:
             
             # Clear conversation state after generating suggestions
             from app.services.conversation_state import get_conversation_state_manager
-            get_conversation_state_manager().delete_state(student_id)
+            get_conversation_state_manager().delete_state(conversation_state.conversation_id or conversation_id)
             
             return {
                 "text": text_response,
@@ -2092,6 +2105,7 @@ class ChatbotService:
         self,
         normalized_text: str,
         student_id: Optional[int],
+        conversation_id: Optional[int],
         intent: str,
         confidence: str,
     ):
@@ -2143,6 +2157,7 @@ class ChatbotService:
                 result = await self.process_class_suggestion(
                     student_id=student_id,
                     question=normalized_text,
+                    conversation_id=conversation_id,
                 )
 
             result_data = result.get("data")
