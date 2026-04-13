@@ -168,7 +168,13 @@ jobs:
       - name: Fail on insecure absolute API URLs in frontend source
         run: |
           echo "Checking frontend source for insecure absolute API URLs..."
-          if grep -R -n -E "http://127\.0\.0\.1:8000|http://learnbuild\.dev/api|http://localhost:8000" frontend/src; then
+          # Scan only executable frontend code files and skip static assets.
+          FILES=$(find frontend/src \
+            -type f \
+            \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
+            ! -path "frontend/src/assets/*")
+          # Match only string literals to avoid false positives from comments/docs.
+          if echo "$FILES" | xargs grep -n -E "['\"]http://(127\.0\.0\.1:8000|learnbuild\.dev/api|localhost:8000)"; then
             echo "❌ Insecure absolute API URL detected in frontend source"
             exit 1
           fi
