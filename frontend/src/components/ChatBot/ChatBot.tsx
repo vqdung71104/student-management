@@ -97,6 +97,11 @@ const ChatBot: React.FC = () => {
   const [streamingStage, setStreamingStage] = useState<StreamStage>('preprocessing');
   const [streamingProgress, setStreamingProgress] = useState<number>(0);
   const [pendingMultiOptions, setPendingMultiOptions] = useState<Record<number, string[]>>({});
+  const [selectedComboClass, setSelectedComboClass] = useState<{
+    combinationKey: string;
+    classKey: string;
+    classInfo: any;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
@@ -486,6 +491,149 @@ const ChatBot: React.FC = () => {
     }
   };
 
+  const COMBO_DAYS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+  const COMBO_TIME_SLOTS = Array.from({ length: 13 }, (_, idx) => {
+    const hour = idx + 6;
+    return `${hour.toString().padStart(2, '0')}:00`;
+  });
+
+  const dayToIndex = (studyDate: string | undefined): number => {
+    if (!studyDate) return 1;
+    const value = studyDate.toLowerCase();
+    if (value.includes('sunday') || value.includes('chủ nhật') || value === 'cn') return 0;
+    if (value.includes('monday') || value.includes('thứ 2') || value === 't2') return 1;
+    if (value.includes('tuesday') || value.includes('thứ 3') || value === 't3') return 2;
+    if (value.includes('wednesday') || value.includes('thứ 4') || value === 't4') return 3;
+    if (value.includes('thursday') || value.includes('thứ 5') || value === 't5') return 4;
+    if (value.includes('friday') || value.includes('thứ 6') || value === 't6') return 5;
+    if (value.includes('saturday') || value.includes('thứ 7') || value === 't7') return 6;
+    return 1;
+  };
+
+  const toMinutes = (time: string | undefined): number => {
+    if (!time) return 0;
+    const [h, m] = String(time).split(':');
+    return Number(h || 0) * 60 + Number(m || 0);
+  };
+
+  const getComboDayLabel = (studyDate: string | undefined): string => {
+    const index = dayToIndex(studyDate);
+    return COMBO_DAYS[index] || 'T2';
+  };
+
+  const formatStudyWeek = (studyWeek: unknown): string => {
+    if (studyWeek === null || studyWeek === undefined) return '-';
+    const raw = String(studyWeek).trim();
+    if (!raw) return '-';
+
+    if (raw.includes(',') || raw.includes(' ') || raw.includes('-')) {
+      return raw;
+    }
+
+    if (/^\d+$/.test(raw) && raw.length >= 4 && raw.length % 2 === 0) {
+      const chunks = raw.match(/\d{2}/g);
+      return chunks ? chunks.join(', ') : raw;
+    }
+
+    return raw;
+  };
+
+  const renderCombinationTimetable = (classes: any[], combinationKey: string) => {
+    if (!Array.isArray(classes) || classes.length === 0) {
+      return null;
+    }
+
+    const selectedInCurrentCombination =
+      selectedComboClass && selectedComboClass.combinationKey === combinationKey
+        ? selectedComboClass
+        : null;
+
+    return (
+      <div className="combo-timetable-wrap">
+        <div className="combo-timetable-header">
+          <div className="combo-time-head" />
+          {COMBO_DAYS.map((day) => (
+            <div key={day} className="combo-day-head">{day}</div>
+          ))}
+        </div>
+
+        <div className="combo-timetable-grid">
+          <div className="combo-time-col">
+            {COMBO_TIME_SLOTS.map((slot) => (
+              <div key={slot} className="combo-time-slot">{slot}</div>
+            ))}
+          </div>
+
+          {COMBO_DAYS.map((day) => (
+            <div key={day} className="combo-day-col">
+              {COMBO_TIME_SLOTS.map((slot) => (
+                <div key={`${day}-${slot}`} className="combo-grid-cell" />
+              ))}
+
+              {classes
+                .filter((cls) => dayToIndex(cls.study_date) === COMBO_DAYS.indexOf(day))
+                .map((cls, index) => {
+                  const start = toMinutes(cls.study_time_start);
+                  const end = toMinutes(cls.study_time_end);
+                  const top = ((start - 360) / 60) * 42;
+                  const height = Math.max((((end - start) / 60) * 42), 36);
+                  const classKey = `${cls.class_id || 'cls'}-${day}-${cls.study_time_start || ''}-${index}`;
+                  const isSelected = selectedInCurrentCombination?.classKey === classKey;
+
+                  return (
+                    <div
+                      key={classKey}
+                      className={`combo-class-block ${isSelected ? 'is-selected' : ''}`}
+                      style={{ top: `${top}px`, height: `${height}px` }}
+                      title={`${cls.subject_id || '-'} - ${cls.subject_name || cls.class_name || '-'}\n${cls.study_time_start || '--:--'} - ${cls.study_time_end || '--:--'}\nPhòng: ${cls.classroom || '-'}${cls.teacher_name ? `\nGV: ${cls.teacher_name}` : ''}`}
+                      onClick={() => setSelectedComboClass({
+                        combinationKey,
+                        classKey,
+                        classInfo: cls,
+                      })}
+                    >
+                      <div className="combo-class-name">{cls.subject_id || '-'} - {cls.subject_name || cls.class_name || '-'}</div>
+                      <div className="combo-class-time">{cls.study_time_start || '--:--'} - {cls.study_time_end || '--:--'}</div>
+                      <div className="combo-class-room">{cls.classroom || '-'}</div>
+                    </div>
+                  );
+                })}
+            </div>
+          ))}
+        </div>
+
+        {selectedInCurrentCombination && (
+          <div className="combo-class-detail" role="status" aria-live="polite">
+            <div className="combo-class-detail-header">
+              <span>Chi tiết lớp đã chọn</span>
+              <button
+                type="button"
+                className="combo-class-detail-close"
+                onClick={() => setSelectedComboClass(null)}
+              >
+                Đóng
+              </button>
+            </div>
+
+            <div className="combo-class-detail-body">
+              <div><strong>Môn:</strong> {selectedInCurrentCombination.classInfo.subject_id || '-'} - {selectedInCurrentCombination.classInfo.subject_name || selectedInCurrentCombination.classInfo.class_name || '-'}</div>
+              <div><strong>Lớp:</strong> {selectedInCurrentCombination.classInfo.class_name || '-'}</div>
+              <div><strong>Thời gian:</strong> {selectedInCurrentCombination.classInfo.study_time_start || '--:--'} - {selectedInCurrentCombination.classInfo.study_time_end || '--:--'}</div>
+              <div><strong>Thứ:</strong> {getComboDayLabel(selectedInCurrentCombination.classInfo.study_date)}{selectedInCurrentCombination.classInfo.study_date ? ` (${selectedInCurrentCombination.classInfo.study_date})` : ''}</div>
+              <div><strong>Phòng:</strong> {selectedInCurrentCombination.classInfo.classroom || '-'}</div>
+              {selectedInCurrentCombination.classInfo.teacher_name && (
+                <div><strong>Giảng viên:</strong> {selectedInCurrentCombination.classInfo.teacher_name}</div>
+              )}
+              {selectedInCurrentCombination.classInfo.study_week && (
+                <div><strong>Tuần:</strong> {formatStudyWeek(selectedInCurrentCombination.classInfo.study_week)}</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Render class schedule combinations (for class suggestion intent)
   const renderClassCombinations = (data: any[]) => {
     if (!data || data.length === 0) return null;
@@ -536,56 +684,20 @@ const ChatBot: React.FC = () => {
               </div>
             )}
 
-            {/* Classes Table */}
-            {combination.classes && combination.classes.length > 0 && (
-              <div className="classes-table-container">
-                <table className="classes-table">
-                  <thead>
-                    <tr>
-                      <th>Mã lớp</th>
-                      <th>Tên lớp</th>
-                      <th>Thời gian</th>
-                      <th>Ngày học</th>
-                      <th>Tuần học</th>
-                      <th>Phòng</th>
-                      <th>Giáo viên</th>
-                      <th>Ghi chú</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {combination.classes.map((cls: any, clsIdx: number) => {
-                      // Debug: Log class data to see study_week
-                      if (clsIdx === 0) {
-                        console.log('Class data:', cls);
-                        console.log('study_week:', cls.study_week, 'Type:', typeof cls.study_week, 'IsArray:', Array.isArray(cls.study_week));
-                      }
-
-                      return (
-                        <tr key={clsIdx}>
-                          <td className="class-id">{cls.class_id || '-'}</td>
-                          <td className="class-name">{cls.class_name || cls.subject_name || '-'}</td>
-                          <td className="class-time">
-                            {cls.study_time_start && cls.study_time_end
-                              ? `${cls.study_time_start} - ${cls.study_time_end}`
-                              : '-'}
-                          </td>
-                          <td className="class-days">{cls.study_date || '-'}</td>
-                          <td className="class-weeks">
-                            {cls.study_week && Array.isArray(cls.study_week) && cls.study_week.length > 0
-                              ? cls.study_week.join(', ')
-                              : '-'}
-                          </td>
-                          <td className="class-room">{cls.classroom || '-'}</td>
-                          <td className="class-teacher">{cls.teacher_name || '-'}</td>
-                          <td className="class-note">
-                            {cls.priority_reason || 'Không'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+            {Array.isArray(combination.reasoning) && combination.reasoning.length > 0 && (
+              <div className="combination-reasoning">
+                <div className="combination-reasoning-title">Vì sao phương án này tốt</div>
+                <ul>
+                  {combination.reasoning.map((reason: string, reasonIdx: number) => (
+                    <li key={`${combination.combination_id || idx + 1}-reason-${reasonIdx}`}>{reason}</li>
+                  ))}
+                </ul>
               </div>
+            )}
+
+            {/* Timetable view */}
+            {combination.classes && combination.classes.length > 0 && (
+              renderCombinationTimetable(combination.classes, String(combination.combination_id || idx + 1))
             )}
           </div>
         ))}
@@ -732,7 +844,8 @@ const ChatBot: React.FC = () => {
             <div className="metadata-chips">
               {captured.length > 0 ? captured.map((item) => (
                 <span key={item.key} className="metadata-chip metadata-chip-success">
-                  <strong>{item.label}:</strong>&nbsp;{item.value}
+                  <strong>{item.label}:</strong>
+                  <span className="metadata-chip-value">{item.value}</span>
                 </span>
               )) : (
                 <span className="metadata-empty">Chưa có preference nào được ghi nhận.</span>
@@ -750,7 +863,8 @@ const ChatBot: React.FC = () => {
             <div className="metadata-chips">
               {missing.length > 0 ? missing.map((item) => (
                 <span key={item.key} className="metadata-chip metadata-chip-warning">
-                  <strong>{item.label}:</strong>&nbsp;{item.hint}
+                  <strong>{item.label}:</strong>
+                  <span className="metadata-chip-value">{item.hint}</span>
                 </span>
               )) : (
                 <span className="metadata-empty">Không còn thông tin nào cần hỏi thêm.</span>

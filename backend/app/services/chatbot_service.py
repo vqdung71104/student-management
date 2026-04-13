@@ -1527,13 +1527,39 @@ class ChatbotService:
                         "seats_available": cls.get('available_slots', 0),
                         "priority_reason": subject_reasons.get(cls.get('subject_id', ''), ''),
                     })
+
+                combo_metrics = combo.get('metrics', {}) or {}
+                combo_reasons: List[str] = []
+                if combo_metrics.get('study_days') is not None and combo_metrics.get('free_days') is not None:
+                    combo_reasons.append(
+                        f"Lịch học gói gọn {combo_metrics.get('study_days')} ngày/tuần, nghỉ {combo_metrics.get('free_days')} ngày."
+                    )
+                if combo_metrics.get('earliest_start') and combo_metrics.get('latest_end'):
+                    combo_reasons.append(
+                        f"Khung giờ ổn định: {combo_metrics.get('earliest_start')} - {combo_metrics.get('latest_end')}."
+                    )
+                if combo_metrics.get('continuous_study_days', 0) > 0:
+                    combo_reasons.append(
+                        f"Có {combo_metrics.get('continuous_study_days')} ngày đáp ứng tiêu chí học liên tục."
+                    )
+
+                semester_match_reasons = []
+                for cls in formatted_classes:
+                    reason = (cls.get('priority_reason') or '').strip()
+                    if reason and reason not in semester_match_reasons:
+                        semester_match_reasons.append(reason)
+                combo_reasons.extend(semester_match_reasons[:2])
+
+                if not combo_reasons:
+                    combo_reasons.append("Phương án này cân bằng tốt giữa số ngày học, tín chỉ và khung giờ.")
                 
                 formatted_combinations.append({
                     "combination_id": idx,
                     "score": combo['score'],
                     "recommended": idx == 1,  # First is recommended
                     "classes": formatted_classes,
-                    "metrics": combo['metrics']
+                    "metrics": combo['metrics'],
+                    "reasoning": combo_reasons,
                 })
             
             # Format response text with combinations
@@ -1929,67 +1955,17 @@ class ChatbotService:
         Returns:
             Formatted text response
         """
-        response = []
-        
-        # Header
-        response.append("🎯 GỢI Ý LỊCH HỌC THÔNG MINH")
-        response.append("=" * 60)
-        
-        # Student info
-        response.append(f"\n📊 Thông tin sinh viên:")
-        response.append(f"  • Kỳ học: {subject_result['current_semester']}")
-        response.append(f"  • CPA: {subject_result['student_cpa']:.2f}")
-        
-        # Show collected preferences
-        response.append(f"\n{preference_summary}")
-        
         if not combinations:
-            response.append("\n⚠️ Không tìm thấy lịch học nào thỏa mãn tất cả tiêu chí.")
-            response.append("Vui lòng thử lại với tiêu chí linh hoạt hơn.")
-            return "\n".join(response)
-        
-        response.append(f"\n✨ Đã tạo {len(combinations)} phương án lịch học tối ưu:\n")
-        
-        # Show each combination
-        for combo in combinations:
-            badge = "🔵" if combo['combination_id'] == 1 else "🟢" if combo['combination_id'] == 2 else "🟡"
-            recommended = " ⭐ KHUYÊN DÙNG" if combo['recommended'] else ""
-            
-            response.append(f"{badge} PHƯƠNG ÁN {combo['combination_id']} (Điểm: {combo['score']:.0f}/100){recommended}")
-            
-            # Metrics
-            m = combo['metrics']
-            response.append(f"  📊 Tổng quan:")
-            response.append(f"    • {m['total_classes']} môn học - {m['total_credits']} tín chỉ")
-            response.append(f"    • Học {m['study_days']} ngày/tuần (Nghỉ {m['free_days']} ngày)")
-            response.append(f"    • Trung bình {m['average_daily_hours']:.1f} giờ/ngày")
-            if m.get('earliest_start') and m.get('latest_end'):
-                response.append(f"    • Giờ học: {m['earliest_start']} - {m['latest_end']}")
-            if m['continuous_study_days'] > 0:
-                response.append(f"    • {m['continuous_study_days']} ngày học liên tục (>5h)")
-            
-            response.append(f"\n  📚 Danh sách lớp:")
+            return "⚠️ Không tìm thấy lịch học nào thỏa mãn tất cả tiêu chí. Bạn thử nới tiêu chí để mình gợi ý tốt hơn nhé."
 
-            # Render logical classes (same class_id with multiple sessions -> one class)
-            logical_classes = self._aggregate_classes_for_text(combo['classes'])
-            for cls in logical_classes:
-                response.append(f"    • {cls['subject_id']} - {cls['subject_name']} ({cls['credits']} TC)")
-                response.append(f"      Lớp {cls['class_id']} ({len(cls['slots'])} buổi/tuần)")
-                for slot in cls['slots']:
-                    response.append(f"        - {slot}")
-                response.append(f"      Phòng {cls['classroom']} - {cls['teacher_name'] if cls['teacher_name'] else 'TBA'}")
+        lines: List[str] = []
+        lines.append("🎯 Mình đã tạo các phương án thời khóa biểu phù hợp cho bạn.")
+        lines.append("Bạn xem lý do chính của từng phương án ngay trước lịch để chọn nhanh hơn.")
+        lines.append("")
+        lines.append(f"📊 Kỳ học {subject_result['current_semester']} • CPA {subject_result['student_cpa']:.2f}")
+        lines.append(f"🔢 Tổng số phương án: {len(combinations)}")
 
-                if cls.get('priority_reason'):
-                    response.append(f"      💡 {cls['priority_reason']}")
-            
-            response.append("")
-        
-        response.append("💡 Lưu ý:")
-        response.append("  • ⭐ = Phương án được khuyên dùng nhất")
-        response.append("  • Tất cả phương án đều KHÔNG XUNG ĐỘT thời gian")
-        response.append("  • Mỗi môn chỉ có 1 lớp trong phương án")
-        
-        return "\n".join(response)
+        return "\n".join(lines)
     
     def _format_class_suggestions(
         self,

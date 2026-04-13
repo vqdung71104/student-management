@@ -11,8 +11,9 @@ interface StudentLayoutProps {
 }
 
 const StudentLayout = ({ children }: StudentLayoutProps) => {
-  const CHATBOT_MIN_WIDTH = 384
-  const CHATBOT_MAX_WIDTH = 768
+  const CHATBOT_MIN_WIDTH = 460
+  const CHATBOT_DEFAULT_WIDTH = 560
+  const CHATBOT_MAX_WIDTH = 1520
   const CHATBOT_RIGHT_OFFSET = 16 // 16px from right edge
   const CHATBOT_BUTTON_SIZE = 64 // p-4 + icon size ~64px
   const CHATBOT_BUTTON_BOTTOM = 16 // bottom-4 = 1rem = 16px
@@ -29,7 +30,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<any>(null)
-  const [chatbotWidth, setChatbotWidth] = useState(CHATBOT_MIN_WIDTH)
+  const [chatbotWidth, setChatbotWidth] = useState(CHATBOT_DEFAULT_WIDTH)
   const [isResizingChatbot, setIsResizingChatbot] = useState(false)
   const chatbotResizeStartRef = useRef<{ x: number; width: number } | null>(null)
 
