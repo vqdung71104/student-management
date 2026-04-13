@@ -17,6 +17,15 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", s
 security = HTTPBearer(auto_error=False)
 
 
+def _require_user_type(current_user: Union[Student, Admin], expected_type: type, detail: str):
+    if not isinstance(current_user, expected_type):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=detail,
+        )
+    return current_user
+
+
 def _extract_token(
     credentials: Optional[HTTPAuthorizationCredentials],
     request: Request,
@@ -102,6 +111,14 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload"
         )
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
     
     if user_type == "student":
         user = db.query(Student).filter(Student.id == user_id).first()
@@ -123,10 +140,10 @@ def get_current_user(
 
 
 def get_current_student(current_user: Union[Student, Admin] = Depends(get_current_user)) -> Student:
-    """Compatibility wrapper: any authenticated user is accepted."""
-    return current_user
+    """Require an authenticated student user."""
+    return _require_user_type(current_user, Student, "Student access required")
 
 
 def get_current_admin(current_user: Union[Student, Admin] = Depends(get_current_user)) -> Admin:
-    """Compatibility wrapper: any authenticated user is accepted."""
-    return current_user
+    """Require an authenticated admin user."""
+    return _require_user_type(current_user, Admin, "Admin access required")

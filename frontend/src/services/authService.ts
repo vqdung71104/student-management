@@ -11,7 +11,7 @@ class AuthService {
   private static readonly USER_KEY = 'user_info';
 
   static async login(email: string, password: string): Promise<LoginResponse> {
-    const response = await fetch('/auth/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

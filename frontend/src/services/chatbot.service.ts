@@ -2,7 +2,9 @@
  * Chatbot API Service
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+import { API_BASE } from '../utils/apiBase';
+
+const API_BASE_URL = API_BASE;
 
 const getAuthHeaders = (): Record<string, string> => {
   const token = localStorage.getItem('access_token');
