@@ -27,8 +27,8 @@ const NotificationManagement = () => {
     setSubmitting(true)
     try {
       const url = editingNotification 
-        ? `http://127.0.0.1:8000/notifications/${editingNotification.id}`
-        : 'http://127.0.0.1:8000/notifications'
+        ? `/api/notifications/${editingNotification.id}`
+        : '/api/notifications'
       
       const method = editingNotification ? 'PUT' : 'POST'
       
@@ -66,7 +66,7 @@ const NotificationManagement = () => {
     if (!confirm('Bạn có chắc chắn muốn xóa thông báo này?')) return
 
     try {
-      const response = await fetch(`http://127.0.0.1:8000/notifications/${id}`, {
+      const response = await fetch(`/api/notifications/${id}`, {
         method: 'DELETE',
       })
 

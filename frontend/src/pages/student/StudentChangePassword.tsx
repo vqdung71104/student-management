@@ -69,7 +69,7 @@ const StudentChangePassword = () => {
     setIsLoading(true)
     
     try {
-      const response = await fetch('http://127.0.0.1:8000/student/change-password', {
+      const response = await fetch('/api/student/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +102,7 @@ const StudentChangePassword = () => {
     setIsLoading(true)
     
     try {
-      const response = await fetch('http://127.0.0.1:8000/student/request-password-reset', {
+      const response = await fetch('/api/student/request-password-reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +147,7 @@ const StudentChangePassword = () => {
     setIsLoading(true)
     
     try {
-      const response = await fetch('http://127.0.0.1:8000/student/verify-otp-and-change-password', {
+      const response = await fetch('/api/student/verify-otp-and-change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

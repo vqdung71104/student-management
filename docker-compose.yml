@@ -169,7 +169,7 @@ services:
     depends_on:
       - backend
     environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000/api}
+      VITE_API_URL: ${VITE_API_URL:-/api}
       NODE_ENV: ${NODE_ENV:-development}
     ports:
       - "${FRONTEND_PORT:-5173}:${FRONTEND_DEV_PORT:-5173}"

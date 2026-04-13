@@ -224,7 +224,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
           <div className="flex justify-between items-center">
             {/* Logo và Title */}
             <button
-              onClick={() => window.location.href = 'http://localhost:5173/student'}
+              onClick={() => window.location.href = '/student'}
               className="flex items-center space-x-3 hover:opacity-80 transition-opacity duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
@@ -22,7 +26,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Create .env file for CI
         run: |
@@ -88,13 +92,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -102,7 +106,7 @@ jobs:
 
       - name: Extract metadata (tags & labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend
           tags: |
@@ -112,7 +116,7 @@ jobs:
             type=raw,value=v1,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Backend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -138,13 +142,13 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
 
       - name: Log in to Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -152,7 +156,7 @@ jobs:
 
       - name: Extract metadata (tags & labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend
           tags: |
@@ -161,8 +165,17 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=v1,enable=${{ github.ref == 'refs/heads/main' }}
 
+      - name: Fail on insecure absolute API URLs in frontend source
+        run: |
+          echo "Checking frontend source for insecure absolute API URLs..."
+          if grep -R -n -E "http://127\.0\.0\.1:8000|http://learnbuild\.dev/api|http://localhost:8000" frontend/src; then
+            echo "❌ Insecure absolute API URL detected in frontend source"
+            exit 1
+          fi
+          echo "✅ No insecure absolute API URL found in frontend source"
+
       - name: Build and push Frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
@@ -175,24 +188,72 @@ jobs:
 #Deploy
   deploy:
       needs: [push-backend, push-frontend] # Chỉ chạy sau khi push image xong
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       runs-on: ubuntu-latest
+      timeout-minutes: 20
       permissions:
         contents: read
         packages: read
       steps:
         - name: Deploy to VPS via SSH
-          uses: appleboy/ssh-action@master
+          uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262
           env:
             GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
             GH_ACTOR: ${{ github.actor }}
+            IMAGE_TAG: ${{ github.sha }}
           with:
             host: ${{ secrets.VPS_IP }}
             username: ubuntu
             key: ${{ secrets.VPS_SSH_KEY }}
-            envs: GH_TOKEN,GH_ACTOR
+            envs: GH_TOKEN,GH_ACTOR,IMAGE_TAG
             script: |
+              set -euo pipefail
+
               cd student-app
               git pull origin main
+
+              PREV_BACKEND_IMAGE="$(docker inspect --format='{{.Config.Image}}' student-management-backend-prod 2>/dev/null || true)"
+              PREV_FRONTEND_IMAGE="$(docker inspect --format='{{.Config.Image}}' student-management-frontend-prod 2>/dev/null || true)"
+
+              extract_tag() {
+                if [ -z "${1:-}" ]; then
+                  echo ""
+                else
+                  echo "$1" | awk -F: '{print $NF}'
+                fi
+              }
+
+              PREV_BACKEND_TAG="$(extract_tag "$PREV_BACKEND_IMAGE")"
+              PREV_FRONTEND_TAG="$(extract_tag "$PREV_FRONTEND_IMAGE")"
+
+              print_rollback_suggestion() {
+                echo "================ ROLLBACK SUGGESTION ================"
+                echo "Current deploy tag: ${IMAGE_TAG}"
+                echo "Previous backend image: ${PREV_BACKEND_IMAGE:-unknown}"
+                echo "Previous frontend image: ${PREV_FRONTEND_IMAGE:-unknown}"
+                if [ -n "${PREV_BACKEND_TAG}" ] && [ "${PREV_BACKEND_TAG}" = "${PREV_FRONTEND_TAG}" ]; then
+                  echo "1) sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=${PREV_BACKEND_TAG}/' .env"
+                  echo "2) docker compose -f docker-compose.prod.yml pull backend frontend"
+                  echo "3) docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend frontend"
+                else
+                  echo "1) Xác định lại tag ổn định gần nhất và cập nhật IMAGE_TAG trong .env"
+                  echo "2) docker compose -f docker-compose.prod.yml pull backend frontend"
+                  echo "3) docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend frontend"
+                fi
+                echo "====================================================="
+              }
+
+              echo "Using image tag: ${IMAGE_TAG}"
+              if [ -f .env ]; then
+                if grep -q '^IMAGE_TAG=' .env; then
+                  sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env
+                else
+                  echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
+                fi
+              else
+                echo "IMAGE_TAG=${IMAGE_TAG}" > .env
+              fi
+
               echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
               echo "Cleaning up old images to make space..."
               docker image prune -f
@@ -201,6 +262,32 @@ jobs:
               # Always recreate backend so new API routes are applied after each push
               echo "Restarting containers..."
               docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend
-              docker compose -f docker-compose.prod.yml up -d frontend
+              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate frontend
+
+              echo "Running post-deploy health checks..."
+              docker compose -f docker-compose.prod.yml ps
+              echo "Running image tags after deploy:"
+              docker compose -f docker-compose.prod.yml images backend frontend
+              docker inspect --format='{{.Name}} -> {{.Config.Image}}' student-management-backend-prod
+              docker inspect --format='{{.Name}} -> {{.Config.Image}}' student-management-frontend-prod
+              if ! docker exec student-management-frontend-prod sh -c "wget --no-verbose --tries=1 --spider http://localhost:80/health"; then
+                echo "❌ Frontend health check failed"
+                print_rollback_suggestion
+                exit 1
+              fi
+              if ! docker exec student-management-frontend-prod sh -c "wget -q -O /tmp/index.html http://localhost:80/ && test -s /tmp/index.html"; then
+                echo "❌ Frontend index verification failed"
+                print_rollback_suggestion
+                exit 1
+              fi
+
+              echo "Scanning deployed frontend bundle for insecure absolute API URLs..."
+              if docker exec student-management-frontend-prod sh -c "grep -R -n -E 'http://127\\.0\\.0\\.1:8000|http://learnbuild\\.dev/api|http://localhost:8000' /usr/share/nginx/html"; then
+                echo "❌ Deployed frontend bundle still contains insecure absolute API URL"
+                print_rollback_suggestion
+                exit 1
+              fi
+              echo "✅ Deployed frontend bundle has no insecure absolute API URL"
+
               docker image prune -f  
               docker image prune -a -f --filter "until=24h"

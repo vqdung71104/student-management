@@ -85,7 +85,7 @@ const ChangePassword = () => {
 
     setLoading(true)
     try {
-      const response = await fetch('http://127.0.0.1:8000/admin/change-password', {
+      const response = await fetch('/api/admin/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,7 +117,7 @@ const ChangePassword = () => {
     setLoading(true)
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/admin/request-password-reset', {
+      const response = await fetch('/api/admin/request-password-reset', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,7 +167,7 @@ const ChangePassword = () => {
 
     setLoading(true)
     try {
-      const response = await fetch('http://127.0.0.1:8000/admin/verify-otp-and-change-password', {
+      const response = await fetch('/api/admin/verify-otp-and-change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

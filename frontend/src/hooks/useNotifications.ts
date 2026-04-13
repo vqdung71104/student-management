@@ -18,7 +18,7 @@ export const useNotifications = () => {
   const fetchNotifications = async (skipCount: number = 0, reset: boolean = false) => {
     try {
       setLoading(true)
-      const response = await fetch(`http://127.0.0.1:8000/notifications?skip=${skipCount}&limit=20`)
+      const response = await fetch(`/api/notifications?skip=${skipCount}&limit=20`)
       if (!response.ok) {
         throw new Error('Failed to fetch notifications')
       }
