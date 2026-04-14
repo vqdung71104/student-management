@@ -6,11 +6,6 @@ on:
   pull_request:
     branches: [ main, develop ]
 
-concurrency:
-  group: ci-cd-${{ github.ref }}
-  # Bạn có thể đổi thành false nếu không muốn GitHub tự động hủy các bản build cũ khi re-run
-  cancel-in-progress: true
-
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
