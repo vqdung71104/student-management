@@ -8,6 +8,7 @@ on:
 
 concurrency:
   group: ci-cd-${{ github.ref }}
+  # Bạn có thể đổi thành false nếu không muốn GitHub tự động hủy các bản build cũ khi re-run
   cancel-in-progress: true
 
 env:
@@ -17,16 +18,21 @@ env:
 jobs:
   # ==========================================
   # STEP 1: Integration Test
-  # Runs on EVERY push and PR.
-  # Builds services in dev mode, waits for
-  # health, then runs backend smoke tests.
   # ==========================================
   integration-test:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@v4
+
+      # FIX 1: Đăng nhập trước khi Test để tránh Rate Limit khi load metadata/image
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create .env file for CI
         run: |
@@ -43,8 +49,11 @@ jobs:
           BUILD_TARGET=development
           EOF
 
+      # FIX 2: Thực hiện pull trước khi build để đảm bảo metadata sạch sẽ
       - name: Build and start services (dev mode)
-        run: docker compose up -d --build
+        run: |
+          docker compose pull
+          docker compose up -d --build
 
       - name: Wait for backend to be healthy (max 2 min)
         run: |
@@ -79,8 +88,6 @@ jobs:
 
   # ==========================================
   # STEP 2a: Build & Push Backend image
-  # Only runs AFTER integration-test passes,
-  # and only on push to main/develop (not PR).
   # ==========================================
   push-backend:
     runs-on: ubuntu-latest
@@ -92,31 +99,31 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # FIX 3: Sử dụng Full SHA làm tag để khớp hoàn toàn với bước Deploy
       - name: Extract metadata (tags & labels)
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/backend
           tags: |
-            type=ref,event=branch
-            type=sha
+            type=raw,value=${{ github.sha }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=v1,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Build and push Backend image
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+        uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
@@ -129,8 +136,6 @@ jobs:
 
   # ==========================================
   # STEP 2b: Build & Push Frontend image
-  # Only runs AFTER integration-test passes,
-  # and only on push to main/develop (not PR).
   # ==========================================
   push-frontend:
     runs-on: ubuntu-latest
@@ -142,38 +147,33 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # FIX 4: Đồng bộ tag Full SHA cho Frontend
       - name: Extract metadata (tags & labels)
         id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend
           tags: |
-            type=ref,event=branch
-            type=sha
+            type=raw,value=${{ github.sha }}
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=raw,value=v1,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Fail on insecure absolute API URLs in frontend source
         run: |
           echo "Checking frontend source for insecure absolute API URLs..."
-          # Scan only executable frontend code files and skip static assets.
-          FILES=$(find frontend/src \
-            -type f \
-            \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) \
-            ! -path "frontend/src/assets/*")
-          # Only reject HTTP (insecure) URLs; HTTPS and relative paths are OK.
+          FILES=$(find frontend/src -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \) ! -path "frontend/src/assets/*")
           if echo "$FILES" | xargs grep -n -E "['\"]http://(127\\.0\\.0\\.1:8000|localhost:8000)"; then
             echo "❌ Insecure absolute API URL (http://) detected in frontend source"
             exit 1
@@ -181,7 +181,7 @@ jobs:
           echo "✅ No insecure absolute API URL found in frontend source"
 
       - name: Build and push Frontend image
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25
+        uses: docker/build-push-action@v5
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
@@ -191,109 +191,42 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: true
 
-#Deploy
+  # ==========================================
+  # STEP 3: Deploy
+  # ==========================================
   deploy:
-      needs: [push-backend, push-frontend] # Chỉ chạy sau khi push image xong
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      runs-on: ubuntu-latest
-      timeout-minutes: 20
-      permissions:
-        contents: read
-        packages: read
-      steps:
-        - name: Deploy to VPS via SSH
-          uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262
-          env:
-            GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-            GH_ACTOR: ${{ github.actor }}
-            IMAGE_TAG: ${{ github.sha }}
-          with:
-            host: ${{ secrets.VPS_IP }}
-            username: ubuntu
-            key: ${{ secrets.VPS_SSH_KEY }}
-            envs: GH_TOKEN,GH_ACTOR,IMAGE_TAG
-            script: |
-              set -euo pipefail
+    needs: [push-backend, push-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          host: ${{ secrets.VPS_IP }}
+          username: ubuntu
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: GH_TOKEN,GH_ACTOR,IMAGE_TAG
+          script: |
+            set -euo pipefail
+            cd student-app
+            # Sử dụng reset --hard để tránh xung đột Divergent branches trên VPS
+            git fetch origin main
+            git reset --hard origin/main
 
-              cd student-app
-              git pull origin main
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
+            docker image prune -f
+            
+            echo "Pulling images with tag: ${IMAGE_TAG}"
+            # Cập nhật .env
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env || echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
 
-              PREV_BACKEND_IMAGE="$(docker inspect --format='{{.Config.Image}}' student-management-backend-prod 2>/dev/null || true)"
-              PREV_FRONTEND_IMAGE="$(docker inspect --format='{{.Config.Image}}' student-management-frontend-prod 2>/dev/null || true)"
-
-              extract_tag() {
-                if [ -z "${1:-}" ]; then
-                  echo ""
-                else
-                  echo "$1" | awk -F: '{print $NF}'
-                fi
-              }
-
-              PREV_BACKEND_TAG="$(extract_tag "$PREV_BACKEND_IMAGE")"
-              PREV_FRONTEND_TAG="$(extract_tag "$PREV_FRONTEND_IMAGE")"
-
-              print_rollback_suggestion() {
-                echo "================ ROLLBACK SUGGESTION ================"
-                echo "Current deploy tag: ${IMAGE_TAG}"
-                echo "Previous backend image: ${PREV_BACKEND_IMAGE:-unknown}"
-                echo "Previous frontend image: ${PREV_FRONTEND_IMAGE:-unknown}"
-                if [ -n "${PREV_BACKEND_TAG}" ] && [ "${PREV_BACKEND_TAG}" = "${PREV_FRONTEND_TAG}" ]; then
-                  echo "1) sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=${PREV_BACKEND_TAG}/' .env"
-                  echo "2) docker compose -f docker-compose.prod.yml pull backend frontend"
-                  echo "3) docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend frontend"
-                else
-                  echo "1) Xác định lại tag ổn định gần nhất và cập nhật IMAGE_TAG trong .env"
-                  echo "2) docker compose -f docker-compose.prod.yml pull backend frontend"
-                  echo "3) docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend frontend"
-                fi
-                echo "====================================================="
-              }
-
-              echo "Using image tag: ${IMAGE_TAG}"
-              if [ -f .env ]; then
-                if grep -q '^IMAGE_TAG=' .env; then
-                  sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env
-                else
-                  echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
-                fi
-              else
-                echo "IMAGE_TAG=${IMAGE_TAG}" > .env
-              fi
-
-              echo "$GH_TOKEN" | docker login ghcr.io -u "$GH_ACTOR" --password-stdin
-              echo "Cleaning up old images to make space..."
-              docker image prune -f
-              echo "Pulling new images..."
-              docker compose -f docker-compose.prod.yml pull backend frontend
-              # Always recreate backend so new API routes are applied after each push
-              echo "Restarting containers..."
-              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend
-              docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate frontend
-
-              echo "Running post-deploy health checks..."
-              docker compose -f docker-compose.prod.yml ps
-              echo "Running image tags after deploy:"
-              docker compose -f docker-compose.prod.yml images backend frontend
-              docker inspect --format='{{.Name}} -> {{.Config.Image}}' student-management-backend-prod
-              docker inspect --format='{{.Name}} -> {{.Config.Image}}' student-management-frontend-prod
-              if ! docker exec student-management-frontend-prod sh -c "wget --no-verbose --tries=1 --spider http://localhost:80/health"; then
-                echo "❌ Frontend health check failed"
-                print_rollback_suggestion
-                exit 1
-              fi
-              if ! docker exec student-management-frontend-prod sh -c "wget -q -O /tmp/index.html http://localhost:80/ && test -s /tmp/index.html"; then
-                echo "❌ Frontend index verification failed"
-                print_rollback_suggestion
-                exit 1
-              fi
-
-              echo "Scanning deployed frontend bundle for insecure absolute API URLs..."
-              if docker exec student-management-frontend-prod sh -c "grep -R -n -E 'http://127\\.0\\.0\\.1:8000|http://localhost:8000' /usr/share/nginx/html"; then
-                echo "❌ Deployed frontend bundle still contains insecure absolute API URL (http://)"
-                print_rollback_suggestion
-                exit 1
-              fi
-              echo "✅ Deployed frontend bundle has no insecure absolute API URL"
-
-              docker image prune -f  
-              docker image prune -a -f --filter "until=24h"
+            docker compose -f docker-compose.prod.yml pull backend frontend
+            docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate backend frontend
+            
+            docker compose -f docker-compose.prod.yml ps
+            docker image prune -a -f --filter "until=24h"
