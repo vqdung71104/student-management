@@ -28,9 +28,10 @@ database.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="University API")
 
+# Load CORS origins from env. Default includes localhost for dev and https://learnbuild.dev for production.
 raw_cors_origins = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000",
+    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000,https://learnbuild.dev",
 )
 cors_origins = [origin.strip() for origin in raw_cors_origins.split(",") if origin.strip()]
 

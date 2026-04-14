@@ -36,7 +36,9 @@ class Settings:
     SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "").replace(" ", "").strip()
     SMTP_SENDER: str = os.getenv("SMTP_SENDER", SMTP_USERNAME)
 
-    FRONTEND_BASE_URL: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
+    # Production defaults to https://learnbuild.dev; dev uses http://localhost:5173.
+    # Override via FRONTEND_BASE_URL env variable.
+    FRONTEND_BASE_URL: str = os.getenv("FRONTEND_BASE_URL", "https://learnbuild.dev")
     RESET_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("RESET_TOKEN_EXPIRE_MINUTES", 15))
     RATE_LIMIT_RESET_PER_HOUR: int = int(os.getenv("RATE_LIMIT_RESET_PER_HOUR", 5))
     
