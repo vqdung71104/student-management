@@ -42,6 +42,34 @@ RUN pip install --upgrade pip && \
 # ============================================
 # Stage 3: Production (Tối ưu dung lượng)
 # ============================================
+# ============================================
+# Stage 2b: Development
+# ============================================
+FROM base AS development
+
+# (optional) install build tools if any deps need compilation in dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    torch==2.5.1 \
+    -r requirements.txt
+
+COPY main.py .
+COPY app ./app
+COPY data ./data
+COPY ml_models ./ml_models
+COPY scripts ./scripts
+
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
 FROM base AS production
 
 # Chỉ lấy "thành phẩm" thư viện, loại bỏ hoàn toàn GCC/G++ và Cache build
