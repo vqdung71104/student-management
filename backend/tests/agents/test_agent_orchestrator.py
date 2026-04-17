@@ -1,0 +1,105 @@
+import sys
+import asyncio
+from pathlib import Path
+import pytest
+
+# Add backend dir to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from app.agents.agent_orchestrator import AgentOrchestrator
+from app.llm.response_cache import ResponseCache
+
+class FakeLLM:
+    def __init__(self):
+        self.split_called = 0
+        self.classify_called = 0
+        self.generate_called = 0
+
+    async def split(self, text: str, **kwargs):
+        self.split_called += 1
+        return {"segments": [text], "raw": "ok"}
+
+    async def classify(self, text: str, **kwargs):
+        self.classify_called += 1
+        return {"intent": "grade_view", "confidence": 0.85}
+
+    async def generate(self, prompt: str, max_tokens: int = 256, temperature: float = 0.2, **kwargs):
+        self.generate_called += 1
+        return {"text": f"Generated: {prompt[:30]}"}
+
+class FakeTFIDF:
+    def __init__(self, label: str, score: float):
+        self._label = label
+        self._score = score
+
+    def classify_intent(self, text: str):
+        return (self._label, self._score)
+
+@pytest.mark.asyncio
+async def test_node1_short_text_no_llm_call():
+    llm = FakeLLM()
+    orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=ResponseCache())
+    orchestrator.tfidf = None
+    text = "Xin chào"
+    segments = await orchestrator.node1_query_splitter(text)
+    assert segments == [text]
+    assert llm.split_called == 0
+
+@pytest.mark.asyncio
+async def test_node2_uses_tfidf_when_high_confidence():
+    llm = FakeLLM()
+    orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=ResponseCache())
+    orchestrator.tfidf = FakeTFIDF('grade_view', 0.9)
+    res = await orchestrator.node2_intent_router("Cho tôi điểm")
+    assert res['source'] == 'tfidf'
+    assert res['intent'] == 'grade_view'
+    assert llm.classify_called == 0
+
+@pytest.mark.asyncio
+async def test_node2_fallback_to_llm_when_low_confidence_and_long_text():
+    llm = FakeLLM()
+    orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=ResponseCache())
+    orchestrator.tfidf = FakeTFIDF('unknown', 0.1)
+    long_text = ' '.join(['từ'] * 25)
+    res = await orchestrator.node2_intent_router(long_text)
+    assert res['source'] == 'llm'
+    assert llm.classify_called == 1
+
+@pytest.mark.asyncio
+async def test_node4_caching_behavior():
+    llm = FakeLLM()
+    cache = ResponseCache()
+    orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=cache)
+    raw_result = {'a': 1}
+    out1 = await orchestrator.node4_response_formatter(raw_result, instruction="Format")
+    out2 = await orchestrator.node4_response_formatter(raw_result, instruction="Format")
+    assert out1 == out2
+    assert llm.generate_called == 1
+
+
+@pytest.mark.asyncio
+async def test_handle_returns_normalized_contract_fields():
+    llm = FakeLLM()
+    orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=ResponseCache())
+    orchestrator.tfidf = None
+    result = await orchestrator.handle("cho toi xem diem")
+    assert "raw" in result
+    assert "response" in result
+    assert "text" in result
+    assert "intent" in result
+    assert "confidence" in result
+    assert "parts" in result
+    assert result["text"] == result["response"]
+
+
+@pytest.mark.asyncio
+async def test_node4_formatter_fallback_text_on_generate_error():
+    class BrokenGenerateLLM(FakeLLM):
+        async def generate(self, prompt: str, max_tokens: int = 256, temperature: float = 0.2, **kwargs):
+            raise RuntimeError("boom")
+
+    llm = BrokenGenerateLLM()
+    orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=ResponseCache())
+    out = await orchestrator.node4_response_formatter({"x": 1}, instruction="Format")
+    assert isinstance(out, str)
+    assert len(out) > 0

@@ -28,6 +28,9 @@ from app.models.student_model import Student
 from app.utils.jwt_utils import get_current_student
 from sqlalchemy import text
 import uuid
+import os
+
+from app.agents.agent_orchestrator import AgentOrchestrator
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -37,6 +40,14 @@ intent_classifier = TfidfIntentClassifier()
 nl2sql_service = NL2SQLService()
 text_preprocessor = get_text_preprocessor()
 query_splitter = get_query_splitter()
+_agent_orchestrator: Optional[AgentOrchestrator] = None
+
+
+def _get_agent_orchestrator() -> AgentOrchestrator:
+    global _agent_orchestrator
+    if _agent_orchestrator is None:
+        _agent_orchestrator = AgentOrchestrator()
+    return _agent_orchestrator
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -331,13 +342,18 @@ async def _process_single_query(
     conversation_id: Optional[int],
     db: Session,
     chatbot_service: ChatbotService,
+    forced_intent: Optional[str] = None,
 ) -> ChatResponseWithData:
     """Process one normalized sub-query and return ChatResponseWithData."""
 
     # ── Intent classification ─────────────────────────────────────────────────
-    intent_result = await intent_classifier.classify_intent(normalized_text)
-    intent = intent_result["intent"]
-    confidence = intent_result["confidence"]
+    if forced_intent:
+        intent = forced_intent
+        confidence = "high"
+    else:
+        intent_result = await intent_classifier.classify_intent(normalized_text)
+        intent = intent_result["intent"]
+        confidence = intent_result["confidence"]
 
     # Guardrail: source-choice answers ("đã đăng ký" / "hệ thống gợi ý") must stay in
     # class_registration_suggestion flow even if classifier drifts.
@@ -765,6 +781,11 @@ async def chat(
         effective_conversation_id = conversation.id
         response_payload: ChatResponseWithData
 
+        print(f"📝 [ORIGINAL] {message.message}")
+        normalized_message = text_preprocessor.preprocess(message.message)
+        if normalized_message != message.message:
+            print(f"✨ [NORMALIZED] {normalized_message}")
+
         # ── Active conversation shortcut (preference collection in progress) ──
         state = _hydrate_state_from_history_if_needed(
             history_service=history_service,
@@ -774,7 +795,6 @@ async def chat(
 
         if state and state.stage in ('collecting', 'choose_subject_source'):
             print(f"🔄 [ROUTE] Active conversation for conversation {effective_conversation_id}")
-            normalized_message = text_preprocessor.preprocess(message.message)
             result = await chatbot_service.process_class_suggestion(
                 student_id=effective_student_id,
                 question=normalized_message,
@@ -807,11 +827,67 @@ async def chat(
                     print(f"⚠️ [CHAT_HISTORY] Persist failed: {persist_err}")
             return response_payload
 
-        # ── Preprocessing ─────────────────────────────────────────────────────
-        print(f"📝 [ORIGINAL] {message.message}")
-        normalized_message = text_preprocessor.preprocess(message.message)
-        if normalized_message != message.message:
-            print(f"✨ [NORMALIZED] {normalized_message}")
+        # Optional agent orchestration path (feature-flagged)
+        if os.environ.get("AGENT_ENABLED", "false").lower() == "true":
+            try:
+                orchestrator = _get_agent_orchestrator()
+                orchestration_result = await orchestrator.handle(
+                    normalized_message,
+                    student_id=effective_student_id,
+                    conversation_id=effective_conversation_id,
+                )
+                # orchestration_result: {"raw": [...], "response": "..."}
+                resp_text = orchestration_result.get('response') or ''
+                raw = orchestration_result.get('raw')
+                # derive intent/parts
+                parts = []
+                intent_label = 'unknown'
+                confidence_label = 'medium'
+                if isinstance(raw, list) and len(raw) > 0:
+                    if len(raw) == 1:
+                        intent_label = raw[0].get('intent', {}).get('intent') if isinstance(raw[0].get('intent'), dict) else raw[0].get('intent') or 'unknown'
+                    else:
+                        intent_label = 'compound'
+                    for item in raw:
+                        parts.append({
+                            'intent': item.get('intent'),
+                            'text': item.get('segment'),
+                            'data': item.get('raw_result')
+                        })
+
+                response_payload = ChatResponseWithData(
+                    text=resp_text,
+                    intent=intent_label,
+                    confidence=confidence_label,
+                    data=None,
+                    metadata=None,
+                    sql=None,
+                    sql_error=None,
+                    is_compound=(intent_label == 'compound'),
+                    parts=parts,
+                )
+
+                # persist history as before
+                if effective_student_id:
+                    try:
+                        conversation, _, assistant_message = history_service.save_chat_turn(
+                            student_pk=effective_student_id,
+                            user_content=message.message,
+                            assistant_payload=_build_assistant_payload_for_history(
+                                response_payload=response_payload,
+                                conversation_id=effective_conversation_id,
+                            ),
+                            conversation_id=effective_conversation_id,
+                        )
+                        response_payload.conversation_id = conversation.id
+                        response_payload.message_id = assistant_message.id
+                        response_payload.created_at = assistant_message.created_at
+                    except Exception as persist_err:
+                        print(f"⚠️ [CHAT_HISTORY] Persist failed: {persist_err}")
+
+                return response_payload
+            except Exception as ag_err:
+                print(f"⚠️ [AGENT] Orchestration failed: {ag_err}")
 
         # ── Compound query check ──────────────────────────────────────────────
         sub_queries = query_splitter.split(normalized_message)
@@ -1080,14 +1156,62 @@ async def chat_stream(
 
                     response_payload = _merge_responses(parts, sub_queries)
                 else:
-                    yield _emit(StreamChunk(type="status", stage="query", message="Đang truy vấn dữ liệu..."))
-                    response_payload = await _process_single_query(
-                        normalized_text=normalized_message,
-                        student_id=effective_student_id,
-                        conversation_id=effective_conversation_id,
-                        db=db,
-                        chatbot_service=chatbot_service,
-                    )
+                    # If agent orchestration is enabled, use orchestrator for single-query path as well
+                    if os.environ.get("AGENT_ENABLED", "false").lower() == "true":
+                        yield _emit(StreamChunk(type="status", stage="query", message="Chuyển sang agent orchestration..."))
+                        try:
+                            orchestrator = _get_agent_orchestrator()
+                            orchestration_result = await orchestrator.handle(
+                                normalized_message,
+                                student_id=effective_student_id,
+                                conversation_id=effective_conversation_id,
+                            )
+                            resp_text = orchestration_result.get('response') or ''
+                            raw = orchestration_result.get('raw')
+                            parts = []
+                            intent_label = 'unknown'
+                            confidence_label = 'medium'
+                            if isinstance(raw, list) and len(raw) > 0:
+                                if len(raw) == 1:
+                                    intent_label = raw[0].get('intent', {}).get('intent') if isinstance(raw[0].get('intent'), dict) else raw[0].get('intent') or 'unknown'
+                                else:
+                                    intent_label = 'compound'
+                                for item in raw:
+                                    parts.append({
+                                        'intent': item.get('intent'),
+                                        'text': item.get('segment'),
+                                        'data': item.get('raw_result')
+                                    })
+
+                            response_payload = ChatResponseWithData(
+                                text=resp_text,
+                                intent=intent_label,
+                                confidence=confidence_label,
+                                data=None,
+                                metadata=None,
+                                sql=None,
+                                sql_error=None,
+                                is_compound=(intent_label == 'compound'),
+                                parts=parts,
+                            )
+                        except Exception as ag_err:
+                            print(f"⚠️ [STREAM][AGENT] Orchestration failed: {ag_err}")
+                            response_payload = await _process_single_query(
+                                normalized_text=normalized_message,
+                                student_id=effective_student_id,
+                                conversation_id=effective_conversation_id,
+                                db=db,
+                                chatbot_service=chatbot_service,
+                            )
+                    else:
+                        yield _emit(StreamChunk(type="status", stage="query", message="Đang truy vấn dữ liệu..."))
+                        response_payload = await _process_single_query(
+                            normalized_text=normalized_message,
+                            student_id=effective_student_id,
+                            conversation_id=effective_conversation_id,
+                            db=db,
+                            chatbot_service=chatbot_service,
+                        )
                     if response_payload.data:
                         preview = response_payload.data[:10]
                         yield _emit(

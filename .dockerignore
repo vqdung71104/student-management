@@ -1,0 +1,16 @@
+.git
+node_modules
+__pycache__
+*.pyc
+.env
+dist
+coverage
+/venv
+venv/
+backend/venv
+frontend/node_modules
+frontend/build
+*.log
+.DS_Store
+.idea
+.vscode

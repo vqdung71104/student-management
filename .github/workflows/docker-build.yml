@@ -160,7 +160,7 @@ jobs:
         run: |
           echo "Waiting for backend to be ready..."
           for i in $(seq 1 24); do
-            if curl -sf http://localhost:8000/ > /dev/null 2>&1; then
+            if curl -sf http://localhost:8000/health/ready > /dev/null 2>&1; then
               echo "✅ Backend is ready after ${i} attempts!"
               exit 0
             fi
@@ -173,7 +173,11 @@ jobs:
 
       - name: Run backend integration tests
         run: |
-          docker compose exec -T backend pytest tests/test_api_call.py -v --tb=short
+          docker compose exec -T backend python -m pytest \
+            tests/test_api_call.py \
+            tests/agents/test_agent_orchestrator.py \
+            tests/agents/test_orchestration_integration.py \
+            -v --tb=short
 
       - name: Show service logs on failure
         if: failure()

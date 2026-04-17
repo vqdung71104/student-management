@@ -50,7 +50,7 @@ check_mysql() {
 check_backend() {
     echo -e "${BLUE}Checking Backend API...${NC}"
     
-    local response=$(curl -s -o /dev/null -w "%{http_code}" $BACKEND_URL/ 2>/dev/null || echo "000")
+    local response=$(curl -s -o /dev/null -w "%{http_code}" $BACKEND_URL/health/ready 2>/dev/null || echo "000")
     
     if [ "$response" = "200" ]; then
         print_status "Backend" "ok" "API is responding (HTTP $response)"

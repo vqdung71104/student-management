@@ -51,7 +51,7 @@ function Test-MySQL {
 function Test-Backend {
     Write-Host "Checking Backend API..." -ForegroundColor Blue
     try {
-        $response = Invoke-WebRequest -Uri "$BackendUrl/" -UseBasicParsing -TimeoutSec 5
+        $response = Invoke-WebRequest -Uri "$BackendUrl/health/ready" -UseBasicParsing -TimeoutSec 5
         if ($response.StatusCode -eq 200) {
             Write-StatusOk "Backend" "API is responding (HTTP $($response.StatusCode))"
             return $true

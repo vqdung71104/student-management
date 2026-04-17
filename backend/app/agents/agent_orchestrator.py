@@ -1,0 +1,238 @@
+import hashlib
+import json
+import os
+import time
+from typing import Any, Dict, List, Optional
+
+from app.llm.llm_client import LLMClient
+from app.llm.llm_client import LLMCircuitOpenError
+from app.llm.response_cache import ResponseCache
+from .orchestration_metrics import get_orchestration_metrics
+from .tools_registry import ToolsRegistry
+
+INTENT_CONF_THRESHOLD = float(os.environ.get("INTENT_CONF_THRESHOLD", "0.6"))
+NODE1_SPLIT_MAX_TOKENS = int(os.environ.get("LLM_SPLIT_MAX_TOKENS", "48"))
+NODE2_CLASSIFY_MAX_TOKENS = int(os.environ.get("LLM_CLASSIFY_MAX_TOKENS", "12"))
+NODE4_GENERATE_MAX_TOKENS = int(os.environ.get("LLM_GENERATE_MAX_TOKENS", "160"))
+NODE4_GENERATE_TEMPERATURE = float(os.environ.get("LLM_GENERATE_TEMPERATURE", "0.2"))
+NODE4_GENERATE_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
+NODE4_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
+NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "2")))
+NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "2"))
+NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "12"))
+
+# placeholder import for local TF-IDF classifier
+try:
+    from app.chatbot.tfidf_classifier import TfidfIntentClassifier
+except ImportError:
+    TfidfIntentClassifier = None
+
+class AgentOrchestrator:
+    def __init__(self, llm_client: Optional[LLMClient] = None, tools: Optional[ToolsRegistry] = None, cache: Optional[ResponseCache] = None):
+        self.llm = llm_client or LLMClient()
+        self.tools = tools or ToolsRegistry()
+        self.cache = cache or ResponseCache()
+        self.tfidf = TfidfIntentClassifier() if TfidfIntentClassifier else None
+        self.metrics = get_orchestration_metrics()
+
+    def _stable_payload(self, value: Any) -> str:
+        try:
+            return json.dumps(value, ensure_ascii=False, sort_keys=True, default=str)
+        except TypeError:
+            return str(value)
+
+    def _hash_raw_result(self, raw: Any, instruction: str) -> str:
+        raw_bytes = self._stable_payload({"instruction": instruction, "raw": raw}).encode("utf-8")
+        return hashlib.sha256(raw_bytes).hexdigest()
+
+    def _build_formatter_prompt(self, raw_result: Any, instruction: str) -> str:
+        raw_text = self._stable_payload(raw_result)
+        return (
+            "Bạn là trợ lý trả lời tiếng Việt ngắn gọn, chính xác và không bịa dữ liệu.\n"
+            "Chỉ dùng dữ liệu đầu vào bên dưới, không nhắc tới hệ thống nội bộ.\n"
+            f"Yêu cầu: {instruction}\n\n"
+            "Dữ liệu đầu vào:\n"
+            f"{raw_text}\n\n"
+            "Câu trả lời:"
+        )
+
+    def _normalize_confidence(self, value: Any) -> float:
+        try:
+            c = float(value)
+        except Exception:
+            return 0.0
+        if c < 0.0:
+            return 0.0
+        if c > 1.0:
+            return 1.0
+        return c
+
+    def _confidence_label(self, confidence: float) -> str:
+        if confidence >= 0.8:
+            return "high"
+        if confidence >= 0.5:
+            return "medium"
+        return "low"
+
+    def _derive_summary_intent(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+        if not results:
+            return {"intent": "unknown", "confidence": 0.0, "confidence_label": "low", "is_compound": False}
+        if len(results) > 1:
+            return {"intent": "compound", "confidence": 0.6, "confidence_label": "medium", "is_compound": True}
+        intent_info = results[0].get("intent") or {}
+        intent = intent_info.get("intent") if isinstance(intent_info, dict) else "unknown"
+        confidence = self._normalize_confidence(intent_info.get("confidence") if isinstance(intent_info, dict) else 0.0)
+        return {
+            "intent": intent or "unknown",
+            "confidence": confidence,
+            "confidence_label": self._confidence_label(confidence),
+            "is_compound": False,
+        }
+
+    async def node1_query_splitter(self, text: str) -> List[str]:
+        started_at = time.perf_counter()
+        # quick local heuristics: 80% simple cases
+        if len(text.split()) < 40 and ('?' not in text and ',' not in text and '.' not in text):
+            self.metrics.increment("node1.heuristic_hit")
+            self.metrics.observe_latency("node1.latency", time.perf_counter() - started_at)
+            return [text]
+        # else ask LLM for complex queries
+        try:
+            res = await self.llm.split(
+                text,
+                timeout=NODE1_TIMEOUT,
+                max_tokens=NODE1_SPLIT_MAX_TOKENS,
+                temperature=0.0,
+            )
+            segments = res.get('segments') or [text]
+            self.metrics.increment("node1.llm_success")
+            self.metrics.observe_latency("node1.latency", time.perf_counter() - started_at)
+            return segments
+        except Exception:
+            # fallback to simple punctuation split
+            self.metrics.increment("node1.fallback")
+            self.metrics.observe_latency("node1.latency", time.perf_counter() - started_at)
+            return [s.strip() for s in text.replace('?', '.').split('.') if s.strip()]
+
+    async def node2_intent_router(self, text: str) -> Dict[str, Any]:
+        started_at = time.perf_counter()
+        # Node-2: 
+        # Giữ TFIDF làm chính
+        # Chỉ gọi LLM khi confidence < 0.6 và query dài > 20 từ
+        label = 'unknown'
+        score = 0.0
+        if self.tfidf:
+            label, score = self.tfidf.classify_intent(text)
+            if score >= INTENT_CONF_THRESHOLD or len(text.split()) <= 20:
+                self.metrics.increment("node2.tfidf_hit")
+                self.metrics.observe_latency("node2.latency", time.perf_counter() - started_at)
+                return {"intent": label, "confidence": score, "source": "tfidf"}
+        # else fallback to LLM
+        try:
+            llm_res = await self.llm.classify(
+                text,
+                timeout=NODE2_TIMEOUT,
+                max_tokens=NODE2_CLASSIFY_MAX_TOKENS,
+                temperature=0.0,
+            )
+            intent = llm_res.get('intent') or llm_res.get('label')
+            confidence = self._normalize_confidence(llm_res.get('confidence', 0.0))
+            self.metrics.increment("node2.llm_success")
+            self.metrics.observe_latency("node2.latency", time.perf_counter() - started_at)
+            return {"intent": intent, "confidence": confidence, "source": "llm"}
+        except Exception:
+            self.metrics.increment("node2.fallback")
+            self.metrics.observe_latency("node2.latency", time.perf_counter() - started_at)
+            return {"intent": label if self.tfidf else 'unknown', "confidence": score if self.tfidf else 0.0, "source": "fallback"}
+
+    async def node4_response_formatter(self, raw_result: Any, instruction: str) -> str:
+        started_at = time.perf_counter()
+        # cache by raw_result hash (5 mins TTL as requested)
+        h = self._hash_raw_result(raw_result, instruction)
+        cached = self.cache.get(h)
+        if cached:
+            self.metrics.increment("node4.cache_hit")
+            self.metrics.observe_latency("node4.latency", time.perf_counter() - started_at)
+            return cached
+        self.metrics.increment("node4.cache_miss")
+        # prepare prompt
+        prompt = self._build_formatter_prompt(raw_result, instruction)
+        try:
+            gen = await self.llm.generate(
+                prompt,
+                max_tokens=NODE4_GENERATE_MAX_TOKENS,
+                temperature=NODE4_GENERATE_TEMPERATURE,
+                timeout=NODE4_TIMEOUT,
+                top_p=NODE4_GENERATE_TOP_P,
+                repeat_penalty=NODE4_REPEAT_PENALTY,
+                stop=["<|im_end|>"]
+            )
+            text = (gen.get('text') or str(gen)).strip()
+            self.metrics.increment("node4.llm_success")
+        except LLMCircuitOpenError:
+            self.metrics.increment("node4.circuit_open")
+            text = "Hệ thống tạm bận khi tạo phản hồi. Đây là dữ liệu thô để bạn tham khảo tạm thời."
+        except Exception:
+            self.metrics.increment("node4.fallback")
+            text = "Hệ thống chưa thể định dạng câu trả lời lúc này. Vui lòng thử lại sau vài giây."
+        self.cache.set(h, text)
+        self.metrics.observe_latency("node4.latency", time.perf_counter() - started_at)
+        return text
+
+    async def handle(
+        self,
+        user_text: str,
+        student_id: Optional[int] = None,
+        conversation_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        # node 1 split
+        segments = await self.node1_query_splitter(user_text)
+        results = []
+        for seg in segments:
+            # node 2 intent
+            intent_info = await self.node2_intent_router(seg)
+            intent = intent_info.get('intent')
+            # call tool
+            try:
+                if not intent or intent == 'unknown':
+                    self.metrics.increment("tools.skipped_unknown_intent")
+                    res = {"message": "No tool mapped for unknown intent"}
+                else:
+                    tool_started_at = time.perf_counter()
+                    res = await self.tools.call(
+                        intent,
+                        {
+                            "q": seg,
+                            "student_id": student_id,
+                            "conversation_id": conversation_id,
+                        },
+                    )
+                    self.metrics.increment(f"tools.{intent}.success")
+                    self.metrics.observe_latency(f"tools.{intent}.latency", time.perf_counter() - tool_started_at)
+            except Exception as e:
+                self.metrics.increment(f"tools.{intent or 'unknown'}.failure")
+                res = {"error": str(e)}
+            results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
+        
+        # node 4 response (generative for all responses as requested)
+        formatted = await self.node4_response_formatter(results, "Generate a helpful response in Vietnamese summarizing the search results.")
+        summary = self._derive_summary_intent(results)
+        parts = [
+            {
+                "intent": item.get("intent"),
+                "text": item.get("segment"),
+                "data": item.get("raw_result"),
+            }
+            for item in results
+        ]
+        # Backward-compatible fields: raw + response. New normalized fields are added for route/schema alignment.
+        return {
+            "raw": results,
+            "response": formatted,
+            "text": formatted,
+            "intent": summary["intent"],
+            "confidence": summary["confidence_label"],
+            "confidence_score": summary["confidence"],
+            "is_compound": summary["is_compound"],
+            "parts": parts,
+        }
