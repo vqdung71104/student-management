@@ -42,15 +42,22 @@ async def execute_intent_tool(
 ) -> Dict[str, Any]:
     expected_key = os.environ.get("AGENT_INTERNAL_TOOL_KEY", "dev-agent-key")
     if not x_agent_internal_key or x_agent_internal_key != expected_key:
+        print(f"[AGENT-TOOL] forbidden intent={intent_name} has_key={bool(x_agent_internal_key)}")
         raise HTTPException(status_code=403, detail="Forbidden")
 
     if intent_name not in ALLOWED_TOOL_INTENTS:
+        print(f"[AGENT-TOOL] unsupported_intent intent={intent_name}")
         raise HTTPException(status_code=404, detail=f"Unsupported intent tool: {intent_name}")
 
     from app.routes.chatbot_routes import _process_single_query
 
     chatbot_service = ChatbotService(db)
     normalized_text = text_preprocessor.preprocess(payload.q)
+    preview = normalized_text if len(normalized_text) <= 120 else normalized_text[:120] + "..."
+    print(
+        f"[AGENT-TOOL] start intent={intent_name} student_id={payload.student_id} "
+        f"conversation_id={payload.conversation_id} q={preview}"
+    )
     result = await _process_single_query(
         normalized_text=normalized_text,
         student_id=payload.student_id,
@@ -58,6 +65,11 @@ async def execute_intent_tool(
         db=db,
         chatbot_service=chatbot_service,
         forced_intent=intent_name,
+    )
+    data_count = len(result.data) if isinstance(result.data, list) else (1 if result.data else 0)
+    print(
+        f"[AGENT-TOOL] done intent={intent_name} confidence={result.confidence} "
+        f"data_count={data_count} sql_error={bool(result.sql_error)}"
     )
 
     return {

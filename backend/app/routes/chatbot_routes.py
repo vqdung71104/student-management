@@ -29,6 +29,7 @@ from app.utils.jwt_utils import get_current_student
 from sqlalchemy import text
 import uuid
 import os
+import time
 
 from app.agents.agent_orchestrator import AgentOrchestrator
 
@@ -744,6 +745,33 @@ def _append_learning_context_to_text(intent: str, base_text: str, data: List[Dic
     return base_text
 
 
+def _make_execution_debug(
+    trace_id: str,
+    mode: str,
+    route: str,
+    agent_enabled: bool,
+    llm_called: bool = False,
+    llm_paths: Optional[List[str]] = None,
+    tools_called: Optional[List[str]] = None,
+    fallback_reason: Optional[str] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    debug: Dict[str, Any] = {
+        "trace_id": trace_id,
+        "mode": mode,
+        "route": route,
+        "agent_enabled": agent_enabled,
+        "llm_called": llm_called,
+        "llm_paths": llm_paths or [],
+        "tools_called": tools_called or [],
+    }
+    if fallback_reason:
+        debug["fallback_reason"] = fallback_reason
+    if extra:
+        debug.update(extra)
+    return debug
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main chat endpoint
 # ─────────────────────────────────────────────────────────────────────────────
@@ -769,7 +797,10 @@ async def chat(
         - **parts**: List kết quả từng phần (khi is_compound=True)
     """
     try:
+        request_trace_id = str(uuid.uuid4())[:8]
+        request_started_at = time.perf_counter()
         effective_student_id = current_student.id
+        execution_debug: Dict[str, Any] = {}
 
         chatbot_service = ChatbotService(db)
         history_service = ChatHistoryService(db)
@@ -785,6 +816,12 @@ async def chat(
         normalized_message = text_preprocessor.preprocess(message.message)
         if normalized_message != message.message:
             print(f"✨ [NORMALIZED] {normalized_message}")
+        preview_message = normalized_message if len(normalized_message) <= 120 else normalized_message[:120] + "..."
+        agent_enabled = os.environ.get("AGENT_ENABLED", "false").lower() == "true"
+        print(
+            f"[EXEC][{request_trace_id}] start endpoint=/api/chatbot/chat "
+            f"agent_enabled={agent_enabled} conversation_id={effective_conversation_id} q={preview_message}"
+        )
 
         # ── Active conversation shortcut (preference collection in progress) ──
         state = _hydrate_state_from_history_if_needed(
@@ -795,6 +832,7 @@ async def chat(
 
         if state and state.stage in ('collecting', 'choose_subject_source'):
             print(f"🔄 [ROUTE] Active conversation for conversation {effective_conversation_id}")
+            print(f"[EXEC][{request_trace_id}] path=LEGACY_ACTIVE_CONVERSATION stage={state.stage}")
             result = await chatbot_service.process_class_suggestion(
                 student_id=effective_student_id,
                 question=normalized_message,
@@ -825,17 +863,34 @@ async def chat(
                     response_payload.created_at = assistant_message.created_at
                 except Exception as persist_err:
                     print(f"⚠️ [CHAT_HISTORY] Persist failed: {persist_err}")
+            execution_debug = _make_execution_debug(
+                trace_id=request_trace_id,
+                mode="legacy_active_conversation",
+                route="legacy_conversation_state",
+                agent_enabled=agent_enabled,
+                llm_called=False,
+                fallback_reason=None,
+                extra={"state_stage": state.stage},
+            )
+            response_payload.debug = execution_debug
+            request_duration = (time.perf_counter() - request_started_at) * 1000
+            print(f"[EXEC][{request_trace_id}] done mode=LEGACY_ACTIVE_CONVERSATION duration_ms={request_duration:.1f}")
             return response_payload
 
         # Optional agent orchestration path (feature-flagged)
-        if os.environ.get("AGENT_ENABLED", "false").lower() == "true":
+        if agent_enabled:
+            print(f"[CHAT][AGENT] enabled=true conversation_id={effective_conversation_id}")
+            print(f"[EXEC][{request_trace_id}] path=AGENT_ATTEMPT")
             try:
                 orchestrator = _get_agent_orchestrator()
+                print("[CHAT][AGENT] orchestrator.handle start")
                 orchestration_result = await orchestrator.handle(
                     normalized_message,
                     student_id=effective_student_id,
                     conversation_id=effective_conversation_id,
                 )
+                print("[CHAT][AGENT] orchestrator.handle success")
+                print(f"[EXEC][{request_trace_id}] path=AGENT_SUCCESS")
                 # orchestration_result: {"raw": [...], "response": "..."}
                 resp_text = orchestration_result.get('response') or ''
                 raw = orchestration_result.get('raw')
@@ -866,6 +921,20 @@ async def chat(
                     is_compound=(intent_label == 'compound'),
                     parts=parts,
                 )
+                execution_debug = _make_execution_debug(
+                    trace_id=request_trace_id,
+                    mode="agent",
+                    route="agent_orchestrator",
+                    agent_enabled=True,
+                    llm_called=True,
+                    llm_paths=orchestration_result.get("debug", {}).get("llm_paths", []) if isinstance(orchestration_result.get("debug"), dict) else [],
+                    tools_called=orchestration_result.get("debug", {}).get("tools_called", []) if isinstance(orchestration_result.get("debug"), dict) else [],
+                    extra={
+                        "node_trace": orchestration_result.get("debug", {}).get("node_trace") if isinstance(orchestration_result.get("debug"), dict) else None,
+                        "intent": intent_label,
+                    },
+                )
+                response_payload.debug = execution_debug
 
                 # persist history as before
                 if effective_student_id:
@@ -885,9 +954,26 @@ async def chat(
                     except Exception as persist_err:
                         print(f"⚠️ [CHAT_HISTORY] Persist failed: {persist_err}")
 
+                request_duration = (time.perf_counter() - request_started_at) * 1000
+                print(f"[EXEC][{request_trace_id}] done mode=AGENT duration_ms={request_duration:.1f}")
                 return response_payload
             except Exception as ag_err:
                 print(f"⚠️ [AGENT] Orchestration failed: {ag_err}")
+                print("[CHAT][AGENT] fallback_to_legacy=true")
+                import traceback as _traceback
+                _traceback.print_exc()
+                print(f"[EXEC][{request_trace_id}] path=AGENT_FAIL_FALLBACK reason={ag_err}")
+                execution_debug = _make_execution_debug(
+                    trace_id=request_trace_id,
+                    mode="agent_failed_fallback",
+                    route="agent_orchestrator",
+                    agent_enabled=True,
+                    llm_called=False,
+                    fallback_reason=str(ag_err),
+                )
+        else:
+            print("[CHAT][AGENT] enabled=false using_legacy_path=true")
+            print(f"[EXEC][{request_trace_id}] path=LEGACY_DIRECT reason=agent_disabled")
 
         # ── Compound query check ──────────────────────────────────────────────
         sub_queries = query_splitter.split(normalized_message)
@@ -918,6 +1004,14 @@ async def chat(
                 parts.append(part_resp)
 
             response_payload = _merge_responses(parts, sub_queries)
+            execution_debug = _make_execution_debug(
+                trace_id=request_trace_id,
+                mode="legacy_compound",
+                route="query_splitter",
+                agent_enabled=agent_enabled,
+                llm_called=False,
+                extra={"segments": len(sub_queries)},
+            )
         else:
             # ── Single query (normal path) ────────────────────────────────────────
             response_payload = await _process_single_query(
@@ -926,6 +1020,14 @@ async def chat(
                 conversation_id=effective_conversation_id,
                 db=db,
                 chatbot_service=chatbot_service,
+            )
+            execution_debug = _make_execution_debug(
+                trace_id=request_trace_id,
+                mode="legacy_direct",
+                route="legacy_single_query",
+                agent_enabled=agent_enabled,
+                llm_called=False,
+                extra={"intent": response_payload.intent},
             )
 
         if effective_student_id:
@@ -945,6 +1047,10 @@ async def chat(
             except Exception as persist_err:
                 print(f"⚠️ [CHAT_HISTORY] Persist failed: {persist_err}")
 
+        response_payload.debug = execution_debug
+        request_duration = (time.perf_counter() - request_started_at) * 1000
+        legacy_reason = "agent_failed" if agent_enabled else "agent_disabled"
+        print(f"[EXEC][{request_trace_id}] done mode=LEGACY_DIRECT reason={legacy_reason} duration_ms={request_duration:.1f}")
         return response_payload
 
     except Exception as e:
@@ -1061,6 +1167,7 @@ async def chat_stream(
             return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
 
         try:
+            request_trace_id = str(uuid.uuid4())[:8]
             effective_student_id = current_student.id
             chatbot_service = ChatbotService(db)
             history_service = ChatHistoryService(db)
@@ -1084,6 +1191,15 @@ async def chat_stream(
             )
 
             response_payload: ChatResponseWithData
+            stream_debug: Dict[str, Any] = {
+                "trace_id": request_trace_id,
+                "mode": "unknown",
+                "route": "chat_stream",
+                "agent_enabled": os.environ.get("AGENT_ENABLED", "false").lower() == "true",
+                "llm_called": False,
+                "llm_paths": [],
+                "tools_called": [],
+            }
 
             # Keep identical behavior with /chat for active preference collection sessions.
             if state and state.stage in ('collecting', 'choose_subject_source'):
@@ -1103,6 +1219,8 @@ async def chat_stream(
                     sql=None,
                     sql_error=result.get("error"),
                 )
+                stream_debug["mode"] = "legacy_active_conversation"
+                stream_debug["route"] = "legacy_conversation_state"
             else:
                 yield _emit(StreamChunk(type="status", stage="classification", message="Đang phân loại ý định câu hỏi..."))
 
@@ -1155,17 +1273,22 @@ async def chat_stream(
                         parts.append(part_resp)
 
                     response_payload = _merge_responses(parts, sub_queries)
+                    stream_debug["mode"] = "legacy_compound"
+                    stream_debug["route"] = "query_splitter"
                 else:
                     # If agent orchestration is enabled, use orchestrator for single-query path as well
                     if os.environ.get("AGENT_ENABLED", "false").lower() == "true":
+                        print(f"[CHAT-STREAM][AGENT] enabled=true conversation_id={effective_conversation_id}")
                         yield _emit(StreamChunk(type="status", stage="query", message="Chuyển sang agent orchestration..."))
                         try:
                             orchestrator = _get_agent_orchestrator()
+                            print("[CHAT-STREAM][AGENT] orchestrator.handle start")
                             orchestration_result = await orchestrator.handle(
                                 normalized_message,
                                 student_id=effective_student_id,
                                 conversation_id=effective_conversation_id,
                             )
+                            print("[CHAT-STREAM][AGENT] orchestrator.handle success")
                             resp_text = orchestration_result.get('response') or ''
                             raw = orchestration_result.get('raw')
                             parts = []
@@ -1194,8 +1317,17 @@ async def chat_stream(
                                 is_compound=(intent_label == 'compound'),
                                 parts=parts,
                             )
+                            stream_debug["mode"] = "agent"
+                            stream_debug["route"] = "agent_orchestrator"
+                            stream_debug["llm_called"] = True
+                            stream_debug["llm_paths"] = ["/split", "/classify", "/generate"]
+                            stream_debug["tools_called"] = [item.get("intent", {}).get("intent") if isinstance(item.get("intent"), dict) else item.get("intent") for item in raw] if isinstance(raw, list) else []
                         except Exception as ag_err:
                             print(f"⚠️ [STREAM][AGENT] Orchestration failed: {ag_err}")
+                            print("[CHAT-STREAM][AGENT] fallback_to_legacy=true")
+                            stream_debug["mode"] = "agent_failed_fallback"
+                            stream_debug["route"] = "agent_orchestrator"
+                            stream_debug["fallback_reason"] = str(ag_err)
                             response_payload = await _process_single_query(
                                 normalized_text=normalized_message,
                                 student_id=effective_student_id,
@@ -1204,6 +1336,7 @@ async def chat_stream(
                                 chatbot_service=chatbot_service,
                             )
                     else:
+                        print("[CHAT-STREAM][AGENT] enabled=false using_legacy_path=true")
                         yield _emit(StreamChunk(type="status", stage="query", message="Đang truy vấn dữ liệu..."))
                         response_payload = await _process_single_query(
                             normalized_text=normalized_message,
@@ -1212,6 +1345,8 @@ async def chat_stream(
                             db=db,
                             chatbot_service=chatbot_service,
                         )
+                        stream_debug["mode"] = "legacy_direct"
+                        stream_debug["route"] = "legacy_single_query"
                     if response_payload.data:
                         preview = response_payload.data[:10]
                         yield _emit(
@@ -1251,6 +1386,7 @@ async def chat_stream(
                     confidence=response_payload.confidence,
                     data=response_payload.data,
                     metadata=response_payload.metadata,
+                    debug=stream_debug,
                     is_compound=response_payload.is_compound,
                     parts=response_payload.parts,
                     conversation_id=response_payload.conversation_id,

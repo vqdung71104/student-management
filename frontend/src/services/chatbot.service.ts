@@ -29,6 +29,17 @@ export interface ChatResponse {
   conversation_id?: number;
   message_id?: number;
   created_at?: string;
+  debug?: {
+    trace_id?: string;
+    mode?: string;
+    route?: string;
+    agent_enabled?: boolean;
+    llm_called?: boolean;
+    llm_paths?: string[];
+    tools_called?: string[];
+    fallback_reason?: string;
+    [key: string]: any;
+  };
   parts?: Array<{
     intent: string;
     confidence: string;
@@ -66,6 +77,17 @@ export interface ChatStreamChunk {
   created_at?: string;
   error_code?: string;
   error_detail?: string;
+  debug?: {
+    trace_id?: string;
+    mode?: string;
+    route?: string;
+    agent_enabled?: boolean;
+    llm_called?: boolean;
+    llm_paths?: string[];
+    tools_called?: string[];
+    fallback_reason?: string;
+    [key: string]: any;
+  };
 }
 
 export interface PreferenceSummaryItem {
@@ -192,7 +214,10 @@ export const sendMessage = async (
     body.conversation_id = conversationId;
   }
 
-  const response = await fetch(`${API_BASE_URL}/chatbot/chat`, {
+  const url = `${API_BASE_URL}/chatbot/chat`;
+  console.log('[CHATBOT][REQUEST][sendMessage]', { url, body });
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -205,7 +230,15 @@ export const sendMessage = async (
     throw new Error('Failed to send message to chatbot');
   }
 
-  return response.json();
+  const json = await response.json();
+  console.log('[CHATBOT][RESPONSE][sendMessage]', {
+    status: response.status,
+    debug: json?.debug,
+    intent: json?.intent,
+    confidence: json?.confidence,
+    text: json?.text,
+  });
+  return json;
 };
 
 export const sendMessageStream = async (
@@ -223,7 +256,10 @@ export const sendMessageStream = async (
     body.conversation_id = conversationId;
   }
 
-  const response = await fetch(`${API_BASE_URL}/chatbot/chat-stream`, {
+  const url = `${API_BASE_URL}/chatbot/chat-stream`;
+  console.log('[CHATBOT][REQUEST][sendMessageStream]', { url, body });
+
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -266,6 +302,14 @@ export const sendMessageStream = async (
 
         try {
           const chunk = JSON.parse(payload) as ChatStreamChunk;
+          console.log('[CHATBOT][STREAM_CHUNK]', {
+            type: chunk.type,
+            stage: chunk.stage,
+            message: chunk.message,
+            intent: chunk.intent,
+            confidence: chunk.confidence,
+            debug: chunk.debug,
+          });
           onChunk(chunk);
           if (chunk.type === 'done') {
             doneChunk = chunk;
@@ -278,6 +322,7 @@ export const sendMessageStream = async (
     }
   }
 
+  console.log('[CHATBOT][STREAM_DONE]', { debug: doneChunk?.debug, intent: doneChunk?.intent, text: doneChunk?.text });
   return doneChunk;
 };
 

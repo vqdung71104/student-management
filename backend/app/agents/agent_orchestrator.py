@@ -89,12 +89,21 @@ class AgentOrchestrator:
             "is_compound": False,
         }
 
+    def _preview(self, value: Any, max_len: int = 140) -> str:
+        text = self._stable_payload(value)
+        if len(text) <= max_len:
+            return text
+        return text[:max_len] + "..."
+
     async def node1_query_splitter(self, text: str) -> List[str]:
         started_at = time.perf_counter()
+        print(f"[NODE-1:SPLIT] input={self._preview(text, 120)}")
         # quick local heuristics: 80% simple cases
         if len(text.split()) < 40 and ('?' not in text and ',' not in text and '.' not in text):
             self.metrics.increment("node1.heuristic_hit")
-            self.metrics.observe_latency("node1.latency", time.perf_counter() - started_at)
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node1.latency", duration)
+            print(f"[NODE-1:SPLIT] source=heuristic segments=1 duration_ms={duration * 1000:.1f}")
             return [text]
         # else ask LLM for complex queries
         try:
@@ -106,16 +115,28 @@ class AgentOrchestrator:
             )
             segments = res.get('segments') or [text]
             self.metrics.increment("node1.llm_success")
-            self.metrics.observe_latency("node1.latency", time.perf_counter() - started_at)
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node1.latency", duration)
+            print(
+                f"[NODE-1:SPLIT] source=llm segments={len(segments)} "
+                f"duration_ms={duration * 1000:.1f} segments_preview={self._preview(segments, 160)}"
+            )
             return segments
-        except Exception:
+        except Exception as exc:
             # fallback to simple punctuation split
             self.metrics.increment("node1.fallback")
-            self.metrics.observe_latency("node1.latency", time.perf_counter() - started_at)
-            return [s.strip() for s in text.replace('?', '.').split('.') if s.strip()]
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node1.latency", duration)
+            fallback_segments = [s.strip() for s in text.replace('?', '.').split('.') if s.strip()]
+            print(
+                f"[NODE-1:SPLIT] source=fallback error={exc} segments={len(fallback_segments)} "
+                f"duration_ms={duration * 1000:.1f}"
+            )
+            return fallback_segments
 
     async def node2_intent_router(self, text: str) -> Dict[str, Any]:
         started_at = time.perf_counter()
+        print(f"[NODE-2:ROUTE] query={self._preview(text, 120)}")
         # Node-2: 
         # Giữ TFIDF làm chính
         # Chỉ gọi LLM khi confidence < 0.6 và query dài > 20 từ
@@ -125,7 +146,12 @@ class AgentOrchestrator:
             label, score = self.tfidf.classify_intent(text)
             if score >= INTENT_CONF_THRESHOLD or len(text.split()) <= 20:
                 self.metrics.increment("node2.tfidf_hit")
-                self.metrics.observe_latency("node2.latency", time.perf_counter() - started_at)
+                duration = time.perf_counter() - started_at
+                self.metrics.observe_latency("node2.latency", duration)
+                print(
+                    f"[NODE-2:ROUTE] source=tfidf intent={label} confidence={score:.3f} "
+                    f"duration_ms={duration * 1000:.1f}"
+                )
                 return {"intent": label, "confidence": score, "source": "tfidf"}
         # else fallback to LLM
         try:
@@ -138,12 +164,24 @@ class AgentOrchestrator:
             intent = llm_res.get('intent') or llm_res.get('label')
             confidence = self._normalize_confidence(llm_res.get('confidence', 0.0))
             self.metrics.increment("node2.llm_success")
-            self.metrics.observe_latency("node2.latency", time.perf_counter() - started_at)
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node2.latency", duration)
+            print(
+                f"[NODE-2:ROUTE] source=llm intent={intent} confidence={confidence:.3f} "
+                f"duration_ms={duration * 1000:.1f}"
+            )
             return {"intent": intent, "confidence": confidence, "source": "llm"}
-        except Exception:
+        except Exception as exc:
             self.metrics.increment("node2.fallback")
-            self.metrics.observe_latency("node2.latency", time.perf_counter() - started_at)
-            return {"intent": label if self.tfidf else 'unknown', "confidence": score if self.tfidf else 0.0, "source": "fallback"}
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node2.latency", duration)
+            fallback_intent = label if self.tfidf else 'unknown'
+            fallback_score = score if self.tfidf else 0.0
+            print(
+                f"[NODE-2:ROUTE] source=fallback intent={fallback_intent} confidence={fallback_score:.3f} "
+                f"error={exc} duration_ms={duration * 1000:.1f}"
+            )
+            return {"intent": fallback_intent, "confidence": fallback_score, "source": "fallback"}
 
     async def node4_response_formatter(self, raw_result: Any, instruction: str) -> str:
         started_at = time.perf_counter()
@@ -152,9 +190,12 @@ class AgentOrchestrator:
         cached = self.cache.get(h)
         if cached:
             self.metrics.increment("node4.cache_hit")
-            self.metrics.observe_latency("node4.latency", time.perf_counter() - started_at)
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node4.latency", duration)
+            print(f"[NODE-4:FORMAT] cache=hit duration_ms={duration * 1000:.1f}")
             return cached
         self.metrics.increment("node4.cache_miss")
+        print(f"[NODE-4:FORMAT] cache=miss input_preview={self._preview(raw_result, 160)}")
         # prepare prompt
         prompt = self._build_formatter_prompt(raw_result, instruction)
         try:
@@ -169,14 +210,19 @@ class AgentOrchestrator:
             )
             text = (gen.get('text') or str(gen)).strip()
             self.metrics.increment("node4.llm_success")
+            print(f"[NODE-4:FORMAT] source=llm output_preview={self._preview(text, 160)}")
         except LLMCircuitOpenError:
             self.metrics.increment("node4.circuit_open")
             text = "Hệ thống tạm bận khi tạo phản hồi. Đây là dữ liệu thô để bạn tham khảo tạm thời."
-        except Exception:
+            print("[NODE-4:FORMAT] source=circuit_open fallback_text_used=true")
+        except Exception as exc:
             self.metrics.increment("node4.fallback")
             text = "Hệ thống chưa thể định dạng câu trả lời lúc này. Vui lòng thử lại sau vài giây."
+            print(f"[NODE-4:FORMAT] source=fallback error={exc}")
         self.cache.set(h, text)
-        self.metrics.observe_latency("node4.latency", time.perf_counter() - started_at)
+        duration = time.perf_counter() - started_at
+        self.metrics.observe_latency("node4.latency", duration)
+        print(f"[NODE-4:FORMAT] done duration_ms={duration * 1000:.1f}")
         return text
 
     async def handle(
@@ -185,20 +231,30 @@ class AgentOrchestrator:
         student_id: Optional[int] = None,
         conversation_id: Optional[int] = None,
     ) -> Dict[str, Any]:
+        handle_started_at = time.perf_counter()
+        print(
+            f"[ORCH] start query={self._preview(user_text, 120)} student_id={student_id} "
+            f"conversation_id={conversation_id}"
+        )
         # node 1 split
         segments = await self.node1_query_splitter(user_text)
+        print(f"[ORCH] node1_done segments={len(segments)} segments_preview={self._preview(segments, 160)}")
         results = []
-        for seg in segments:
+        for idx, seg in enumerate(segments, start=1):
+            print(f"[ORCH] segment_start index={idx}/{len(segments)} text={self._preview(seg, 120)}")
             # node 2 intent
             intent_info = await self.node2_intent_router(seg)
             intent = intent_info.get('intent')
+            print(f"[ORCH] segment_intent index={idx} intent={intent} source={intent_info.get('source')}")
             # call tool
             try:
                 if not intent or intent == 'unknown':
                     self.metrics.increment("tools.skipped_unknown_intent")
                     res = {"message": "No tool mapped for unknown intent"}
+                    print(f"[NODE-3:TOOLS] index={idx} skipped reason=unknown_intent")
                 else:
                     tool_started_at = time.perf_counter()
+                    print(f"[NODE-3:TOOLS] index={idx} intent={intent} action=call")
                     res = await self.tools.call(
                         intent,
                         {
@@ -208,10 +264,16 @@ class AgentOrchestrator:
                         },
                     )
                     self.metrics.increment(f"tools.{intent}.success")
-                    self.metrics.observe_latency(f"tools.{intent}.latency", time.perf_counter() - tool_started_at)
+                    tool_duration = time.perf_counter() - tool_started_at
+                    self.metrics.observe_latency(f"tools.{intent}.latency", tool_duration)
+                    print(
+                        f"[NODE-3:TOOLS] index={idx} intent={intent} status=success "
+                        f"duration_ms={tool_duration * 1000:.1f} result_preview={self._preview(res, 140)}"
+                    )
             except Exception as e:
                 self.metrics.increment(f"tools.{intent or 'unknown'}.failure")
                 res = {"error": str(e)}
+                print(f"[NODE-3:TOOLS] index={idx} intent={intent} status=failure error={e}")
             results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
         
         # node 4 response (generative for all responses as requested)
@@ -225,6 +287,11 @@ class AgentOrchestrator:
             }
             for item in results
         ]
+        total_duration = time.perf_counter() - handle_started_at
+        print(
+            f"[ORCH] done intent={summary['intent']} confidence={summary['confidence_label']} "
+            f"is_compound={summary['is_compound']} duration_ms={total_duration * 1000:.1f}"
+        )
         # Backward-compatible fields: raw + response. New normalized fields are added for route/schema alignment.
         return {
             "raw": results,

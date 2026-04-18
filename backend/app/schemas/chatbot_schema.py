@@ -92,6 +92,7 @@ class ChatResponseWithData(ChatResponse):
     """Schema cho response từ chatbot kèm data từ database"""
     data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu từ database")
     metadata: Optional[ClassSuggestionMetadata] = Field(None, description="Metadata thân thiện cho UI của class suggestion")
+    debug: Optional[Dict[str, Any]] = Field(None, description="Debug info cho frontend console")
     sql: Optional[str] = Field(None, description="SQL query đã thực thi")
     sql_error: Optional[str] = Field(None, description="Lỗi SQL (nếu có)")
     is_compound: bool = Field(False, description="True nếu câu hỏi là compound query (nhiều intent)")
@@ -221,6 +222,7 @@ class StreamChunk(BaseModel):
     confidence: Optional[str] = Field(None, description="Độ tin cậy")
     data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu hoàn chỉnh")
     metadata: Optional[ClassSuggestionMetadata] = Field(None, description="Metadata cho UI")
+    debug: Optional[Dict[str, Any]] = Field(None, description="Debug info cho frontend console")
     is_compound: Optional[bool] = Field(None, description="Có phải compound query")
     parts: Optional[List[Dict[str, Any]]] = Field(None, description="Kết quả từng phần")
     conversation_id: Optional[int] = Field(None, description="ID hội thoại")

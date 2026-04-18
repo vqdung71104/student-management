@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Any, Dict, Optional
 
 import httpx
@@ -87,7 +88,19 @@ class ToolsRegistry:
         timeout = tool.get("timeout", 5)
         custom_headers = tool.get("headers", {}) if isinstance(tool.get("headers"), dict) else {}
         headers = {**self._default_headers, **custom_headers}
+        payload_preview = json.dumps(payload, ensure_ascii=False, default=str)
+        if len(payload_preview) > 160:
+            payload_preview = payload_preview[:160] + "..."
+        print(f"[TOOLS] start name={name} url={url} timeout={timeout}s payload={payload_preview}")
+        started_at = time.perf_counter()
         async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
             resp = await client.post(url, json=payload)
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            print(f"[TOOLS] response name={name} status={resp.status_code} duration_ms={duration_ms:.1f}")
             resp.raise_for_status()
-            return resp.json()
+            body = resp.json()
+            body_preview = json.dumps(body, ensure_ascii=False, default=str)
+            if len(body_preview) > 160:
+                body_preview = body_preview[:160] + "..."
+            print(f"[TOOLS] done name={name} body={body_preview}")
+            return body

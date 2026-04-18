@@ -69,10 +69,16 @@ class LLMClient:
     async def _post_json(self, path: str, payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
         if self._is_circuit_open():
             self._metrics.increment(f"llm.{path}.circuit_open")
+            print(f"[LLM] circuit_open path={path} timeout={timeout}s")
             raise LLMCircuitOpenError("LLM circuit is open")
 
         last_error: Optional[Exception] = None
         attempts = max(1, LLM_MAX_RETRIES + 1)
+        payload_keys = sorted(payload.keys())
+        print(
+            f"[LLM] start path={path} base_url={self.base_url} timeout={timeout}s "
+            f"attempts={attempts} payload_keys={payload_keys}"
+        )
         for attempt in range(attempts):
             start = time.perf_counter()
             try:
@@ -80,17 +86,28 @@ class LLMClient:
                 response.raise_for_status()
                 self._record_success()
                 self._metrics.increment(f"llm.{path}.success")
-                self._metrics.observe_latency(f"llm.{path}.latency", time.perf_counter() - start)
+                duration = time.perf_counter() - start
+                self._metrics.observe_latency(f"llm.{path}.latency", duration)
+                print(
+                    f"[LLM] success path={path} attempt={attempt + 1}/{attempts} "
+                    f"status={response.status_code} duration_ms={duration * 1000:.1f}"
+                )
                 return response.json()
             except (asyncio.TimeoutError, httpx.HTTPError, httpx.RequestError) as exc:
                 last_error = exc
                 self._record_failure()
                 self._metrics.increment(f"llm.{path}.failure")
-                self._metrics.observe_latency(f"llm.{path}.latency", time.perf_counter() - start)
+                duration = time.perf_counter() - start
+                self._metrics.observe_latency(f"llm.{path}.latency", duration)
+                print(
+                    f"[LLM] failure path={path} attempt={attempt + 1}/{attempts} "
+                    f"error={type(exc).__name__}: {exc} duration_ms={duration * 1000:.1f}"
+                )
                 if attempt >= attempts - 1:
                     raise
                 delay = LLM_RETRY_BASE_DELAY * (2 ** attempt)
                 self._metrics.record_event(f"llm.{path}.retry", {"attempt": attempt + 1, "delay": delay})
+                print(f"[LLM] retry path={path} next_delay_s={delay:.2f}")
                 await asyncio.sleep(delay)
         if last_error:
             raise last_error

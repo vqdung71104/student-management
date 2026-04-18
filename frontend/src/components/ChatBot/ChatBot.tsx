@@ -66,6 +66,37 @@ const STREAM_STAGE_LABEL: Record<StreamStage, string> = {
   complete: 'Hoàn tất',
 };
 
+const logChatbotExecution = (
+  label: string,
+  payload: {
+    debug?: ChatResponse['debug'] | ChatStreamChunk['debug'];
+    intent?: string;
+    confidence?: string;
+    text?: string;
+    stage?: StreamStage;
+    type?: ChatStreamChunk['type'];
+    message?: string;
+  },
+) => {
+  const debug = payload.debug || {};
+  console.log(`[CHATBOT][WEB][${label}]`, {
+    trace_id: debug.trace_id,
+    mode: debug.mode,
+    route: debug.route,
+    agent_enabled: debug.agent_enabled,
+    llm_called: debug.llm_called,
+    llm_paths: debug.llm_paths,
+    tools_called: debug.tools_called,
+    fallback_reason: debug.fallback_reason,
+    intent: payload.intent,
+    confidence: payload.confidence,
+    stage: payload.stage,
+    type: payload.type,
+    message: payload.message,
+    text: payload.text,
+  });
+};
+
 const ChatBot: React.FC = () => {
   const { userInfo } = useAuth();
   const welcomeMessage: Message = {
@@ -236,11 +267,33 @@ const ChatBot: React.FC = () => {
     streamAbortRef.current = new AbortController();
 
     try {
+      console.log('[CHATBOT][UI] sendChatMessage start', {
+        text: outgoingText,
+        conversationId: activeConversationId || undefined,
+        mode: 'stream-first',
+      });
       const doneChunk = await sendMessageStream(
         outgoingText,
         userInfo?.id,
         activeConversationId || undefined,
         (chunk: ChatStreamChunk) => {
+          logChatbotExecution('stream_chunk', {
+            debug: chunk.debug,
+            intent: chunk.intent,
+            confidence: chunk.confidence,
+            stage: chunk.stage as StreamStage | undefined,
+            type: chunk.type,
+            message: chunk.message,
+            text: chunk.text,
+          });
+          console.log('[CHATBOT][UI][chunk]', {
+            type: chunk.type,
+            stage: chunk.stage,
+            message: chunk.message,
+            intent: chunk.intent,
+            confidence: chunk.confidence,
+            debug: chunk.debug,
+          });
           if (chunk.stage) {
             const nextStage = chunk.stage as StreamStage;
             if (STREAM_STAGE_PROGRESS[nextStage] !== undefined) {
@@ -274,6 +327,22 @@ const ChatBot: React.FC = () => {
       setStreamingStage('complete');
       setStreamingProgress(100);
 
+      console.log('[CHATBOT][UI] stream final chunk', {
+        intent: doneChunk.intent,
+        confidence: doneChunk.confidence,
+        debug: doneChunk.debug,
+        text: doneChunk.text,
+      });
+      logChatbotExecution('stream_final', {
+        debug: doneChunk.debug,
+        intent: doneChunk.intent,
+        confidence: doneChunk.confidence,
+        text: doneChunk.text,
+        stage: doneChunk.stage as StreamStage | undefined,
+        type: doneChunk.type,
+        message: doneChunk.message,
+      });
+
       const finalResponse: ChatResponse = {
         text: doneChunk.text || 'Hoàn tất xử lý',
         intent: doneChunk.intent || 'unknown',
@@ -285,6 +354,7 @@ const ChatBot: React.FC = () => {
         conversation_id: doneChunk.conversation_id,
         message_id: doneChunk.message_id,
         created_at: doneChunk.created_at,
+        debug: doneChunk.debug,
       };
 
       if (finalResponse.conversation_id && finalResponse.conversation_id !== activeConversationId) {
@@ -306,6 +376,11 @@ const ChatBot: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, botMessage]);
+
+      console.log('[CHATBOT][UI] rendered bot message', {
+        intent: botMessage.intent,
+        debug: finalResponse.debug,
+      });
 
       if (userInfo?.id) {
         try {
@@ -331,7 +406,21 @@ const ChatBot: React.FC = () => {
 
       try {
         setStreamingStatus('Streaming lỗi, đang chuyển sang chế độ thường...');
+        console.log('[CHATBOT][UI] fallback to non-streaming sendMessage');
         const response: ChatResponse = await sendMessage(outgoingText, userInfo?.id, activeConversationId || undefined);
+
+        console.log('[CHATBOT][UI] fallback response', {
+          intent: response.intent,
+          confidence: response.confidence,
+          debug: response.debug,
+          text: response.text,
+        });
+        logChatbotExecution('fallback_response', {
+          debug: response.debug,
+          intent: response.intent,
+          confidence: response.confidence,
+          text: response.text,
+        });
 
         if (response.conversation_id && response.conversation_id !== activeConversationId) {
           setActiveConversationId(response.conversation_id);
@@ -352,6 +441,10 @@ const ChatBot: React.FC = () => {
         };
 
         setMessages((prev) => [...prev, botMessage]);
+        console.log('[CHATBOT][UI] rendered fallback bot message', {
+          intent: botMessage.intent,
+          debug: response.debug,
+        });
       } catch (fallbackError) {
         console.error('Error sending message in fallback mode:', fallbackError);
 
