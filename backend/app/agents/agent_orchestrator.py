@@ -143,7 +143,9 @@ class AgentOrchestrator:
         label = 'unknown'
         score = 0.0
         if self.tfidf:
-            label, score = self.tfidf.classify_intent(text)
+            tfidf_res = await self.tfidf.classify_intent(text)
+            label = tfidf_res.get("intent", "unknown")
+            score = tfidf_res.get("confidence_score", 0.0)
             if score >= INTENT_CONF_THRESHOLD or len(text.split()) <= 20:
                 self.metrics.increment("node2.tfidf_hit")
                 duration = time.perf_counter() - started_at
