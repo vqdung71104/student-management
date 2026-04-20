@@ -32,8 +32,8 @@ class FakeTFIDF:
         self._label = label
         self._score = score
 
-    def classify_intent(self, text: str):
-        return (self._label, self._score)
+    async def classify_intent(self, text: str):
+        return {"intent": self._label, "confidence_score": self._score}
 
 @pytest.mark.asyncio
 async def test_node1_short_text_no_llm_call():
