@@ -31,13 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY requirements.txt .
 
-# FIX CHÍNH: Cài đặt Torch CPU và requirements trong cùng 1 lệnh 
-# để tránh pip tự ý tải bản CUDA nặng 5GB+ từ PyPI
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir --prefix=/install \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    torch==2.5.1 \
-    -r requirements.txt
+    pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ============================================
 # Stage 3: Production (Tối ưu dung lượng)
@@ -56,10 +51,7 @@ WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    torch==2.5.1 \
-    -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt
 
 COPY main.py .
 COPY app ./app

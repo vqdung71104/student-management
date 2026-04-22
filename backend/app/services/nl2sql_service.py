@@ -1,5 +1,5 @@
 """
-NL2SQL Service sử dụng ViT5 (Vietnamese T5) để chuyển câu hỏi tiếng Việt thành SQL
+NL2SQL Service sử dụng rule-based để chuyển câu hỏi tiếng Việt thành SQL
 """
 import json
 import os
@@ -17,35 +17,18 @@ def _get_fuzzy_matcher():
 
 class NL2SQLService:
     """
-    Service chuyển đổi Natural Language sang SQL sử dụng ViT5
+    Service chuyển đổi Natural Language sang SQL (rule-based only)
     """
-    
-    def __init__(self, model_path: Optional[str] = None):
+    def __init__(self):
         """
-        Initialize NL2SQL Service
-        
-        Args:
-            model_path: Path to fine-tuned ViT5 model (optional)
+        Initialize NL2SQL Service (rule-based only)
         """
-        print("   Initializing NL2SQL Service...")
-        
+        print("   Initializing NL2SQL Service (rule-based only)...")
         self.training_data = self._load_training_data()
         self.schema = self.training_data.get("schema", {})
         self.examples = self.training_data.get("training_examples", [])
-        
-        # Build intent to SQL mapping
         self.intent_sql_map = self._build_intent_sql_map()
-        
-        # Try to load ViT5 model
-        self.model = None
-        self.tokenizer = None
-        self.has_vit5 = False
-        
-        if model_path:
-            self._load_vit5_model(model_path)
-        
-        print(f"   NL2SQL Service initialized with {len(self.examples)} examples")
-        print(f"   ViT5 Model: {'Loaded' if self.has_vit5 else 'Not loaded (using rule-based fallback)'}")
+        print(f"   NL2SQL Service initialized with {len(self.examples)} examples (rule-based only)")
     
     def _load_training_data(self) -> Dict:
         """Load NL2SQL training data"""
@@ -73,42 +56,6 @@ class NL2SQLService:
             intent_map[intent].append(example)
         
         return intent_map
-    
-    def _load_vit5_model(self, model_path: str):
-        """Load fine-tuned ViT5 model"""
-        try:
-            from transformers import T5ForConditionalGeneration, T5Tokenizer
-            
-            print(f"📦 Loading ViT5 model from {model_path}...")
-            
-            self.tokenizer = T5Tokenizer.from_pretrained(model_path)
-            self.model = T5ForConditionalGeneration.from_pretrained(model_path)
-            
-            # Move to GPU if available
-            import torch
-            if torch.cuda.is_available():
-                self.model = self.model.cuda()
-                print("   Using GPU")
-            else:
-                print("   Using CPU")
-            
-            self.has_vit5 = True
-            print("   ViT5 model loaded successfully")
-            
-        except ImportError:
-            print("   transformers library not installed. Using rule-based fallback.")
-        except Exception as e:
-            print(f"   Failed to load ViT5 model: {e}")
-    
-    def _normalize_question(self, question: str) -> str:
-        """Normalize question for better matching"""
-        # Convert to lowercase
-        question = question.lower().strip()
-        
-        # Remove punctuation
-        question = re.sub(r'[?!.,;:]', '', question)
-        
-        return question
     
     def _extract_entities(self, question: str) -> Dict[str, str]:
         """Extract entities from question (subject names, class IDs, etc.)"""
@@ -574,281 +521,20 @@ class NL2SQLService:
         db=None
     ) -> Dict:
         """
-        Generate SQL query from natural language question
-        
-        Args:
-            question: Natural language question
-            intent: Detected intent
-            student_id: Student ID (for authenticated queries)
-            db: SQLAlchemy Session (optional, dùng cho fuzzy matching)
-            
-        Returns:
-            Dict containing SQL query, parameters, and metadata
+        Generate SQL query from natural language question (rule-based only)
         """
-        print(f"  NL2SQL generate_sql called:")
+        print(f"  NL2SQL generate_sql called (rule-based only):")
         print(f"  Question: {question}")
         print(f"  Intent: {intent}")
         print(f"  Student ID: {student_id}")
-        
         # Extract entities từ question (regex-based)
         entities = self._extract_entities(question)
         print(f"  Entities (raw): {entities}")
-        
-        # Lấy course_id của sinh viên nếu có student_id để ưu tiên matching
-        preferred_course_id = None
-        if db is not None and student_id:
-            try:
-                from app.models.student_model import Student
-                student = db.query(Student).filter(Student.id == student_id).first()
-                if student:
-                    preferred_course_id = student.course_id
-            except Exception as e:
-                print(f"  ⚠️ Could not fetch student course_id: {e}")
-
-        # ── Fuzzy Matching: resolve subject_name → subject_id ──────────────
-        # Trường hợp 0: subject_id được extract bằng regex nhưng có thể gõ sai
-        # (vd: IT3081 thay vì IT3080). Kiểm tra xem mã có tồn tại không; nếu không
-        # thì fuzzy match theo mã môn.
-        fuzzy_info = None
-        if db is not None and 'subject_id' in entities:
-            raw_subject_id = entities['subject_id']
-            FuzzyMatcher = _get_fuzzy_matcher()
-            if FuzzyMatcher:
-                try:
-                    from app.models.subject_model import Subject as _Subject
-                    from app.models.course_subject_model import CourseSubject as _CourseSubject
-
-                    exact_exists = db.query(_Subject).filter(
-                        _Subject.subject_id == raw_subject_id
-                    ).first()
-
-                    # Course-first validation cho subject_id đã extract:
-                    # Nếu mã môn tồn tại nhưng không thuộc course của sinh viên,
-                    # ưu tiên môn cùng tên nằm trong course đó.
-                    if exact_exists and preferred_course_id is not None:
-                        in_course_exact = db.query(_CourseSubject).filter(
-                            _CourseSubject.course_id == preferred_course_id,
-                            _CourseSubject.subject_id == exact_exists.id,
-                        ).first()
-
-                        if not in_course_exact:
-                            alt_in_course = (
-                                db.query(_Subject)
-                                .join(_CourseSubject, _Subject.id == _CourseSubject.subject_id)
-                                .filter(
-                                    _CourseSubject.course_id == preferred_course_id,
-                                    _Subject.subject_name == exact_exists.subject_name,
-                                )
-                                .first()
-                            )
-                            if alt_in_course:
-                                entities['subject_id'] = alt_in_course.subject_id
-                                entities['subject_name'] = alt_in_course.subject_name
-                                fuzzy_info = {
-                                    "original_query": raw_subject_id,
-                                    "matched_name": alt_in_course.subject_name,
-                                    "matched_id": alt_in_course.subject_id,
-                                    "score": 100,
-                                    "auto_mapped": True,
-                                    "course_preferred": True,
-                                }
-                                print(
-                                    f"  ✅ [COURSE_PREF] subject_id='{raw_subject_id}' không thuộc course {preferred_course_id} "
-                                    f"→ ưu tiên '{alt_in_course.subject_id}' cùng tên trong course"
-                                )
-
-                    if not exact_exists:
-                        matcher_id = FuzzyMatcher(db)
-                        id_match = matcher_id.match_subject_by_id(
-                            raw_subject_id,
-                            db=db,
-                            preferred_course_id=preferred_course_id,
-                        )
-                        if id_match:
-                            print(f"  🔍 [FUZZY_ID] '{raw_subject_id}' không tồn tại → '{id_match.subject_id}' (score={id_match.score:.0f}, auto_mapped={id_match.auto_mapped})")
-                            fuzzy_info = {
-                                "original_query": raw_subject_id,
-                                "matched_name": id_match.subject_name,
-                                "matched_id": id_match.subject_id,
-                                "score": id_match.score,
-                                "auto_mapped": id_match.auto_mapped
-                            }
-                            if id_match.auto_mapped:
-                                entities['subject_id'] = id_match.subject_id
-                                entities['subject_name'] = id_match.subject_name
-                                print(f"  ✅ [FUZZY_ID] Auto-mapped subject_id → {id_match.subject_id}")
-                            else:
-                                # Score thấp — trả về candidates để hỏi lại
-                                pass  # caller sẽ xử lý qua fuzzy_info
-                        else:
-                            print(f"  ⚠️ [FUZZY_ID] Không tìm được mã môn gần với '{raw_subject_id}'")
-                except Exception as fie:
-                    print(f"  ⚠️ [FUZZY_ID] Error: {fie}")
-
-        # Trường hợp 1: chỉ có subject_name (chưa có subject_id)
-        # thử fuzzy match để tìm môn chính xác hơn.
-        if db is not None and 'subject_name' in entities and 'subject_id' not in entities:
-            FuzzyMatcher = _get_fuzzy_matcher()
-            if FuzzyMatcher:
-                try:
-                    matcher = FuzzyMatcher(db)
-                    multi_raw_names = entities.get('subject_names', [])
-                    valid_matches = []
-
-                    if multi_raw_names:
-                        for rn in multi_raw_names:
-                            pm = matcher.match_subject(rn, db=db, preferred_course_id=preferred_course_id)
-                            if pm and (pm.auto_mapped or pm.score >= 70):
-                                valid_matches.append(pm)
-                        if valid_matches:
-                            print(
-                                f"  🔍 [FUZZY_SPLIT] Tách multi-list {multi_raw_names}, "
-                                f"tìm thấy {len(valid_matches)} môn: {[m.subject_name for m in valid_matches]}"
-                            )
-                    else:
-                        raw_name = entities['subject_name']
-                        # Split single extracted phrase if it still contains list separators.
-                        split_names = re.split(r'[;,]|\s+và\s+|\s+hoặc\s+', raw_name, flags=re.IGNORECASE)
-                        split_names = [
-                            re.sub(r'^(?:môn|học\s+phần|lớp)\s+', '', s.strip(), flags=re.IGNORECASE)
-                            for s in split_names if s.strip()
-                        ]
-                        if len(split_names) > 1:
-                            for rn in split_names:
-                                pm = matcher.match_subject(rn, db=db, preferred_course_id=preferred_course_id)
-                                if pm and (pm.auto_mapped or pm.score >= 70):
-                                    valid_matches.append(pm)
-                            if valid_matches:
-                                print(
-                                    f"  🔍 [FUZZY_SPLIT] Tách '{raw_name}' qua ',', ';', 'và/hoặc', "
-                                    f"tìm thấy {len(valid_matches)} môn: {[m.subject_name for m in valid_matches]}"
-                                )
-                        else:
-                            pm = matcher.match_subject(raw_name, db=db, preferred_course_id=preferred_course_id)
-                            if pm:
-                                valid_matches.append(pm)
-
-                    # Deduplicate by subject_id while preserving order
-                    dedup_matches = []
-                    seen_ids = set()
-                    for m in valid_matches:
-                        if m.subject_id in seen_ids:
-                            continue
-                        seen_ids.add(m.subject_id)
-                        dedup_matches.append(m)
-
-                    match = dedup_matches[0] if dedup_matches else None
-                    if len(dedup_matches) > 1:
-                        entities['subject_ids'] = [m.subject_id for m in dedup_matches]
-                        entities['subject_id'] = dedup_matches[0].subject_id
-                        entities['subject_name'] = dedup_matches[0].subject_name
-                                    
-                    if match:
-                        raw_name = entities.get('subject_name', entities.get('subject_names', ['']))
-                        if isinstance(raw_name, list):
-                            raw_name = ', '.join(raw_name)
-                        print(f"  🔍 [FUZZY] subject_name='{raw_name}' → '{match.subject_name}' (score={match.score:.0f}, auto_mapped={match.auto_mapped})")
-                        fuzzy_info = {
-                            "original_query": raw_name,
-                            "matched_name": match.subject_name,
-                            "matched_id": match.subject_id,
-                            "score": match.score,
-                            "auto_mapped": match.auto_mapped,
-                            "matched_ids": entities.get('subject_ids', [match.subject_id])
-                        }
-                        if match.auto_mapped or len(entities.get('subject_ids', [])) > 1:
-                            # Đủ điểm → thay subject_name bằng subject_id để SQL chính xác hơn
-                            entities['subject_id'] = match.subject_id
-                            entities['subject_name'] = match.subject_name  # tên chuẩn có dấu
-                            print(f"  ✅ [FUZZY] Auto-mapped to subject_id={match.subject_id}")
-                        else:
-                            print(f"  ⚠️ [FUZZY] Score {match.score:.0f} < threshold, keeping LIKE search")
-                except Exception as fe:
-                    print(f"  ⚠️ [FUZZY] Error during fuzzy match: {fe}")
-        # ────────────────────────────────────────────────────────────────────
-        
-        print(f"  Entities (resolved): {entities}")
-        
-        # If ViT5 model is available, use it
-        if self.has_vit5:
-            result = await self._generate_with_vit5(question, intent, student_id, entities)
-        else:
-            # Otherwise, use rule-based approach
-            result = self._generate_rule_based(question, intent, student_id, entities)
-        
-        # Đính kèm fuzzy_info vào result để caller có thể sử dụng
-        if fuzzy_info:
-            result['fuzzy_match'] = fuzzy_info
-        
+        result = self._generate_rule_based(question, intent, student_id, entities)
         print(f"   Generated SQL: {result.get('sql')}")
         print(f"   Method: {result.get('method')}")
-        
         return result
-    
-    async def _generate_with_vit5(
-        self,
-        question: str,
-        intent: str,
-        student_id: Optional[int],
-        entities: Dict
-    ) -> Dict:
-        """Generate SQL using ViT5 model"""
-        import torch
-        
-        # Prepare input for ViT5
-        # Format: "intent: <intent> | question: <question> | schema: <schema_info>"
-        schema_info = self._get_relevant_schema(intent)
-        input_text = f"intent: {intent} | question: {question} | schema: {schema_info}"
-        
-        # Tokenize
-        inputs = self.tokenizer(
-            input_text,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True
-        )
-        
-        if torch.cuda.is_available():
-            inputs = {k: v.cuda() for k, v in inputs.items()}
-        
-        # Generate SQL
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_length=256,
-                num_beams=5,
-                early_stopping=True
-            )
-        
-        # Decode
-        generated_sql = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        
-        # Replace parameters
-        if "{student_id}" in generated_sql:
-            if student_id:
-                generated_sql = generated_sql.replace("{student_id}", str(student_id))
-            else:
-                # If student_id is required but not provided, return error
-                return {
-                    "sql": None,
-                    "method": "vit5",
-                    "intent": intent,
-                    "entities": entities,
-                    "error": "Authentication required: student_id is missing",
-                    "requires_auth": True
-                }
-        
-        # Customize with entities
-        generated_sql = self._customize_sql(generated_sql, question, entities)
-        
-        return {
-            "sql": generated_sql,
-            "method": "vit5",
-            "intent": intent,
-            "entities": entities,
-            "requires_auth": "{student_id}" in generated_sql or student_id is not None
-        }
-    
+
     def _generate_rule_based(
         self,
         question: str,
