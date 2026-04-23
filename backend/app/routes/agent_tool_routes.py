@@ -77,11 +77,16 @@ def _verify_internal_key(x_agent_internal_key: Optional[str]) -> None:
     "/contract",
     summary="Agent Tools API Contract",
     description="Returns the API contract for remote LLM agent orchestration. "
-                "Use this endpoint to discover available nodes, field compatibility, "
-                "and authentication requirements at runtime. No authentication required.",
+                "Requires X-Internal-Api-Key header for authentication.",
 )
-async def get_contract():
-    """Public endpoint - no authentication required. Returns contract as JSON dict."""
+async def get_contract(
+    x_internal_api_key: Optional[str] = Header(None, alias="X-Internal-Api-Key"),
+):
+    """Protected endpoint. Returns contract as JSON dict."""
+    expected_key = os.environ.get("ORCHESTRATOR_API_KEY")
+    if not expected_key or x_internal_api_key != expected_key:
+        raise HTTPException(status_code=403, detail="Forbidden: Invalid ORCHESTRATOR_API_KEY")
+
     return {
         "version": CONTRACT_VERSION,
         "auth_header": "X-Agent-Internal-Key",
