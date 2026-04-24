@@ -75,11 +75,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - ./backend/.env
+  
     environment:
-      # Database Configuration
-      MYSQL_USER: ${MYSQL_USER:-root}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-123456}
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
@@ -96,7 +93,6 @@ services:
 
       # Google AI Configuration
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-      
 
       # Chatbot Configuration
       USE_PHOBERT: ${USE_PHOBERT:-true}
@@ -139,6 +135,7 @@ services:
       # Python Configuration
       PYTHONUNBUFFERED: 1
       PYTHONDONTWRITEBYTECODE: 1
+      ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
