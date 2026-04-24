@@ -75,6 +75,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - ./backend/.env
     environment:
       # Database Configuration
       MYSQL_USER: ${MYSQL_USER:-root}
@@ -94,6 +96,7 @@ services:
 
       # Google AI Configuration
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      
 
       # Chatbot Configuration
       USE_PHOBERT: ${USE_PHOBERT:-true}
