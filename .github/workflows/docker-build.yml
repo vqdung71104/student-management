@@ -27,6 +27,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Debug ORCHESTRATOR_API_KEY (print first 7 chars)
+        run: |
+          if [ -z "$ORCHESTRATOR_API_KEY" ]; then
+            echo "❌ ORCHESTRATOR_API_KEY is not set!"
+            exit 1
+          else
+            echo "ORCHESTRATOR_API_KEY (first 7 chars): ${ORCHESTRATOR_API_KEY:0:7}"
+          fi
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
