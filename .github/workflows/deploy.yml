@@ -32,6 +32,8 @@ jobs:
               echo "Updating existing .env file."
               grep -q "^ORCHESTRATOR_API_KEY=" .env && sed -i "s/^ORCHESTRATOR_API_KEY=.*/ORCHESTRATOR_API_KEY=${{ secrets.ORCHESTRATOR_API_KEY }}/" .env || echo "ORCHESTRATOR_API_KEY=${{ secrets.ORCHESTRATOR_API_KEY }}" >> .env
             fi
+            echo "Cleaning up old containers to avoid conflicts..."
+            docker rm -f student-management-mysql-prod student-management-redis-prod backend frontend 2>/dev/null || true
 
             # Start services
             echo "Starting services with docker compose..."
