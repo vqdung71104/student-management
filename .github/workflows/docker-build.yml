@@ -240,5 +240,5 @@ jobs:
             docker compose -f docker-compose.prod.yml pull mysql redis backend frontend
             docker compose -f docker-compose.prod.yml up -d --force-recreate mysql redis backend frontend
             
-            docker compose -f docker compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml ps
             docker image prune -a -f --filter "until=24h"

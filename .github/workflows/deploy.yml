@@ -35,6 +35,6 @@ jobs:
 
             # Start services
             echo "Starting services with docker compose..."
-            docker compose -f docker compose.prod.yml up -d --build
+            docker compose -f docker-compose.prod.yml up -d --build
 
             echo "Deployment completed successfully."
