@@ -17,6 +17,7 @@ Contract and Health endpoints are public (no auth).
 """
 import os
 import time
+import traceback
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -83,95 +84,127 @@ async def get_contract(
     authorization: Optional[str] = Header(None),
 ):
     """Protected endpoint. Returns contract as JSON dict."""
-    expected_key = os.environ.get("ORCHESTRATOR_API_KEY")
-    if not expected_key:
-        raise HTTPException(status_code=500, detail="Server configuration error: ORCHESTRATOR_API_KEY not set")
-    
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    
-    token = authorization.split(" ")[1]
-    if token != expected_key:
-        raise HTTPException(status_code=403, detail="Forbidden: Invalid ORCHESTRATOR_API_KEY")
+    try:
+        # Log quy trình xác thực API Key
+        print("[AgentTools] /contract: Bắt đầu xác thực API Key...")
+        expected_key = str(os.getenv("ORCHESTRATOR_API_KEY", "")).strip()
+        print(f"[AgentTools] /contract: expected_key (first 7 chars): '{expected_key[:7]}' (length: {len(expected_key)})")
 
-    return {
-        "version": CONTRACT_VERSION,
-        "auth_header": "X-Agent-Internal-Key",
-        "auth_required": True,
-        "endpoints": {
-            "node0_preprocess": {
-                "path": "POST /api/agent-tools/preprocess",
-                "timeout_s": 1,
-                "description": "Normalize Vietnamese text",
-                "request_body": {"text": "string (required, min_length=1)", "metadata": "dict (optional)"},
-                "response_data": {"original_text": "string", "normalized_text": "string", "was_normalized": "bool"},
-            },
-            "node1_query_splitter": {
-                "path": "POST /api/agent-tools/node1/query_splitter",
-                "timeout_s": 2,
-                "description": "Split compound queries into sub-queries",
-                "request_body": {"text": "string (required)", "max_queries": "int (optional, default=5)"},
-                "response_data": {"queries": "list", "count": "int", "intents": "list", "intent_scores": "list"},
-            },
-            "node2_intent_classifier": {
-                "path": "POST /api/agent-tools/node2/intent_classifier",
-                "timeout_s": 2,
-                "description": "Classify user intent using TF-IDF + Word2Vec",
-                "request_body": {"query": "string (required, min_length=1)"},
-                "response_data": {
-                    "intent": "string",
-                    "confidence": "string (high|medium|low)",
-                    "confidence_score": "float",
-                    "method": "string",
+        if not expected_key:
+            print("[AgentTools] /contract: ORCHESTRATOR_API_KEY không được thiết lập trong môi trường!")
+            raise HTTPException(status_code=500, detail="Server configuration error: ORCHESTRATOR_API_KEY not set")
+
+        if not authorization or not authorization.startswith("Bearer "):
+            print(f"[AgentTools] /contract: Thiếu hoặc sai định dạng Authorization header: {authorization}")
+            raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+
+        parts = authorization.split(" ")
+        if len(parts) < 2:
+            print(f"[AgentTools] /contract: Authorization header format không hợp lệ: {authorization}")
+            raise HTTPException(status_code=401, detail="Invalid Authorization header format")
+
+        token = str(parts[1]).strip()
+        print(f"[AgentTools] /contract: token (first 7 chars): '{token[:7]}' (length: {len(token)})")
+
+        if token != expected_key:
+            print(f"[AgentTools] /contract: API Key không khớp!\n  - expected_key: '{expected_key}'\n  - token:        '{token}'")
+            raise HTTPException(status_code=403, detail="Forbidden: Invalid API Key. Hãy kiểm tra lại biến môi trường ORCHESTRATOR_API_KEY ở backend và token gửi từ FE/Orchestrator. Cả hai phải giống hệt nhau (không thừa/kém ký tự, không có khoảng trắng thừa).")
+
+        print("[AgentTools] /contract: Xác thực API Key thành công!")
+        return {
+            "version": CONTRACT_VERSION,
+            "auth_header": "X-Agent-Internal-Key",
+            "auth_required": True,
+            "endpoints": {
+                "node0_preprocess": {
+                    "path": "POST /api/agent-tools/preprocess",
+                    "timeout_s": 1,
+                    "description": "Normalize Vietnamese text",
+                    "request_body": {"text": "string (required, min_length=1)", "metadata": "dict (optional)"},
+                    "response_data": {"original_text": "string", "normalized_text": "string", "was_normalized": "bool"},
+                },
+                "node1_query_splitter": {
+                    "path": "POST /api/agent-tools/node1/query_splitter",
+                    "timeout_s": 2,
+                    "description": "Split compound queries into sub-queries",
+                    "request_body": {"text": "string (required)", "max_queries": "int (optional, default=5)"},
+                    "response_data": {"queries": "list", "count": "int", "intents": "list", "intent_scores": "list"},
+                },
+                "node2_intent_classifier": {
+                    "path": "POST /api/agent-tools/node2/intent_classifier",
+                    "timeout_s": 2,
+                    "description": "Classify user intent using TF-IDF + Word2Vec",
+                    "request_body": {"query": "string (required, min_length=1)"},
+                    "response_data": {
+                        "intent": "string",
+                        "confidence": "string (high|medium|low)",
+                        "confidence_score": "float",
+                    },
+                },
+                # ...existing code...
+            }
+        }
+    except Exception as e:
+        import traceback
+        print(f"[AgentTools] /contract: Đã xảy ra lỗi: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
+                        "method": "string",
+                    },
+                },
+                "node3_tool_executor": {
+                    "path": "POST /api/agent-tools/intent/{intent_name}",
+                    "timeout_s": 6,
+                    "description": "Execute tool for specific intent",
+                    "path_params": {"intent_name": "string. Allowed: " + ", ".join(sorted(ALLOWED_TOOL_INTENTS))},
+                    "request_body": {
+                        "query": "string (preferred, min_length=1)",
+                        "q": "string (backward compat alias, min_length=1)",
+                        "student_id": "int (optional)",
+                        "conversation_id": "int (optional)",
+                        "params": "dict (optional)",
+                    },
+                    "field_priority": "query takes precedence over q when both are provided",
+                    "validation_rule": "At least one of query or q must be provided (422 otherwise)",
+                    "response_data": {
+                        "text": "string",
+                        "intent": "string",
+                        "confidence": "string",
+                        "data": "list|dict|null",
+                        "sql": "string|null",
+                        "sql_error": "string|null",
+                    },
+                },
+                "node4_format_response": {
+                    "path": "POST /api/agent-tools/node4/format_response",
+                    "timeout_s": 12,
+                    "description": "Format raw tool results into natural language using LLM",
+                    "request_body": {
+                        "results": "any (required) - raw results from NODE-3",
+                        "instruction": "string (optional, default='Tóm tắt kết quả bằng tiếng Việt')",
+                        "token_budget": "int (optional, default=160, max=512)",
+                    },
+                    "response_data": {"text": "string (str)", "tokens_used": "int"},
                 },
             },
-            "node3_tool_executor": {
-                "path": "POST /api/agent-tools/intent/{intent_name}",
-                "timeout_s": 6,
-                "description": "Execute tool for specific intent",
-                "path_params": {"intent_name": "string. Allowed: " + ", ".join(sorted(ALLOWED_TOOL_INTENTS))},
-                "request_body": {
-                    "query": "string (preferred, min_length=1)",
-                    "q": "string (backward compat alias, min_length=1)",
-                    "student_id": "int (optional)",
-                    "conversation_id": "int (optional)",
-                    "params": "dict (optional)",
-                },
-                "field_priority": "query takes precedence over q when both are provided",
-                "validation_rule": "At least one of query or q must be provided (422 otherwise)",
-                "response_data": {
-                    "text": "string",
-                    "intent": "string",
-                    "confidence": "string",
-                    "data": "list|dict|null",
-                    "sql": "string|null",
-                    "sql_error": "string|null",
-                },
+            "node3_field_compatibility": {
+                "query": {"preferred": True, "description": "User query text"},
+                "q": {"preferred": False, "description": "Backward compatible alias for query"},
+                "priority_rule": "query takes precedence over q when both are provided",
+                "validation_rule": "At least one of 'query' or 'q' must be provided (422 otherwise)",
             },
-            "node4_format_response": {
-                "path": "POST /api/agent-tools/node4/format_response",
-                "timeout_s": 12,
-                "description": "Format raw tool results into natural language using LLM",
-                "request_body": {
-                    "results": "any (required) - raw results from NODE-3",
-                    "instruction": "string (optional, default='Tóm tắt kết quả bằng tiếng Việt')",
-                    "token_budget": "int (optional, default=160, max=512)",
-                },
-                "response_data": {"text": "string (str)", "tokens_used": "int"},
+            "response_envelope": {
+                "success": {"status": "success", "data": "any", "metadata": "dict", "error": None},
+                "error": {"status": "error", "data": None, "metadata": "dict", "error": "string"},
+                "validation_error": "FastAPI default 422 (no custom override)",
             },
-        },
-        "node3_field_compatibility": {
-            "query": {"preferred": True, "description": "User query text"},
-            "q": {"preferred": False, "description": "Backward compatible alias for query"},
-            "priority_rule": "query takes precedence over q when both are provided",
-            "validation_rule": "At least one of 'query' or 'q' must be provided (422 otherwise)",
-        },
-        "response_envelope": {
-            "success": {"status": "success", "data": "any", "metadata": "dict", "error": None},
-            "error": {"status": "error", "data": None, "metadata": "dict", "error": "string"},
-            "validation_error": "FastAPI default 422 (no custom override)",
-        },
-    }
+        }
+    except HTTPException:
+        # Re-raise FastAPI HTTP exceptions to be handled by the framework
+        raise
+    except Exception as e:
+        # Catch any other error, log it, and return a 500 with the error message
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
