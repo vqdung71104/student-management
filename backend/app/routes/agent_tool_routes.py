@@ -141,16 +141,6 @@ async def get_contract(
                         "confidence_score": "float",
                     },
                 },
-                # ...existing code...
-            }
-        }
-    except Exception as e:
-        import traceback
-        print(f"[AgentTools] /contract: Đã xảy ra lỗi: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {e}")
-                        "method": "string",
-                    },
-                },
                 "node3_tool_executor": {
                     "path": "POST /api/agent-tools/intent/{intent_name}",
                     "timeout_s": 6,
@@ -203,7 +193,8 @@ async def get_contract(
         raise
     except Exception as e:
         # Catch any other error, log it, and return a 500 with the error message
-        traceback.print_exc()
+        import traceback
+        print(f"[AgentTools] /contract: Đã xảy ra lỗi: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 
