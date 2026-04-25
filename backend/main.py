@@ -198,3 +198,10 @@ def orchestration_alerts_snapshot(
         raise HTTPException(status_code=403, detail="Forbidden")
     snapshot = get_orchestration_metrics().snapshot()
     return evaluate_orchestration_alerts(snapshot)
+
+# Log the first 7 characters of ORCHESTRATOR_API_KEY
+orchestrator_api_key = os.getenv("ORCHESTRATOR_API_KEY", "").strip()
+if not orchestrator_api_key:
+    print("CRITICAL: ORCHESTRATOR_API_KEY NOT FOUND IN ENVIRONMENT")
+else:
+    print(f"ORCHESTRATOR_API_KEY (first 7 chars): {orchestrator_api_key[:7]}")
