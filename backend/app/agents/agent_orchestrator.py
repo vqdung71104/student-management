@@ -58,7 +58,10 @@ class AgentOrchestrator:
                 seg = item.get('segment', '')
                 res = item.get('raw_result', {})
                 # Chỉ lấy phần nội dung chính, bỏ qua các metadata thừa
-                content = res.get('items') or res.get('data') or res
+                if isinstance(res, dict):
+                    content = res.get('items') or res.get('data') or res
+                else:
+                    content = res
                 items.append(f"- Câu hỏi: {seg}\n  Dữ liệu: {content}")
             compact_data = "\n".join(items)
         else:
@@ -324,7 +327,7 @@ class AgentOrchestrator:
                         res = []
             except Exception as e:
                 res = {"error": str(e)}
-                print(f"[NODE-3:ERROR] index={idx+1} error={e}")
+                print(f"[NODE-3:ERROR] index={idx+1} error={e}")            
             
             results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
             print(f"[ORCH] segment_intent index={idx} intent={intent} source={intent_info.get('source')}")
@@ -361,9 +364,7 @@ class AgentOrchestrator:
                 res = {"error": str(e)}
                 print(f"NODE3 output: {json.dumps(res, indent=2, ensure_ascii=False)}")
                 print(f"[NODE-3:TOOLS] index={idx} intent={intent} status=failure error={e}")
-            results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
-                
-        
+           
         # node 4 response (generative for all responses as requested)
         formatted = await self.node4_response_formatter(results, "Generate a helpful response in Vietnamese summarizing the search results.")
         summary = self._derive_summary_intent(results)
