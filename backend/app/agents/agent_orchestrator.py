@@ -17,13 +17,13 @@ from .tools_registry import ToolsRegistry
 INTENT_CONF_THRESHOLD = float(os.environ.get("INTENT_CONF_THRESHOLD", "0.6"))
 NODE1_SPLIT_MAX_TOKENS = int(os.environ.get("LLM_SPLIT_MAX_TOKENS", "48"))
 NODE2_CLASSIFY_MAX_TOKENS = int(os.environ.get("LLM_CLASSIFY_MAX_TOKENS", "12"))
-NODE4_GENERATE_MAX_TOKENS = int(os.environ.get("LLM_GENERATE_MAX_TOKENS", "160"))
-NODE4_GENERATE_TEMPERATURE = float(os.environ.get("LLM_GENERATE_TEMPERATURE", "0.2"))
+NODE4_GENERATE_MAX_TOKENS = int(os.environ.get("LLM_GENERATE_MAX_TOKENS", "150"))
+NODE4_GENERATE_TEMPERATURE = float(os.environ.get("LLM_GENERATE_TEMPERATURE", "0.1"))
 NODE4_GENERATE_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
 NODE4_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
-NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "2")))
-NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "2"))
-NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "12"))
+NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "30.0")))
+NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "20.0"))
+NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "120.0"))
 
 # placeholder import for local TF-IDF classifier
 try:
@@ -50,14 +50,26 @@ class AgentOrchestrator:
         return hashlib.sha256(raw_bytes).hexdigest()
 
     def _build_formatter_prompt(self, raw_result: Any, instruction: str) -> str:
-        raw_text = self._stable_payload(raw_result)
+        # Tối ưu: Nén dữ liệu thô thành văn bản đơn giản thay vì JSON rườm rà
+        compact_data = ""
+        if isinstance(raw_result, list):
+            items = []
+            for item in raw_result:
+                seg = item.get('segment', '')
+                res = item.get('raw_result', {})
+                # Chỉ lấy phần nội dung chính, bỏ qua các metadata thừa
+                content = res.get('items') or res.get('data') or res
+                items.append(f"- Câu hỏi: {seg}\n  Dữ liệu: {content}")
+            compact_data = "\n".join(items)
+        else:
+            compact_data = str(raw_result)
+
+        # Prompt ngắn gọn, cố định phần đầu để tận dụng Prompt Caching
         return (
-            "Bạn là trợ lý trả lời tiếng Việt ngắn gọn, chính xác và không bịa dữ liệu.\n"
-            "Chỉ dùng dữ liệu đầu vào bên dưới, không nhắc tới hệ thống nội bộ.\n"
-            f"Yêu cầu: {instruction}\n\n"
-            "Dữ liệu đầu vào:\n"
-            f"{raw_text}\n\n"
-            "Câu trả lời:"
+            "### Hướng dẫn: Bạn là trợ lý SV Bách Khoa. Tóm tắt dữ liệu sau bằng tiếng Việt ngắn gọn (1-3 câu). "
+            "Tuyệt đối không bịa số liệu. Không chào hỏi.\n"
+            f"### Dữ liệu:\n{compact_data}\n"
+            "### Trả lời:"
         )
 
     def _normalize_confidence(self, value: Any) -> float:
