@@ -245,6 +245,15 @@ class NL2SQLService:
 
         return names
     
+    def _normalize_question(self, question: str) -> str:
+        """Chuẩn hóa câu hỏi: xóa khoảng trắng, chuyển chữ thường"""
+        if not question:
+            return ""
+        # Chuyển về chữ thường và xóa khoảng trắng thừa ở 2 đầu
+        q = question.lower().strip()
+        # Bạn có thể thêm logic xóa dấu tiếng Việt ở đây nếu cần thiết
+        return q
+    
     def _find_best_match(self, question: str, intent: str) -> Optional[Dict]:
         """Find best matching SQL template from examples"""
         normalized_q = self._normalize_question(question)
