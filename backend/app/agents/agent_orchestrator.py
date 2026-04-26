@@ -313,34 +313,12 @@ class AgentOrchestrator:
             # node 2 intent
             intent_info = await self.node2_intent_router(seg)
             intent = intent_info.get('intent')
-            res = []
-            try:
-                if intent and intent != 'unknown':
-                    # Gọi Tool ở Node 3
-                    res = await self.tools.call(intent, {
-                        "q": seg, 
-                        "student_id": student_id, 
-                        "conversation_id": conversation_id
-                    })
-                    # Đảm bảo nếu res là None thì chuyển thành mảng rỗng
-                    if res is None:
-                        res = []
-            except Exception as e:
-                res = {"error": str(e)}
-                print(f"[NODE-3:ERROR] index={idx+1} error={e}")            
-            
-            results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
-            print(f"[ORCH] segment_intent index={idx} intent={intent} source={intent_info.get('source')}")
-            print("\n" + "="*50)
-            print(f"Data from NODE3: {json.dumps(results, indent=2, ensure_ascii=False)}")
-            print("="*50 + "\n")
-            # call tool
-            try:
-                if not intent or intent == 'unknown':
-                    self.metrics.increment("tools.skipped_unknown_intent")
-                    res = {"message": "No tool mapped for unknown intent"}
-                    print(f"[NODE-3:TOOLS] index={idx} skipped reason=unknown_intent")
-                else:
+            if not intent or intent == 'unknown':
+                self.metrics.increment("tools.skipped_unknown_intent")
+                res = {'message': 'No tool mapped for unknown intent', 'items': []}
+                print(f"[NODE-3:TOOLS] index={idx} skipped reason=unknown_intent")
+            else:
+                try:
                     tool_started_at = time.perf_counter()
                     print(f"[NODE-3:TOOLS] index={idx} intent={intent} action=call")
                     res = await self.tools.call(
@@ -351,6 +329,8 @@ class AgentOrchestrator:
                             "conversation_id": conversation_id,
                         },
                     )
+                    if res is None:
+                        res = []
                     self.metrics.increment(f"tools.{intent}.success")
                     tool_duration = time.perf_counter() - tool_started_at
                     self.metrics.observe_latency(f"tools.{intent}.latency", tool_duration)
@@ -359,12 +339,17 @@ class AgentOrchestrator:
                         f"duration_ms={tool_duration * 1000:.1f} result_preview={self._preview(res, 140)}"
                     )
                     print(f"NODE3 output: {json.dumps(res, indent=2, ensure_ascii=False)}")
-            except Exception as e:
-                self.metrics.increment(f"tools.{intent or 'unknown'}.failure")
-                res = {"error": str(e)}
-                print(f"NODE3 output: {json.dumps(res, indent=2, ensure_ascii=False)}")
-                print(f"[NODE-3:TOOLS] index={idx} intent={intent} status=failure error={e}")
-           
+                except Exception as e:
+                    self.metrics.increment(f"tools.{intent or 'unknown'}.failure")
+                    res = {"error": str(e)}
+                    print(f"NODE3 output: {json.dumps(res, indent=2, ensure_ascii=False)}")
+                    print(f"[NODE-3:TOOLS] index={idx} intent={intent} status=failure error={e}")
+            results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
+            print(f"[ORCH] segment_intent index={idx} intent={intent} source={intent_info.get('source')}")
+            print("\n" + "="*50)
+            print(f"Data from NODE3: {json.dumps(results, indent=2, ensure_ascii=False)}")
+            print("="*50 + "\n")
+
         # node 4 response (generative for all responses as requested)
         formatted = await self.node4_response_formatter(results, "Generate a helpful response in Vietnamese summarizing the search results.")
         summary = self._derive_summary_intent(results)
