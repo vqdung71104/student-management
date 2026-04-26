@@ -6,6 +6,8 @@ import traceback
 import time
 from typing import Any, Dict, List, Optional
 
+from click import prompt
+
 from app.llm.llm_client import LLMClient
 from app.llm.llm_client import LLMCircuitOpenError
 from app.llm.response_cache import ResponseCache
@@ -213,9 +215,13 @@ class AgentOrchestrator:
         cached = self.cache.get(h)
         if cached:
             # ... (phần cache hit giữ nguyên)
+            self.metrics.increment("node4.cache_hit")
             return cached
 
         self.metrics.increment("node4.cache_miss")
+        duration = time.perf_counter() - started_at
+        self.metrics.observe_latency("node4.latency", duration)
+        print(f"[NODE-4:FORMAT] cache miss, start LLM generation. duration_ms={duration * 1000:.1f}")
 
         # 2. CHUẨN BỊ PROMPT
         prompt = self._build_formatter_prompt(raw_result, instruction)
