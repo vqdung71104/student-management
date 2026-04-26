@@ -2,6 +2,8 @@ import hashlib
 import json
 import os
 import time
+import traceback
+import time
 from typing import Any, Dict, List, Optional
 
 from app.llm.llm_client import LLMClient
@@ -187,7 +189,7 @@ class AgentOrchestrator:
 
     async def node4_response_formatter(self, raw_result: Any, instruction: str) -> str:
         started_at = time.perf_counter()
-        
+
         # 1. IN RA DỮ LIỆU NHẬN ĐƯỢC TỪ NODE 3 (QUAN TRỌNG NHẤT)
         # Chúng ta dùng try-except nhỏ để in dữ liệu, tránh việc chính lệnh print gây lỗi
         try:
@@ -197,7 +199,7 @@ class AgentOrchestrator:
                 data_preview = json.dumps(raw_result, indent=2, ensure_ascii=False)
             else:
                 data_preview = str(raw_result)
-                
+
             print("\n" + "="*50)
             print(f"[NODE-4:DEBUG] DỮ LIỆU NHẬN TỪ NODE-3:")
             print(f" - Kiểu dữ liệu: {data_type}")
@@ -205,20 +207,20 @@ class AgentOrchestrator:
             print("="*50 + "\n")
         except Exception as e:
             print(f"[NODE-4:DEBUG] Lỗi khi in dữ liệu đầu vào: {e}")
-    
+
         # Cache logic (giữ nguyên)
         h = self._hash_raw_result(raw_result, instruction)
         cached = self.cache.get(h)
         if cached:
             # ... (phần cache hit giữ nguyên)
             return cached
-    
+
         self.metrics.increment("node4.cache_miss")
-        
+
         # 2. CHUẨN BỊ PROMPT
         prompt = self._build_formatter_prompt(raw_result, instruction)
         print(f"[NODE-4:FORMAT] Prompt gửi cho LLM:\n{prompt[:500]}...") # In 500 ký tự đầu của prompt
-    
+
         try:
             # Gọi LLM
             gen = await self.llm.generate(
@@ -230,41 +232,41 @@ class AgentOrchestrator:
                 repeat_penalty=NODE4_REPEAT_PENALTY,
                 stop=["<|im_end|>"]
             )
-            
+
             # Kiểm tra kết quả LLM trả về
             if not gen:
                 raise ValueError("LLM trả về kết quả rỗng (None/Empty)")
-                
+
             text = (gen.get('text') or str(gen)).strip()
-            
+
             # Nếu LLM trả về nhưng nội dung vô nghĩa
             if not text:
                  raise ValueError("LLM trả về dictionary nhưng trường 'text' bị trống")
-    
+
             self.metrics.increment("node4.llm_success")
             print(f"[NODE-4:FORMAT] LLM phản hồi thành công. Output: {text[:160]}...")
-            
+
         except LLMCircuitOpenError:
             self.metrics.increment("node4.circuit_open")
             text = "⚠️ Hệ thống tạm bận (Circuit Open). Dữ liệu thô: " + str(raw_result)[:200]
             print("[NODE-4:FORMAT] Lỗi: Circuit Breaker đang mở.")
-            
+
         except Exception as exc:
             # 3. NÉM LỖI CỤ THỂ VÀ TRACEBACK
             self.metrics.increment("node4.fallback")
-            
+
             # Lấy chi tiết lỗi kèm dòng code bị lỗi
             error_detail = traceback.format_exc()
-            
+
             print("\n" + "!"*50)
             print(f"[NODE-4:CRITICAL_ERROR] Đã xảy ra lỗi tại Node 4!")
             print(f"Chi tiết lỗi: {str(exc)}")
             print(f"Stack Trace:\n{error_detail}")
             print("!"*50 + "\n")
-            
+
             # Trả về lỗi cụ thể lên UI để Dũng nhìn thấy luôn trên trình duyệt
             text = f"❌ Lỗi Node 4: {type(exc).__name__} - {str(exc)}"
-            
+
         self.cache.set(h, text)
         duration = time.perf_counter() - started_at
         print(f"[NODE-4:FORMAT] Hoàn thành trong {duration * 1000:.1f}ms")
