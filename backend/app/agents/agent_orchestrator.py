@@ -266,6 +266,8 @@ class AgentOrchestrator:
         cached = self.cache.get(h)
         if cached:
             self.metrics.increment("node4.cache_hit")
+            cache_duration_ms = (time.perf_counter() - started_at) * 1000
+            self.metrics.observe_latency("node4.latency", cache_duration_ms / 1000)
             return {"text": cached, "from_cache": True, "processing_time_ms": 0}
         
         self.metrics.increment("node4.cache_miss")
@@ -312,6 +314,7 @@ class AgentOrchestrator:
         self.cache.set(h, text)
         
         total_duration_ms = (time.perf_counter() - started_at) * 1000
+        self.metrics.observe_latency("node4.latency", total_duration_ms / 1000)
         print(f"[NODE-4:DONE] duration={total_duration_ms:.1f}ms (LLM: {llm_processing_time_ms:.1f}ms) model={model_used}")
         
         return {

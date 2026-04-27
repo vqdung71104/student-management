@@ -73,7 +73,10 @@ async def test_node4_caching_behavior():
     raw_result = {'a': 1}
     out1 = await orchestrator.node4_response_formatter(raw_result, instruction="Format")
     out2 = await orchestrator.node4_response_formatter(raw_result, instruction="Format")
-    assert out1 == out2
+    # Compare text content instead of entire object (metadata differs)
+    assert out1['text'] == out2['text']
+    assert out1['from_cache'] is False
+    assert out2['from_cache'] is True
     assert llm.generate_called == 1
 
 
@@ -101,5 +104,8 @@ async def test_node4_formatter_fallback_text_on_generate_error():
     llm = BrokenGenerateLLM()
     orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=ResponseCache())
     out = await orchestrator.node4_response_formatter({"x": 1}, instruction="Format")
-    assert isinstance(out, str)
-    assert len(out) > 0
+    # Node4 returns dict, check for error content
+    assert isinstance(out, dict)
+    assert 'text' in out
+    assert len(out['text']) > 0
+    assert out['model_used'] == 'error'

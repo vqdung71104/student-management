@@ -90,7 +90,10 @@ async def test_cache_hit_skips_second_generation_and_records_metric():
     first = await orchestrator.node4_response_formatter(raw_result, "Format this")
     second = await orchestrator.node4_response_formatter(raw_result, "Format this")
 
-    assert first == second
+    # Compare text content, not entire dict (metadata differs)
+    assert first['text'] == second['text']
+    assert first['from_cache'] is False
+    assert second['from_cache'] is True
     assert llm.generate_calls == 1
     snapshot = get_orchestration_metrics().snapshot()
     assert snapshot["counters"]["node4.cache_hit"] == 1
