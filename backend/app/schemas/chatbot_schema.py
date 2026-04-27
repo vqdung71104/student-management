@@ -88,6 +88,18 @@ class ChatResponse(BaseModel):
         }
 
 
+class LLMProcessingMetadata(BaseModel):
+    """Schema cho thông tin xử lý trung gian LLM"""
+    user_input: str = Field(..., description="Tin nhắn gốc từ user (sau khi normalize)")
+    llm_processed_output: Optional[str] = Field(None, description="Kết quả đã xử lý từ LLM")
+    raw_data: Optional[Dict[str, Any]] = Field(None, description="Dữ liệu thô trước khi format")
+    has_repetition: bool = Field(False, description="Có dấu hiệu lặp trong output không")
+    repetition_segments: Optional[List[str]] = Field(None, description="Các đoạn bị lặp")
+    processing_time_ms: Optional[float] = Field(None, description="Thời gian xử lý tính bằng ms")
+    model_used: Optional[str] = Field(None, description="Model LLM được sử dụng")
+    token_count: Optional[int] = Field(None, description="Số tokens đã sử dụng")
+
+
 class ChatResponseWithData(ChatResponse):
     """Schema cho response từ chatbot kèm data từ database"""
     data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu từ database")
@@ -100,6 +112,7 @@ class ChatResponseWithData(ChatResponse):
     conversation_id: Optional[int] = Field(None, description="ID hội thoại đã lưu")
     message_id: Optional[int] = Field(None, description="ID bản ghi assistant message")
     created_at: Optional[datetime] = Field(None, description="Thời gian lưu assistant message")
+    llm_processing: Optional[LLMProcessingMetadata] = Field(None, description="Thông tin xử lý trung gian từ LLM")
     
     class Config:
         json_schema_extra = {
@@ -116,7 +129,16 @@ class ChatResponseWithData(ChatResponse):
                     }
                 ],
                 "sql": "SELECT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls WHERE ls.student_id = 1",
-                "sql_error": None
+                "sql_error": None,
+                "llm_processing": {
+                    "user_input": "Điểm các môn học kỳ này",
+                    "llm_processed_output": "Điểm các môn học kỳ 2024.1",
+                    "raw_data": {"semester": "2024.1"},
+                    "has_repetition": False,
+                    "processing_time_ms": 123.45,
+                    "model_used": "gpt-4o-mini",
+                    "token_count": 256
+                }
             }
         }
 
@@ -208,8 +230,8 @@ class ConversationMessagesResponse(BaseModel):
 
 class StreamChunk(BaseModel):
     """Schema cho streaming response chunks"""
-    type: str = Field(..., description="Loại chunk: status|data|error|done", pattern="^(status|data|error|done)$")
-    stage: Optional[str] = Field(None, description="Giai đoạn xử lý: preprocessing|classification|query|formatting|complete")
+    type: str = Field(..., description="Loại chunk: status|data|error|done|metadata", pattern="^(status|data|error|done|metadata)$")
+    stage: Optional[str] = Field(None, description="Giai đoạn xử lý: preprocessing|classification|query|formatting|complete|llm_processing")
     message: Optional[str] = Field(None, description="Thông báo cho user")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Thời điểm gửi chunk")
     partial_data: Optional[List[Dict[str, Any]]] = Field(None, description="Dữ liệu một phần (khi type=data)")
@@ -228,6 +250,9 @@ class StreamChunk(BaseModel):
     conversation_id: Optional[int] = Field(None, description="ID hội thoại")
     message_id: Optional[int] = Field(None, description="ID assistant message")
     
+    # LLM processing metadata (khi type=metadata hoặc type=done)
+    llm_processing: Optional[LLMProcessingMetadata] = Field(None, description="Thông tin xử lý trung gian từ LLM")
+    
     # Error info (khi type=error)
     error_code: Optional[str] = Field(None, description="Mã lỗi")
     error_detail: Optional[str] = Field(None, description="Chi tiết lỗi")
@@ -240,6 +265,21 @@ class StreamChunk(BaseModel):
                     "stage": "preprocessing",
                     "message": "✓ Chuẩn hóa dữ liệu",
                     "timestamp": "2025-04-06T10:30:00Z"
+                },
+                "metadata": {
+                    "type": "metadata",
+                    "stage": "llm_processing",
+                    "message": "Đã hoàn tất xử lý LLM",
+                    "llm_processing": {
+                        "user_input": "Điểm các môn học kỳ này",
+                        "llm_processed_output": "Điểm các môn học kỳ 2024.1",
+                        "raw_data": {"semester": "2024.1"},
+                        "has_repetition": False,
+                        "processing_time_ms": 123.45,
+                        "model_used": "gpt-4o-mini",
+                        "token_count": 256
+                    },
+                    "timestamp": "2025-04-06T10:30:03Z"
                 },
                 "data": {
                     "type": "data",
@@ -257,6 +297,12 @@ class StreamChunk(BaseModel):
                     "intent": "learned_subjects_view",
                     "confidence": "high",
                     "data": [{"subject_name": "Giải tích 1"}],
+                    "llm_processing": {
+                        "user_input": "Điểm các môn học kỳ này",
+                        "llm_processed_output": "Điểm các môn học kỳ 2024.1",
+                        "raw_data": {"semester": "2024.1"},
+                        "has_repetition": False
+                    },
                     "timestamp": "2025-04-06T10:30:04Z"
                 }
             }

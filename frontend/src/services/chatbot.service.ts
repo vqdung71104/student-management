@@ -48,11 +48,23 @@ export interface ChatResponse {
     sql_error?: string | null;
     query: string;
   }>;
+  llm_processing?: LLMProcessingMetadata;
+}
+
+export interface LLMProcessingMetadata {
+  user_input: string;
+  llm_processed_output?: string | null;
+  raw_data?: Record<string, any> | null;
+  has_repetition: boolean;
+  repetition_segments?: string[] | null;
+  processing_time_ms?: number | null;
+  model_used?: string | null;
+  token_count?: number | null;
 }
 
 export interface ChatStreamChunk {
-  type: 'status' | 'data' | 'error' | 'done';
-  stage?: 'preprocessing' | 'classification' | 'query' | 'formatting' | 'complete';
+  type: 'status' | 'data' | 'error' | 'done' | 'metadata';
+  stage?: 'preprocessing' | 'classification' | 'query' | 'formatting' | 'complete' | 'llm_processing';
   message?: string;
   timestamp?: string;
   partial_data?: any[];
@@ -77,6 +89,7 @@ export interface ChatStreamChunk {
   created_at?: string;
   error_code?: string;
   error_detail?: string;
+  llm_processing?: LLMProcessingMetadata;
   debug?: {
     trace_id?: string;
     mode?: string;

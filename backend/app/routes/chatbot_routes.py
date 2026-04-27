@@ -21,6 +21,7 @@ from app.schemas.chatbot_schema import (
     ChatConversationItem,
     ChatConversationListResponse,
     ConversationMessagesResponse,
+    LLMProcessingMetadata,
 )
 from app.schemas.preference_schema import CompletePreference, PreferenceQuestion, PREFERENCE_QUESTIONS
 from app.db.database import get_db
@@ -77,6 +78,81 @@ _REGISTRATION_REMINDER_HTML = (
 
 def _section_header(intent: str) -> str:
     return _SECTION_HEADERS.get(intent, f"ℹ️ {intent}")
+
+
+def _detect_repetition(text: str) -> tuple[bool, List[str]]:
+    """
+    Detect repetitive patterns in text.
+    Returns (has_repetition, repetition_segments).
+    """
+    if not text or len(text) < 50:
+        return False, []
+    
+    # Check for repeated sentences/paragraphs
+    import re
+    
+    # Split by common delimiters
+    segments = re.split(r'[.\n]+', text)
+    segments = [s.strip() for s in segments if s.strip() and len(s.strip()) > 20]
+    
+    if len(segments) < 3:
+        return False, []
+    
+    repetition_segments = []
+    
+    # Check for identical consecutive segments
+    for i in range(len(segments) - 1):
+        if segments[i] == segments[i + 1]:
+            if segments[i] not in repetition_segments:
+                repetition_segments.append(segments[i])
+    
+    # Check for repeating phrase patterns (e.g., "A B A B")
+    phrase_pattern = re.compile(r'(\b\w+(?:\s+\w+){5,})\b')
+    phrases = phrase_pattern.findall(text)
+    phrase_counts: Dict[str, int] = {}
+    for phrase in phrases:
+        phrase_counts[phrase] = phrase_counts.get(phrase, 0) + 1
+    
+    for phrase, count in phrase_counts.items():
+        if count >= 3 and len(phrase) > 30:
+            if phrase not in repetition_segments:
+                repetition_segments.append(phrase)
+    
+    # Check for excessive character repetition (e.g., "aaaaaa")
+    char_repeat_pattern = re.compile(r'(.)\1{5,}')
+    char_repeats = char_repeat_pattern.findall(text)
+    for char in char_repeats:
+        segment = f"Ký tự '{char}' lặp lại 6 lần trở lên"
+        if segment not in repetition_segments:
+            repetition_segments.append(segment)
+    
+    has_repetition = len(repetition_segments) > 0
+    return has_repetition, repetition_segments
+
+
+def _build_llm_processing_metadata(
+    user_input: str,
+    processed_output: Optional[str] = None,
+    raw_data: Optional[Dict[str, Any]] = None,
+    processing_time_ms: Optional[float] = None,
+    model_used: Optional[str] = None,
+    token_count: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Build LLM processing metadata dictionary.
+    """
+    has_repetition, repetition_segments = _detect_repetition(processed_output or "")
+    
+    return {
+        "user_input": user_input,
+        "llm_processed_output": processed_output,
+        "raw_data": raw_data,
+        "has_repetition": has_repetition,
+        "repetition_segments": repetition_segments if repetition_segments else None,
+        "processing_time_ms": processing_time_ms,
+        "model_used": model_used,
+        "token_count": token_count,
+    }
 
 
 def _prepend_registration_reminder(intent: str, text: str) -> str:
@@ -910,6 +986,17 @@ async def chat(
                             'data': item.get('raw_result')
                         })
 
+                # Build LLM processing metadata for agent responses
+                llm_debug = orchestration_result.get("debug", {})
+                llm_processing_data = _build_llm_processing_metadata(
+                    user_input=normalized_message,
+                    processed_output=resp_text[:500] if resp_text else None,  # First 500 chars
+                    raw_data={"raw_items": len(raw) if isinstance(raw, list) else 0},
+                    processing_time_ms=llm_debug.get("llm_processing_time_ms") if isinstance(llm_debug, dict) else None,
+                    model_used=llm_debug.get("model_used") if isinstance(llm_debug, dict) else None,
+                    token_count=llm_debug.get("total_tokens") if isinstance(llm_debug, dict) else None,
+                )
+                
                 response_payload = ChatResponseWithData(
                     text=resp_text,
                     intent=intent_label,
@@ -920,6 +1007,7 @@ async def chat(
                     sql_error=None,
                     is_compound=(intent_label == 'compound'),
                     parts=parts,
+                    llm_processing=LLMProcessingMetadata(**llm_processing_data),
                 )
                 execution_debug = _make_execution_debug(
                     trace_id=request_trace_id,
@@ -1004,6 +1092,13 @@ async def chat(
                 parts.append(part_resp)
 
             response_payload = _merge_responses(parts, sub_queries)
+            # Add LLM processing metadata for compound query
+            response_payload.llm_processing = LLMProcessingMetadata(
+                user_input=normalized_message,
+                llm_processed_output=f"Compound query với {len(parts)} phần",
+                raw_data={"segments": len(parts), "intents": [p.intent for p in parts]},
+                has_repetition=False,
+            )
             execution_debug = _make_execution_debug(
                 trace_id=request_trace_id,
                 mode="legacy_compound",
@@ -1020,6 +1115,13 @@ async def chat(
                 conversation_id=effective_conversation_id,
                 db=db,
                 chatbot_service=chatbot_service,
+            )
+            # Add LLM processing metadata for legacy single query
+            response_payload.llm_processing = LLMProcessingMetadata(
+                user_input=normalized_message,
+                llm_processed_output=response_payload.text[:500] if response_payload.text else None,
+                raw_data={"intent": response_payload.intent, "confidence": response_payload.confidence},
+                has_repetition=False,
             )
             execution_debug = _make_execution_debug(
                 trace_id=request_trace_id,
@@ -1154,6 +1256,7 @@ async def chat_stream(
     Trả về Server-Sent Events stream với nhiều StreamChunk:
     - "status" chunks: cập nhật giai đoạn xử lý
     - "data" chunks: dữ liệu một phần đã lấy được
+    - "metadata" chunk: thông tin xử lý trung gian từ LLM
     - "done" chunk: phản hồi hoàn chỉnh
     - "error" chunk: lỗi xảy ra
     """
@@ -1306,6 +1409,17 @@ async def chat_stream(
                                         'data': item.get('raw_result')
                                     })
 
+                            # Build LLM processing metadata for agent responses
+                            llm_debug = orchestration_result.get("debug", {})
+                            llm_processing_data = _build_llm_processing_metadata(
+                                user_input=normalized_message,
+                                processed_output=resp_text[:500] if resp_text else None,
+                                raw_data={"raw_items": len(raw) if isinstance(raw, list) else 0},
+                                processing_time_ms=llm_debug.get("llm_processing_time_ms") if isinstance(llm_debug, dict) else None,
+                                model_used=llm_debug.get("model_used") if isinstance(llm_debug, dict) else None,
+                                token_count=llm_debug.get("total_tokens") if isinstance(llm_debug, dict) else None,
+                            )
+                            
                             response_payload = ChatResponseWithData(
                                 text=resp_text,
                                 intent=intent_label,
@@ -1316,6 +1430,7 @@ async def chat_stream(
                                 sql_error=None,
                                 is_compound=(intent_label == 'compound'),
                                 parts=parts,
+                                llm_processing=LLMProcessingMetadata(**llm_processing_data),
                             )
                             stream_debug["mode"] = "agent"
                             stream_debug["route"] = "agent_orchestrator"
@@ -1344,6 +1459,13 @@ async def chat_stream(
                             conversation_id=effective_conversation_id,
                             db=db,
                             chatbot_service=chatbot_service,
+                        )
+                        # Add LLM processing metadata for legacy single query
+                        response_payload.llm_processing = LLMProcessingMetadata(
+                            user_input=normalized_message,
+                            llm_processed_output=response_payload.text[:500] if response_payload.text else None,
+                            raw_data={"intent": response_payload.intent, "confidence": response_payload.confidence},
+                            has_repetition=False,
                         )
                         stream_debug["mode"] = "legacy_direct"
                         stream_debug["route"] = "legacy_single_query"
@@ -1377,6 +1499,17 @@ async def chat_stream(
                 except Exception as persist_err:
                     print(f"⚠️ [STREAM][CHAT_HISTORY] Persist failed: {persist_err}")
 
+            # Emit metadata chunk with LLM processing info if available
+            if response_payload.llm_processing:
+                yield _emit(
+                    StreamChunk(
+                        type="metadata",
+                        stage="llm_processing",
+                        message="Hoàn tất xử lý LLM",
+                        llm_processing=response_payload.llm_processing,
+                    )
+                )
+
             yield _emit(
                 StreamChunk(
                     type="done",
@@ -1391,6 +1524,7 @@ async def chat_stream(
                     parts=response_payload.parts,
                     conversation_id=response_payload.conversation_id,
                     message_id=response_payload.message_id,
+                    llm_processing=response_payload.llm_processing,
                 )
             )
 
