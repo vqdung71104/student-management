@@ -13,13 +13,22 @@ from app.agents.orchestration_metrics import get_orchestration_metrics
 LLM_SPACE_URL = os.environ.get("LLM_SPACE_URL")
 LLM_API_TOKEN = os.environ.get("LLM_API_TOKEN")
 
-# Increased timeouts for reliability
+# External API Configuration
+EXTERNAL_LLM_PROVIDER = os.environ.get("EXTERNAL_LLM_PROVIDER", "gemini").lower()  # "gemini" or "openai"
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+
+# External API Timeouts (much shorter for fast APIs)
+EXTERNAL_CONNECT_TIMEOUT = float(os.environ.get("EXTERNAL_CONNECT_TIMEOUT", "10"))
+EXTERNAL_DEFAULT_TIMEOUT = float(os.environ.get("EXTERNAL_DEFAULT_TIMEOUT", "30"))  # 30s for external APIs
+
+# Internal LLM Timeouts (kept for fallback)
 LLM_CONNECT_TIMEOUT = float(os.environ.get("LLM_CONNECT_TIMEOUT", "10"))
-LLM_DEFAULT_TIMEOUT = float(os.environ.get("LLM_DEFAULT_TIMEOUT", "120"))  # NEW: default 120s
+LLM_DEFAULT_TIMEOUT = float(os.environ.get("LLM_DEFAULT_TIMEOUT", "120"))
 
 LLM_SPLIT_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "2")))
 LLM_CLASSIFY_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "2"))
-LLM_GENERATE_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "12"))  # NOTE: kept at 12s for generate as it's per-call timeout
+LLM_GENERATE_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "12"))
 
 LLM_SPLIT_MAX_TOKENS = int(os.environ.get("LLM_SPLIT_MAX_TOKENS", "48"))
 LLM_CLASSIFY_MAX_TOKENS = int(os.environ.get("LLM_CLASSIFY_MAX_TOKENS", "12"))
@@ -29,8 +38,8 @@ LLM_GENERATE_TEMPERATURE = float(os.environ.get("LLM_GENERATE_TEMPERATURE", "0.2
 LLM_FAST_TEMPERATURE = float(os.environ.get("LLM_FAST_TEMPERATURE", "0.0"))
 LLM_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
 LLM_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
-LLM_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "1"))
-LLM_RETRY_BASE_DELAY = float(os.environ.get("LLM_RETRY_BASE_DELAY", "0.2"))
+LLM_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "2"))
+LLM_RETRY_BASE_DELAY = float(os.environ.get("LLM_RETRY_BASE_DELAY", "0.5"))
 LLM_BREAKER_FAIL_THRESHOLD = int(os.environ.get("LLM_BREAKER_FAIL_THRESHOLD", "5"))
 LLM_BREAKER_COOLDOWN_SECONDS = float(os.environ.get("LLM_BREAKER_COOLDOWN_SECONDS", "30"))
 
@@ -38,44 +47,26 @@ LLM_BREAKER_COOLDOWN_SECONDS = float(os.environ.get("LLM_BREAKER_COOLDOWN_SECOND
 # ── JSON Extraction Helper ─────────────────────────────────────────────────────
 
 def extract_json_from_text(raw_text: str) -> Optional[Dict[str, Any]]:
-    """
-    Extract a JSON object/dict from raw text using regex, with logging on failure.
-
-    Strategy:
-    1. Try json.loads() directly first (fastest path for clean JSON).
-    2. If that fails, use regex to find the first {...} block.
-    3. If regex also fails, log the full raw_text for debugging and return None.
-
-    This handles LLM responses that include extra text before/after the JSON block.
-
-    Returns:
-        Parsed dict if successful, None if all parsing attempts fail.
-    """
     if not raw_text:
         return None
 
-    # Path 1: Try direct parsing (clean JSON response)
     try:
         return json.loads(raw_text)
     except (json.JSONDecodeError, TypeError):
-        pass  # Fall through to regex extraction
+        pass
 
-    # Path 2: Regex extraction - find first balanced {...} block
-    # This regex matches from opening { to closing } with balanced nesting
     json_pattern = re.compile(r'\{(?:[^{}]|\{[^{}]*\})*\}', re.DOTALL)
 
     for match in json_pattern.finditer(raw_text):
         candidate = match.group(0)
         try:
             result = json.loads(candidate)
-            print(f"[JSON_EXTRACT] regex_hit start={match.start()} end={match.end()} length={len(candidate)}")
             return result
         except (json.JSONDecodeError, TypeError):
-            continue  # Try next match
+            continue
 
-    # Path 3: All parsing attempts failed - log for debugging
     preview = raw_text[:500] if len(raw_text) > 500 else raw_text
-    print(f"[JSON_EXTRACT] PARSE_FAILED - logging full response for debugging:")
+    print(f"[JSON_EXTRACT] PARSE_FAILED - logging full response:")
     print(f"--- RAW RESPONSE START ---")
     print(raw_text)
     print(f"--- RAW RESPONSE END (len={len(raw_text)}) ---")
@@ -83,27 +74,16 @@ def extract_json_from_text(raw_text: str) -> Optional[Dict[str, Any]]:
 
 
 def safe_parse_llm_response(raw_text: str) -> Dict[str, Any]:
-    """
-    Parse LLM response text into a dict, with robust fallback.
-
-    Returns:
-        Parsed dict on success.
-        Default valid JSON dict on failure: {"text": "...", "error": "parse_failed"}
-
-    Never raises; always returns a valid JSON-serializable dict.
-    """
     result = extract_json_from_text(raw_text)
 
     if result is not None:
         return result
 
-    # Fallback: return a valid dict with error info and truncated text
     fallback = {
         "text": raw_text[:200] if raw_text else "(empty response)",
         "error": "parse_failed",
         "raw_length": len(raw_text) if raw_text else 0,
     }
-    print(f"[JSON_EXTRACT] fallback_used raw_length={fallback['raw_length']}")
     return fallback
 
 
@@ -111,6 +91,165 @@ def safe_parse_llm_response(raw_text: str) -> Dict[str, Any]:
 
 class LLMCircuitOpenError(RuntimeError):
     pass
+
+class LLMAPIError(RuntimeError):
+    pass
+
+class LLMTimeoutError(RuntimeError):
+    pass
+
+
+# ── External LLM Clients ────────────────────────────────────────────────────────
+
+class GeminiClient:
+    """Fast Gemini Flash client for Node 4 formatting"""
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.model = "gemini-2.0-flash"  # Fastest Gemini model
+        self.url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent"
+    
+    async def generate(
+        self,
+        prompt: str,
+        max_tokens: int = 160,
+        temperature: float = 0.2,
+        timeout: float = 15.0,
+    ) -> Dict[str, Any]:
+        start = time.perf_counter()
+        
+        # Log input
+        input_preview = prompt[:300] + "..." if len(prompt) > 300 else prompt
+        print(f"[GEMINI] INPUT:\n{input_preview}")
+        
+        headers = {"Content-Type": "application/json"}
+        params = {"key": self.api_key}
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": temperature,
+                "topP": 0.9,
+            }
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await asyncio.wait_for(
+                    client.post(self.url, json=payload, headers=headers, params=params, timeout=timeout),
+                    timeout=timeout
+                )
+            
+            duration = (time.perf_counter() - start) * 1000
+            print(f"[GEMINI] RESPONSE_TIME: {duration:.1f}ms")
+            
+            if response.status_code != 200:
+                print(f"[GEMINI] ERROR: status={response.status_code} body={response.text[:500]}")
+                raise LLMAPIError(f"Gemini API error: {response.status_code}")
+            
+            data = response.json()
+            candidates = data.get("candidates", [])
+            if not candidates:
+                # Check for prompt feedback
+                prompt_feedback = data.get("promptFeedback", {})
+                block_reason = prompt_feedback.get("blockReason", "")
+                if block_reason:
+                    print(f"[GEMINI] BLOCKED: reason={block_reason}")
+                    raise LLMAPIError(f"Prompt blocked: {block_reason}")
+                raise LLMAPIError("No candidates in response")
+            
+            parts = candidates[0].get("content", {}).get("parts", [])
+            if not parts:
+                raise LLMAPIError("No parts in response")
+            
+            text = parts[0].get("text", "")
+            
+            # Log output
+            output_preview = text[:300] + "..." if len(text) > 300 else text
+            print(f"[GEMINI] OUTPUT:\n{output_preview}")
+            
+            return {"text": text, "raw_response": data}
+            
+        except asyncio.TimeoutError:
+            duration = (time.perf_counter() - start) * 1000
+            print(f"[GEMINI] TIMEOUT: {duration:.1f}ms exceeded {timeout}s")
+            raise LLMTimeoutError(f"Gemini timeout after {duration:.1f}ms")
+        except Exception as e:
+            duration = (time.perf_counter() - start) * 1000
+            print(f"[GEMINI] ERROR: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
+            raise
+
+
+class OpenAIClient:
+    """Fast OpenAI GPT client for Node 4 formatting"""
+    
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.model = "gpt-4o-mini"  # Fastest/cheapest GPT model
+        self.url = "https://api.openai.com/v1/chat/completions"
+    
+    async def generate(
+        self,
+        prompt: str,
+        max_tokens: int = 160,
+        temperature: float = 0.2,
+        timeout: float = 15.0,
+    ) -> Dict[str, Any]:
+        start = time.perf_counter()
+        
+        # Log input
+        input_preview = prompt[:300] + "..." if len(prompt) > 300 else prompt
+        print(f"[OPENAI] INPUT:\n{input_preview}")
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}"
+        }
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "top_p": 0.9,
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await asyncio.wait_for(
+                    client.post(self.url, json=payload, headers=headers, timeout=timeout),
+                    timeout=timeout
+                )
+            
+            duration = (time.perf_counter() - start) * 1000
+            print(f"[OPENAI] RESPONSE_TIME: {duration:.1f}ms")
+            
+            if response.status_code != 200:
+                print(f"[OPENAI] ERROR: status={response.status_code} body={response.text[:500]}")
+                raise LLMAPIError(f"OpenAI API error: {response.status_code}")
+            
+            data = response.json()
+            choices = data.get("choices", [])
+            if not choices:
+                raise LLMAPIError("No choices in response")
+            
+            text = choices[0].get("message", {}).get("content", "")
+            
+            # Log output
+            output_preview = text[:300] + "..." if len(text) > 300 else text
+            print(f"[OPENAI] OUTPUT:\n{output_preview}")
+            
+            return {"text": text, "raw_response": data}
+            
+        except asyncio.TimeoutError:
+            duration = (time.perf_counter() - start) * 1000
+            print(f"[OPENAI] TIMEOUT: {duration:.1f}ms exceeded {timeout}s")
+            raise LLMTimeoutError(f"OpenAI timeout after {duration:.1f}ms")
+        except Exception as e:
+            duration = (time.perf_counter() - start) * 1000
+            print(f"[OPENAI] ERROR: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
+            raise
 
 
 # ── LLM Client ────────────────────────────────────────────────────────────────
@@ -120,6 +259,18 @@ class LLMClient:
         self.base_url = base_url or LLM_SPACE_URL or "http://localhost:7860"
         self.token = token or LLM_API_TOKEN
         self._headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
+        
+        # Initialize external LLM clients if API keys are available
+        self._gemini = None
+        self._openai = None
+        
+        if GOOGLE_API_KEY:
+            self._gemini = GeminiClient(GOOGLE_API_KEY)
+            print(f"[LLM] Gemini client initialized")
+        if OPENAI_API_KEY:
+            self._openai = OpenAIClient(OPENAI_API_KEY)
+            print(f"[LLM] OpenAI client initialized")
+        
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             headers=self._headers,
@@ -150,13 +301,6 @@ class LLMClient:
         }
 
     async def _post_json(self, path: str, payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
-        """
-        POST to LLM endpoint and parse JSON response with robust extraction.
-
-        - Uses safe_parse_llm_response() instead of response.json() directly.
-        - This handles cases where LLM returns extra text around the JSON block.
-        - Falls back gracefully instead of raising parse errors.
-        """
         if self._is_circuit_open():
             self._metrics.increment(f"llm.{path}.circuit_open")
             print(f"[LLM] circuit_open path={path} timeout={timeout}s")
@@ -179,7 +323,6 @@ class LLMClient:
                 duration = time.perf_counter() - start
                 self._metrics.observe_latency(f"llm.{path}.latency", duration)
 
-                # ── Use robust JSON parsing instead of response.json() ──────────────
                 raw_text = response.text
                 raw_preview = raw_text[:200] + "..." if len(raw_text) > 200 else raw_text
                 print(
@@ -202,7 +345,6 @@ class LLMClient:
                 if attempt >= attempts - 1:
                     raise
                 delay = LLM_RETRY_BASE_DELAY * (2 ** attempt)
-                self._metrics.record_event(f"llm.{path}.retry", {"attempt": attempt + 1, "delay": delay})
                 print(f"[LLM] retry path={path} next_delay_s={delay:.2f}")
                 await asyncio.sleep(delay)
 
@@ -252,16 +394,113 @@ class LLMClient:
         repeat_penalty: float = LLM_REPEAT_PENALTY,
         stop: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        payload = {
-            "prompt": prompt,
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-            "top_p": top_p,
-            "repeat_penalty": repeat_penalty,
-        }
-        if stop:
-            payload["stop"] = stop
-        return await self._post_json("/generate", payload, timeout)
+        """
+        Generate response using external API (Gemini/OpenAI) for speed.
+        Falls back to internal HF space if external API fails.
+        """
+        start = time.perf_counter()
+        
+        # Log the INPUT to LLM
+        input_preview = prompt[:500] + "..." if len(prompt) > 500 else prompt
+        print(f"\n{'='*60}")
+        print(f"[LLM:GENERATE] INPUT:")
+        print(f"{input_preview}")
+        print(f"{'='*60}\n")
+        
+        # Try external API first if available
+        if EXTERNAL_LLM_PROVIDER == "gemini" and self._gemini:
+            try:
+                result = await self._gemini.generate(
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    timeout=min(timeout, 15.0),  # Cap external timeout
+                )
+                duration = (time.perf_counter() - start) * 1000
+                self._record_success()
+                self._metrics.increment("llm.generate.external_gemini_success")
+                self._metrics.observe_latency("llm.generate.latency", duration)
+                
+                # Log output
+                output_text = result.get("text", "")
+                output_preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
+                print(f"\n{'='*60}")
+                print(f"[LLM:GENERATE] OUTPUT (Gemini, {duration:.1f}ms):")
+                print(f"{output_preview}")
+                print(f"{'='*60}\n")
+                
+                return result
+            except Exception as e:
+                duration = (time.perf_counter() - start) * 1000
+                print(f"[LLM:GENERATE] Gemini failed: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
+                self._record_failure()
+                self._metrics.increment("llm.generate.external_gemini_failure")
+                # Fall through to try OpenAI or internal
+        
+        if EXTERNAL_LLM_PROVIDER == "openai" and self._openai:
+            try:
+                result = await self._openai.generate(
+                    prompt=prompt,
+                    max_tokens=max_tokens,
+                    temperature=temperature,
+                    timeout=min(timeout, 15.0),
+                )
+                duration = (time.perf_counter() - start) * 1000
+                self._record_success()
+                self._metrics.increment("llm.generate.external_openai_success")
+                self._metrics.observe_latency("llm.generate.latency", duration)
+                
+                # Log output
+                output_text = result.get("text", "")
+                output_preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
+                print(f"\n{'='*60}")
+                print(f"[LLM:GENERATE] OUTPUT (OpenAI, {duration:.1f}ms):")
+                print(f"{output_preview}")
+                print(f"{'='*60}\n")
+                
+                return result
+            except Exception as e:
+                duration = (time.perf_counter() - start) * 1000
+                print(f"[LLM:GENERATE] OpenAI failed: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
+                self._record_failure()
+                self._metrics.increment("llm.generate.external_openai_failure")
+        
+        # Fallback to internal HF space
+        print(f"[LLM:GENERATE] Falling back to internal LLM space: {self.base_url}")
+        try:
+            payload = {
+                "prompt": prompt,
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+                "top_p": top_p,
+                "repeat_penalty": repeat_penalty,
+            }
+            if stop:
+                payload["stop"] = stop
+            
+            result = await self._post_json("/generate", payload, timeout)
+            duration = (time.perf_counter() - start) * 1000
+            self._metrics.increment("llm.generate.internal_success")
+            self._metrics.observe_latency("llm.generate.latency", duration)
+            
+            output_text = result.get("text", str(result))
+            output_preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
+            print(f"\n{'='*60}")
+            print(f"[LLM:GENERATE] OUTPUT (Internal, {duration:.1f}ms):")
+            print(f"{output_preview}")
+            print(f"{'='*60}\n")
+            
+            return result
+        except Exception as e:
+            duration = (time.perf_counter() - start) * 1000
+            print(f"[LLM:GENERATE] Internal LLM FAILED: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
+            self._record_failure()
+            self._metrics.increment("llm.generate.failure")
+            
+            # Return a fallback response instead of raising
+            print(f"[LLM:GENERATE] Returning fallback response")
+            fallback_text = f"Không thể xử lý yêu cầu. Vui lòng thử lại sau."
+            return {"text": fallback_text, "error": str(e)}
 
     async def close(self):
         await self._client.aclose()

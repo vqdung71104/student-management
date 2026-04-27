@@ -3,10 +3,7 @@ import json
 import os
 import time
 import traceback
-import time
 from typing import Any, Dict, List, Optional
-
-from click import prompt
 
 from app.llm.llm_client import LLMClient
 from app.llm.llm_client import LLMCircuitOpenError
@@ -23,13 +20,24 @@ NODE4_GENERATE_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
 NODE4_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
 NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "30.0")))
 NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "20.0"))
-NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "120.0"))
+NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "30.0"))
 
-# placeholder import for local TF-IDF classifier
 try:
     from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 except ImportError:
     TfidfIntentClassifier = None
+
+# Fields to REMOVE from data before sending to Node 4 (not needed for formatting)
+_TRIM_FIELDS = frozenset({
+    "_student_course_pk", "_in_student_program", "_student_learning_status",
+    "_student_grade_history", "_student_latest_grade", "_student_latest_semester",
+    "_student_course_name", "_student_context_message", "_intent_type",
+    "_id", "_score", "_rank",
+})
+
+# Max items per list to prevent token explosion
+_MAX_ITEMS_PER_LIST = 20
+
 
 class AgentOrchestrator:
     def __init__(self, llm_client: Optional[LLMClient] = None, tools: Optional[ToolsRegistry] = None, cache: Optional[ResponseCache] = None):
@@ -49,30 +57,65 @@ class AgentOrchestrator:
         raw_bytes = self._stable_payload({"instruction": instruction, "raw": raw}).encode("utf-8")
         return hashlib.sha256(raw_bytes).hexdigest()
 
-    def _build_formatter_prompt(self, raw_result: Any, instruction: str) -> str:
-        # Tối ưu: Nén dữ liệu thô thành văn bản đơn giản thay vì JSON rườm rà
-        compact_data = ""
-        if isinstance(raw_result, list):
-            items = []
-            for item in raw_result:
-                seg = item.get('segment', '')
-                res = item.get('raw_result', {})
-                # Chỉ lấy phần nội dung chính, bỏ qua các metadata thừa
-                if isinstance(res, dict):
-                    content = res.get('items') or res.get('data') or res
-                else:
-                    content = res
-                items.append(f"- Câu hỏi: {seg}\n  Dữ liệu: {content}")
-            compact_data = "\n".join(items)
-        else:
-            compact_data = str(raw_result)
+    def _trim_data(self, data: Any) -> Any:
+        """
+        Remove unnecessary fields from data to reduce tokens.
+        """
+        if isinstance(data, dict):
+            return {
+                k: self._trim_data(v)
+                for k, v in data.items()
+                if k not in _TRIM_FIELDS
+            }
+        elif isinstance(data, list):
+            if len(data) > _MAX_ITEMS_PER_LIST:
+                return self._trim_data(data[:_MAX_ITEMS_PER_LIST])
+            return [self._trim_data(item) for item in data]
+        return data
 
-        # Prompt ngắn gọn, cố định phần đầu để tận dụng Prompt Caching
+    def _compact_data_for_prompt(self, raw_result: Any) -> str:
+        """Convert data to compact string format for minimal token usage."""
+        trimmed = self._trim_data(raw_result)
+        
+        if isinstance(trimmed, list):
+            lines = []
+            for i, item in enumerate(trimmed):
+                if isinstance(item, dict):
+                    seg = item.get('segment', f'Phần {i+1}')
+                    res = item.get('raw_result', item)
+                    
+                    if isinstance(res, dict):
+                        # Extract only essential fields
+                        essential = {}
+                        for k, v in res.items():
+                            if isinstance(v, (str, int, float, bool)) or v is None:
+                                essential[k] = v
+                            elif isinstance(v, list) and len(v) <= 5:
+                                essential[k] = v
+                        
+                        # Compact format: key1=val1, key2=val2...
+                        parts = [f"{k}={v}" for k, v in essential.items() if v is not None][:10]
+                        res_str = ", ".join(parts)
+                    else:
+                        res_str = str(res)[:100]
+                    
+                    lines.append(f"[{seg}] {res_str}")
+                else:
+                    lines.append(str(item)[:100])
+            
+            return "\n".join(lines)[:2000]  # Cap at 2000 chars
+        else:
+            return str(trimmed)[:1000]
+
+    def _build_formatter_prompt(self, raw_result: Any, instruction: str) -> str:
+        """
+        Build ultra-compact prompt for Node 4.
+        """
+        compact = self._compact_data_for_prompt(raw_result)
+        
         return (
-            "### Hướng dẫn: Bạn là trợ lý SV Bách Khoa. Tóm tắt dữ liệu sau bằng tiếng Việt ngắn gọn (1-3 câu). "
-            "Tuyệt đối không bịa số liệu. Không chào hỏi.\n"
-            f"### Dữ liệu:\n{compact_data}\n"
-            "### Trả lời:"
+            f"### Dữ liệu:\n{compact}\n\n"
+            f"### Trả lời (1-2 câu, tiếng Việt, không bịa số):"
         )
 
     def _normalize_confidence(self, value: Any) -> float:
@@ -117,14 +160,14 @@ class AgentOrchestrator:
     async def node1_query_splitter(self, text: str) -> List[str]:
         started_at = time.perf_counter()
         print(f"[NODE-1:SPLIT] input={self._preview(text, 120)}")
-        # quick local heuristics: 80% simple cases
+        
         if len(text.split()) < 40 and ('?' not in text and ',' not in text and '.' not in text):
             self.metrics.increment("node1.heuristic_hit")
             duration = time.perf_counter() - started_at
             self.metrics.observe_latency("node1.latency", duration)
             print(f"[NODE-1:SPLIT] source=heuristic segments=1 duration_ms={duration * 1000:.1f}")
             return [text]
-        # else ask LLM for complex queries
+        
         try:
             res = await self.llm.split(
                 text,
@@ -138,27 +181,21 @@ class AgentOrchestrator:
             self.metrics.observe_latency("node1.latency", duration)
             print(
                 f"[NODE-1:SPLIT] source=llm segments={len(segments)} "
-                f"duration_ms={duration * 1000:.1f} segments_preview={self._preview(segments, 160)}"
+                f"duration_ms={duration * 1000:.1f}"
             )
             return segments
         except Exception as exc:
-            # fallback to simple punctuation split
             self.metrics.increment("node1.fallback")
             duration = time.perf_counter() - started_at
             self.metrics.observe_latency("node1.latency", duration)
             fallback_segments = [s.strip() for s in text.replace('?', '.').split('.') if s.strip()]
-            print(
-                f"[NODE-1:SPLIT] source=fallback error={exc} segments={len(fallback_segments)} "
-                f"duration_ms={duration * 1000:.1f}"
-            )
+            print(f"[NODE-1:SPLIT] source=fallback error={exc} segments={len(fallback_segments)}")
             return fallback_segments
 
     async def node2_intent_router(self, text: str) -> Dict[str, Any]:
         started_at = time.perf_counter()
         print(f"[NODE-2:ROUTE] query={self._preview(text, 120)}")
-        # Node-2: 
-        # Giữ TFIDF làm chính
-        # Chỉ gọi LLM khi confidence < 0.6 và query dài > 20 từ
+        
         label = 'unknown'
         score = 0.0
         if self.tfidf:
@@ -169,12 +206,9 @@ class AgentOrchestrator:
                 self.metrics.increment("node2.tfidf_hit")
                 duration = time.perf_counter() - started_at
                 self.metrics.observe_latency("node2.latency", duration)
-                print(
-                    f"[NODE-2:ROUTE] source=tfidf intent={label} confidence={score:.3f} "
-                    f"duration_ms={duration * 1000:.1f}"
-                )
+                print(f"[NODE-2:ROUTE] source=tfidf intent={label} confidence={score:.3f} duration_ms={duration * 1000:.1f}")
                 return {"intent": label, "confidence": score, "source": "tfidf"}
-        # else fallback to LLM
+        
         try:
             llm_res = await self.llm.classify(
                 text,
@@ -187,10 +221,7 @@ class AgentOrchestrator:
             self.metrics.increment("node2.llm_success")
             duration = time.perf_counter() - started_at
             self.metrics.observe_latency("node2.latency", duration)
-            print(
-                f"[NODE-2:ROUTE] source=llm intent={intent} confidence={confidence:.3f} "
-                f"duration_ms={duration * 1000:.1f}"
-            )
+            print(f"[NODE-2:ROUTE] source=llm intent={intent} confidence={confidence:.3f} duration_ms={duration * 1000:.1f}")
             return {"intent": intent, "confidence": confidence, "source": "llm"}
         except Exception as exc:
             self.metrics.increment("node2.fallback")
@@ -198,52 +229,53 @@ class AgentOrchestrator:
             self.metrics.observe_latency("node2.latency", duration)
             fallback_intent = label if self.tfidf else 'unknown'
             fallback_score = score if self.tfidf else 0.0
-            print(
-                f"[NODE-2:ROUTE] source=fallback intent={fallback_intent} confidence={fallback_score:.3f} "
-                f"error={exc} duration_ms={duration * 1000:.1f}"
-            )
+            print(f"[NODE-2:ROUTE] source=fallback intent={fallback_intent} error={exc}")
             return {"intent": fallback_intent, "confidence": fallback_score, "source": "fallback"}
 
-    async def node4_response_formatter(self, raw_result: Any, instruction: str) -> str:
+    async def node4_response_formatter(self, raw_result: Any, instruction: str) -> Dict[str, Any]:
+        """
+        Node 4: Format raw data into friendly response.
+        Returns dict with 'text' and debug info.
+        """
         started_at = time.perf_counter()
-
-        # 1. IN RA DỮ LIỆU NHẬN ĐƯỢC TỪ NODE 3 (QUAN TRỌNG NHẤT)
-        # Chúng ta dùng try-except nhỏ để in dữ liệu, tránh việc chính lệnh print gây lỗi
+        llm_processing_time_ms = 0.0
+        model_used = "none"
+        
+        # LOG INPUT DATA
         try:
-            data_type = type(raw_result).__name__
-            # Nếu là list/dict thì format JSON cho dễ nhìn, nếu là object khác thì dùng str()
-            if isinstance(raw_result, (list, dict)):
-                data_preview = json.dumps(raw_result, indent=2, ensure_ascii=False)
+            print(f"\n{'='*60}")
+            print(f"[NODE-4:INPUT] Raw data from Node-3:")
+            if isinstance(raw_result, list):
+                for i, item in enumerate(raw_result):
+                    print(f"  [{i+1}] segment: {item.get('segment', 'N/A')}")
+                    raw = item.get('raw_result', {})
+                    if isinstance(raw, dict):
+                        for k, v in list(raw.items())[:5]:
+                            print(f"      {k}: {v}")
+                    elif isinstance(raw, list):
+                        print(f"      (list with {len(raw)} items)")
             else:
-                data_preview = str(raw_result)
-
-            print("\n" + "="*50)
-            print(f"[NODE-4:DEBUG] DỮ LIỆU NHẬN TỪ NODE-3:")
-            print(f" - Kiểu dữ liệu: {data_type}")
-            print(f" - Nội dung: {data_preview}")
-            print("="*50 + "\n")
+                print(f"  Type: {type(raw_result).__name__}")
+                print(f"  Content: {str(raw_result)[:500]}")
+            print(f"{'='*60}\n")
         except Exception as e:
-            print(f"[NODE-4:DEBUG] Lỗi khi in dữ liệu đầu vào: {e}")
+            print(f"[NODE-4:INPUT] Error logging input: {e}")
 
-        # Cache logic (giữ nguyên)
+        # Cache check
         h = self._hash_raw_result(raw_result, instruction)
         cached = self.cache.get(h)
         if cached:
-            # ... (phần cache hit giữ nguyên)
             self.metrics.increment("node4.cache_hit")
-            return cached
-
+            return {"text": cached, "from_cache": True, "processing_time_ms": 0}
+        
         self.metrics.increment("node4.cache_miss")
-        duration = time.perf_counter() - started_at
-        self.metrics.observe_latency("node4.latency", duration)
-        print(f"[NODE-4:FORMAT] cache miss, start LLM generation. duration_ms={duration * 1000:.1f}")
-
-        # 2. CHUẨN BỊ PROMPT
+        
+        # Build compact prompt
         prompt = self._build_formatter_prompt(raw_result, instruction)
-        print(f"[NODE-4:FORMAT] Prompt gửi cho LLM:\n{prompt[:500]}...") # In 500 ký tự đầu của prompt
-
+        
         try:
-            # Gọi LLM
+            # Call LLM with timing
+            gen_started = time.perf_counter()
             gen = await self.llm.generate(
                 prompt,
                 max_tokens=NODE4_GENERATE_MAX_TOKENS,
@@ -251,47 +283,43 @@ class AgentOrchestrator:
                 timeout=NODE4_TIMEOUT,
                 top_p=NODE4_GENERATE_TOP_P,
                 repeat_penalty=NODE4_REPEAT_PENALTY,
-                stop=["<|im_end|>"]
             )
-
-            # Kiểm tra kết quả LLM trả về
-            if not gen:
-                raise ValueError("LLM trả về kết quả rỗng (None/Empty)")
-
-            text = (gen.get('text') or str(gen)).strip()
-
-            # Nếu LLM trả về nhưng nội dung vô nghĩa
+            llm_processing_time_ms = (time.perf_counter() - gen_started) * 1000
+            
+            text = (gen.get('text') or str(gen) or "").strip()
+            model_used = gen.get('model_used', 'gemini')
+            
             if not text:
-                 raise ValueError("LLM trả về dictionary nhưng trường 'text' bị trống")
-
+                raise ValueError("LLM returned empty text")
+            
             self.metrics.increment("node4.llm_success")
-            print(f"[NODE-4:FORMAT] LLM phản hồi thành công. Output: {text[:160]}...")
-
+            
         except LLMCircuitOpenError:
             self.metrics.increment("node4.circuit_open")
-            text = "⚠️ Hệ thống tạm bận (Circuit Open). Dữ liệu thô: " + str(raw_result)[:200]
-            print("[NODE-4:FORMAT] Lỗi: Circuit Breaker đang mở.")
-
+            text = f"Không thể xử lý lúc này. Dữ liệu: {str(raw_result)[:100]}..."
+            model_used = "circuit_open"
+            
         except Exception as exc:
-            # 3. NÉM LỖI CỤ THỂ VÀ TRACEBACK
             self.metrics.increment("node4.fallback")
-
-            # Lấy chi tiết lỗi kèm dòng code bị lỗi
             error_detail = traceback.format_exc()
+            print(f"[NODE-4:ERROR] {type(exc).__name__}: {str(exc)}")
+            print(f"[NODE-4:ERROR] Stack:\n{error_detail}")
+            text = f"❌ Lỗi xử lý: {str(exc)[:100]}"
+            model_used = "error"
+            llm_processing_time_ms = 0
 
-            print("\n" + "!"*50)
-            print(f"[NODE-4:CRITICAL_ERROR] Đã xảy ra lỗi tại Node 4!")
-            print(f"Chi tiết lỗi: {str(exc)}")
-            print(f"Stack Trace:\n{error_detail}")
-            print("!"*50 + "\n")
-
-            # Trả về lỗi cụ thể lên UI để Dũng nhìn thấy luôn trên trình duyệt
-            text = f"❌ Lỗi Node 4: {type(exc).__name__} - {str(exc)}"
-
+        # Cache result
         self.cache.set(h, text)
-        duration = time.perf_counter() - started_at
-        print(f"[NODE-4:FORMAT] Hoàn thành trong {duration * 1000:.1f}ms")
-        return text
+        
+        total_duration_ms = (time.perf_counter() - started_at) * 1000
+        print(f"[NODE-4:DONE] duration={total_duration_ms:.1f}ms (LLM: {llm_processing_time_ms:.1f}ms) model={model_used}")
+        
+        return {
+            "text": text,
+            "from_cache": False,
+            "processing_time_ms": llm_processing_time_ms,
+            "model_used": model_used,
+        }
 
     async def handle(
         self,
@@ -300,27 +328,26 @@ class AgentOrchestrator:
         conversation_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         handle_started_at = time.perf_counter()
-        print(
-            f"[ORCH] start query={self._preview(user_text, 120)} student_id={student_id} "
-            f"conversation_id={conversation_id}"
-        )
+        print(f"[ORCH] start query={self._preview(user_text, 120)} student_id={student_id}")
+        
         # node 1 split
         segments = await self.node1_query_splitter(user_text)
-        print(f"[ORCH] node1_done segments={len(segments)} segments_preview={self._preview(segments, 160)}")
+        print(f"[ORCH] node1_done segments={len(segments)}")
+        
         results = []
         for idx, seg in enumerate(segments, start=1):
-            print(f"[ORCH] segment_start index={idx}/{len(segments)} text={self._preview(seg, 120)}")
+            print(f"[ORCH] segment {idx}/{len(segments)}: {self._preview(seg, 80)}")
+            
             # node 2 intent
             intent_info = await self.node2_intent_router(seg)
             intent = intent_info.get('intent')
+            
             if not intent or intent == 'unknown':
                 self.metrics.increment("tools.skipped_unknown_intent")
-                res = {'message': 'No tool mapped for unknown intent', 'items': []}
-                print(f"[NODE-3:TOOLS] index={idx} skipped reason=unknown_intent")
+                res = {'message': 'No tool mapped', 'items': []}
             else:
                 try:
-                    tool_started_at = time.perf_counter()
-                    print(f"[NODE-3:TOOLS] index={idx} intent={intent} action=call")
+                    tool_started = time.perf_counter()
                     res = await self.tools.call(
                         intent,
                         {
@@ -331,27 +358,37 @@ class AgentOrchestrator:
                     )
                     if res is None:
                         res = []
+                    tool_duration = (time.perf_counter() - tool_started) * 1000
                     self.metrics.increment(f"tools.{intent}.success")
-                    tool_duration = time.perf_counter() - tool_started_at
-                    self.metrics.observe_latency(f"tools.{intent}.latency", tool_duration)
-                    print(
-                        f"[NODE-3:TOOLS] index={idx} intent={intent} status=success "
-                        f"duration_ms={tool_duration * 1000:.1f} result_preview={self._preview(res, 140)}"
-                    )
-                    print(f"NODE3 output: {json.dumps(res, indent=2, ensure_ascii=False)}")
+                    print(f"[NODE-3] intent={intent} done in {tool_duration:.1f}ms")
                 except Exception as e:
                     self.metrics.increment(f"tools.{intent or 'unknown'}.failure")
                     res = {"error": str(e)}
-                    print(f"NODE3 output: {json.dumps(res, indent=2, ensure_ascii=False)}")
-                    print(f"[NODE-3:TOOLS] index={idx} intent={intent} status=failure error={e}")
+                    print(f"[NODE-3] ERROR intent={intent}: {e}")
+            
             results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
-            print(f"[ORCH] segment_intent index={idx} intent={intent} source={intent_info.get('source')}")
-            print("\n" + "="*50)
-            print(f"Data from NODE3: {json.dumps(results, indent=2, ensure_ascii=False)}")
-            print("="*50 + "\n")
 
-        # node 4 response (generative for all responses as requested)
-        formatted = await self.node4_response_formatter(results, "Generate a helpful response in Vietnamese summarizing the search results.")
+        # node 4 response formatter
+        node4_result = await self.node4_response_formatter(
+            results,
+            "Generate response"
+        )
+        formatted = node4_result["text"]
+        
+        # Build debug info for llm_processing
+        llm_processing = {
+            "user_input": user_text,
+            "llm_processed_output": formatted[:500] if formatted else None,
+            "raw_data": {
+                "segments": len(results),
+                "intents": [r.get("intent", {}).get("intent") for r in results if r.get("intent")]
+            },
+            "has_repetition": False,
+            "processing_time_ms": node4_result.get("processing_time_ms"),
+            "model_used": node4_result.get("model_used"),
+            "from_cache": node4_result.get("from_cache", False),
+        }
+        
         summary = self._derive_summary_intent(results)
         parts = [
             {
@@ -361,12 +398,10 @@ class AgentOrchestrator:
             }
             for item in results
         ]
-        total_duration = time.perf_counter() - handle_started_at
-        print(
-            f"[ORCH] done intent={summary['intent']} confidence={summary['confidence_label']} "
-            f"is_compound={summary['is_compound']} duration_ms={total_duration * 1000:.1f}"
-        )
-        # Backward-compatible fields: raw + response. New normalized fields are added for route/schema alignment.
+        
+        total_duration = (time.perf_counter() - handle_started_at) * 1000
+        print(f"[ORCH] done intent={summary['intent']} duration={total_duration:.1f}ms")
+        
         return {
             "raw": results,
             "response": formatted,
@@ -376,4 +411,9 @@ class AgentOrchestrator:
             "confidence_score": summary["confidence"],
             "is_compound": summary["is_compound"],
             "parts": parts,
+            "debug": {
+                "llm_processing_time_ms": node4_result.get("processing_time_ms"),
+                "model_used": node4_result.get("model_used"),
+                "from_cache": node4_result.get("from_cache", False),
+            }
         }
