@@ -3,6 +3,7 @@ Chatbot Routes - API endpoints cho chatbot with NL2SQL and Rule Engine
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
+import asyncio
 from typing import Any, Dict, List, Optional
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
@@ -1002,10 +1003,14 @@ async def chat(
             try:
                 orchestrator = _get_agent_orchestrator()
                 print("[CHAT][AGENT] orchestrator.handle start")
-                orchestration_result = await orchestrator.handle(
-                    normalized_message,
-                    student_id=effective_student_id,
-                    conversation_id=effective_conversation_id,
+                # 10s hard timeout — raises asyncio.TimeoutError if exceeded
+                orchestration_result = await asyncio.wait_for(
+                    orchestrator.handle(
+                        normalized_message,
+                        student_id=effective_student_id,
+                        conversation_id=effective_conversation_id,
+                    ),
+                    timeout=10.0,
                 )
                 print("[CHAT][AGENT] orchestrator.handle success")
                 print(f"[EXEC][{request_trace_id}] path=AGENT_SUCCESS")
@@ -1087,20 +1092,47 @@ async def chat(
                 request_duration = (time.perf_counter() - request_started_at) * 1000
                 print(f"[EXEC][{request_trace_id}] done mode=AGENT duration_ms={request_duration:.1f}")
                 return response_payload
-            except Exception as ag_err:
-                print(f"⚠️ [AGENT] Orchestration failed: {ag_err}")
-                print("[CHAT][AGENT] fallback_to_legacy=true")
+            except (asyncio.TimeoutError, Exception) as ag_err:
+                # ── RULE-BASE FALLBACK ────────────────────────────────────────────
+                # When Agent fails (timeout, API error, 403 Forbidden, empty
+                # result, etc.), immediately hand off to rule-based processing.
+                error_reason = (
+                    f"Agent timeout after 10s"
+                    if isinstance(ag_err, asyncio.TimeoutError)
+                    else str(ag_err)
+                )
+                print(f"⚠️ [AGENT] Orchestration failed: {error_reason}")
+                print("[CHAT][AGENT] Agent failed — falling back to rule-base (execute_rule_base_logic)")
                 import traceback as _traceback
                 _traceback.print_exc()
-                print(f"[EXEC][{request_trace_id}] path=AGENT_FAIL_FALLBACK reason={ag_err}")
+                print(f"[EXEC][{request_trace_id}] path=AGENT_FAIL_FALLBACK reason={error_reason}")
+
+                # Rule-base fallback via _process_single_query
+                response_payload = await _process_single_query(
+                    normalized_text=normalized_message,
+                    student_id=effective_student_id,
+                    conversation_id=effective_conversation_id,
+                    db=db,
+                    chatbot_service=chatbot_service,
+                )
+                # Mark metadata so callers know this was a fallback
+                response_payload.llm_processing = LLMProcessingMetadata(
+                    user_input=normalized_message,
+                    llm_processed_output=None,
+                    raw_data={"fallback_reason": error_reason},
+                    has_repetition=False,
+                    processing_time_ms=None,
+                    model_used="none",
+                )
                 execution_debug = _make_execution_debug(
                     trace_id=request_trace_id,
                     mode="agent_failed_fallback",
                     route="agent_orchestrator",
                     agent_enabled=True,
                     llm_called=False,
-                    fallback_reason=str(ag_err),
+                    fallback_reason=error_reason,
                 )
+                response_payload.debug = execution_debug
         else:
             print("[CHAT][AGENT] enabled=false using_legacy_path=true")
             print(f"[EXEC][{request_trace_id}] path=LEGACY_DIRECT reason=agent_disabled")
@@ -1428,10 +1460,13 @@ async def chat_stream(
                         try:
                             orchestrator = _get_agent_orchestrator()
                             print("[CHAT-STREAM][AGENT] orchestrator.handle start")
-                            orchestration_result = await orchestrator.handle(
-                                normalized_message,
-                                student_id=effective_student_id,
-                                conversation_id=effective_conversation_id,
+                            orchestration_result = await asyncio.wait_for(
+                                orchestrator.handle(
+                                    normalized_message,
+                                    student_id=effective_student_id,
+                                    conversation_id=effective_conversation_id,
+                                ),
+                                timeout=10.0,
                             )
                             print("[CHAT-STREAM][AGENT] orchestrator.handle success")
                             resp_text = orchestration_result.get('response') or ''
@@ -1479,12 +1514,18 @@ async def chat_stream(
                             stream_debug["llm_called"] = True
                             stream_debug["llm_paths"] = ["/split", "/classify", "/generate"]
                             stream_debug["tools_called"] = [item.get("intent", {}).get("intent") if isinstance(item.get("intent"), dict) else item.get("intent") for item in raw] if isinstance(raw, list) else []
-                        except Exception as ag_err:
-                            print(f"⚠️ [STREAM][AGENT] Orchestration failed: {ag_err}")
-                            print("[CHAT-STREAM][AGENT] fallback_to_legacy=true")
+                        except (asyncio.TimeoutError, Exception) as ag_err:
+                            # ── RULE-BASE FALLBACK (streaming) ──────────────────────────
+                            error_reason = (
+                                f"Agent timeout after 10s"
+                                if isinstance(ag_err, asyncio.TimeoutError)
+                                else str(ag_err)
+                            )
+                            print(f"⚠️ [STREAM][AGENT] Orchestration failed: {error_reason}")
+                            print("[CHAT-STREAM][AGENT] Agent failed — falling back to rule-base")
                             stream_debug["mode"] = "agent_failed_fallback"
                             stream_debug["route"] = "agent_orchestrator"
-                            stream_debug["fallback_reason"] = str(ag_err)
+                            stream_debug["fallback_reason"] = error_reason
                             response_payload = await _process_single_query(
                                 normalized_text=normalized_message,
                                 student_id=effective_student_id,

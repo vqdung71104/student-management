@@ -73,11 +73,15 @@ async def test_node4_caching_behavior():
     raw_result = {'a': 1}
     out1 = await orchestrator.node4_response_formatter(raw_result, instruction="Format")
     out2 = await orchestrator.node4_response_formatter(raw_result, instruction="Format")
-    # Compare text content instead of entire object (metadata differs)
-    assert out1['text'] == out2['text']
-    assert out1['from_cache'] is False
-    assert out2['from_cache'] is True
-    assert llm.generate_called == 1
+    # `node4_response_formatter` returns a dict with 'text' and 'from_cache' keys
+    assert isinstance(out1, dict), "Node4 must return a dict"
+    assert isinstance(out2, dict), "Node4 must return a dict"
+    assert 'text' in out1, "Dict must have 'text' key"
+    assert 'text' in out2, "Dict must have 'text' key"
+    assert out1['text'] == out2['text'], "Cached text must match"
+    assert out1.get('from_cache') is False, "First call must not be cached"
+    assert out2.get('from_cache') is True, "Second call must be cached"
+    assert llm.generate_called == 1, "LLM generate must be called exactly once"
 
 
 @pytest.mark.asyncio
@@ -104,8 +108,9 @@ async def test_node4_formatter_fallback_text_on_generate_error():
     llm = BrokenGenerateLLM()
     orchestrator = AgentOrchestrator(llm_client=llm, tools=None, cache=ResponseCache())
     out = await orchestrator.node4_response_formatter({"x": 1}, instruction="Format")
-    # Node4 returns dict, check for error content
-    assert isinstance(out, dict)
-    assert 'text' in out
-    assert len(out['text']) > 0
-    assert out['model_used'] == 'error'
+    # `node4_response_formatter` returns a dict — check keys explicitly
+    assert isinstance(out, dict), "Node4 must return a dict"
+    assert 'text' in out, "Dict must have 'text' key"
+    assert 'model_used' in out, "Dict must have 'model_used' key"
+    assert len(out['text']) > 0, "Fallback text must not be empty"
+    assert out['model_used'] == 'error', "model_used must be 'error' when generate raises"

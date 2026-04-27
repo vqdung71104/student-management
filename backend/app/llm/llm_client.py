@@ -13,22 +13,21 @@ from app.agents.orchestration_metrics import get_orchestration_metrics
 LLM_SPACE_URL = os.environ.get("LLM_SPACE_URL")
 LLM_API_TOKEN = os.environ.get("LLM_API_TOKEN")
 
-# External API Configuration
-EXTERNAL_LLM_PROVIDER = os.environ.get("EXTERNAL_LLM_PROVIDER", "gemini").lower()  # "gemini" or "openai"
+# OpenAI Configuration for Node 4 formatting
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")  # gpt-4o, gpt-4o-mini, gpt-3.5-turbo
 
 # External API Timeouts (much shorter for fast APIs)
-EXTERNAL_CONNECT_TIMEOUT = float(os.environ.get("EXTERNAL_CONNECT_TIMEOUT", "10"))
-EXTERNAL_DEFAULT_TIMEOUT = float(os.environ.get("EXTERNAL_DEFAULT_TIMEOUT", "30"))  # 30s for external APIs
+EXTERNAL_CONNECT_TIMEOUT = float(os.environ.get("EXTERNAL_CONNECT_TIMEOUT", "5"))
+EXTERNAL_DEFAULT_TIMEOUT = float(os.environ.get("EXTERNAL_DEFAULT_TIMEOUT", "10"))  # 10s hard cap for external APIs
 
 # Internal LLM Timeouts (kept for fallback)
-LLM_CONNECT_TIMEOUT = float(os.environ.get("LLM_CONNECT_TIMEOUT", "10"))
-LLM_DEFAULT_TIMEOUT = float(os.environ.get("LLM_DEFAULT_TIMEOUT", "120"))
+LLM_CONNECT_TIMEOUT = float(os.environ.get("LLM_CONNECT_TIMEOUT", "5"))
+LLM_DEFAULT_TIMEOUT = float(os.environ.get("LLM_DEFAULT_TIMEOUT", "10"))  # 10s max
 
 LLM_SPLIT_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "2")))
 LLM_CLASSIFY_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "2"))
-LLM_GENERATE_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "12"))
+LLM_GENERATE_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "10"))  # 10s max per call
 
 LLM_SPLIT_MAX_TOKENS = int(os.environ.get("LLM_SPLIT_MAX_TOKENS", "48"))
 LLM_CLASSIFY_MAX_TOKENS = int(os.environ.get("LLM_CLASSIFY_MAX_TOKENS", "12"))
@@ -38,7 +37,7 @@ LLM_GENERATE_TEMPERATURE = float(os.environ.get("LLM_GENERATE_TEMPERATURE", "0.2
 LLM_FAST_TEMPERATURE = float(os.environ.get("LLM_FAST_TEMPERATURE", "0.0"))
 LLM_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
 LLM_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
-LLM_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "2"))
+LLM_MAX_RETRIES = int(os.environ.get("LLM_MAX_RETRIES", "1"))  # max 1 retry so total wait ≤ 2 × timeout
 LLM_RETRY_BASE_DELAY = float(os.environ.get("LLM_RETRY_BASE_DELAY", "0.5"))
 LLM_BREAKER_FAIL_THRESHOLD = int(os.environ.get("LLM_BREAKER_FAIL_THRESHOLD", "5"))
 LLM_BREAKER_COOLDOWN_SECONDS = float(os.environ.get("LLM_BREAKER_COOLDOWN_SECONDS", "30"))
@@ -182,10 +181,10 @@ class GeminiClient:
 
 class OpenAIClient:
     """Fast OpenAI GPT client for Node 4 formatting"""
-    
-    def __init__(self, api_key: str):
+
+    def __init__(self, api_key: str, model: Optional[str] = None):
         self.api_key = api_key
-        self.model = "gpt-4o-mini"  # Fastest/cheapest GPT model
+        self.model = model or OPENAI_MODEL  # configurable via OPENAI_MODEL env var
         self.url = "https://api.openai.com/v1/chat/completions"
     
     async def generate(
@@ -259,18 +258,12 @@ class LLMClient:
         self.base_url = base_url or LLM_SPACE_URL or "http://localhost:7860"
         self.token = token or LLM_API_TOKEN
         self._headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
-        
-        # Initialize external LLM clients if API keys are available
-        self._gemini = None
-        self._openai = None
-        
-        if GOOGLE_API_KEY:
-            self._gemini = GeminiClient(GOOGLE_API_KEY)
-            print(f"[LLM] Gemini client initialized")
-        if OPENAI_API_KEY:
-            self._openai = OpenAIClient(OPENAI_API_KEY)
-            print(f"[LLM] OpenAI client initialized")
-        
+
+        # OpenAI external client (default for Node 4 formatting)
+        self._openai = OpenAIClient(OPENAI_API_KEY, model=OPENAI_MODEL) if OPENAI_API_KEY else None
+        if self._openai:
+            print(f"[LLM] OpenAI client initialized (model={OPENAI_MODEL})")
+
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             headers=self._headers,
@@ -395,49 +388,20 @@ class LLMClient:
         stop: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
-        Generate response using external API (Gemini/OpenAI) for speed.
-        Falls back to internal HF space if external API fails.
+        Generate response using OpenAI API for Node 4 formatting.
+        Falls back to internal HF space if OpenAI fails.
         """
         start = time.perf_counter()
-        
+
         # Log the INPUT to LLM
         input_preview = prompt[:500] + "..." if len(prompt) > 500 else prompt
         print(f"\n{'='*60}")
         print(f"[LLM:GENERATE] INPUT:")
         print(f"{input_preview}")
         print(f"{'='*60}\n")
-        
-        # Try external API first if available
-        if EXTERNAL_LLM_PROVIDER == "gemini" and self._gemini:
-            try:
-                result = await self._gemini.generate(
-                    prompt=prompt,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    timeout=min(timeout, 15.0),  # Cap external timeout
-                )
-                duration = (time.perf_counter() - start) * 1000
-                self._record_success()
-                self._metrics.increment("llm.generate.external_gemini_success")
-                self._metrics.observe_latency("llm.generate.latency", duration)
-                
-                # Log output
-                output_text = result.get("text", "")
-                output_preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
-                print(f"\n{'='*60}")
-                print(f"[LLM:GENERATE] OUTPUT (Gemini, {duration:.1f}ms):")
-                print(f"{output_preview}")
-                print(f"{'='*60}\n")
-                
-                return result
-            except Exception as e:
-                duration = (time.perf_counter() - start) * 1000
-                print(f"[LLM:GENERATE] Gemini failed: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
-                self._record_failure()
-                self._metrics.increment("llm.generate.external_gemini_failure")
-                # Fall through to try OpenAI or internal
-        
-        if EXTERNAL_LLM_PROVIDER == "openai" and self._openai:
+
+        # Try OpenAI external API first
+        if self._openai:
             try:
                 result = await self._openai.generate(
                     prompt=prompt,
@@ -447,24 +411,24 @@ class LLMClient:
                 )
                 duration = (time.perf_counter() - start) * 1000
                 self._record_success()
-                self._metrics.increment("llm.generate.external_openai_success")
+                self._metrics.increment("llm.generate.openai_success")
                 self._metrics.observe_latency("llm.generate.latency", duration)
-                
-                # Log output
+
                 output_text = result.get("text", "")
                 output_preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
                 print(f"\n{'='*60}")
                 print(f"[LLM:GENERATE] OUTPUT (OpenAI, {duration:.1f}ms):")
                 print(f"{output_preview}")
                 print(f"{'='*60}\n")
-                
+
                 return result
             except Exception as e:
                 duration = (time.perf_counter() - start) * 1000
                 print(f"[LLM:GENERATE] OpenAI failed: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
                 self._record_failure()
-                self._metrics.increment("llm.generate.external_openai_failure")
-        
+                self._metrics.increment("llm.generate.openai_failure")
+                # Fall through to internal fallback
+
         # Fallback to internal HF space
         print(f"[LLM:GENERATE] Falling back to internal LLM space: {self.base_url}")
         try:

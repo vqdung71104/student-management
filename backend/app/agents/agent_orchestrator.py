@@ -20,7 +20,7 @@ NODE4_GENERATE_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
 NODE4_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
 NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "30.0")))
 NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "20.0"))
-NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "30.0"))
+NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "10.0"))
 
 try:
     from app.chatbot.tfidf_classifier import TfidfIntentClassifier
@@ -74,13 +74,19 @@ class AgentOrchestrator:
         return data
 
     def _is_data_empty(self, data: Any) -> bool:
-        """Check if the data from Node 3 is empty or indicates an error."""
+        """
+        Check if the data from Node 3 is empty or indicates an error.
+        Handles FastAPI envelope: {"status": "error", "error": "...", ...}
+        """
         if data is None:
             return True
         if isinstance(data, list) and len(data) == 0:
             return True
         if isinstance(data, dict):
-            if data.get("error") or data.get("sql_error"):
+            # FastAPI error envelope
+            if data.get("status") == "error" or data.get("error"):
+                return True
+            if data.get("sql_error"):
                 return True
             # Check for empty data structures
             keys_that_matter = ["data", "result", "text", "rows", "items"]
@@ -97,33 +103,41 @@ class AgentOrchestrator:
         return False
 
     def _extract_result_data(self, raw_result: Any) -> Any:
-        """Extract the actual result data from various raw_result formats."""
+        """
+        Extract the actual result data from various raw_result formats:
+        1. FastAPI envelope:  {"status": "...", "data": {"text":..., "data":[...]}}
+        2. Segment wrapper:    {"segment": "...", "raw_result": {...}}
+        3. Plain dict/list
+        """
         if raw_result is None:
             return None
+
+        # Unwrap FastAPI envelope first
         if isinstance(raw_result, dict):
-            # Direct result dict
-            if "data" in raw_result:
-                return raw_result["data"]
-            if "raw_result" in raw_result:
-                return raw_result["raw_result"]
+            if "status" in raw_result and "data" in raw_result:
+                inner = raw_result["data"]
+                # Recursively unwrap inner data
+                return self._extract_result_data(inner)
+
+            # Unwrap segment wrapper
+            if "segment" in raw_result or "raw_result" in raw_result:
+                inner = raw_result.get("raw_result", raw_result)
+                return self._extract_result_data(inner)
+
             return raw_result
+
         if isinstance(raw_result, list):
             if len(raw_result) == 0:
                 return None
             # Single-item list
             if len(raw_result) == 1:
-                item = raw_result[0]
-                if isinstance(item, dict):
-                    return item.get("raw_result", item)
-                return item
+                return self._extract_result_data(raw_result[0])
             # Multi-item list — extract data from each
             extracted = []
             for item in raw_result:
-                if isinstance(item, dict):
-                    extracted.append(item.get("raw_result", item))
-                else:
-                    extracted.append(item)
+                extracted.append(self._extract_result_data(item))
             return extracted
+
         return raw_result
 
     def _compact_data_for_prompt(self, raw_result: Any) -> str:
@@ -228,6 +242,28 @@ class AgentOrchestrator:
             "confidence_label": self._confidence_label(confidence),
             "is_compound": False,
         }
+
+    # ── Node 3 subtype constants ─────────────────────────────────────────────────
+    # Maps top-level intent → which Node-3 processor handled it.
+    _NODE3A_INTENTS = frozenset({
+        "subject_info", "class_info", "grade_view",
+        "learned_subjects_view", "schedule_view", "schedule_info", "student_info",
+    })
+    _NODE3B_INTENTS = frozenset({"subject_registration_suggestion"})
+    _NODE3C_INTENTS = frozenset({"class_registration_suggestion"})
+    _NODE3D_INTENTS = frozenset({"modify_schedule"})
+
+    def _resolve_node3_subtype(self, intent: Optional[str]) -> Optional[str]:
+        """Return the Node-3 sub-type label (e.g. 'node3a') for a given intent."""
+        if intent in self._NODE3A_INTENTS:
+            return "node3a"   # NL2SQL
+        if intent in self._NODE3B_INTENTS:
+            return "node3b"   # Gợi ý học tập (subject)
+        if intent in self._NODE3C_INTENTS:
+            return "node3c"   # Gợi ý đăng ký (class)
+        if intent in self._NODE3D_INTENTS:
+            return "node3d"   # Điều chỉnh thời khóa biểu
+        return None
 
     def _preview(self, value: Any, max_len: int = 140) -> str:
         text = self._stable_payload(value)
@@ -347,25 +383,29 @@ class AgentOrchestrator:
         except Exception as e:
             print(f"[NODE-4:INPUT] Error logging input: {e}")
 
-        # ── ANTI-HALLUCINATION: Check for empty/error data ─────────────────────
+        # ── STEP 1: Extract data FIRST (before cache check) ─────────────────────
+        # This ensures the cache key is stable regardless of envelope wrapping.
         extracted_data = self._extract_result_data(raw_result)
+
+        # ── STEP 2: Anti-hallucination guard on extracted data ──────────────────
         if self._is_data_empty(extracted_data):
             print("[NODE-4:ANTI-HALLU] Data is empty or error — returning fallback message.")
             self.metrics.increment("node4.empty_data")
             total_duration_ms = (time.perf_counter() - started_at) * 1000
             self.metrics.observe_latency("node4.latency", total_duration_ms / 1000)
+            fallback_text = (
+                "Rất tiếc, mình không tìm thấy thông tin này trong hệ thống. "
+                "Bạn vui lòng kiểm tra lại nhé!"
+            )
             return {
-                "text": (
-                    "Rất tiếc, mình không tìm thấy thông tin này trong hệ thống. "
-                    "Bạn vui lòng kiểm tra lại nhé!"
-                ),
+                "text": fallback_text,
                 "from_cache": False,
                 "processing_time_ms": 0.0,
                 "model_used": "none",
                 "empty_data_guard": True,
             }
 
-        # ── Extract original query from results ──────────────────────────────────
+        # ── STEP 3: Extract original query from results ─────────────────────────
         if original_query is None:
             if isinstance(raw_result, list) and len(raw_result) > 0:
                 original_query = raw_result[0].get("segment", instruction)
@@ -374,8 +414,9 @@ class AgentOrchestrator:
             else:
                 original_query = instruction
 
-        # ── Cache check ─────────────────────────────────────────────────────────
-        h = self._hash_raw_result(raw_result, instruction)
+        # ── STEP 4: Cache check — use extracted data for stable key ─────────────
+        cache_key_data = extracted_data  # stable key from clean extracted data
+        h = self._hash_raw_result(cache_key_data, instruction)
         cached = self.cache.get(h)
         if cached:
             self.metrics.increment("node4.cache_hit")
@@ -385,8 +426,8 @@ class AgentOrchestrator:
 
         self.metrics.increment("node4.cache_miss")
 
-        # ── Build prompt with few-shot examples ─────────────────────────────────
-        prompt = self._build_formatter_prompt(raw_result, instruction, original_query)
+        # ── STEP 5: Build prompt with few-shot examples using extracted data ─────
+        prompt = self._build_formatter_prompt(extracted_data, instruction, original_query)
 
         # ── Few-shot examples for professional academic assistant style ──────────
         _FEW_SHOT = """
@@ -415,7 +456,7 @@ Ví dụ 4:
         prompt = prompt + "\n" + _FEW_SHOT
 
         try:
-            # Call LLM with timing
+            # Call LLM with 10s timeout to prevent system hanging
             gen_started = time.perf_counter()
             gen = await self.llm.generate(
                 prompt,
@@ -485,11 +526,40 @@ Ví dụ 4:
         results = []
         for idx, seg in enumerate(segments, start=1):
             print(f"[ORCH] segment {idx}/{len(segments)}: {self._preview(seg, 80)}")
-            
+
             # node 2 intent
             intent_info = await self.node2_intent_router(seg)
             intent = intent_info.get('intent')
-            
+
+            # ── GUARD: Skip greeting / thanks / unknown intents immediately ───────
+            # These should return a static greeting without any LLM / Node-3 processing.
+            _SKIP_INTENTS = frozenset({"greeting", "thanks", "unknown", None, ""})
+            if intent in _SKIP_INTENTS:
+                greeting = (
+                    "Xin chào! Mình là trợ lý ảo của hệ thống quản lý sinh viên. "
+                    "Mình có thể giúp gì cho bạn?"
+                )
+                self.metrics.increment("tools.skipped_greeting_intent")
+                print(f"[ORCH] intent={intent!r} — returning greeting, skipping Node-3 and Node-4")
+                return {
+                    "raw": [],
+                    "response": greeting,
+                    "text": greeting,
+                    "intent": "greeting",
+                    "confidence": "high",
+                    "confidence_score": 1.0,
+                    "is_compound": False,
+                    "parts": [],
+                    "debug": {
+                        "llm_processing_time_ms": None,
+                        "model_used": "none",
+                        "from_cache": False,
+                        "skipped_reason": "greeting_intent",
+                    },
+                }
+
+            node3_subtype = self._resolve_node3_subtype(intent)
+
             if not intent or intent == 'unknown':
                 self.metrics.increment("tools.skipped_unknown_intent")
                 res = {'message': 'No tool mapped', 'items': []}
@@ -508,13 +578,20 @@ Ví dụ 4:
                         res = []
                     tool_duration = (time.perf_counter() - tool_started) * 1000
                     self.metrics.increment(f"tools.{intent}.success")
-                    print(f"[NODE-3] intent={intent} done in {tool_duration:.1f}ms")
+                    print(
+                        f"[NODE-3][{node3_subtype or '?'}] intent={intent} done in {tool_duration:.1f}ms"
+                    )
                 except Exception as e:
                     self.metrics.increment(f"tools.{intent or 'unknown'}.failure")
                     res = {"error": str(e)}
-                    print(f"[NODE-3] ERROR intent={intent}: {e}")
-            
-            results.append({'segment': seg, 'intent': intent_info, 'raw_result': res})
+                    print(f"[NODE-3] ERROR [{node3_subtype or '?'}] intent={intent}: {e}")
+
+            results.append({
+                'segment': seg,
+                'intent': intent_info,
+                'raw_result': res,
+                'node3_subtype': node3_subtype,
+            })
 
         # node 4 response formatter
         node4_result = await self.node4_response_formatter(
@@ -523,34 +600,39 @@ Ví dụ 4:
             original_query=user_text,
         )
         formatted = node4_result["text"]
-        
+
         # Build debug info for llm_processing
         llm_processing = {
             "user_input": user_text,
             "llm_processed_output": formatted[:500] if formatted else None,
             "raw_data": {
                 "segments": len(results),
-                "intents": [r.get("intent", {}).get("intent") for r in results if r.get("intent")]
+                "intents": [r.get("intent", {}).get("intent") for r in results if r.get("intent")],
+                "node3_subtypes": [r.get("node3_subtype") for r in results],
+                "node3_outputs": [
+                    r.get("raw_result") for r in results
+                ],
             },
             "has_repetition": False,
             "processing_time_ms": node4_result.get("processing_time_ms"),
             "model_used": node4_result.get("model_used"),
             "from_cache": node4_result.get("from_cache", False),
         }
-        
+
         summary = self._derive_summary_intent(results)
         parts = [
             {
                 "intent": item.get("intent"),
+                "node3_subtype": item.get("node3_subtype"),
                 "text": item.get("segment"),
                 "data": item.get("raw_result"),
             }
             for item in results
         ]
-        
+
         total_duration = (time.perf_counter() - handle_started_at) * 1000
         print(f"[ORCH] done intent={summary['intent']} duration={total_duration:.1f}ms")
-        
+
         return {
             "raw": results,
             "response": formatted,
@@ -564,5 +646,7 @@ Ví dụ 4:
                 "llm_processing_time_ms": node4_result.get("processing_time_ms"),
                 "model_used": node4_result.get("model_used"),
                 "from_cache": node4_result.get("from_cache", False),
+                "node3_subtypes": [r.get("node3_subtype") for r in results],
+                "node3_outputs": [r.get("raw_result") for r in results],
             }
         }
