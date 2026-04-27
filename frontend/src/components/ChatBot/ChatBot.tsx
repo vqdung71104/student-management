@@ -100,7 +100,7 @@ const logChatbotExecution = (
   });
 };
 
-const toggleDebug = (messageId: number, showDebug: Record<number, boolean>, setShowDebug: React.Dispatch<React.SetStateAction<Record<number, boolean>>>) => {
+const toggleDebug = (messageId: number, setShowDebug: React.Dispatch<React.SetStateAction<Record<number, boolean>>>) => {
   setShowDebug((prev) => ({
     ...prev,
     [messageId]: !prev[messageId],
@@ -115,7 +115,7 @@ const hasDebugInfo = (message: Message): boolean => {
   );
 };
 
-const renderLLMDebugSection = (llm_processing?: LLMProcessingMetadata, messageId?: number) => {
+const renderLLMDebugSection = (llm_processing?: LLMProcessingMetadata) => {
   if (!llm_processing) return null;
 
   return (
@@ -205,7 +205,7 @@ const renderDebugSection = (message: Message, messageId: number, showDebug: Reco
     <div className="message-debug-wrapper">
       <button
         className={`debug-toggle-btn ${showDebug[messageId] ? 'active' : ''}`}
-        onClick={() => toggleDebug(messageId, showDebug, setShowDebug)}
+        onClick={() => toggleDebug(messageId, setShowDebug)}
         title={showDebug[messageId] ? 'Ẩn Debug Info' : 'Hiện Debug Info'}
       >
         {showDebug[messageId] ? '🔒 Ẩn Debug' : '🔓 Debug'}
@@ -215,7 +215,7 @@ const renderDebugSection = (message: Message, messageId: number, showDebug: Reco
         <div className="message-debug-panel">
           <div className="debug-section-header">Debug / Process Info</div>
 
-          {renderLLMDebugSection(message.llm_processing, messageId)}
+          {renderLLMDebugSection(message.llm_processing)}
 
           {message.debug && (
             <div className="debug-execution-info">
