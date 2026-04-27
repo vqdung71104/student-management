@@ -29,16 +29,20 @@ DATABASE_URL = settings.DATABASE_URL
 
 # Engine và Session với cấu hình UTF-8
 engine = create_engine(
-    DATABASE_URL, 
-    echo=False, 
+    DATABASE_URL,
+    echo=False,
     future=True,
     pool_pre_ping=True,
     pool_recycle=3600,
-    # Đảm bảo sử dụng UTF-8 encoding
+    pool_size=10,          # Số kết nối tối đa giữ lại trong pool
+    max_overflow=20,       # Số kết nối thêm tối đa khi pool đầy
+    pool_timeout=30,       # Timeout (giây) khi chờ lấy kết nối từ pool
+    # Đảm bảo sử dụng UTF-8 encoding và connect timeout cho MySQL
     connect_args={
         "charset": "utf8mb4",
-        "use_unicode": True
-    } if "mysql" in DATABASE_URL else {}
+        "use_unicode": True,
+        "connect_timeout": 10,   # Timeout kết nối MySQL 10 giây
+    } if "mysql" in DATABASE_URL else {},
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

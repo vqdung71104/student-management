@@ -438,9 +438,38 @@ async def _process_single_query(
         intent = "class_registration_suggestion"
         confidence = "high"
 
+    # ── INTENT GUARD: Return default greeting for non-Node3 intents ─────────
+    # Only process intents that belong to Node 3a (NL2SQL), 3b, 3c, 3d.
+    # All other intents return the greeting immediately without LLM processing.
+    _NODE3_INTENTS = frozenset({
+        # Node 3a — NL2SQL
+        "subject_info", "class_info", "grade_view",
+        "learned_subjects_view", "schedule_view", "schedule_info", "student_info",
+        # Node 3b — Gợi ý học tập (subject)
+        "subject_registration_suggestion",
+        # Node 3c — Gợi ý đăng ký (class)
+        "class_registration_suggestion",
+        # Node 3d — Điều chỉnh thời khóa biểu
+        "modify_schedule",
+    })
+
+    if intent not in _NODE3_INTENTS or confidence not in ("high", "medium"):
+        default_greeting = (
+            "Xin chào! Mình là trợ lý ảo của hệ thống quản lý sinh viên. "
+            "Mình có thể giúp gì cho bạn?"
+        )
+        return ChatResponseWithData(
+            text=default_greeting,
+            intent=intent or "unknown",
+            confidence=confidence,
+            data=None,
+            metadata=None,
+            sql=None,
+            sql_error=None,
+        )
+
     # ── Rule-engine intents ───────────────────────────────────────────────────
-    if intent in ("subject_registration_suggestion", "class_registration_suggestion", "modify_schedule") \
-            and confidence in ("high", "medium"):
+    if intent in ("subject_registration_suggestion", "class_registration_suggestion", "modify_schedule"):
         if intent == "subject_registration_suggestion":
             result = await chatbot_service.process_subject_suggestion(
                 student_id=student_id,
@@ -590,11 +619,24 @@ async def _process_single_query(
 
             sql_query = sql_result.get("sql")
             if sql_query:
-                result_rows = db.execute(text(sql_query))
-                rows = result_rows.fetchall()
-                if rows:
-                    columns = result_rows.keys()
-                    data = [dict(zip(columns, row)) for row in rows]
+                import asyncio
+                try:
+                    result_rows = await asyncio.wait_for(
+                        asyncio.to_thread(lambda: db.execute(text(sql_query))),
+                        timeout=10.0,
+                    )
+                except asyncio.TimeoutError:
+                    sql_error = "Query execution timed out after 10 seconds"
+                    print(f"⚠️ SQL timeout: {sql_error}")
+                    result_rows = None
+
+                if result_rows is not None:
+                    rows = result_rows.fetchall()
+                    if rows:
+                        columns = result_rows.keys()
+                        data = [dict(zip(columns, row)) for row in rows]
+                    else:
+                        data = []
                 else:
                     data = []
 

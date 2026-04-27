@@ -2233,11 +2233,23 @@ class ChatbotService:
                 if sql_query:
                     from sqlalchemy import text
 
-                    result_rows = self.db.execute(text(sql_query))
-                    rows = result_rows.fetchall()
-                    if rows:
-                        columns = result_rows.keys()
-                        result_data = [dict(zip(columns, row)) for row in rows]
+                    try:
+                        import asyncio
+                        result_rows = await asyncio.wait_for(
+                            asyncio.to_thread(lambda: self.db.execute(text(sql_query))),
+                            timeout=10.0,
+                        )
+                    except asyncio.TimeoutError:
+                        print(f"⚠️ [STREAM] SQL timeout after 10s for query: {sql_query[:80]}...")
+                        result_rows = None
+
+                    if result_rows is not None:
+                        rows = result_rows.fetchall()
+                        if rows:
+                            columns = result_rows.keys()
+                            result_data = [dict(zip(columns, row)) for row in rows]
+                        else:
+                            result_data = []
                     else:
                         result_data = []
 
