@@ -225,7 +225,7 @@ class RedisConversationStateManager:
     def delete_conversation_state(self, conversation_id: int):
         """
         Delete conversation state from Redis
-        
+
         Args:
             conversation_id: Conversation ID
         """
@@ -236,7 +236,18 @@ class RedisConversationStateManager:
         except Exception as e:
             print(f"⚠️ [REDIS] Delete failed for conversation {conversation_id}, fallback cleanup in-memory: {e}")
         finally:
+            # Always also clean up in-memory as a safety net
             get_conversation_manager().delete_state(conversation_id)
+
+    def delete_state(self, conversation_id: int):
+        """
+        Alias for delete_conversation_state (backward compatibility).
+        Removes conversation state from Redis with fallback to in-memory.
+
+        Args:
+            conversation_id: Conversation ID
+        """
+        self.delete_conversation_state(conversation_id)
     
     def has_active_conversation(self, conversation_id: int) -> bool:
         """
@@ -294,3 +305,27 @@ def get_conversation_state_manager():
     Redis-first with automatic in-memory fallback.
     """
     return get_redis_conversation_manager()
+
+
+def safe_delete_state(manager, conversation_id: int) -> bool:
+    """
+    Safely delete conversation state regardless of which manager is active.
+
+    Handles the case where:
+      - Redis manager doesn't have delete_state() (older version)
+      - Redis is offline / raises exception during delete
+
+    Returns True if deleted successfully, False otherwise.
+    """
+    try:
+        if hasattr(manager, "delete_state"):
+            manager.delete_state(conversation_id)
+        elif hasattr(manager, "delete_conversation_state"):
+            manager.delete_conversation_state(conversation_id)
+        else:
+            print(f"[STATE][WARN] Manager {type(manager).__name__} has no delete method — skipping cleanup.")
+            return False
+        return True
+    except Exception as e:
+        print(f"[STATE][WARN] Failed to delete conversation state {conversation_id}: {e}")
+        return False

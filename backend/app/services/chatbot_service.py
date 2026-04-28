@@ -1604,8 +1604,8 @@ class ChatbotService:
             )
 
             if not combinations:
-                from app.services.conversation_state import get_conversation_state_manager
-                get_conversation_state_manager().delete_state(conversation_state.conversation_id or conversation_id)
+                from app.services.conversation_state import get_conversation_state_manager, safe_delete_state
+                safe_delete_state(get_conversation_state_manager(), conversation_state.conversation_id or conversation_id)
                 return {
                     "text": "⚠️ Hiện chưa tìm được tổ hợp lớp phù hợp với điều kiện hiện tại. Bạn có thể nới lỏng một số tiêu chí để mình gợi ý tốt hơn.",
                     "intent": "class_registration_suggestion",
@@ -1718,8 +1718,8 @@ class ChatbotService:
             )
             
             # Clear conversation state after generating suggestions
-            from app.services.conversation_state import get_conversation_state_manager
-            get_conversation_state_manager().delete_state(conversation_state.conversation_id or conversation_id)
+            from app.services.conversation_state import get_conversation_state_manager, safe_delete_state
+            safe_delete_state(get_conversation_state_manager(), conversation_state.conversation_id or conversation_id)
             
             return {
                 "text": text_response,
