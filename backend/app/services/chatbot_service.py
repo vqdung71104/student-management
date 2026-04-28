@@ -298,6 +298,49 @@ class ChatbotService:
             }
         }
 
+    def _make_preference_collecting_result(
+        self,
+        text: str,
+        conversation_stage: str,
+        next_step: str,
+        message: str,
+        current_question=None,
+        question_type: str = "free_text",
+        question_options=None,
+        state=None,
+        preferences=None,
+        subject_source: str = "suggested",
+        subject_ids_seed: Optional[List[int]] = None,
+        nlq_constraints_dict: Optional[Dict] = None,
+    ) -> Dict:
+        """
+        Build a consistent preference-collection response that Node-4 will NOT block.
+
+        Sets is_preference_collecting=True so _is_data_empty() knows this is an
+        interactive question (not an empty SQL result).
+        """
+        return {
+            "text": text,
+            "intent": "class_registration_suggestion",
+            "confidence": "high",
+            "data": None,
+            "is_preference_collecting": True,  # ← tells Node-4: "don't block me"
+            "conversation_state": "collecting",
+            "question_type": question_type,
+            "question_options": question_options,
+            "metadata": self._build_class_suggestion_metadata(
+                preferences=preferences,
+                conversation_stage=conversation_stage,
+                current_question=current_question,
+                subject_source=self._normalize_subject_source_choice(subject_source),
+                subject_ids_seed=subject_ids_seed or [],
+                nlq_constraints_dict=nlq_constraints_dict,
+                state=state,
+                next_step=next_step,
+                message=message,
+            ),
+        }
+
     def _merge_constraints_into_preferences(self, preferences, constraints_dict: Optional[Dict]) -> List[str]:
         """Map extracted NL constraints into preference categories to avoid re-asking."""
         if not constraints_dict:
@@ -891,6 +934,7 @@ class ChatbotService:
                         "intent": "class_registration_suggestion",
                         "confidence": "high",
                         "data": None,
+                        "is_preference_collecting": True,  # Node-4: text-only question, don't block
                         "conversation_state": "collecting",
                         "question_type": "single_choice",
                         "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"],
@@ -938,6 +982,7 @@ class ChatbotService:
                     "intent": "class_registration_suggestion",
                     "confidence": "high",
                     "data": None,
+                    "is_preference_collecting": True,
                     "conversation_state": "collecting",
                     "question_type": next_question.type if next_question else "free_text",
                     "question_options": next_question.options if next_question else None,
@@ -994,6 +1039,7 @@ class ChatbotService:
                             "intent": "class_registration_suggestion",
                             "confidence": "high",
                             "data": None,
+                            "is_preference_collecting": True,
                             "conversation_state": "collecting",
                             "question_type": state.current_question.type,
                             "question_options": state.current_question.options,
@@ -1041,6 +1087,7 @@ class ChatbotService:
                         "intent": "class_registration_suggestion",
                         "confidence": "high",
                         "data": None,
+                        "is_preference_collecting": True,
                         "conversation_state": "collecting",
                         "question_type": next_question.type,
                         "question_options": next_question.options,
@@ -1176,6 +1223,7 @@ class ChatbotService:
                         "intent": "class_registration_suggestion",
                         "confidence": "high",
                         "data": None,
+                        "is_preference_collecting": True,
                         "conversation_state": "collecting",
                         "question_type": "single_choice",
                         "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"],
@@ -1191,7 +1239,7 @@ class ChatbotService:
                             message='Mình cần xác nhận nguồn học phần trước khi đi tiếp.',
                         ),
                     }
-        
+
         except Exception as e:
             print(f"❌ [CLASS_SUGGESTION] Error: {str(e)}")
             import traceback

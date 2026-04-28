@@ -77,6 +77,10 @@ class AgentOrchestrator:
         """
         Check if the data from Node 3 is empty or indicates an error.
         Handles FastAPI envelope: {"status": "error", "error": "...", ...}
+
+        Special case: text-only responses (e.g. preference-collection questions
+        from class_registration_suggestion) have a meaningful "text" field but
+        no "data" key — these are NOT empty.
         """
         if data is None:
             return True
@@ -93,8 +97,17 @@ class AgentOrchestrator:
             for key in keys_that_matter:
                 if key in data:
                     val = data[key]
-                    if val is None or (isinstance(val, list) and len(val) == 0):
-                        return True
+                    if val is None:
+                        continue
+                    if isinstance(val, list) and len(val) == 0:
+                        continue
+                    # Non-empty value found — NOT empty
+                    return False
+            # Text-only response (no "data" key, but has non-empty "text"):
+            # NOT empty — Node-4 should pass this to the LLM to format.
+            text_val = data.get("text")
+            if isinstance(text_val, str) and text_val.strip():
+                return False
             # If only metadata/info keys present, check if actual data is missing
             if not any(k in data for k in keys_that_matter):
                 return True
@@ -107,7 +120,8 @@ class AgentOrchestrator:
         Extract the actual result data from various raw_result formats:
         1. FastAPI envelope:  {"status": "...", "data": {"text":..., "data":[...]}}
         2. Segment wrapper:    {"segment": "...", "raw_result": {...}}
-        3. Plain dict/list
+        3. Preference wrapper: {"text": ..., "is_preference_collecting": true, ...}
+        4. Plain dict/list
         """
         if raw_result is None:
             return None
@@ -123,6 +137,13 @@ class AgentOrchestrator:
             if "segment" in raw_result or "raw_result" in raw_result:
                 inner = raw_result.get("raw_result", raw_result)
                 return self._extract_result_data(inner)
+
+            # Preserve text-based responses (preference-collection questions,
+            # instructions, etc.) as-is — they have text but no "data" key.
+            text_val = raw_result.get("text")
+            if isinstance(text_val, str) and text_val.strip():
+                # Keep the whole dict so Node-4 sees intent + text + metadata
+                return raw_result
 
             return raw_result
 
@@ -140,17 +161,45 @@ class AgentOrchestrator:
 
         return raw_result
 
-    def _compact_data_for_prompt(self, raw_result: Any) -> str:
-        """Convert data to compact string format for minimal token usage."""
+    def _compact_data_for_prompt(self, raw_result: Any, intent_hints: Optional[List[str]] = None) -> str:
+        """
+        Convert data to compact string format for minimal token usage.
+        intent_hints: list of intent names; if "class_registration_suggestion" is present,
+        the "text" field (preference question) is preserved as top priority.
+        """
         trimmed = self._trim_data(raw_result)
-        
+
+        # Special handling for preference-collection responses (class_registration_suggestion)
+        is_preference_intent = (
+            intent_hints is not None
+            and any(
+                i in ("class_registration_suggestion", "subject_registration_suggestion")
+                for i in intent_hints
+            )
+        )
+
+        if isinstance(trimmed, dict):
+            # If this is a preference question response, surface the text prominently
+            if is_preference_intent and "text" in trimmed:
+                text_val = trimmed.get("text", "")
+                if isinstance(text_val, str) and text_val.strip():
+                    return f"[Câu hỏi từ hệ thống]\n{text_val}"
+            # Fall through to normal list handling below
+
         if isinstance(trimmed, list):
             lines = []
             for i, item in enumerate(trimmed):
                 if isinstance(item, dict):
                     seg = item.get('segment', f'Phần {i+1}')
                     res = item.get('raw_result', item)
-                    
+
+                    # Special: for preference-intent results, show text first
+                    if is_preference_intent and isinstance(res, dict) and "text" in res:
+                        text_val = res.get("text", "")
+                        if isinstance(text_val, str) and text_val.strip():
+                            lines.append(f"[{seg}] [Câu hỏi] {text_val}")
+                            continue
+
                     if isinstance(res, dict):
                         # Extract only essential fields
                         essential = {}
@@ -159,17 +208,17 @@ class AgentOrchestrator:
                                 essential[k] = v
                             elif isinstance(v, list) and len(v) <= 5:
                                 essential[k] = v
-                        
+
                         # Compact format: key1=val1, key2=val2...
                         parts = [f"{k}={v}" for k, v in essential.items() if v is not None][:10]
                         res_str = ", ".join(parts)
                     else:
                         res_str = str(res)[:100]
-                    
+
                     lines.append(f"[{seg}] {res_str}")
                 else:
                     lines.append(str(item)[:100])
-            
+
             return "\n".join(lines)[:2000]  # Cap at 2000 chars
         else:
             return str(trimmed)[:1000]
@@ -179,15 +228,17 @@ class AgentOrchestrator:
         raw_result: Any,
         instruction: str,
         original_query: Optional[str] = None,
+        intent_hints: Optional[List[str]] = None,
     ) -> str:
         """
         Build prompt for Node 4 with the format:
           Dữ liệu hệ thống trả về: {JSON_RESULT}
           Câu hỏi người dùng: {ORIGINAL_QUERY}
+          Intent: {INTENT_HINTS}  (optional — for preference-collection context)
         """
         # Extract the actual result data
         extracted = self._extract_result_data(raw_result)
-        compact = self._compact_data_for_prompt(extracted)
+        compact = self._compact_data_for_prompt(extracted, intent_hints=intent_hints)
 
         # Wrap in JSON format
         import json
@@ -204,6 +255,11 @@ class AgentOrchestrator:
             prompt_parts.append(f"Câu hỏi người dùng: {original_query}")
         else:
             prompt_parts.append(f"Câu hỏi người dùng: {instruction}")
+
+        # Include intent context so LLM knows this is a preference question vs SQL result
+        if intent_hints:
+            intents_str = ", ".join(str(i) for i in intent_hints if i)
+            prompt_parts.append(f"Intent (ngữ cảnh xử lý): {intents_str}")
 
         prompt_parts.append("")
         prompt_parts.append("Hãy trả lời bằng tiếng Việt, ngắn gọn, chuyên nghiệp theo phong cách trợ lý học vụ.")
@@ -351,12 +407,14 @@ class AgentOrchestrator:
         raw_result: Any,
         instruction: str,
         original_query: Optional[str] = None,
+        intent_hints: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Node 4: Format raw data into friendly response.
         - Anti-hallucination: if data is empty/error, return fallback message instead of calling LLM.
         - Prompt format: "Dữ liệu hệ thống trả về: {JSON}  Câu hỏi người dùng: {ORIGINAL_QUERY}"
-        - Few-shot style: professional, concise Vietnamese academic assistant tone.
+        - intent_hints: list of intent names (e.g. ["class_registration_suggestion"]) so Node-4
+          knows whether this is a preference-collection question vs a SQL result.
         Returns dict with 'text' and debug info.
         """
         started_at = time.perf_counter()
@@ -427,7 +485,7 @@ class AgentOrchestrator:
         self.metrics.increment("node4.cache_miss")
 
         # ── STEP 5: Build prompt with few-shot examples using extracted data ─────
-        prompt = self._build_formatter_prompt(extracted_data, instruction, original_query)
+        prompt = self._build_formatter_prompt(extracted_data, instruction, original_query, intent_hints=intent_hints)
 
         # ── Few-shot examples for professional academic assistant style ──────────
         _FEW_SHOT = """
@@ -598,6 +656,7 @@ Ví dụ 4:
             results,
             "Generate response",
             original_query=user_text,
+            intent_hints=[r.get("intent", {}).get("intent") for r in results],
         )
         formatted = node4_result["text"]
 

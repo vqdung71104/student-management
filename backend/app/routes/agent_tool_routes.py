@@ -498,10 +498,12 @@ async def node4_format_response(
         from app.agents.agent_orchestrator import AgentOrchestrator
 
         orchestrator = AgentOrchestrator()
-        formatted_text = await orchestrator.node4_response_formatter(
+        formatted_result = await orchestrator.node4_response_formatter(
             raw_result=payload.results,
             instruction=payload.instruction,
+            intent_hints=payload.intent_hints,
         )
+        formatted_text = formatted_result.get("text", str(formatted_result))
 
         estimated_tokens = len(formatted_text) // 2
         duration_ms = (time.perf_counter() - started_at) * 1000

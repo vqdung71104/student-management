@@ -104,6 +104,11 @@ class Node4FormatResponseRequest(BaseModel):
     results: Any = Field(..., description="Raw results from tool execution")
     instruction: str = Field(default="Tóm tắt kết quả bằng tiếng Việt", description="Formatting instruction")
     token_budget: Optional[int] = Field(default=160, ge=32, le=512, description="Max tokens for response")
+    intent_hints: Optional[List[str]] = Field(
+        default=None,
+        description="List of intent names (e.g. ['class_registration_suggestion']) "
+                    "so Node-4 knows context: preference question vs SQL result",
+    )
 
 
 class Node4FormatResponseResponse(BaseModel):
