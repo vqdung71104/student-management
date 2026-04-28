@@ -1,7 +1,7 @@
 """
 Chatbot Schemas - Pydantic models cho chatbot API
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -20,41 +20,63 @@ class MissingPreferenceItem(BaseModel):
 
 
 class PreferenceProgress(BaseModel):
-    completed: int = Field(..., description="Số nhóm preference đã có")
-    total: int = Field(..., description="Tổng số nhóm preference")
-    percent: int = Field(..., description="Phần trăm hoàn thành")
+    completed: int = Field(0, description="Số nhóm preference đã có")
+    total: int = Field(5, description="Tổng số nhóm preference")
+    percent: int = Field(0, description="Phần trăm hoàn thành")
+
+    model_config = ConfigDict(extra="allow")
 
 
 class ClassSuggestionUiMetadata(BaseModel):
-    title: str = Field(..., description="Tiêu đề thân thiện")
-    subtitle: str = Field(..., description="Mô tả ngắn")
-    status: str = Field(..., description="Trạng thái hiện tại")
-    message: Optional[str] = Field(None, description="Thông điệp bổ sung")
+    """UI metadata — all fields optional so non-class-suggestion intents don't break."""
+    title: Optional[str] = Field(default=None, description="Tiêu đề thân thiện")
+    subtitle: Optional[str] = Field(default=None, description="Mô tả ngắn")
+    status: Optional[str] = Field(default=None, description="Trạng thái hiện tại")
+    message: Optional[str] = Field(default=None, description="Thông điệp bổ sung")
+
+    model_config = ConfigDict(extra="allow")
 
 
 class ClassSuggestionConversationMetadata(BaseModel):
-    stage: str = Field(..., description="Trạng thái hội thoại hiện tại")
-    next_step: str = Field(..., description="Bước tiếp theo")
-    progress: PreferenceProgress = Field(..., description="Tiến độ thu thập preference")
-    source_choice: str = Field(..., description="Nguồn học phần đang dùng")
-    subject_ids_seed_count: int = Field(..., description="Số học phần hạt giống")
-    nlq_constraints: Optional[Dict[str, Any]] = Field(None, description="Ràng buộc NL đã trích xuất")
-    current_question: Optional[Dict[str, Any]] = Field(None, description="Câu hỏi hiện tại nếu đang collecting")
+    """Conversation metadata — all fields optional so non-class-suggestion intents don't break."""
+    stage: Optional[str] = Field(default=None, description="Trạng thái hội thoại hiện tại")
+    next_step: Optional[str] = Field(default=None, description="Bước tiếp theo")
+    progress: Optional[PreferenceProgress] = Field(default=None, description="Tiến độ thu thập preference")
+    source_choice: Optional[str] = Field(default=None, description="Nguồn học phần đang dùng")
+    subject_ids_seed_count: Optional[int] = Field(default=None, description="Số học phần hạt giống")
+    nlq_constraints: Optional[Dict[str, Any]] = Field(default=None, description="Ràng buộc NL đã trích xuất")
+    current_question: Optional[Dict[str, Any]] = Field(default=None, description="Câu hỏi hiện tại nếu đang collecting")
+
+    model_config = ConfigDict(extra="allow")
 
 
 class ClassSuggestionPreferencesMetadata(BaseModel):
-    captured: List[PreferenceSummaryItem] = Field(default_factory=list, description="Preference đã ghi nhận")
-    missing: List[MissingPreferenceItem] = Field(default_factory=list, description="Preference còn thiếu")
+    """Preferences metadata — all fields optional so non-class-suggestion intents don't break."""
+    captured: List[Dict[str, Any]] = Field(default_factory=list, description="Preference đã ghi nhận")
+    missing: List[Dict[str, Any]] = Field(default_factory=list, description="Preference còn thiếu")
     auto_captured_keys: List[str] = Field(default_factory=list, description="Preference bắt tự động từ input")
     summary: Dict[str, Any] = Field(default_factory=dict, description="Snapshot preference dạng dict")
 
+    model_config = ConfigDict(extra="allow")
+
 
 class ClassSuggestionMetadata(BaseModel):
-    ui: ClassSuggestionUiMetadata = Field(..., description="Khối hiển thị thân thiện cho FE")
-    conversation: ClassSuggestionConversationMetadata = Field(..., description="Trạng thái hội thoại")
-    preferences: ClassSuggestionPreferencesMetadata = Field(..., description="Tổng hợp preference")
+    """
+    Unified metadata for both class-suggestion and subject-suggestion intents.
+
+    All sub-fields are plain Optional[Dict] so the schema accepts:
+      - Class-suggestion: {"ui": {...}, "conversation": {...}, "preferences": {...}, "result": {...}}
+      - Subject-suggestion: {"total_credits": 18, "warning_level": "warning", ...} (extra fields allowed)
+      - Other intents: metadata=None
+    Extra fields are always allowed so any intent can attach arbitrary metadata.
+    """
+    ui: Optional[Dict[str, Any]] = Field(default=None, description="Khối hiển thị thân thiện cho FE")
+    conversation: Optional[Dict[str, Any]] = Field(default=None, description="Trạng thái hội thoại")
+    preferences: Optional[Dict[str, Any]] = Field(default=None, description="Tổng hợp preference")
     notes: List[str] = Field(default_factory=list, description="Ghi chú hiển thị nhẹ")
-    result: Optional[Dict[str, Any]] = Field(None, description="Kết quả tóm tắt sau khi tạo gợi ý")
+    result: Optional[Dict[str, Any]] = Field(default=None, description="Kết quả tóm tắt sau khi tạo gợi ý")
+
+    model_config = ConfigDict(extra="allow")
 
 
 class ChatMessage(BaseModel):

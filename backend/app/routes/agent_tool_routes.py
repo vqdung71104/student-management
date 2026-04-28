@@ -62,6 +62,33 @@ ALLOWED_TOOL_INTENTS = {
 }
 
 
+# ── Helpers ────────────────────────────────────────────────────────────────────
+
+def _build_response_metadata(
+    intent_name: str,
+    duration_ms: float,
+    data_count: int,
+    *,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Build a complete metadata dict for Node3ToolExecutorResponse.
+
+    Always includes required keys with safe defaults. Extra keys from tool
+    responses (e.g. academic fields from subject_registration_suggestion)
+    are merged in so nothing is lost.
+    """
+    meta: Dict[str, Any] = {
+        "node": "node3_tool_executor",
+        "duration_ms": round(duration_ms, 2),
+        "intent": intent_name,
+        "data_count": data_count,
+    }
+    if extra:
+        meta.update(extra)  # merge tool-specific fields (total_credits, warning_level, etc.)
+    return meta
+
+
 # ── Auth helper ──────────────────────────────────────────────────────────────
 def _verify_internal_key(x_agent_internal_key: Optional[str]) -> None:
     expected = os.environ.get("AGENT_INTERNAL_TOOL_KEY", "dev-agent-key")
@@ -437,7 +464,8 @@ async def execute_intent_tool(
             forced_intent=intent_name,
         )
 
-        data_count = len(result.data) if isinstance(result.data, list) else (1 if result.data else 0)
+        result_data = result.data
+        data_count = len(result_data) if isinstance(result_data, list) else (1 if result_data else 0)
         duration_ms = (time.perf_counter() - started_at) * 1000
 
         print(
@@ -445,22 +473,36 @@ async def execute_intent_tool(
             f"data_count={data_count} duration_ms={duration_ms:.1f}"
         )
 
+        # Merge tool-specific fields (e.g. total_credits, warning_level from subject_suggestion)
+        tool_extra: Dict[str, Any] = {}
+        preformatted_text: Optional[str] = None
+        if isinstance(result.metadata, dict):
+            tool_extra = {k: v for k, v in result.metadata.items()
+                          if k not in ("node", "duration_ms", "intent")}
+            # Promote preformatted_text to top-level so Node-4 can detect passive mode
+            preformatted_text = result.metadata.get("preformatted_text")
+
+        response_data: Dict[str, Any] = {
+            "text": result.text or "",
+            "intent": result.intent or intent_name,
+            "confidence": result.confidence or "medium",
+            "data": result_data,
+            "sql": result.sql,
+            "sql_error": result.sql_error,
+        }
+        # Surface preformatted_text for subject_registration_suggestion
+        if preformatted_text:
+            response_data["preformatted_text"] = preformatted_text
+
         return Node3ToolExecutorResponse(
             status="success",
-            data={
-                "text": result.text,
-                "intent": result.intent,
-                "confidence": result.confidence,
-                "data": result.data,
-                "sql": result.sql,
-                "sql_error": result.sql_error,
-            },
-            metadata={
-                "node": "node3_tool_executor",
-                "duration_ms": round(duration_ms, 2),
-                "intent": intent_name,
-                "data_count": data_count,
-            },
+            data=response_data,
+            metadata=_build_response_metadata(
+                intent_name=intent_name,
+                duration_ms=duration_ms,
+                data_count=data_count,
+                extra=tool_extra,
+            ),
             error=None,
         )
     except HTTPException:
@@ -468,10 +510,16 @@ async def execute_intent_tool(
     except Exception as exc:
         duration_ms = (time.perf_counter() - started_at) * 1000
         print(f"[AGENT-TOOL][NODE3] error intent={intent_name} error={exc}")
+        import traceback as _tb
+        _tb.print_exc()
         return Node3ToolExecutorResponse(
             status="error",
             data=None,
-            metadata={"node": "node3_tool_executor", "duration_ms": round(duration_ms, 2), "intent": intent_name},
+            metadata=_build_response_metadata(
+                intent_name=intent_name,
+                duration_ms=duration_ms,
+                data_count=0,
+            ),
             error=str(exc),
         )
 

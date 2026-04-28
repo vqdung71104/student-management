@@ -3,7 +3,7 @@ Pydantic schemas for NODE endpoints (Agent Tools API).
 Contract version: 1.0.0
 """
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 CONTRACT_VERSION = "1.0.0"
@@ -92,9 +92,11 @@ class Node3ToolExecutorRequest(BaseModel):
 
 class Node3ToolExecutorResponse(BaseModel):
     status: str = "success"
-    data: Dict[str, Any]  # contains: text, intent, confidence, data, sql, sql_error
+    data: Optional[Dict[str, Any]] = None  # None when intent returns only text (e.g. preference question)
     metadata: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
+    model_config = ConfigDict(extra="allow")  # allows preformatted_text, tool_extra, etc.
 
 
 # ─────────────────────────────────────────────────────────────────────────────

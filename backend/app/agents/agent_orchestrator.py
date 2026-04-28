@@ -6,7 +6,7 @@ import traceback
 from typing import Any, Dict, List, Optional
 
 from app.llm.llm_client import LLMClient
-from app.llm.llm_client import LLMCircuitOpenError
+from app.llm.llm_client import LLMCircuitOpenError, LLMAPIError, LLMTimeoutError
 from app.llm.response_cache import ResponseCache
 from .orchestration_metrics import get_orchestration_metrics
 from .tools_registry import ToolsRegistry
@@ -78,9 +78,11 @@ class AgentOrchestrator:
         Check if the data from Node 3 is empty or indicates an error.
         Handles FastAPI envelope: {"status": "error", "error": "...", ...}
 
-        Special case: text-only responses (e.g. preference-collection questions
-        from class_registration_suggestion) have a meaningful "text" field but
-        no "data" key — these are NOT empty.
+        Special cases:
+        - text-only responses (e.g. preference-collection questions) with "text" field
+          are NOT empty — Node-4 should format them.
+        - Responses with is_preference_collecting=True are NEVER empty — they contain
+          an interactive question for the user.
         """
         if data is None:
             return True
@@ -92,7 +94,13 @@ class AgentOrchestrator:
                 return True
             if data.get("sql_error"):
                 return True
-            # Check for empty data structures
+
+            # CRITICAL: is_preference_collecting responses are NEVER empty.
+            # They contain a valid question/response even when data=None.
+            if data.get("is_preference_collecting") is True:
+                return False
+
+            # Check for non-empty data structures in priority order
             keys_that_matter = ["data", "result", "text", "rows", "items"]
             for key in keys_that_matter:
                 if key in data:
@@ -103,11 +111,13 @@ class AgentOrchestrator:
                         continue
                     # Non-empty value found — NOT empty
                     return False
+
             # Text-only response (no "data" key, but has non-empty "text"):
             # NOT empty — Node-4 should pass this to the LLM to format.
             text_val = data.get("text")
             if isinstance(text_val, str) and text_val.strip():
                 return False
+
             # If only metadata/info keys present, check if actual data is missing
             if not any(k in data for k in keys_that_matter):
                 return True
@@ -445,9 +455,67 @@ class AgentOrchestrator:
         # This ensures the cache key is stable regardless of envelope wrapping.
         extracted_data = self._extract_result_data(raw_result)
 
-        # ── STEP 2: Anti-hallucination guard on extracted data ──────────────────
+        # ── STEP 2: Handle error status FIRST (before empty-data check) ─────────
+        # If the tool returned an error envelope, surface the real error message
+        # instead of hiding it behind "Rất tiếc không tìm thấy...".
+        if isinstance(raw_result, dict) and raw_result.get("status") == "error":
+            error_msg = raw_result.get("error") or "Unknown tool error"
+            error_detail = raw_result.get("metadata") or {}
+            print(
+                f"[NODE-4:ERROR_STATUS] Tool returned error.\n"
+                f"  → Error message: {error_msg}\n"
+                f"  → Metadata: {error_detail}\n"
+                f"  → Intent hints: {intent_hints}"
+            )
+            self.metrics.increment("node4.tool_error_status")
+            total_duration_ms = (time.perf_counter() - started_at) * 1000
+            self.metrics.observe_latency("node4.latency", total_duration_ms / 1000)
+            # Surface the real error with a friendly wrapper
+            friendly_error = (
+                f"Mình gặp một chút trục trặc khi xử lý yêu cầu này. "
+                f"Bạn vui lòng thử lại hoặc diễn đạt câu hỏi theo cách khác nhé!"
+            )
+            return {
+                "text": friendly_error,
+                "from_cache": False,
+                "processing_time_ms": 0.0,
+                "model_used": "error_status",
+                "tool_error": error_msg,
+                "tool_error_detail": error_detail,
+            }
+
+        # ── STEP 2b: Passive mode — use pre-formatted text directly ─────────────────
+        # For subject_registration_suggestion, Node 3b already formatted the list with
+        # reasons and priority. Node 4 MUST NOT rephrase it — just pass it through.
+        is_passive = (
+            isinstance(extracted_data, dict)
+            and extracted_data.get("preformatted_text")
+            and extracted_data.get("text")
+            and (
+                intent_hints is None
+                or "subject_registration_suggestion" in intent_hints
+            )
+        )
+        if is_passive:
+            raw_text = extracted_data.get("text") or extracted_data.get("preformatted_text") or ""
+            total_duration_ms = (time.perf_counter() - started_at) * 1000
+            self.metrics.increment("node4.passive_pass_through")
+            self.metrics.observe_latency("node4.latency", total_duration_ms / 1000)
+            print(
+                f"[NODE-4:PASSIVE] subject_registration_suggestion detected — "
+                f"passing through pre-formatted text ({len(raw_text)} chars, {total_duration_ms:.1f}ms)"
+            )
+            return {
+                "text": raw_text,
+                "from_cache": False,
+                "processing_time_ms": 0.0,
+                "model_used": "passive_pass_through",
+                "passive_mode": True,
+            }
+
+        # ── STEP 3: Anti-hallucination guard on extracted data ─────────────────
         if self._is_data_empty(extracted_data):
-            print("[NODE-4:ANTI-HALLU] Data is empty or error — returning fallback message.")
+            print("[NODE-4:ANTI-HALLU] Data is empty — returning fallback message.")
             self.metrics.increment("node4.empty_data")
             total_duration_ms = (time.perf_counter() - started_at) * 1000
             self.metrics.observe_latency("node4.latency", total_duration_ms / 1000)
@@ -463,7 +531,7 @@ class AgentOrchestrator:
                 "empty_data_guard": True,
             }
 
-        # ── STEP 3: Extract original query from results ─────────────────────────
+        # ── STEP 4: Extract original query from results ─────────────────────────
         if original_query is None:
             if isinstance(raw_result, list) and len(raw_result) > 0:
                 original_query = raw_result[0].get("segment", instruction)
@@ -472,7 +540,7 @@ class AgentOrchestrator:
             else:
                 original_query = instruction
 
-        # ── STEP 4: Cache check — use extracted data for stable key ─────────────
+        # ── STEP 5: Cache check — use extracted data for stable key ─────────────
         cache_key_data = extracted_data  # stable key from clean extracted data
         h = self._hash_raw_result(cache_key_data, instruction)
         cached = self.cache.get(h)
@@ -484,7 +552,7 @@ class AgentOrchestrator:
 
         self.metrics.increment("node4.cache_miss")
 
-        # ── STEP 5: Build prompt with few-shot examples using extracted data ─────
+        # ── STEP 6: Build prompt with few-shot examples using extracted data ─────
         prompt = self._build_formatter_prompt(extracted_data, instruction, original_query, intent_hints=intent_hints)
 
         # ── Few-shot examples for professional academic assistant style ──────────
@@ -536,20 +604,55 @@ Ví dụ 4:
 
         except LLMCircuitOpenError:
             self.metrics.increment("node4.circuit_open")
+            print(
+                "[NODE-4:ERROR] Circuit breaker OPEN — LLM service unavailable.\n"
+                "  → Returning friendly fallback; user is not blocked.\n"
+                "  → Suggestion: wait for cooldown or check LLM_BREAKER_COOLDOWN_SECONDS."
+            )
             text = (
-                "Rất tiếc, mình không tìm thấy thông tin này trong hệ thống. "
-                "Bạn vui lòng kiểm tra lại nhé!"
+                "Hệ thống đang bận, bạn vui lòng thử lại trong giây lát nhé!"
             )
             model_used = "circuit_open"
+
+        except LLMTimeoutError as exc:
+            self.metrics.increment("node4.timeout")
+            print(
+                f"[NODE-4:ERROR] LLM timeout after {NODE4_TIMEOUT}s.\n"
+                f"  → Error: {exc}\n"
+                f"  → Suggestion: increase LLM_GENERATE_TIMEOUT or check LLM service health."
+            )
+            text = (
+                "Mình đang xử lý hơi chậm, bạn vui lòng thử lại trong giây lát nhé!"
+            )
+            model_used = "timeout"
+
+        except LLMAPIError as exc:
+            self.metrics.increment("node4.api_error")
+            error_detail = traceback.format_exc()
+            print(
+                f"[NODE-4:ERROR] LLM API error.\n"
+                f"  → Error type: {type(exc).__name__}\n"
+                f"  → Error message: {exc}\n"
+                f"  → Stack:\n{error_detail}"
+            )
+            text = (
+                "Mình gặp chút trục trặc khi xử lý câu trả lời, bạn vui lòng thử lại nhé!"
+            )
+            model_used = "api_error"
 
         except Exception as exc:
             self.metrics.increment("node4.fallback")
             error_detail = traceback.format_exc()
-            print(f"[NODE-4:ERROR] {type(exc).__name__}: {str(exc)}")
-            print(f"[NODE-4:ERROR] Stack:\n{error_detail}")
+            print(
+                f"[NODE-4:ERROR] Unexpected exception.\n"
+                f"  → Error type: {type(exc).__name__}\n"
+                f"  → Error message: {str(exc)}\n"
+                f"  → Intent hints: {intent_hints}\n"
+                f"  → Data preview: {str(extracted_data)[:300]}\n"
+                f"  → Stack:\n{error_detail}"
+            )
             text = (
-                "Rất tiếc, mình không tìm thấy thông tin này trong hệ thống. "
-                "Bạn vui lòng kiểm tra lại nhé!"
+                "Mình gặp chút trục trặc khi xử lý câu trả lời, bạn vui lòng thử lại nhé!"
             )
             model_used = "error"
             llm_processing_time_ms = 0

@@ -783,22 +783,80 @@ class ChatbotService:
             }],
         }
     
+    # ── Priority mapping for subject rules (lower = higher priority) ──────────────
+    _SUBJECT_PRIORITY_MAP = {
+        "failed_retake": 1,
+        "semester_match": 2,
+        "political": 3,
+        "physical_education": 4,
+        "supplementary": 5,
+        "fast_track": 6,
+        "grade_improvement": 7,
+        "remaining_course": 8,
+    }
+    _SUBJECT_REASON_LABELS = {
+        "failed_retake": "Học lại (điểm F)",
+        "semester_match": "Môn đúng lộ trình",
+        "political": "Môn chính trị bắt buộc",
+        "physical_education": "Môn thể chất",
+        "supplementary": "Môn bổ trợ kiến thức",
+        "fast_track": "Học nhanh (CPA cao)",
+        "grade_improvement": "Cải thiện điểm (D/D+/C)",
+        "remaining_course": "Môn còn lại trong chương trình",
+    }
+
+    def _format_subject_reason(self, rule_category: str) -> str:
+        return self._SUBJECT_REASON_LABELS.get(rule_category, rule_category)
+
+    def _build_subject_text(self, result: Dict) -> str:
+        """
+        Build a clean, numbered Markdown list with reasons pre-formatted by Node 3b.
+        This text is returned directly — Node 4 will NOT rephrase it.
+
+        Format: 1. [Mã HP] - [Tên HP] ([Số tín chỉ] TC) - Lý do: [reason]
+        """
+        summary = result.get("summary", {})
+        lines: List[str] = []
+        global_idx = 0
+
+        for rule_cat, priority in sorted(self._SUBJECT_PRIORITY_MAP.items(), key=lambda x: x[1]):
+            group: List[Dict] = summary.get(rule_cat, [])
+            if not group:
+                continue
+
+            category_label = self._SUBJECT_REASON_LABELS.get(rule_cat, rule_cat)
+            reason = self._format_subject_reason(rule_cat)
+
+            for subj in group:
+                global_idx += 1
+                lines.append(
+                    f"{global_idx}. **{subj.get('subject_id', '?')}** - "
+                    f"{subj.get('subject_name', '?')} "
+                    f"({subj.get('credits', 0)} TC) - "
+                    f"Lý do: {reason}"
+                )
+
+        if not lines:
+            return "Không có môn học nào được gợi ý cho bạn trong kỳ này."
+
+        return "\n".join(lines)
+
     async def process_subject_suggestion(
-        self, 
+        self,
         student_id: int,
         question: str,
         max_credits: Optional[int] = None
     ) -> Dict:
         """
-        Process subject suggestion request using rule engine
-        
-        Args:
-            student_id: Student ID
-            question: User's question (for context)
-            max_credits: Optional max credits override
-        
+        Node 3b: Suggest subjects for next semester.
+
+        Responsibilities (moved from Node 4):
+        1. Sort subjects by rule priority (failed_retake → semester_match → political → ...)
+        2. Build pre-formatted text with numbered list + reasons
+        3. Return preformatted_text so Node 4 passes it through directly
+
         Returns:
-            Dict with text response, intent, confidence, and structured data
+            Dict with text, preformatted_text, data, metadata (academic fields)
         """
         try:
             # Validate student_id
@@ -808,52 +866,92 @@ class ChatbotService:
                     "intent": "subject_registration_suggestion",
                     "confidence": "high",
                     "data": None,
-                    "requires_auth": True
+                    "preformatted_text": None,
+                    "requires_auth": True,
                 }
-            
-            # Use rule engine to get subject suggestions
-            result = self.subject_rule_engine.suggest_subjects(student_id, max_credits)
-            
-            # Format human-readable response
-            text_response = self.subject_rule_engine.format_suggestion_response(result)
-            
-            # Return structured response
+
+            # Rule engine: get raw results (already ordered by priority in summary)
+            raw_result = self.subject_rule_engine.suggest_subjects(student_id, max_credits)
+
+            # ── Sort suggested_subjects by priority ─────────────────────────────────
+            # Each subject gets its rule category from the summary groups.
+            # Rebuild a flat sorted list with _rule_priority and _rule_category fields.
+            sorted_subjects: List[Dict] = []
+            summary = raw_result.get("summary", {})
+
+            for rule_cat, priority in sorted(self._SUBJECT_PRIORITY_MAP.items(), key=lambda x: x[1]):
+                group: List[Dict] = summary.get(rule_cat, [])
+                for subj in group:
+                    enriched = dict(subj)
+                    enriched["_rule_category"] = rule_cat
+                    enriched["_rule_priority"] = priority
+                    enriched["_rule_reason"] = self._SUBJECT_REASON_LABELS.get(rule_cat, rule_cat)
+                    sorted_subjects.append(enriched)
+
+            # ── Build pre-formatted text (Node 3b is responsible for formatting) ─────
+            preformatted = self._build_subject_text(raw_result)
+
+            # ── Build friendly intro text (for human readability) ─────────────────────
+            student_info = (
+                f"Kỳ học hiện tại: {raw_result['current_semester']} | "
+                f"CPA: {raw_result['student_cpa']:.2f} | "
+                f"Mức cảnh báo: {raw_result['warning_level']}\n"
+                f"Tín chỉ tối thiểu: {raw_result['min_credits_required']} TC | "
+                f"Tối đa: {raw_result['max_credits_allowed']} TC | "
+                f"Tổng gợi ý: {raw_result['total_credits']} TC"
+            )
+            intro = f"📚 **Danh sách môn học gợi ý cho bạn:**\n\n{student_info}\n\n"
+
+            if not sorted_subjects:
+                friendly_text = (
+                    f"📚 **Danh sách môn học gợi ý cho bạn:**\n\n"
+                    f"{student_info}\n\n"
+                    f"Hiện tại bạn không có môn học nào cần đăng ký trong kỳ này. "
+                    f"Hãy kiểm tra lại tiến độ học tập nhé!"
+                )
+            else:
+                friendly_text = intro + preformatted
+
             return {
-                "text": text_response,
+                "text": friendly_text,
+                "preformatted_text": preformatted,  # Node 4: pass through if present
                 "intent": "subject_registration_suggestion",
                 "confidence": "high",
-                "data": result['suggested_subjects'],
-                "summary": result['summary'],
+                "data": sorted_subjects,
+                "summary": raw_result.get("summary"),
                 "metadata": {
-                    "total_credits": result['total_credits'],
-                    "meets_minimum": result['meets_minimum'],
-                    "min_credits_required": result['min_credits_required'],
-                    "max_credits_allowed": result['max_credits_allowed'],
-                    "current_semester": result['current_semester'],
-                    "student_semester_number": result['student_semester_number'],
-                    "student_cpa": result['student_cpa'],
-                    "warning_level": result['warning_level']
+                    "total_credits": raw_result["total_credits"],
+                    "meets_minimum": raw_result["meets_minimum"],
+                    "min_credits_required": raw_result["min_credits_required"],
+                    "max_credits_allowed": raw_result["max_credits_allowed"],
+                    "current_semester": raw_result["current_semester"],
+                    "student_semester_number": raw_result["student_semester_number"],
+                    "student_cpa": raw_result["student_cpa"],
+                    "warning_level": raw_result["warning_level"],
+                    "total_subjects": len(sorted_subjects),
                 },
-                "rule_engine_used": True
+                "rule_engine_used": True,
             }
-            
+
         except ValueError as e:
-            # Student not found or invalid data
             return {
                 "text": f"❌ Lỗi: {str(e)}",
                 "intent": "subject_registration_suggestion",
                 "confidence": "high",
                 "data": None,
-                "error": str(e)
+                "preformatted_text": None,
+                "error": str(e),
             }
         except Exception as e:
-            # Unexpected error
+            import traceback
+            traceback.print_exc()
             return {
                 "text": f"❌ Xin lỗi, đã xảy ra lỗi khi gợi ý học phần: {str(e)}",
                 "intent": "subject_registration_suggestion",
                 "confidence": "low",
                 "data": None,
-                "error": str(e)
+                "preformatted_text": None,
+                "error": str(e),
             }
     
     async def process_class_suggestion(
