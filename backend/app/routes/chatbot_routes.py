@@ -34,6 +34,7 @@ import os
 import time
 
 from app.agents.agent_orchestrator import AgentOrchestrator
+from app.middleware.rate_limit import rate_limit
 
 
 router = APIRouter(prefix="/chatbot", tags=["Chatbot"])
@@ -896,6 +897,7 @@ def _make_execution_debug(
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.post("/chat", response_model=ChatResponseWithData)
+@rate_limit()
 async def chat(
     message: ChatMessage,
     db: Session = Depends(get_db),
@@ -1319,6 +1321,7 @@ async def get_available_intents():
 
 
 @router.post("/chat-stream")
+@rate_limit()
 async def chat_stream(
     message: ChatMessage,
     db: Session = Depends(get_db),
