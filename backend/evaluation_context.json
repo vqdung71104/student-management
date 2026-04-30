@@ -1,0 +1,828 @@
+{
+  "metadata": {
+    "generated_at": "2026-04-30T16:46:51.054173",
+    "total_queries": 11,
+    "student_id": 1,
+    "conversation_id": 1,
+    "total_duration_ms": 46641.02,
+    "script_version": "2.0.0",
+    "node1_bypass": true,
+    "agent_internal_key_used": "1EUKn7Z8zxpi8D0GhbVHqkZAeCZbDL1t",
+    "description": "Evaluation context for fine-tuned LLM comparison on Google Colab. raw_context_after_node3 = raw tool output (input cho LLM fine-tuned). api_response_node4  = baseline response from current system. tool_errors         = HTTP/API errors if any (HTTP_403_AUTH, TIMEOUT, ...)."
+  },
+  "results": [
+    {
+      "query": "Tôi nên đăng ký lớp nào kỳ sau?",
+      "raw_context_after_node3": [
+        {
+          "segment": "Tôi nên đăng ký lớp nào kỳ sau?",
+          "intent": {
+            "intent": "class_registration_suggestion",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "<div style='color:#d32f2f;font-size:20px;font-weight:800;line-height:1.4;'>⚠️ LƯU Ý QUAN TRỌNG: Sinh viên cần xem xét đăng ký học phần thực tập theo nhu cầu cá nhân; đồng thời kiểm tra đăng ký các học phần liên quan đến đồ án đúng tiến độ nhà trường và nhu cầu của mình.</div>\n\nBạn muốn đăng ký theo học phần bạn đã đăng ký hay học phần hệ thống gợi ý?",
+              "intent": "class_registration_suggestion",
+              "confidence": "high",
+              "data": null,
+              "sql": null,
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 4582.02,
+              "intent": "class_registration_suggestion",
+              "data_count": 0
+            },
+            "error": null
+          },
+          "node3_subtype": "node3c"
+        }
+      ],
+      "api_response_node4": "Bạn cần xem xét đăng ký học phần thực tập theo nhu cầu cá nhân và kiểm tra các học phần liên quan đến đồ án để đảm bảo đúng tiến độ và nhu cầu của mình. Bạn có muốn đăng ký theo học phần đã đăng ký hay theo gợi ý của hệ thống?",
+      "intent_detected": "class_registration_suggestion",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3c"
+      ],
+      "duration_ms": 8014.53,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:04.399303"
+    },
+    {
+      "query": "Tôi nên đăng ký học phần nào kỳ sau?",
+      "raw_context_after_node3": [
+        {
+          "segment": "Tôi nên đăng ký học phần nào kỳ sau?",
+          "intent": {
+            "intent": "subject_registration_suggestion",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "error",
+            "error": "TIMEOUT: Request timed out"
+          },
+          "node3_subtype": "node3b"
+        }
+      ],
+      "api_response_node4": "Rất tiếc, mình không tìm thấy thông tin này trong hệ thống. Bạn vui lòng kiểm tra lại nhé!",
+      "intent_detected": "subject_registration_suggestion",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3b"
+      ],
+      "duration_ms": 6208.27,
+      "model_used": "none",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": true,
+      "tool_errors": [
+        {
+          "status": "error",
+          "error": "TIMEOUT: Request timed out"
+        }
+      ],
+      "timestamp": "2026-04-30T16:46:12.719025"
+    },
+    {
+      "query": "Thông tin học phần Cơ sở dữ liệu",
+      "raw_context_after_node3": [
+        {
+          "segment": "Thông tin học phần Cơ sở dữ liệu",
+          "intent": {
+            "intent": "class_info",
+            "confidence": 0.9303561136579805,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "✅ Tìm thấy 3 lớp học phù hợp.",
+              "intent": "class_info",
+              "confidence": "high",
+              "data": [
+                {
+                  "id": 40248,
+                  "class_id": "169309",
+                  "class_name": "Cơ sở dữ liệu",
+                  "classroom": "D8-304",
+                  "study_date": "Thursday",
+                  "study_time_start": "08:25",
+                  "study_time_end": "11:45",
+                  "study_week": [
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42
+                  ],
+                  "teacher_name": "",
+                  "subject_id": "MI3090",
+                  "subject_name": "Cơ sở dữ liệu",
+                  "credits": 3,
+                  "registered_count": 0
+                },
+                {
+                  "id": 40249,
+                  "class_id": "169310",
+                  "class_name": "Cơ sở dữ liệu",
+                  "classroom": "D8-102",
+                  "study_date": "Monday",
+                  "study_time_start": "08:25",
+                  "study_time_end": "11:45",
+                  "study_week": [
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42
+                  ],
+                  "teacher_name": "",
+                  "subject_id": "MI3090",
+                  "subject_name": "Cơ sở dữ liệu",
+                  "credits": 3,
+                  "registered_count": 0
+                },
+                {
+                  "id": 40250,
+                  "class_id": "169311",
+                  "class_name": "Cơ sở dữ liệu",
+                  "classroom": "D5-405",
+                  "study_date": "Wednesday",
+                  "study_time_start": "06:45",
+                  "study_time_end": "10:05",
+                  "study_week": [
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42
+                  ],
+                  "teacher_name": "",
+                  "subject_id": "MI3090",
+                  "subject_name": "Cơ sở dữ liệu",
+                  "credits": 3,
+                  "registered_count": 0
+                }
+              ],
+              "sql": null,
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 1402.3,
+              "intent": "class_info",
+              "data_count": 3
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "Môn Cơ sở dữ liệu có 3 lớp học như sau:\n\n1. **Lớp 1**: \n   - Tên lớp: Cơ sở dữ liệu\n   - Phòng học: D8-304\n   - Ngày học: Thứ Năm\n   - Thời gian: 08:25 - 11:45\n   - Số tín chỉ: 3\n   - Số sinh viên đăng ký: 0\n\n2. **Lớp 2**: \n   - Tên lớp: Cơ sở dữ liệu\n   - Phòng học: D8-102\n   - Ngày học: Thứ Hai\n   - Thời gian: 08:25 - 11:45\n   -",
+      "intent_detected": "class_info",
+      "confidence": null,
+      "confidence_score": 0.9303561136579805,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 7820.79,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:19.235545"
+    },
+    {
+      "query": "Thông tin học phần Giải tích 2",
+      "raw_context_after_node3": [
+        {
+          "segment": "Thông tin học phần Giải tích 2",
+          "intent": {
+            "intent": "subject_info",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn.",
+              "intent": "subject_info",
+              "confidence": "high",
+              "data": [],
+              "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.conditional_subjects, s.english_subject_name FROM subjects s WHERE s.subject_name LIKE '%Giải tích 2%'",
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 418.67,
+              "intent": "subject_info",
+              "data_count": 0
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "Rất tiếc, mình không tìm thấy thông tin về học phần Giải tích 2 trong hệ thống. Bạn vui lòng kiểm tra lại nhé!",
+      "intent_detected": "subject_info",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 1940.96,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:27.344578"
+    },
+    {
+      "query": "Thông tin học phần Sinh học đại cương",
+      "raw_context_after_node3": [
+        {
+          "segment": "Thông tin học phần Sinh học đại cương",
+          "intent": {
+            "intent": "subject_info",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "Thông tin về học phần (tìm thấy 5 kết quả):\nHọc phần này không nằm trong chương trình đào tạo của bạn.",
+              "intent": "subject_info",
+              "confidence": "high",
+              "data": [
+                {
+                  "subject_id": "BF1016",
+                  "subject_name": "Sinh học đại cương",
+                  "credits": 4,
+                  "conditional_subjects": null,
+                  "english_subject_name": "General Biology",
+                  "_student_course_name": "Công nghệ thông tin Việt Nhật",
+                  "_student_course_pk": 1,
+                  "_in_student_program": false,
+                  "_student_grade_history": [],
+                  "_student_learning_status": "out_of_program",
+                  "_student_context_message": "Học phần này không nằm trong chương trình đào tạo của bạn."
+                },
+                {
+                  "subject_id": "BF1601",
+                  "subject_name": "Sinh học đại cương",
+                  "credits": 3,
+                  "conditional_subjects": null,
+                  "english_subject_name": "Introductory Biology",
+                  "_student_course_name": "Công nghệ thông tin Việt Nhật",
+                  "_student_course_pk": 1,
+                  "_in_student_program": false,
+                  "_student_grade_history": [],
+                  "_student_learning_status": "out_of_program",
+                  "_student_context_message": "Học phần này không nằm trong chương trình đào tạo của bạn."
+                },
+                {
+                  "subject_id": "BF2410",
+                  "subject_name": "Công nghệ sinh học đại cương",
+                  "credits": 3,
+                  "conditional_subjects": null,
+                  "english_subject_name": "General Biotechnology",
+                  "_student_course_name": "Công nghệ thông tin Việt Nhật",
+                  "_student_course_pk": 1,
+                  "_in_student_program": false,
+                  "_student_grade_history": [],
+                  "_student_learning_status": "out_of_program",
+                  "_student_context_message": "Học phần này không nằm trong chương trình đào tạo của bạn."
+                },
+                {
+                  "subject_id": "BF4810",
+                  "subject_name": "Công nghệ sinh học đại cương",
+                  "credits": 2,
+                  "conditional_subjects": null,
+                  "english_subject_name": "General Biotechnology",
+                  "_student_course_name": "Công nghệ thông tin Việt Nhật",
+                  "_student_course_pk": 1,
+                  "_in_student_program": false,
+                  "_student_grade_history": [],
+                  "_student_learning_status": "out_of_program",
+                  "_student_context_message": "Học phần này không nằm trong chương trình đào tạo của bạn."
+                },
+                {
+                  "subject_id": "BF4811",
+                  "subject_name": "Công nghệ sinh học đại cương",
+                  "credits": 2,
+                  "conditional_subjects": null,
+                  "english_subject_name": "General Biotechnology",
+                  "_student_course_name": "Công nghệ thông tin Việt Nhật",
+                  "_student_course_pk": 1,
+                  "_in_student_program": false,
+                  "_student_grade_history": [],
+                  "_student_learning_status": "out_of_program",
+                  "_student_context_message": "Học phần này không nằm trong chương trình đào tạo của bạn."
+                }
+              ],
+              "sql": "SELECT s.subject_id, s.subject_name, s.credits, s.conditional_subjects, s.english_subject_name FROM subjects s WHERE s.subject_name LIKE '%Sinh học đại cương%'",
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 463.38,
+              "intent": "subject_info",
+              "data_count": 5
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "Rất tiếc, học phần \"Sinh học đại cương\" không nằm trong chương trình đào tạo của bạn. Nếu bạn cần thêm thông tin, vui lòng cho tôi biết!",
+      "intent_detected": "subject_info",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 2496.46,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:29.595805"
+    },
+    {
+      "query": "Thông tin lớp 168234",
+      "raw_context_after_node3": [
+        {
+          "segment": "Thông tin lớp 168234",
+          "intent": {
+            "intent": "class_info",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "✅ Tìm thấy 1 lớp học phù hợp.",
+              "intent": "class_info",
+              "confidence": "high",
+              "data": [
+                {
+                  "id": 34890,
+                  "class_id": "168234",
+                  "class_name": "Sinh học đại cương",
+                  "classroom": "D6-303",
+                  "study_date": "Monday",
+                  "study_time_start": "15:05",
+                  "study_time_end": "16:45",
+                  "study_week": [
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42
+                  ],
+                  "teacher_name": "",
+                  "subject_id": "BF1016",
+                  "subject_name": "Sinh học đại cương",
+                  "credits": 4,
+                  "registered_count": 0
+                },
+                {
+                  "id": 34891,
+                  "class_id": "168234",
+                  "class_name": "Sinh học đại cương",
+                  "classroom": "C7-238",
+                  "study_date": "Thursday",
+                  "study_time_start": "12:30",
+                  "study_time_end": "14:00",
+                  "study_week": [
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42
+                  ],
+                  "teacher_name": "",
+                  "subject_id": "BF1016",
+                  "subject_name": "Sinh học đại cương",
+                  "credits": 4,
+                  "registered_count": 0
+                }
+              ],
+              "sql": null,
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 801.26,
+              "intent": "class_info",
+              "data_count": 2
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "Lớp học có mã 168234 là môn Sinh học đại cương, diễn ra tại hai địa điểm: \n\n1. **Lớp D6-303** vào thứ Hai, từ 15:05 đến 16:45.\n2. **Lớp C7-238** vào thứ Năm, từ 12:30 đến 14:00.\n\nMôn học này có 4 tín chỉ và hiện tại chưa có sinh viên đăng ký.",
+      "intent_detected": "class_info",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 4902.31,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:32.402877"
+    },
+    {
+      "query": "Thông tin lớp 166126",
+      "raw_context_after_node3": [
+        {
+          "segment": "Thông tin lớp 166126",
+          "intent": {
+            "intent": "class_info",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "✅ Tìm thấy 1 lớp học phù hợp.",
+              "intent": "class_info",
+              "confidence": "high",
+              "data": [
+                {
+                  "id": 38007,
+                  "class_id": "166126",
+                  "class_name": "IoT và ứng dụng",
+                  "classroom": "D9-403",
+                  "study_date": "Monday",
+                  "study_time_start": "09:20",
+                  "study_time_end": "11:45",
+                  "study_week": [
+                    25,
+                    26,
+                    27,
+                    28,
+                    29,
+                    30,
+                    31,
+                    32,
+                    34,
+                    35,
+                    36,
+                    37,
+                    38,
+                    39,
+                    40,
+                    41,
+                    42
+                  ],
+                  "teacher_name": "",
+                  "subject_id": "IT4735",
+                  "subject_name": "IoT và ứng dụng",
+                  "credits": 2,
+                  "registered_count": 0
+                }
+              ],
+              "sql": null,
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 914.83,
+              "intent": "class_info",
+              "data_count": 1
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "Lớp học có mã 166126 là \"IoT và ứng dụng\", diễn ra vào thứ Hai từ 09:20 đến 11:45 tại phòng D9-403. Lớp học này có 2 tín chỉ và hiện tại chưa có sinh viên đăng ký.",
+      "intent_detected": "class_info",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 3031.82,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:37.611096"
+    },
+    {
+      "query": "Điểm CPA của tôi",
+      "raw_context_after_node3": [
+        {
+          "segment": "Điểm CPA của tôi",
+          "intent": {
+            "intent": "grade_view",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "Thông tin học vụ của bạn:",
+              "intent": "grade_view",
+              "confidence": "high",
+              "data": [
+                {
+                  "cpa": 3.3,
+                  "total_learned_credits": 30,
+                  "year_level": "Năm 1"
+                }
+              ],
+              "sql": "SELECT s.cpa, s.total_learned_credits, s.year_level FROM students s WHERE s.id = 1",
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 518.37,
+              "intent": "grade_view",
+              "data_count": 1
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "CPA hiện tại của bạn là 3.3.",
+      "intent_detected": "grade_view",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 2018.56,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:40.957991"
+    },
+    {
+      "query": "GPA kỳ 2024.1",
+      "raw_context_after_node3": [
+        {
+          "segment": "GPA kỳ 2024.1",
+          "intent": {
+            "intent": "grade_view",
+            "confidence": 0.5313500601288984,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "Thông tin học vụ của bạn:",
+              "intent": "grade_view",
+              "confidence": "high",
+              "data": [
+                {
+                  "cpa": 3.3,
+                  "total_learned_credits": 30,
+                  "year_level": "Năm 1"
+                }
+              ],
+              "sql": "SELECT s.cpa, s.total_learned_credits, s.year_level FROM students s WHERE s.id = 1",
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 369.33,
+              "intent": "grade_view",
+              "data_count": 1
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "CPA hiện tại của bạn là 3.3.",
+      "intent_detected": "grade_view",
+      "confidence": null,
+      "confidence_score": 0.5313500601288984,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 597.16,
+      "model_used": "cache",
+      "from_cache": true,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:43.281407"
+    },
+    {
+      "query": "Điểm môn Giải tích 1",
+      "raw_context_after_node3": [
+        {
+          "segment": "Điểm môn Giải tích 1",
+          "intent": {
+            "intent": "learned_subjects_view",
+            "confidence": 0.7586214345989993,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn.",
+              "intent": "learned_subjects_view",
+              "confidence": "high",
+              "data": [],
+              "sql": "SELECT DISTINCT ls.subject_name, ls.credits, ls.letter_grade, ls.semester FROM learned_subjects ls JOIN subjects s ON ls.subject_id = s.id WHERE ls.student_id = 1 AND s.subject_name LIKE '%Giải tích 1%'",
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 494.73,
+              "intent": "learned_subjects_view",
+              "data_count": 0
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "Rất tiếc, mình không tìm thấy thông tin về điểm môn Giải tích 1 của bạn trong hệ thống. Bạn vui lòng kiểm tra lại nhé!",
+      "intent_detected": "learned_subjects_view",
+      "confidence": null,
+      "confidence_score": 0.7586214345989993,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 2116.53,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:44.180327"
+    },
+    {
+      "query": "Thông tin về tôi",
+      "raw_context_after_node3": [
+        {
+          "segment": "Thông tin về tôi",
+          "intent": {
+            "intent": "student_info",
+            "confidence": 1.0,
+            "source": "tfidf"
+          },
+          "raw_result": {
+            "status": "success",
+            "data": {
+              "text": "Đây là thông tin sinh viên của bạn (bao gồm chương trình đào tạo và GPA theo từng kỳ):",
+              "intent": "student_info",
+              "confidence": "high",
+              "data": [
+                {
+                  "student_name": "Vũ Quang Dũng",
+                  "course_id": "IT-E6",
+                  "course_name": "Công nghệ thông tin Việt Nhật",
+                  "cpa": 3.3,
+                  "total_learned_credits": 30,
+                  "semester": "20221",
+                  "gpa": 3.0
+                },
+                {
+                  "student_name": "Vũ Quang Dũng",
+                  "course_id": "IT-E6",
+                  "course_name": "Công nghệ thông tin Việt Nhật",
+                  "cpa": 3.3,
+                  "total_learned_credits": 30,
+                  "semester": "20232",
+                  "gpa": 3.0
+                },
+                {
+                  "student_name": "Vũ Quang Dũng",
+                  "course_id": "IT-E6",
+                  "course_name": "Công nghệ thông tin Việt Nhật",
+                  "cpa": 3.3,
+                  "total_learned_credits": 30,
+                  "semester": "20241",
+                  "gpa": 3.25
+                },
+                {
+                  "student_name": "Vũ Quang Dũng",
+                  "course_id": "IT-E6",
+                  "course_name": "Công nghệ thông tin Việt Nhật",
+                  "cpa": 3.3,
+                  "total_learned_credits": 30,
+                  "semester": "20242",
+                  "gpa": 3.8125
+                }
+              ],
+              "sql": "SELECT DISTINCT st.student_name, c.course_id, c.course_name, st.cpa, st.total_learned_credits, sg.semester, sg.gpa FROM students st LEFT JOIN courses c ON c.id = st.course_id LEFT JOIN semester_gpa sg ON sg.student_id = st.id WHERE st.id = 1 ORDER BY sg.semester ASC",
+              "sql_error": null
+            },
+            "metadata": {
+              "node": "node3_tool_executor",
+              "duration_ms": 358.98,
+              "intent": "student_info",
+              "data_count": 4
+            },
+            "error": null
+          },
+          "node3_subtype": "node3a"
+        }
+      ],
+      "api_response_node4": "Thông tin sinh viên của bạn như sau:\n\n- Tên: Vũ Quang Dũng\n- Chương trình đào tạo: Công nghệ thông tin Việt Nhật (Mã khóa: IT-E6)\n\nĐiểm GPA theo từng kỳ:\n- Kỳ 20221: GPA 3.0\n- Kỳ 20232: GPA 3.0\n- Kỳ 20241: GPA 3.25\n- Kỳ 20242: GPA 3.8125\n\nTổng số tín chỉ đã học: 30.",
+      "intent_detected": "student_info",
+      "confidence": null,
+      "confidence_score": 1.0,
+      "node3_subtypes": [
+        "node3a"
+      ],
+      "duration_ms": 4155.1,
+      "model_used": "gemini",
+      "from_cache": false,
+      "error": null,
+      "is_tool_error": false,
+      "tool_errors": [],
+      "timestamp": "2026-04-30T16:46:46.599301"
+    }
+  ]
+}

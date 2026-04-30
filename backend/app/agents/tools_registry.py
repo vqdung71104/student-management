@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -65,6 +65,31 @@ def _load_tool_map_from_env() -> Dict[str, Dict[str, Any]]:
 AGENT_TOOL_MAP = _default_tool_map()
 AGENT_TOOL_MAP.update(_load_tool_map_from_env())
 
+
+def _classify_error(exc: Exception) -> str:
+    """
+    Classify an HTTP/client exception into a clear, actionable error category.
+    Used by both tools_registry (log) and orchestrator (capture).
+    """
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        if status == 403:
+            return f"HTTP_403_AUTH: X-Agent-Internal-Key missing or wrong on {exc.request.url}"
+        if status == 401:
+            return f"HTTP_401_UNAUTHORIZED: Invalid credentials on {exc.request.url}"
+        if status == 404:
+            return f"HTTP_404_NOT_FOUND: Endpoint not found {exc.request.url}"
+        if status == 422:
+            return f"HTTP_422_VALIDATION: Request body invalid for {exc.request.url}"
+        return f"HTTP_{status}: {exc.response.text[:120]} on {exc.request.url}"
+    if isinstance(exc, httpx.TimeoutException):
+        return f"TIMEOUT: Request timed out"
+    if isinstance(exc, httpx.ConnectError):
+        return f"CONNECT_ERROR: Cannot reach server — is the backend running on {exc.request.url.host if hasattr(exc, 'request') else 'localhost'}?"
+    if isinstance(exc, httpx.RemoteProtocolError):
+        return f"REMOTE_PROTOCOL_ERROR: Server sent malformed response on {exc.request.url}"
+    return f"UNKNOWN: {type(exc).__name__}: {exc}"
+
 class ToolsRegistry:
     def __init__(self, tool_map: Optional[Dict[str, Dict[str, Any]]] = None):
         self.tools = dict(tool_map) if tool_map is not None else dict(AGENT_TOOL_MAP)
@@ -80,27 +105,94 @@ class ToolsRegistry:
     def get(self, name: str):
         return self.tools.get(name)
 
-    async def call(self, name: str, payload: Dict[str, Any]):
+    async def call(self, name: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Call a registered tool endpoint.
+
+        Returns a dict — never raises an exception:
+          - On success:  {"status": "success", "data": {...}}
+          - On HTTP error: {"status": "error", "error": "<classified reason>", "http_status": <int>}
+          - On network error: {"status": "error", "error": "<classified reason>"}
+        """
         tool = self.get(name)
         if not tool:
             raise RuntimeError(f"Tool {name} not found")
         url = tool["url"]
         timeout = tool.get("timeout", 5)
-        custom_headers = tool.get("headers", {}) if isinstance(tool.get("headers"), dict) else {}
+        custom_headers = (
+            tool.get("headers", {})
+            if isinstance(tool.get("headers"), dict)
+            else {}
+        )
         headers = {**self._default_headers, **custom_headers}
         payload_preview = json.dumps(payload, ensure_ascii=False, default=str)
         if len(payload_preview) > 160:
             payload_preview = payload_preview[:160] + "..."
         print(f"[TOOLS] start name={name} url={url} timeout={timeout}s payload={payload_preview}")
         started_at = time.perf_counter()
-        async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
-            resp = await client.post(url, json=payload)
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout, headers=headers) as client:
+                resp = await client.post(url, json=payload)
+                duration_ms = (time.perf_counter() - started_at) * 1000
+                print(
+                    f"[TOOLS] response name={name} status={resp.status_code} "
+                    f"duration_ms={duration_ms:.1f}"
+                )
+
+                # ── Success ──────────────────────────────────────────────────────
+                if resp.status_code == 200:
+                    body = resp.json()
+                    body_preview = json.dumps(body, ensure_ascii=False, default=str)
+                    if len(body_preview) > 160:
+                        body_preview = body_preview[:160] + "..."
+                    print(f"[TOOLS] done name={name} body={body_preview}")
+                    return body  # passthrough so orchestrator sees real data
+
+                # ── HTTP error — return structured error, do NOT raise ─────────────
+                err_category = _classify_error(
+                    httpx.HTTPStatusError(
+                        f"HTTP {resp.status_code}",
+                        request=resp.request,
+                        response=resp,
+                    )
+                )
+                err_detail = (
+                    resp.text[:200].strip() if resp.text else f"HTTP {resp.status_code}"
+                )
+                print(
+                    f"[TOOLS] HTTP error name={name} status={resp.status_code} "
+                    f"category={err_category} detail={err_detail[:80]}"
+                )
+                return {
+                    "status": "error",
+                    "error": err_category,
+                    "http_status": resp.status_code,
+                    "error_detail": err_detail,
+                }
+
+        except httpx.TimeoutException as exc:
             duration_ms = (time.perf_counter() - started_at) * 1000
-            print(f"[TOOLS] response name={name} status={resp.status_code} duration_ms={duration_ms:.1f}")
-            resp.raise_for_status()
-            body = resp.json()
-            body_preview = json.dumps(body, ensure_ascii=False, default=str)
-            if len(body_preview) > 160:
-                body_preview = body_preview[:160] + "..."
-            print(f"[TOOLS] done name={name} body={body_preview}")
-            return body
+            err = _classify_error(exc)
+            print(f"[TOOLS] timeout name={name} duration_ms={duration_ms:.1f} error={err}")
+            return {"status": "error", "error": err}
+
+        except httpx.ConnectError as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            err = _classify_error(exc)
+            print(f"[TOOLS] connect_error name={name} duration_ms={duration_ms:.1f} error={err}")
+            return {"status": "error", "error": err}
+
+        except httpx.HTTPStatusError as exc:
+            # Already handled above via status_code check, but kept as fallback
+            err = _classify_error(exc)
+            return {"status": "error", "error": err}
+
+        except Exception as exc:
+            duration_ms = (time.perf_counter() - started_at) * 1000
+            err_category = _classify_error(exc)
+            print(
+                f"[TOOLS] unexpected name={name} duration_ms={duration_ms:.1f} "
+                f"error={err_category}"
+            )
+            return {"status": "error", "error": err_category}

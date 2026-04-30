@@ -89,9 +89,11 @@ class AgentOrchestrator:
         if isinstance(data, list) and len(data) == 0:
             return True
         if isinstance(data, dict):
-            # FastAPI error envelope
-            if data.get("status") == "error" or data.get("error"):
-                return True
+            # NOTE: structured error responses like {"status": "error", "error": "HTTP_403_AUTH: ..."}
+            # are NOT treated as empty — Node-4 must surface the real error category,
+            # not silently replace it with "Rất tiếc, mình không tìm thấy...".
+            # Only truly empty data structures (no keys, or only metadata keys) are empty.
+
             if data.get("sql_error"):
                 return True
 
@@ -744,8 +746,9 @@ Ví dụ 4:
                     )
                 except Exception as e:
                     self.metrics.increment(f"tools.{intent or 'unknown'}.failure")
-                    res = {"error": str(e)}
-                    print(f"[NODE-3] ERROR [{node3_subtype or '?'}] intent={intent}: {e}")
+                    err_msg = f"TOOLS_LAYER_UNEXPECTED: {type(e).__name__}: {e}"
+                    print(f"[NODE-3] UNEXPECTED [{node3_subtype or '?'}] intent={intent}: {e}")
+                    res = {"status": "error", "error": err_msg}
 
             results.append({
                 'segment': seg,
