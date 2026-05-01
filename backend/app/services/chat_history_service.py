@@ -180,13 +180,19 @@ class ChatHistoryService:
         student_pk: int,
         user_content: str,
         assistant_payload: Dict[str, Any],
-        conversation_id: Optional[int] = None,
+        conversation_id: int,
     ) -> Tuple[ChatConversation, ChatMessage, ChatMessage]:
-        conversation = self.get_or_create_conversation(
-            student_pk=student_pk,
-            conversation_id=conversation_id,
-            first_message=user_content,
+        # conversation already validated by the caller — query by PK directly.
+        conversation = (
+            self.db.query(ChatConversation)
+            .filter(
+                ChatConversation.id == conversation_id,
+                ChatConversation.student_pk == student_pk,
+            )
+            .first()
         )
+        if not conversation:
+            raise ValueError("Conversation not found or access denied")
 
         user_msg = ChatMessage(
             conversation_id=conversation.id,

@@ -558,18 +558,23 @@ const ChatBot: React.FC = () => {
         debug: finalResponse.debug,
       });
 
+      // ── Reload messages so the just-saved (user + assistant) pair appears on screen ─
+      if (finalResponse.conversation_id) {
+        try {
+          await loadConversation(finalResponse.conversation_id, 1, false);
+        } catch (loadError) {
+          console.error('Error reloading messages after send:', loadError);
+        }
+      }
+
       // ── Update sidebar conversations list with the new / updated conversation ────
       if (userInfo?.id) {
         try {
           const result = await listConversations(userInfo.id, 1, 30);
           setConversations(result.items);
 
-          // If the response included a new conversation_id, make sure it's in the
-          // sidebar even before the user re-opens the history panel.
           const newOrUpdatedId = finalResponse.conversation_id;
           if (newOrUpdatedId && newOrUpdatedId !== activeConversationId) {
-            // The conversation list just refreshed — the new conversation should be visible.
-            // Also keep activeConversationId in sync (already set above).
             setActiveConversationId(newOrUpdatedId);
             localStorage.setItem(activeConversationStorageKey, String(newOrUpdatedId));
           }
@@ -613,6 +618,15 @@ const ChatBot: React.FC = () => {
           setActiveConversationId(response.conversation_id);
           localStorage.setItem(activeConversationStorageKey, String(response.conversation_id));
           setIsHistoryOpen(true);
+        }
+
+        // ── Reload messages so the just-saved (user + assistant) pair appears on screen ─
+        if (response.conversation_id) {
+          try {
+            await loadConversation(response.conversation_id, 1, false);
+          } catch (loadError) {
+            console.error('Error reloading messages after fallback send:', loadError);
+          }
         }
 
         // ── Refresh sidebar with latest conversations list ──────────────────────────
