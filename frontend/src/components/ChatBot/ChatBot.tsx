@@ -69,199 +69,6 @@ const STREAM_STAGE_LABEL: Record<StreamStage, string> = {
   complete: 'Hoàn tất',
 };
 
-const logChatbotExecution = (
-  label: string,
-  payload: {
-    debug?: ChatResponse['debug'] | ChatStreamChunk['debug'];
-    intent?: string;
-    confidence?: string;
-    text?: string;
-    stage?: StreamStage;
-    type?: ChatStreamChunk['type'];
-    message?: string;
-  },
-) => {
-  const debug = payload.debug || {};
-  {/*console.log(`[CHATBOT][WEB][${label}]`, {
-    trace_id: debug.trace_id,
-    mode: debug.mode,
-    route: debug.route,
-    agent_enabled: debug.agent_enabled,
-    llm_called: debug.llm_called,
-    llm_paths: debug.llm_paths,
-    tools_called: debug.tools_called,
-    fallback_reason: debug.fallback_reason,
-    intent: payload.intent,
-    confidence: payload.confidence,
-    stage: payload.stage,
-    type: payload.type,
-    message: payload.message,
-    text: payload.text,
-  }); */}
-};
-
-const toggleDebug = (messageId: number, setShowDebug: React.Dispatch<React.SetStateAction<Record<number, boolean>>>) => {
-  setShowDebug((prev) => ({
-    ...prev,
-    [messageId]: !prev[messageId],
-  }));
-};
-
-const hasDebugInfo = (message: Message): boolean => {
-  return Boolean(
-    message.llm_processing ||
-    message.debug ||
-    message.intent
-  );
-};
-
-const renderLLMDebugSection = (llm_processing?: LLMProcessingMetadata) => {
-  if (!llm_processing) return null;
-
-  return (
-    <div className="llm-debug-section">
-      <div className="llm-debug-header">
-        <span className="llm-debug-icon">🔍</span>
-        <span className="llm-debug-title">Process Info</span>
-        {llm_processing.has_repetition && (
-          <span className="llm-debug-warning" title="Phát hiện lặp trong output">
-            ⚠️ Cảnh báo: Có dấu hiệu lặp
-          </span>
-        )}
-      </div>
-
-      <div className="llm-debug-content">
-        <div className="llm-debug-row">
-          <div className="llm-debug-label">Nội dung gửi LLM (Input):</div>
-          <div className="llm-debug-value llm-debug-input">
-            {llm_processing.user_input || '-'}
-          </div>
-        </div>
-
-        <div className="llm-debug-row">
-          <div className="llm-debug-label">Kết quả sau xử lý (Output):</div>
-          <div className={`llm-debug-value llm-debug-output ${llm_processing.has_repetition ? 'has-repetition' : ''}`}>
-            {llm_processing.llm_processed_output || '-'}
-          </div>
-        </div>
-
-        {llm_processing.has_repetition && llm_processing.repetition_segments && llm_processing.repetition_segments.length > 0 && (
-          <div className="llm-debug-row llm-debug-repetition">
-            <div className="llm-debug-label">Đoạn bị lặp:</div>
-            <div className="llm-debug-value">
-              <ul className="repetition-list">
-                {llm_processing.repetition_segments.map((segment, idx) => (
-                  <li key={idx} className="repetition-item">
-                    {segment.length > 100 ? `${segment.substring(0, 100)}...` : segment}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-
-        {llm_processing.processing_time_ms && (
-          <div className="llm-debug-row llm-debug-meta">
-            <div className="llm-debug-label">Thời gian xử lý:</div>
-            <div className="llm-debug-value">
-              {llm_processing.processing_time_ms.toFixed(2)} ms
-            </div>
-          </div>
-        )}
-
-        {llm_processing.model_used && (
-          <div className="llm-debug-row llm-debug-meta">
-            <div className="llm-debug-label">Model:</div>
-            <div className="llm-debug-value">
-              {llm_processing.model_used}
-            </div>
-          </div>
-        )}
-
-        {llm_processing.token_count && (
-          <div className="llm-debug-row llm-debug-meta">
-            <div className="llm-debug-label">Tokens sử dụng:</div>
-            <div className="llm-debug-value">
-              {llm_processing.token_count}
-            </div>
-          </div>
-        )}
-
-        {llm_processing.raw_data && (
-          <details className="llm-debug-raw-data">
-            <summary>Raw Data</summary>
-            <pre>{JSON.stringify(llm_processing.raw_data, null, 2)}</pre>
-          </details>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const renderDebugSection = (message: Message, messageId: number, showDebug: Record<number, boolean>, setShowDebug: React.Dispatch<React.SetStateAction<Record<number, boolean>>>) => {
-  if (!hasDebugInfo(message)) return null;
-
-  return (
-    <div className="message-debug-wrapper">
-      {/*<button
-        className={`debug-toggle-btn ${showDebug[messageId] ? 'active' : ''}`}
-        onClick={() => toggleDebug(messageId, setShowDebug)}
-        title={showDebug[messageId] ? 'Ẩn Debug Info' : 'Hiện Debug Info'}
-      >
-        {showDebug[messageId] ? '🔒 Ẩn Debug' : '🔓 Debug'}
-      </button>  */} 
-
-      {showDebug[messageId] && (
-        <div className="message-debug-panel">
-          {/*<div className="debug-section-header">Debug / Process Info</div>*/}
-
-          {renderLLMDebugSection(message.llm_processing)}
-
-          {message.debug && (
-            <div className="debug-execution-info">
-              <div className="debug-section-subheader">Execution Debug</div>
-              <div className="debug-info-grid">
-                <div className="debug-info-item">
-                  <span className="debug-info-label">Trace ID:</span>
-                  <span className="debug-info-value">{message.debug.trace_id || '-'}</span>
-                </div>
-                <div className="debug-info-item">
-                  <span className="debug-info-label">Mode:</span>
-                  <span className="debug-info-value">{message.debug.mode || '-'}</span>
-                </div>
-                <div className="debug-info-item">
-                  <span className="debug-info-label">Route:</span>
-                  <span className="debug-info-value">{message.debug.route || '-'}</span>
-                </div>
-                <div className="debug-info-item">
-                  <span className="debug-info-label">Intent:</span>
-                  <span className="debug-info-value">{message.intent || '-'}</span>
-                </div>
-                <div className="debug-info-item">
-                  <span className="debug-info-label">LLM Called:</span>
-                  <span className="debug-info-value">{message.debug.llm_called ? 'Yes' : 'No'}</span>
-                </div>
-                {message.debug.llm_paths && message.debug.llm_paths.length > 0 && (
-                  <div className="debug-info-item">
-                    <span className="debug-info-label">LLM Paths:</span>
-                    <span className="debug-info-value">{message.debug.llm_paths.join(', ')}</span>
-                  </div>
-                )}
-                {message.debug.fallback_reason && (
-                  <div className="debug-info-item debug-info-warning">
-                    <span className="debug-info-label">Fallback Reason:</span>
-                    <span className="debug-info-value">{message.debug.fallback_reason}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
 const ChatBot: React.FC = () => {
   const { userInfo } = useAuth();
   const welcomeMessage: Message = {
@@ -298,7 +105,6 @@ const ChatBot: React.FC = () => {
     classKey: string;
     classInfo: any;
   } | null>(null);
-  const [showDebug, setShowDebug] = useState<Record<number, boolean>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
@@ -440,33 +246,11 @@ const ChatBot: React.FC = () => {
     streamAbortRef.current = new AbortController();
 
     try {
-      {/*console.log('[CHATBOT][UI] sendChatMessage start', {
-        text: outgoingText,
-        conversationId: activeConversationId || undefined,
-        mode: 'stream-first',
-      });*/}
       const doneChunk = await sendMessageStream(
         outgoingText,
         userInfo?.id,
         activeConversationId || undefined,
         (chunk: ChatStreamChunk) => {
-          logChatbotExecution('stream_chunk', {
-            debug: chunk.debug,
-            intent: chunk.intent,
-            confidence: chunk.confidence,
-            stage: chunk.stage as StreamStage | undefined,
-            type: chunk.type,
-            message: chunk.message,
-            text: chunk.text,
-          });
-          {/*console.log('[CHATBOT][UI][chunk]', {
-            type: chunk.type,
-            stage: chunk.stage,
-            message: chunk.message,
-            intent: chunk.intent,
-            confidence: chunk.confidence,
-            debug: chunk.debug,
-          });  */}
           if (chunk.stage) {
             const nextStage = chunk.stage as StreamStage;
             if (STREAM_STAGE_PROGRESS[nextStage] !== undefined) {
@@ -499,22 +283,6 @@ const ChatBot: React.FC = () => {
 
       setStreamingStage('complete');
       setStreamingProgress(100);
-
-      {/*console.log('[CHATBOT][UI] stream final chunk', {
-        intent: doneChunk.intent,
-        confidence: doneChunk.confidence,
-        debug: doneChunk.debug,
-        text: doneChunk.text,
-      }); */}
-      logChatbotExecution('stream_final', {
-        debug: doneChunk.debug,
-        intent: doneChunk.intent,
-        confidence: doneChunk.confidence,
-        text: doneChunk.text,
-        stage: doneChunk.stage as StreamStage | undefined,
-        type: doneChunk.type,
-        message: doneChunk.message,
-      });
 
       const finalResponse: ChatResponse = {
         text: doneChunk.text || 'Hoàn tất xử lý',
@@ -552,11 +320,6 @@ const ChatBot: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, botMessage]);
-
-      {/*console.log('[CHATBOT][UI] rendered bot message', {
-        intent: botMessage.intent,
-        debug: finalResponse.debug,
-      }); */}
 
       // ── Reload messages so the just-saved (user + assistant) pair appears on screen ─
       if (finalResponse.conversation_id) {
@@ -598,21 +361,7 @@ const ChatBot: React.FC = () => {
 
       try {
         setStreamingStatus('Streaming lỗi, đang chuyển sang chế độ thường...');
-        // console.log('[CHATBOT][UI] fallback to non-streaming sendMessage');
         const response: ChatResponse = await sendMessage(outgoingText, userInfo?.id, activeConversationId || undefined);
-
-        {/*console.log('[CHATBOT][UI] fallback response', {
-          intent: response.intent,
-          confidence: response.confidence,
-          debug: response.debug,
-          text: response.text,
-        }); */}
-        logChatbotExecution('fallback_response', {
-          debug: response.debug,
-          intent: response.intent,
-          confidence: response.confidence,
-          text: response.text,
-        });
 
         if (response.conversation_id && response.conversation_id !== activeConversationId) {
           setActiveConversationId(response.conversation_id);
@@ -654,10 +403,6 @@ const ChatBot: React.FC = () => {
         };
 
         setMessages((prev) => [...prev, botMessage]);
-        console.log('[CHATBOT][UI] rendered fallback bot message', {
-          intent: botMessage.intent,
-          debug: response.debug,
-        });
       } catch (fallbackError) {
         console.error('Error sending message in fallback mode:', fallbackError);
 
@@ -1485,7 +1230,6 @@ const ChatBot: React.FC = () => {
                 }
                 <span className="message-time">{formatTime(message.timestamp)}</span>
               </div>
-              {!message.isUser && renderDebugSection(message, message.id, showDebug, setShowDebug)}
               {message.isUser && (
                 <div className="message-avatar user-avatar">  </div>
               )}
