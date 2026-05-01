@@ -228,7 +228,7 @@ export const sendMessage = async (
   }
 
   const url = `${API_BASE_URL}/chatbot/chat`;
-  console.log('[CHATBOT][REQUEST][sendMessage]', { url, body });
+  // console.log('[CHATBOT][REQUEST][sendMessage]', { url, body });
 
   const response = await fetch(url, {
     method: 'POST',
@@ -270,7 +270,7 @@ export const sendMessageStream = async (
   }
 
   const url = `${API_BASE_URL}/chatbot/chat-stream`;
-  console.log('[CHATBOT][REQUEST][sendMessageStream]', { url, body });
+  // console.log('[CHATBOT][REQUEST][sendMessageStream]', { url, body });
 
   const response = await fetch(url, {
     method: 'POST',
@@ -315,14 +315,14 @@ export const sendMessageStream = async (
 
         try {
           const chunk = JSON.parse(payload) as ChatStreamChunk;
-          console.log('[CHATBOT][STREAM_CHUNK]', {
-            type: chunk.type,
-            stage: chunk.stage,
-            message: chunk.message,
-            intent: chunk.intent,
-            confidence: chunk.confidence,
-            debug: chunk.debug,
-          });
+          // console.log('[CHATBOT][STREAM_CHUNK]', {
+          //   type: chunk.type,
+          //   stage: chunk.stage,
+          //   message: chunk.message,
+          //   intent: chunk.intent,
+          //   confidence: chunk.confidence,
+          //   debug: chunk.debug,
+          // });
           onChunk(chunk);
           if (chunk.type === 'done') {
             doneChunk = chunk;
@@ -335,7 +335,7 @@ export const sendMessageStream = async (
     }
   }
 
-  console.log('[CHATBOT][STREAM_DONE]', { debug: doneChunk?.debug, intent: doneChunk?.intent, text: doneChunk?.text });
+  // console.log('[CHATBOT][STREAM_DONE]', { debug: doneChunk?.debug, intent: doneChunk?.intent, text: doneChunk?.text });
   return doneChunk;
 };
 
@@ -350,7 +350,9 @@ export const listConversations = async (
     page_size: String(pageSize),
   });
 
-  const response = await fetch(`${API_BASE_URL}/chatbot/conversations?${query.toString()}`);
+  const response = await fetch(`${API_BASE_URL}/chatbot/conversations?${query.toString()}`, {
+    headers: getAuthHeaders() // Thêm dòng này vào
+  });
   if (!response.ok) {
     throw new Error('Failed to load conversations');
   }
@@ -371,7 +373,10 @@ export const getConversationMessages = async (
   });
 
   const response = await fetch(
-    `${API_BASE_URL}/chatbot/conversations/${conversationId}/messages?${query.toString()}`
+    `${API_BASE_URL}/chatbot/conversations/${conversationId}/messages?${query.toString()}`,
+    {
+      headers: getAuthHeaders(),
+    }
   );
   if (!response.ok) {
     throw new Error('Failed to load conversation messages');

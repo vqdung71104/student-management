@@ -82,7 +82,7 @@ const logChatbotExecution = (
   },
 ) => {
   const debug = payload.debug || {};
-  console.log(`[CHATBOT][WEB][${label}]`, {
+  {/*console.log(`[CHATBOT][WEB][${label}]`, {
     trace_id: debug.trace_id,
     mode: debug.mode,
     route: debug.route,
@@ -97,7 +97,7 @@ const logChatbotExecution = (
     type: payload.type,
     message: payload.message,
     text: payload.text,
-  });
+  }); */}
 };
 
 const toggleDebug = (messageId: number, setShowDebug: React.Dispatch<React.SetStateAction<Record<number, boolean>>>) => {
@@ -203,17 +203,17 @@ const renderDebugSection = (message: Message, messageId: number, showDebug: Reco
 
   return (
     <div className="message-debug-wrapper">
-      <button
+      {/*<button
         className={`debug-toggle-btn ${showDebug[messageId] ? 'active' : ''}`}
         onClick={() => toggleDebug(messageId, setShowDebug)}
         title={showDebug[messageId] ? 'Ẩn Debug Info' : 'Hiện Debug Info'}
       >
         {showDebug[messageId] ? '🔒 Ẩn Debug' : '🔓 Debug'}
-      </button>
+      </button>  */} 
 
       {showDebug[messageId] && (
         <div className="message-debug-panel">
-          <div className="debug-section-header">Debug / Process Info</div>
+          {/*<div className="debug-section-header">Debug / Process Info</div>*/}
 
           {renderLLMDebugSection(message.llm_processing)}
 
@@ -440,11 +440,11 @@ const ChatBot: React.FC = () => {
     streamAbortRef.current = new AbortController();
 
     try {
-      console.log('[CHATBOT][UI] sendChatMessage start', {
+      {/*console.log('[CHATBOT][UI] sendChatMessage start', {
         text: outgoingText,
         conversationId: activeConversationId || undefined,
         mode: 'stream-first',
-      });
+      });*/}
       const doneChunk = await sendMessageStream(
         outgoingText,
         userInfo?.id,
@@ -459,14 +459,14 @@ const ChatBot: React.FC = () => {
             message: chunk.message,
             text: chunk.text,
           });
-          console.log('[CHATBOT][UI][chunk]', {
+          {/*console.log('[CHATBOT][UI][chunk]', {
             type: chunk.type,
             stage: chunk.stage,
             message: chunk.message,
             intent: chunk.intent,
             confidence: chunk.confidence,
             debug: chunk.debug,
-          });
+          });  */}
           if (chunk.stage) {
             const nextStage = chunk.stage as StreamStage;
             if (STREAM_STAGE_PROGRESS[nextStage] !== undefined) {
@@ -500,12 +500,12 @@ const ChatBot: React.FC = () => {
       setStreamingStage('complete');
       setStreamingProgress(100);
 
-      console.log('[CHATBOT][UI] stream final chunk', {
+      {/*console.log('[CHATBOT][UI] stream final chunk', {
         intent: doneChunk.intent,
         confidence: doneChunk.confidence,
         debug: doneChunk.debug,
         text: doneChunk.text,
-      });
+      }); */}
       logChatbotExecution('stream_final', {
         debug: doneChunk.debug,
         intent: doneChunk.intent,
@@ -553,10 +553,10 @@ const ChatBot: React.FC = () => {
 
       setMessages((prev) => [...prev, botMessage]);
 
-      console.log('[CHATBOT][UI] rendered bot message', {
+      {/*console.log('[CHATBOT][UI] rendered bot message', {
         intent: botMessage.intent,
         debug: finalResponse.debug,
-      });
+      }); */}
 
       // ── Reload messages so the just-saved (user + assistant) pair appears on screen ─
       if (finalResponse.conversation_id) {
@@ -565,7 +565,7 @@ const ChatBot: React.FC = () => {
         } catch (loadError) {
           console.error('Error reloading messages after send:', loadError);
         }
-      }
+      } 
 
       // ── Update sidebar conversations list with the new / updated conversation ────
       if (userInfo?.id) {
@@ -598,15 +598,15 @@ const ChatBot: React.FC = () => {
 
       try {
         setStreamingStatus('Streaming lỗi, đang chuyển sang chế độ thường...');
-        console.log('[CHATBOT][UI] fallback to non-streaming sendMessage');
+        // console.log('[CHATBOT][UI] fallback to non-streaming sendMessage');
         const response: ChatResponse = await sendMessage(outgoingText, userInfo?.id, activeConversationId || undefined);
 
-        console.log('[CHATBOT][UI] fallback response', {
+        {/*console.log('[CHATBOT][UI] fallback response', {
           intent: response.intent,
           confidence: response.confidence,
           debug: response.debug,
           text: response.text,
-        });
+        }); */}
         logChatbotExecution('fallback_response', {
           debug: response.debug,
           intent: response.intent,
@@ -657,7 +657,7 @@ const ChatBot: React.FC = () => {
         console.log('[CHATBOT][UI] rendered fallback bot message', {
           intent: botMessage.intent,
           debug: response.debug,
-        });
+        });s
       } catch (fallbackError) {
         console.error('Error sending message in fallback mode:', fallbackError);
 
@@ -1401,7 +1401,7 @@ const ChatBot: React.FC = () => {
         <div className="conversation-panel">
           <div className="conversation-panel-header">
             <span>Lịch sử trò chuyện</span>
-            <span className="conversation-panel-hint">Chuột phải hoặc bấm ⋮ để đổi tên / xóa</span>
+            <span className="conversation-panel-hint">Nhấn chuột phải vào cuộc trò chuyện để đổi tên / xóa</span>
           </div>
           <div className="conversation-list">
             {conversations.length === 0 ? (
@@ -1419,13 +1419,6 @@ const ChatBot: React.FC = () => {
                   >
                     <span className="conversation-item-title">{conversation.title || `Conversation #${conversation.id}`}</span>
                     <span className="conversation-item-time">{formatTime(new Date(conversation.updated_at))}</span>
-                  </button>
-                  <button
-                    className="conversation-item-menu"
-                    onClick={(event) => handleConversationContextMenu(event, conversation)}
-                    title="Tùy chọn cuộc trò chuyện"
-                  >
-                    ⋮
                   </button>
                 </div>
               ))
