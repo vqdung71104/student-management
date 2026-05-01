@@ -657,7 +657,7 @@ const ChatBot: React.FC = () => {
         console.log('[CHATBOT][UI] rendered fallback bot message', {
           intent: botMessage.intent,
           debug: response.debug,
-        });s
+        });
       } catch (fallbackError) {
         console.error('Error sending message in fallback mode:', fallbackError);
 
