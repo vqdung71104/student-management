@@ -388,26 +388,27 @@ class LLMClient:
         stop: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
-        Generate response using OpenAI API for Node 4 formatting.
-        Falls back to internal HF space if OpenAI fails.
+        Generate response using OpenAI GPT-4o-mini as the primary LLM.
+        Falls back to rule-based response ONLY when OpenAI times out (>15s) or fails.
+        HF space is disabled by default.
         """
         start = time.perf_counter()
+        OPENAI_GENERATE_TIMEOUT = float(os.environ.get("OPENAI_GENERATE_TIMEOUT", "15.0"))
 
-        # Log the INPUT to LLM
         input_preview = prompt[:500] + "..." if len(prompt) > 500 else prompt
         print(f"\n{'='*60}")
         print(f"[LLM:GENERATE] INPUT:")
         print(f"{input_preview}")
         print(f"{'='*60}\n")
 
-        # Try OpenAI external API first
+        # ── Primary: OpenAI GPT-4o-mini ─────────────────────────────────────────
         if self._openai:
             try:
                 result = await self._openai.generate(
                     prompt=prompt,
                     max_tokens=max_tokens,
                     temperature=temperature,
-                    timeout=min(timeout, 15.0),
+                    timeout=OPENAI_GENERATE_TIMEOUT,
                 )
                 duration = (time.perf_counter() - start) * 1000
                 self._record_success()
@@ -417,54 +418,31 @@ class LLMClient:
                 output_text = result.get("text", "")
                 output_preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
                 print(f"\n{'='*60}")
-                print(f"[LLM:GENERATE] OUTPUT (OpenAI, {duration:.1f}ms):")
+                print(f"[LLM:GENERATE] OUTPUT (OpenAI {OPENAI_MODEL}, {duration:.1f}ms):")
                 print(f"{output_preview}")
                 print(f"{'='*60}\n")
 
                 return result
-            except Exception as e:
+            except LLMTimeoutError as exc:
                 duration = (time.perf_counter() - start) * 1000
-                print(f"[LLM:GENERATE] OpenAI failed: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
+                print(f"[LLM:GENERATE] OpenAI TIMEOUT ({OPENAI_GENERATE_TIMEOUT}s): {exc} after {duration:.1f}ms")
+                self._record_failure()
+                self._metrics.increment("llm.generate.openai_timeout")
+            except Exception as exc:
+                duration = (time.perf_counter() - start) * 1000
+                print(f"[LLM:GENERATE] OpenAI failed: {type(exc).__name__}: {exc} after {duration:.1f}ms")
                 self._record_failure()
                 self._metrics.increment("llm.generate.openai_failure")
-                # Fall through to internal fallback
 
-        # Fallback to internal HF space
-        print(f"[LLM:GENERATE] Falling back to internal LLM space: {self.base_url}")
-        try:
-            payload = {
-                "prompt": prompt,
-                "max_tokens": max_tokens,
-                "temperature": temperature,
-                "top_p": top_p,
-                "repeat_penalty": repeat_penalty,
-            }
-            if stop:
-                payload["stop"] = stop
-            
-            result = await self._post_json("/generate", payload, timeout)
-            duration = (time.perf_counter() - start) * 1000
-            self._metrics.increment("llm.generate.internal_success")
-            self._metrics.observe_latency("llm.generate.latency", duration)
-            
-            output_text = result.get("text", str(result))
-            output_preview = output_text[:300] + "..." if len(output_text) > 300 else output_text
-            print(f"\n{'='*60}")
-            print(f"[LLM:GENERATE] OUTPUT (Internal, {duration:.1f}ms):")
-            print(f"{output_preview}")
-            print(f"{'='*60}\n")
-            
-            return result
-        except Exception as e:
-            duration = (time.perf_counter() - start) * 1000
-            print(f"[LLM:GENERATE] Internal LLM FAILED: {type(e).__name__}: {str(e)} after {duration:.1f}ms")
-            self._record_failure()
-            self._metrics.increment("llm.generate.failure")
-            
-            # Return a fallback response instead of raising
-            print(f"[LLM:GENERATE] Returning fallback response")
-            fallback_text = f"Không thể xử lý yêu cầu. Vui lòng thử lại sau."
-            return {"text": fallback_text, "error": str(e)}
+        # ── Fallback: rule-based response (no HF space) ─────────────────────────
+        print(f"[LLM:GENERATE] Falling back to rule-based response (HF space disabled)")
+        duration = (time.perf_counter() - start) * 1000
+        self._metrics.increment("llm.generate.rulebase_fallback")
+        self._metrics.observe_latency("llm.generate.latency", duration)
+        fallback_text = (
+            "Mình đang xử lý hơi chậm, bạn vui lòng thử lại trong giây lát nhé!"
+        )
+        return {"text": fallback_text, "model_used": "rulebase_fallback"}
 
     async def close(self):
         await self._client.aclose()

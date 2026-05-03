@@ -70,5 +70,7 @@ urllib3==2.5.0
 uvicorn==0.29.0
 wrapt==1.17.2
 rapidFuzz>=3.0.0
+langgraph==1.1.10
+langgraph-sdk==0.3.13
 redis==5.2.1
 httpx>=0.25.0

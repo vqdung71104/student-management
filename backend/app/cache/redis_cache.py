@@ -5,7 +5,9 @@ Quản lý cache cho chatbot preferences và conversation state
 
 import redis
 import json
-from typing import Optional, Dict, Any
+import time
+import fnmatch
+from typing import Optional, Dict, Any, List
 from datetime import timedelta
 import os
 from dotenv import load_dotenv
@@ -47,16 +49,20 @@ class RedisCache:
             password=self.password,
             decode_responses=decode_responses,
             socket_connect_timeout=5,
-            socket_timeout=5
+            socket_timeout=5,
+            socket_keepalive=True,
         )
-        
-        # Test connection
+
+        # Test connection — gracefully fall back to None on Error 10061 / ConnectionError
         try:
             self.client.ping()
-            print(f"✅ Redis connected: {self.host}:{self.port}")
+            print(f"[RedisCache] connected: {self.host}:{self.port}")
         except redis.ConnectionError as e:
-            print(f"❌ Redis connection failed: {e}")
-            raise
+            print(f"[RedisCache] ConnectionError {e} — running without Redis (in-memory fallback)")
+            self.client = None
+        except Exception as e:
+            print(f"[RedisCache] Redis init error {e} — running without Redis")
+            self.client = None
     
     def get(self, key: str) -> Optional[Any]:
         """
@@ -228,17 +234,94 @@ _redis_cache_instance: Optional[RedisCache] = None
 
 def get_redis_cache() -> RedisCache:
     """
-    Get Redis cache singleton instance
-    
+    Get Redis cache singleton instance.
+
     Returns:
-        RedisCache instance
+        RedisCache instance (Redis-backed or in-memory fallback).
+        Never raises — always returns a usable instance.
     """
     global _redis_cache_instance
-    
+
     if _redis_cache_instance is None:
-        _redis_cache_instance = RedisCache()
-    
+        try:
+            _redis_cache_instance = RedisCache()
+        except Exception as e:
+            # Last-resort fallback — creates a dummy instance with client=None
+            print(f"[RedisCache] Singleton init failed: {e} — using in-memory fallback")
+            _redis_cache_instance = _InMemoryRedisCacheFallback()
+
     return _redis_cache_instance
+
+
+class _InMemoryRedisCacheFallback:
+    """Ultra-light in-memory fallback used when Redis is unavailable at startup."""
+
+    def __init__(self):
+        self.store = {}
+
+    def get(self, key: str) -> Optional[Any]:
+        item = self.store.get(key)
+        if item is None:
+            return None
+        value, expires = item
+        if expires < time.time():
+            del self.store[key]
+            return None
+        return value
+
+    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        import json
+        serialized = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value
+        expires = (time.time() + ttl) if ttl else (time.time() + 3600)
+        self.store[key] = (serialized, expires)
+        return True
+
+    def delete(self, key: str) -> bool:
+        if key in self.store:
+            del self.store[key]
+            return True
+        return False
+
+    def exists(self, key: str) -> bool:
+        item = self.store.get(key)
+        if item and item[1] >= time.time():
+            return True
+        return False
+
+    def ttl(self, key: str) -> int:
+        item = self.store.get(key)
+        if not item:
+            return -2
+        remaining = item[1] - time.time()
+        return max(-2, int(remaining))
+
+    def expire(self, key: str, ttl: int) -> bool:
+        if key in self.store:
+            value, _ = self.store[key]
+            self.store[key] = (value, time.time() + ttl)
+            return True
+        return False
+
+    def incrby(self, key: str, amount: int = 1) -> Optional[int]:
+        item = self.store.get(key)
+        if item is None:
+            self.store[key] = (str(amount), time.time() + 3600)
+            return amount
+        current = int(item[0])
+        new_val = current + amount
+        self.store[key] = (str(new_val), item[1])
+        return new_val
+
+    def keys(self, pattern: str) -> list:
+        import fnmatch
+        return [k for k in self.store if fnmatch.fnmatch(k, pattern)]
+
+    def flushdb(self) -> bool:
+        self.store.clear()
+        return True
+
+    def close(self) -> None:
+        pass
 
 
 # Convenience functions for common cache operations
