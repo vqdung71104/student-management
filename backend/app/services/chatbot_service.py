@@ -1054,6 +1054,19 @@ class ChatbotService:
 
             remaining_credits = total_required_credits - accumulated_credits
 
+            table_rows = []
+            for item in missing_items:
+                status = item.get("status")
+                table_rows.append({
+                    "subject_id": item.get("subject_id"),
+                    "subject_name": item.get("subject_name"),
+                    "credits": item.get("credits"),
+                    "learning_semester": item.get("learning_semester"),
+                    "conditional_subjects": item.get("conditional_subjects"),
+                    "status": status,
+                    "action": "Cần học lại ngay" if status == "failed" else "Cần học",
+                })
+
             friendly_text = (
                 f"Tổng yêu cầu: {total_required_credits} TC. "
                 f"Đã tích lũy: {accumulated_credits} TC. "
@@ -1064,20 +1077,19 @@ class ChatbotService:
                 "text": friendly_text,
                 "intent": "graduation_progress",
                 "confidence": "high",
-                "data": {
+                "data": table_rows,
+                "metadata": {
+                    "intent": "graduation_progress",
                     "student_id": student_id,
                     "course_id": course_id,
                     "course_name": course_name,
                     "total_required_credits": total_required_credits,
                     "accumulated_credits": accumulated_credits,
                     "remaining_credits": remaining_credits,
-                    "passed_subjects": passed_items,
-                    "missing_subjects": missing_items,
-                },
-                "metadata": {
-                    "intent": "graduation_progress",
                     "passed_count": len(passed_items),
                     "missing_count": len(missing_items),
+                    "failed_count": sum(1 for m in missing_items if m.get("status") == "failed"),
+                    "not_taken_count": sum(1 for m in missing_items if m.get("status") == "not_taken"),
                 },
             }
 

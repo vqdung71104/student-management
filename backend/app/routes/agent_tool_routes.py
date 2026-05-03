@@ -37,7 +37,6 @@ from app.schemas.node_schemas import (
     Node4FormatResponseRequest,
     Node4FormatResponseResponse,
     NodeHealthResponse,
-    GraduationProgressToolResponse,
 )
 from app.services.chatbot_service import ChatbotService
 from app.services.text_preprocessor import get_text_preprocessor
@@ -432,7 +431,7 @@ async def node2_intent_classifier(
 # ──────────────────────────────────────────────────────────────────────────────
 @router.post(
     "/intent/graduation_progress",
-    response_model=GraduationProgressToolResponse,
+    response_model=Node3ToolExecutorResponse,
     summary="Graduation Progress: Tính số tín chỉ còn thiếu",
     description="Nhận student_id, trả về tổng hợp tín chỉ yêu cầu / đã tích lũy / còn thiếu "
                 "dựa trên chương trình đào tạo và lịch sử học tập của sinh viên.",
@@ -449,13 +448,14 @@ async def graduation_progress_tool(
 
     student_id = payload.student_id
     if student_id is None:
-        return GraduationProgressToolResponse(
+        return Node3ToolExecutorResponse(
             status="error",
-            student_id=0,
-            course_id=0,
-            total_required_credits=0,
-            accumulated_credits=0,
-            remaining_credits=0,
+            data=None,
+            metadata=_build_response_metadata(
+                intent_name="graduation_progress",
+                duration_ms=(time.perf_counter() - started_at) * 1000,
+                data_count=0,
+            ),
             error="Thiếu student_id trong payload. Vui lòng cung cấp student_id.",
         )
 
@@ -467,13 +467,14 @@ async def graduation_progress_tool(
         # ── Step 1: Student → course_id ─────────────────────────────────────────
         student = db.query(Student).filter(Student.id == student_id).first()
         if not student:
-            return GraduationProgressToolResponse(
+            return Node3ToolExecutorResponse(
                 status="error",
-                student_id=student_id,
-                course_id=0,
-                total_required_credits=0,
-                accumulated_credits=0,
-                remaining_credits=0,
+                data=None,
+                metadata=_build_response_metadata(
+                    intent_name="graduation_progress",
+                    duration_ms=(time.perf_counter() - started_at) * 1000,
+                    data_count=0,
+                ),
                 error=f"Không tìm thấy sinh viên với student_id={student_id}.",
             )
 
@@ -493,13 +494,14 @@ async def graduation_progress_tool(
             .all()
         )
         if not course_subjects:
-            return GraduationProgressToolResponse(
+            return Node3ToolExecutorResponse(
                 status="error",
-                student_id=student_id,
-                course_id=course_id,
-                total_required_credits=0,
-                accumulated_credits=0,
-                remaining_credits=0,
+                data=None,
+                metadata=_build_response_metadata(
+                    intent_name="graduation_progress",
+                    duration_ms=(time.perf_counter() - started_at) * 1000,
+                    data_count=0,
+                ),
                 error=f"Không tìm thấy chương trình đào tạo nào cho course_id={course_id}.",
             )
 
@@ -601,47 +603,79 @@ async def graduation_progress_tool(
             f"duration_ms={duration_ms:.1f}"
         )
 
-        return GraduationProgressToolResponse(
+        summary_payload = {
+            "student_id": student_id,
+            "course_id": course_id,
+            "course_name": course_name,
+            "total_required_credits": total_required_credits,
+            "accumulated_credits": accumulated_credits,
+            "remaining_credits": remaining_credits,
+            "passed_subjects": passed_items,
+            "missing_subjects": missing_items,
+        }
+
+        # Flat rows for frontend table rendering: one subject per row.
+        table_rows: List[Dict[str, Any]] = []
+        for item in missing_items:
+            status = item.get("status")
+            table_rows.append({
+                "subject_id": item.get("subject_id"),
+                "subject_name": item.get("subject_name"),
+                "credits": item.get("credits"),
+                "learning_semester": item.get("learning_semester"),
+                "conditional_subjects": item.get("conditional_subjects"),
+                "status": status,
+                "action": "Cần học lại ngay" if status == "failed" else "Cần học",
+            })
+
+        response_text = (
+            f"Bạn còn thiếu {remaining_credits} tín chỉ để hoàn thành chương trình. "
+            f"Đã tích lũy {accumulated_credits}/{total_required_credits} tín chỉ."
+        )
+
+        return Node3ToolExecutorResponse(
             status="success",
-            student_id=student_id,
-            course_id=course_id,
-            course_name=course_name,
             data={
-                "student_id": student_id,
-                "course_id": course_id,
-                "course_name": course_name,
-                "total_required_credits": total_required_credits,
-                "accumulated_credits": accumulated_credits,
-                "remaining_credits": remaining_credits,
-                "passed_subjects": passed_items,
-                "missing_subjects": missing_items,
-            },
-            total_required_credits=total_required_credits,
-            accumulated_credits=accumulated_credits,
-            remaining_credits=remaining_credits,
-            passed_subjects=passed_items,
-            missing_subjects=missing_items,
-            metadata={
+                "text": response_text,
                 "intent": "graduation_progress",
-                "duration_ms": duration_ms,
-                "passed_count": len(passed_items),
-                "missing_count": len(missing_items),
-                "failed_count": sum(1 for m in missing_items if m.get("status") == "failed"),
-                "not_taken_count": sum(1 for m in missing_items if m.get("status") == "not_taken"),
+                "confidence": "high",
+                "data": table_rows,
+                "sql": None,
+                "sql_error": None,
             },
+            metadata=_build_response_metadata(
+                intent_name="graduation_progress",
+                duration_ms=duration_ms,
+                data_count=len(table_rows),
+                extra={
+                    "student_id": student_id,
+                    "course_id": course_id,
+                    "course_name": course_name,
+                    "total_required_credits": total_required_credits,
+                    "accumulated_credits": accumulated_credits,
+                    "remaining_credits": remaining_credits,
+                    "passed_count": len(passed_items),
+                    "missing_count": len(missing_items),
+                    "failed_count": sum(1 for m in missing_items if m.get("status") == "failed"),
+                    "not_taken_count": sum(1 for m in missing_items if m.get("status") == "not_taken"),
+                    "summary": summary_payload,
+                },
+            ),
+            error=None,
         )
 
     except Exception as exc:
         duration_ms = (time.perf_counter() - started_at) * 1000
         print(f"[AGENT-TOOL][graduation_progress] error student_id={student_id} error={exc}")
         traceback.print_exc()
-        return GraduationProgressToolResponse(
+        return Node3ToolExecutorResponse(
             status="error",
-            student_id=student_id,
-            course_id=0,
-            total_required_credits=0,
-            accumulated_credits=0,
-            remaining_credits=0,
+            data=None,
+            metadata=_build_response_metadata(
+                intent_name="graduation_progress",
+                duration_ms=duration_ms,
+                data_count=0,
+            ),
             error=f"Lỗi khi xử lý graduation_progress: {exc}",
         )
 
