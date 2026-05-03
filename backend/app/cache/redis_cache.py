@@ -40,6 +40,7 @@ class RedisCache:
         self.port = port or int(os.getenv('REDIS_PORT', 6379))
         self.password = password or os.getenv('REDIS_PASSWORD', None)
         self.db = db
+        self.redis_disabled = False  # Flag to track if Redis is disabled
         
         # Create Redis connection
         self.client = redis.Redis(
@@ -58,11 +59,13 @@ class RedisCache:
             self.client.ping()
             print(f"[RedisCache] connected: {self.host}:{self.port}")
         except redis.ConnectionError as e:
-            print(f"[RedisCache] ConnectionError {e} — running without Redis (in-memory fallback)")
+            print(f"[RedisCache] ConnectionError 10061 — disabling Redis for this session")
             self.client = None
+            self.redis_disabled = True
         except Exception as e:
-            print(f"[RedisCache] Redis init error {e} — running without Redis")
+            print(f"[RedisCache] Redis init error {e} — disabling Redis")
             self.client = None
+            self.redis_disabled = True
     
     def get(self, key: str) -> Optional[Any]:
         """
@@ -75,7 +78,7 @@ class RedisCache:
             Value or None if not found
         """
         try:
-            if not self.client:
+            if not self.client or self.redis_disabled:
                 return None
             value = self.client.get(key)
             if value:
