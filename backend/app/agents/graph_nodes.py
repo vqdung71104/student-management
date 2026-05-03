@@ -152,33 +152,35 @@ def _resolve_node3_subtype(intent: Optional[str]) -> Optional[str]:
 
 # ──────────────────────────────────────────────────────────────────────────────
 # NODE 1: query_splitter_node
+# ──────────────────────────────────────────────────────────────────────────────
+# NODE 1: query_splitter_node
 def query_splitter_node(state: AgentState) -> Dict[str, Any]:
     started = time.perf_counter()
     text = state.get("user_text", "")
 
-    if len(text.split()) < 20 and ('?' not in text and ',' not in text and '.' not in text):
-        return {"segments": [text], "node_trace": ["query_splitter_node"]}
-
-    llm = _get_llm()
-    prompt = (
-        "Tách câu hỏi dựa trên các HÀNH ĐỘNG độc lập (thường nối bởi 'sau đó', 'đồng thời', 'và').\n"
-        "TUYỆT ĐỐI KHÔNG TÁCH các cụm từ ràng buộc (như: không muốn, tránh, ngoại trừ) ra khỏi hành động của nó.\n"
-        "Ví dụ: 'Tôi muốn đăng ký môn, không học môn X, sau đó xem lịch thi'\n"
-        "-> [\"Tôi muốn đăng ký môn, không học môn X\", \"sau đó xem lịch thi\"]\n"
-        f"Câu hỏi: {text}\n"
-        "Trả về JSON: {\"segments\": [\"seg1\", \"seg2\"]}"
+    # Tách bằng Regex (Nhanh và chính xác tuyệt đối cho các từ khóa nối)
+    # Bắt các vị trí có từ nối "sau đó", "đồng thời", "tiếp theo", "rồi"
+    pattern = re.compile(
+        r'(?<=[,;\.])\s*(?:sau đó|đồng thời|tiếp theo|rồi)\b|\b(?:sau đó|đồng thời|tiếp theo)\b', 
+        re.IGNORECASE
     )
-    try:
-        async def _split():
-            return await llm.classify(prompt, timeout=NODE1_TIMEOUT, max_tokens=128, temperature=0.0)
-        res = asyncio.run(_split())
-        parsed = safe_json_parse(res.get("text", ""))
-        segments = parsed.get("segments", [text])
-        if not segments: segments = [text]
-    except Exception as exc:
-        print(f"[NODE1] LLM split failed: {exc}")
+    raw_parts = pattern.split(text)
+    
+    segments = []
+    for part in raw_parts:
+        part = part.strip()
+        if not part: 
+            continue
+        # Dọn sạch dấu phẩy hoặc chấm phẩy lửng lơ ở đầu/cuối segment
+        part = re.sub(r'^[,;\s]+|[,;\s]+$', '', part).strip()
+        if part:
+            segments.append(part)
+    
+    # Nếu không tách được, giữ nguyên là 1 segment
+    if not segments:
         segments = [text]
 
+    print(f"[NODE1] Tách thành {len(segments)} segment(s): {segments}")
     return {"segments": segments, "node_trace": ["query_splitter_node"]}
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -197,9 +199,11 @@ def _strip_constraints(text: str) -> tuple[str, List[str]]:
     for p in phrases:
         clean = clean.replace(p, "")
         
-    clean = re.sub(r'\s{2,}', ' ', clean)
-    # XÓA SẠCH các từ nối bị lửng lơ ở cuối câu để tránh query rác (LỖI GỐC)
+    # Xóa rác: Thay thế nhiều dấu phẩy/khoảng trắng liên tiếp thành 1 khoảng trắng
+    clean = re.sub(r'[,;\s]{2,}', ' ', clean)
+    # XÓA SẠCH các từ nối bị lửng lơ ở cuối câu (Lỗi gây rác Query)
     clean = re.sub(r'[,;\s]+(?:sau\s+đó|đồng\s+thời|rồi|và|tiếp\s+theo)\b[,;\s]*$', '', clean, flags=re.IGNORECASE)
+    # Cắt dấu phẩy/khoảng trắng ở hai đầu
     clean = re.sub(r'^[,;\s]+|[,;\s]+$', '', clean).strip()
     
     return clean if clean else text, phrases
@@ -359,75 +363,48 @@ def response_formatter_node(state: AgentState) -> Dict[str, Any]:
 def _accumulate_and_route_node(state: AgentState) -> Dict[str, Any]:
     idx = state.get("current_segment_index", 0)
     final_raw = state.get("filtered_data") or state.get("raw_data")
-    seg = state.get("segments", [""])[idx]
     
+    # Lấy câu trả lời LLM vừa tạo ra cho segment này (nếu có)
+    current_formatted = state.get("final_response", "")
+
     seg_result = {
-        "segment": seg,
+        "segment": state.get("segments")[idx],
         "intent": {"intent": state.get("intent"), "confidence": state.get("confidence")},
         "raw_result": final_raw,
-        "node3_subtype": _resolve_node3_subtype(state.get("intent")),
+        "formatted_text": current_formatted, # LƯU VÀO ĐÂY ĐỂ TỔNG HỢP
         "route": "agent" if state.get("needs_agent") else "rule_based",
     }
     
     return {
-        "segment_results": [seg_result], # Sử dụng List cho toán tử operator.add
+        "segment_results": [seg_result],
         "current_segment_index": idx + 1,
-        # CLEAR trạng thái cho segment tiếp theo
+        "final_response": None, # Reset để segment sau không bị ghi đè
         "raw_data": None, 
-        "filtered_data": None, 
-        "intent": None,
-        "clean_query": None,
-        "constraints": None,
+        "filtered_data": None,
         "node_trace": ["_accumulate_and_route_node"]
     }
-
 # ──────────────────────────────────────────────────────────────────────────────
 # NODE 7: synthesize_formatter_node
 def synthesize_formatter_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Sử dụng LLM tổng hợp toàn bộ kết quả segment thay vì placeholder "Đã tổng hợp".
-    """
-    segment_results = state.get("segment_results", [])
-    user_text = state.get("user_text", "")
-    
-    # Nếu chỉ có 1 câu hỏi, bỏ qua bước tổng hợp
-    if len(segment_results) < 2:
-        return {"node_trace": ["synthesize_formatter_node"]}
+    results = state.get("segment_results", [])
+    if not results:
+        return {"final_response": "Xin lỗi, mình không tìm thấy dữ liệu."}
         
-    lines = []
-    for i, res in enumerate(segment_results, 1):
-        seg_text = res.get("segment", "")
-        intent_val = res.get("intent", {}).get("intent", "unknown")
-        raw = res.get("raw_result")
-        
-        extracted = _extract_result_data(raw)
-        res_text = str(extracted)[:600] if extracted else "Không có dữ liệu"
-        lines.append(f"--- Yêu cầu {i} ---\nCâu hỏi: {seg_text}\nKết quả hệ thống: {res_text}\n")
+    if len(results) == 1:
+        return {"final_response": results[0].get("formatted_text")}
+
+    # Cách 1: Nối thủ công (Nhanh, không tốn thêm token OpenAI)
+    full_text = ""
+    for res in results:
+        txt = res.get("formatted_text", "")
+        if txt:
+            full_text += txt + "\n\n---\n\n"
     
-    context = "\n".join(lines)
-    prompt = (
-        "Bạn là trợ lý học vụ. Tổng hợp các kết quả từ nhiều câu hỏi thành MỘT câu trả lời duy nhất, tự nhiên, và chuyên nghiệp.\n"
-        "YÊU CẦU QUAN TRỌNG:\n"
-        "1. Trả lời bao quát TẤT CẢ các câu hỏi theo ĐÚNG THỨ TỰ.\n"
-        "2. Cung cấp thông tin thực sự chi tiết từ mục 'Kết quả hệ thống'. Đừng nói chung chung.\n"
-        "3. Nếu yêu cầu nào không tìm thấy dữ liệu, hãy thông báo rõ ràng.\n\n"
-        f"Câu hỏi gốc: {user_text}\n\n"
-        f"Kết quả từng phần:\n{context}\n\n"
-        "Câu trả lời tổng hợp:"
-    )
+    final_output = full_text.strip().rstrip("---").strip()
     
-    try:
-        llm = _get_llm()
-        async def _gen(): return await llm.generate(prompt, timeout=20.0, max_tokens=512)
-        res = asyncio.run(_gen())
-        text = res.get("text", "Đã xử lý xong các yêu cầu của bạn.")
-    except Exception as exc:
-        print(f"[SYNTHESIZE] Error: {exc}")
-        text = "Mình đã tìm được thông tin nhưng gặp chút lỗi khi tổng hợp, bạn xem chi tiết phía trên nhé."
-        
     return {
-        "synthesized_response": text,
-        "final_response": text,  # Đè lên final_response để màn hình hiển thị text này
+        "synthesized_response": final_output,
+        "final_response": final_output, # Gán vào đây để hiển thị lên UI
         "node_trace": ["synthesize_formatter_node"]
     }
 

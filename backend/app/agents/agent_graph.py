@@ -20,7 +20,7 @@ try:
 except ImportError:
     _LANGGRAPH_AVAILABLE = False
 
-GLOBAL_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "25.0"))
+GLOBAL_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "35.0"))
 
 def route_decision(state: AgentState) -> Literal["agent_path", "rule_based_path"]:
     return "agent_path" if state.get("needs_agent") else "rule_based_path"

@@ -66,7 +66,7 @@ class SubjectSuggestionRuleEngine:
             # Credit limits by semester type and warning level
             self.MIN_CREDITS_MAIN_SEMESTER = config['credit_limits'].get('min_credits_main_semester', 12)
             self.MAX_CREDITS_MAIN_SEMESTER = config['credit_limits'].get('max_credits_main_semester', 24)
-            self.MAX_CREDITS_SUMMER = config['credit_limits'].get('max_credits_summer', 8)
+            self.MAX_CREDITS_SUMMER = config['credit_limits'].get('max_credits_summer', 28)
             
             # Credit limits for warning levels (main semester)
             self.MIN_CREDITS_WARNING_1 = config['credit_limits'].get('min_credits_warning_1', 10)
@@ -128,7 +128,7 @@ class SubjectSuggestionRuleEngine:
         # Credit limits by semester type and warning level
         self.MIN_CREDITS_MAIN_SEMESTER = 12
         self.MAX_CREDITS_MAIN_SEMESTER = 24
-        self.MAX_CREDITS_SUMMER = 8
+        self.MAX_CREDITS_SUMMER = 28
         
         self.MIN_CREDITS_WARNING_1 = 10
         self.MAX_CREDITS_WARNING_1 = 18

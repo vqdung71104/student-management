@@ -6,7 +6,7 @@
     "improvement_threshold": 20,
     "min_credits_main_semester": 12,
     "max_credits_main_semester": 24,
-    "max_credits_summer": 8,
+    "max_credits_summer": 28,
     "min_credits_warning_1": 10,
     "max_credits_warning_1": 18,
     "min_credits_warning_2": 8,
