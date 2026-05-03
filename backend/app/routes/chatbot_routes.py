@@ -1539,7 +1539,7 @@ async def chat_stream(
                             stream_debug["mode"] = "agent"
                             stream_debug["route"] = "agent_orchestrator"
                             stream_debug["llm_called"] = True
-                            stream_debug["llm_paths"] = ["/split", "/classify", "/generate"]
+                            stream_debug["llm_paths"] = ["openai_split", "openai_classify", "openai_generate"]
                             stream_debug["tools_called"] = [item.get("intent", {}).get("intent") if isinstance(item.get("intent"), dict) else item.get("intent") for item in raw] if isinstance(raw, list) else []
                         except (asyncio.TimeoutError, Exception) as ag_err:
                             # ── RULE-BASE FALLBACK (streaming) ──────────────────────────

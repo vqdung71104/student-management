@@ -5,11 +5,13 @@ import os
 import re
 import time
 import traceback
+import unicodedata
 from typing import Any, Dict, FrozenSet, List, Optional
 
 from app.llm.llm_client import LLMClient
 from app.llm.llm_client import LLMCircuitOpenError, LLMAPIError, LLMTimeoutError
 from app.llm.response_cache import ResponseCache
+from .graph_nodes import format_rule_based_response, join_rule_based_segments
 from .orchestration_metrics import get_orchestration_metrics
 from .tools_registry import ToolsRegistry
 
@@ -20,13 +22,15 @@ NODE4_GENERATE_MAX_TOKENS = int(os.environ.get("LLM_GENERATE_MAX_TOKENS", "150")
 NODE4_GENERATE_TEMPERATURE = float(os.environ.get("LLM_GENERATE_TEMPERATURE", "0.1"))
 NODE4_GENERATE_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
 NODE4_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
-NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", os.environ.get("LLM_CLASSIFY_TIMEOUT", "30.0")))
-NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "20.0"))
-NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "10.0"))
-AGENT_REASONING_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "10.0"))
+NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", "3.0"))
+NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "2.0"))
+NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "25.0"))
+LLM_REASONING_TIMEOUT = float(os.environ.get("LLM_REASONING_TIMEOUT", "5.0"))
+TOOL_EXECUTION_TIMEOUT = float(os.environ.get("TOOL_EXECUTION_TIMEOUT", "10.0"))
+AGENT_REASONING_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "25.0"))
 AGENT_EXTRACT_MAX_TOKENS = int(os.environ.get("AGENT_EXTRACT_MAX_TOKENS", "64"))
 AGENT_FILTER_MAX_TOKENS = int(os.environ.get("AGENT_FILTER_MAX_TOKENS", "128"))
-OPENAI_GENERATE_TIMEOUT = float(os.environ.get("OPENAI_GENERATE_TIMEOUT", "15.0"))
+OPENAI_GENERATE_TIMEOUT = float(os.environ.get("OPENAI_GENERATE_TIMEOUT", "25.0"))
 
 # LangGraph integration mode
 HANDLE_MODE = os.environ.get("AGENT_HANDLE_MODE", "graph").lower()
@@ -111,6 +115,31 @@ def _strip_constraints(text: str) -> tuple[str, List[str]]:
     if not clean:
         clean = text
     return clean, constraint_phrases
+
+
+def _safe_json_parse(text: str) -> Dict[str, Any]:
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
+        try:
+            parsed, _ = decoder.raw_decode(text[match.start():])
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            continue
+    return {}
+
+
+def _normalize_text(text: str) -> str:
+    normalized = text.replace("đ", "d").replace("Đ", "D")
+    normalized = unicodedata.normalize("NFD", normalized)
+    normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    return normalized.lower()
 
 
 class AgentOrchestrator:
@@ -240,7 +269,7 @@ class AgentOrchestrator:
         return "low"
 
     def _is_complex_query(self, text: str) -> bool:
-        lower = text.lower()
+        lower = _normalize_text(text)
         return any(kw in lower for kw in _CONSTRAINT_KEYWORDS)
 
     def _resolve_node3_subtype(self, intent: Optional[str]) -> Optional[str]:
@@ -363,8 +392,8 @@ class AgentOrchestrator:
                     f"Trả về JSON thuần: {{'exclude_subjects': ['IT1111', ...]}}\n"
                     f"Nếu không có mã môn nào: {{'exclude_subjects': []}}"
                 )
-                res = await self.llm.classify(prompt, timeout=5.0, max_tokens=64, temperature=0.0)
-                parsed = json.loads(res.get("text", "{}"))
+                res = await self.llm.generate(prompt, timeout=5.0, max_tokens=64, temperature=0.0)
+                parsed = _safe_json_parse(res.get("text", "{}"))
                 if isinstance(parsed, dict) and "exclude_subjects" in parsed:
                     constraints["exclude_subjects"] = parsed["exclude_subjects"]
             except Exception as exc:
@@ -754,7 +783,7 @@ Ví dụ 3:
                 max_tokens=AGENT_FILTER_MAX_TOKENS,
                 temperature=0.1,
             )
-            parsed = json.loads(res.get("text", "{}"))
+            parsed = _safe_json_parse(res.get("text", "{}"))
             return parsed if isinstance(parsed, dict) else raw_data
         except Exception as exc:
             print(f"[AGENT_FILTER] failed: {exc}")
@@ -790,13 +819,110 @@ Ví dụ 3:
             )
             return result
         except asyncio.TimeoutError:
-            print("[ORCH:GRAPH] LangGraph timeout → falling back to linear pipeline")
+            print("[ORCH:GRAPH] LangGraph timeout → falling back to direct node3 pipeline")
             self.metrics.increment("agent.graph_timeout_fallback")
-            return await self._handle_linear(user_text, student_id, conversation_id)
+            return await self._handle_direct_node3_fallback(user_text, student_id, conversation_id)
         except Exception as exc:
-            print(f"[ORCH:GRAPH] LangGraph error: {exc} → falling back to linear pipeline")
+            print(f"[ORCH:GRAPH] LangGraph error: {exc} → falling back to direct node3 pipeline")
             self.metrics.increment("agent.graph_error_fallback")
-            return await self._handle_linear(user_text, student_id, conversation_id)
+            return await self._handle_direct_node3_fallback(user_text, student_id, conversation_id)
+
+    async def _handle_direct_node3_fallback(
+        self,
+        user_text: str,
+        student_id: Optional[int] = None,
+        conversation_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        started_at = time.perf_counter()
+        segments = await self.node1_query_splitter(user_text)
+        results: List[Dict[str, Any]] = []
+
+        for seg in segments:
+            intent_info = await self.node2_intent_router(seg)
+            intent = intent_info.get("intent")
+            constraints = intent_info.get("constraints", {})
+            clean_query = intent_info.get("clean_query", seg)
+            node3_subtype = self._resolve_node3_subtype(intent)
+
+            raw_result: Any = {"status": "error", "error": "No tool mapped"}
+            if intent not in ("unknown", None, ""):
+                try:
+                    raw_result = await self.tools.call(
+                        intent,
+                        {
+                            "q": clean_query,
+                            "student_id": student_id,
+                            "conversation_id": conversation_id,
+                        },
+                    )
+                    if intent == "subject_registration_suggestion":
+                        raw_result = await self._agent_filter(raw_result, constraints, seg)
+                except Exception as exc:
+                    raw_result = {"status": "error", "error": str(exc)}
+
+            results.append(
+                {
+                    "segment": seg,
+                    "intent": intent_info,
+                    "raw_result": raw_result,
+                    "node3_subtype": node3_subtype,
+                    "clean_query": clean_query,
+                    "constraints": constraints,
+                }
+            )
+
+        node4_result = await self.node4_response_formatter(
+            results,
+            "Generate response",
+            original_query=user_text,
+            intent_hints=[r.get("intent", {}).get("intent") for r in results if r.get("intent")],
+            segment_results=results,
+        )
+        formatted = node4_result["text"]
+
+        if len(results) > 1:
+            summary_intent = "compound"
+            confidence_label = "medium"
+            confidence_score = 0.6
+            is_compound = True
+        elif results:
+            first = results[0].get("intent") or {}
+            summary_intent = first.get("intent", "unknown") if isinstance(first, dict) else "unknown"
+            confidence_score = self._normalize_confidence(first.get("confidence", 0.0)) if isinstance(first, dict) else 0.0
+            confidence_label = self._confidence_label(confidence_score)
+            is_compound = False
+        else:
+            summary_intent = "unknown"
+            confidence_label = "low"
+            confidence_score = 0.0
+            is_compound = False
+
+        total_ms = (time.perf_counter() - started_at) * 1000
+        print(f"[ORCH:FALLBACK] direct_node3 intent={summary_intent} segments={len(results)} duration={total_ms:.1f}ms")
+        return {
+            "raw": results,
+            "response": formatted,
+            "text": formatted,
+            "intent": summary_intent,
+            "confidence": confidence_label,
+            "confidence_score": confidence_score,
+            "is_compound": is_compound,
+            "parts": [
+                {
+                    "intent": item.get("intent"),
+                    "node3_subtype": item.get("node3_subtype"),
+                    "text": item.get("segment"),
+                    "data": item.get("raw_result"),
+                }
+                for item in results
+            ],
+            "debug": {
+                "fallback_mode": "direct_node3",
+                "llm_processing_time_ms": node4_result.get("processing_time_ms"),
+                "model_used": node4_result.get("model_used"),
+                "from_cache": node4_result.get("from_cache", False),
+            },
+        }
 
     async def _handle_linear(
         self,
@@ -993,3 +1119,473 @@ Ví dụ 3:
                 "synthesized": node4_result.get("synthesized", False),
             }
         }
+
+    async def node1_query_splitter(self, text: str) -> List[str]:
+        started_at = time.perf_counter()
+        split_regex = re.compile(
+            r"\s*(?:,|;)?\s*(?:sau đó|đồng thời|và|tiếp theo|rồi)\s+",
+            re.IGNORECASE,
+        )
+        connector_regex = re.compile(
+            r"(?:sau đó|đồng thời|và|tiếp theo|rồi)",
+            re.IGNORECASE,
+        )
+
+        fallback_segments = [text]
+        if connector_regex.search(text):
+            parts = [part.strip(" ,;") for part in split_regex.split(text) if part.strip(" ,;")]
+            uncertain = len(parts) < 2 or any(len(part.split()) < 2 for part in parts)
+            uncertain = uncertain or any(
+                part.lower().startswith(("không muốn", "tránh", "ngoại trừ", "không học", "thay vì"))
+                for part in parts[1:]
+            )
+            fallback_segments = parts or [text]
+            if len(parts) >= 2 and not uncertain:
+                self.metrics.increment("node1.multi_intent_split")
+                duration = time.perf_counter() - started_at
+                self.metrics.observe_latency("node1.latency", duration)
+                print(f"[NODE-1:SPLIT] regex -> {len(parts)} segments")
+                return parts
+
+        try:
+            res = await self.llm.split(
+                text,
+                timeout=NODE1_TIMEOUT,
+                max_tokens=NODE1_SPLIT_MAX_TOKENS,
+                temperature=0.0,
+            )
+            segments = res.get("segments") or fallback_segments
+            self.metrics.increment("node1.llm_success")
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node1.latency", duration)
+            print(f"[NODE-1:SPLIT] LLM -> {len(segments)} segments")
+            return segments
+        except Exception as exc:
+            self.metrics.increment("node1.fallback")
+            duration = time.perf_counter() - started_at
+            self.metrics.observe_latency("node1.latency", duration)
+            print(f"[NODE-1:SPLIT] fallback: {exc} -> {len(fallback_segments)} segments")
+            return fallback_segments or [text]
+
+    async def node4_response_formatter(
+        self,
+        raw_result: Any,
+        instruction: str,
+        original_query: Optional[str] = None,
+        intent_hints: Optional[List[str]] = None,
+        segment_results: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        started_at = time.perf_counter()
+        seg_results = segment_results or []
+
+        if len(seg_results) >= 2:
+            return await self._synthesize_multi_segment(seg_results, original_query or instruction, started_at)
+
+        intent = None
+        if intent_hints:
+            intent = next((item for item in intent_hints if item), None)
+        if intent is None and isinstance(raw_result, dict):
+            intent = raw_result.get("intent")
+            if intent is None and isinstance(raw_result.get("data"), dict):
+                intent = raw_result["data"].get("intent")
+
+        text = format_rule_based_response(raw_result, intent, original_query or instruction)
+        total_ms = (time.perf_counter() - started_at) * 1000
+        self.metrics.observe_latency("node4.latency", total_ms / 1000)
+        self.metrics.increment("node4.rule_based_success")
+        return {
+            "text": text,
+            "from_cache": False,
+            "processing_time_ms": 0.0,
+            "model_used": "rule_based",
+        }
+
+    async def _synthesize_multi_segment(
+        self,
+        segment_results: List[Dict[str, Any]],
+        original_query: str,
+        started_at: float,
+    ) -> Dict[str, Any]:
+        text = join_rule_based_segments([item.get("formatted_text", "") for item in segment_results])
+        total_ms = (time.perf_counter() - started_at) * 1000
+        self.metrics.observe_latency("node4_synthesize.latency", total_ms / 1000)
+        self.metrics.increment("node4_synthesize.rule_based_success")
+        return {
+            "text": text,
+            "from_cache": False,
+            "processing_time_ms": 0.0,
+            "model_used": "rule_based_join",
+            "synthesized": True,
+        }
+
+    async def _agent_filter(
+        self,
+        raw_data: Any,
+        constraints: Dict[str, Any],
+        seg: str,
+    ) -> Any:
+        excluded = [
+            str(item).lower().strip()
+            for item in constraints.get("exclude_subjects", [])
+            if str(item).strip()
+        ]
+        if not excluded:
+            return raw_data
+
+        payload = raw_data
+        if isinstance(raw_data, dict) and "status" in raw_data and "data" in raw_data:
+            payload = raw_data.get("data")
+
+        rows = None
+        if isinstance(payload, dict) and isinstance(payload.get("data"), list):
+            rows = payload.get("data")
+
+        if rows is None:
+            return raw_data
+
+        filtered_rows = [
+            row
+            for row in rows
+            if not any(term in str(row.get("subject_name", "")).lower() for term in excluded)
+        ]
+        payload["data"] = filtered_rows
+        if isinstance(raw_data, dict) and "status" in raw_data and "data" in raw_data:
+            raw_data["data"] = payload
+            return raw_data
+        return payload
+
+    async def _execute_segment_parallel(
+        self,
+        seg: str,
+        intent_info: Dict[str, Any],
+        student_id: Optional[int],
+        conversation_id: Optional[int],
+    ) -> Dict[str, Any]:
+        intent = intent_info.get("intent")
+        constraints = intent_info.get("constraints", {})
+        clean_query = intent_info.get("clean_query", seg)
+        node3_subtype = self._resolve_node3_subtype(intent)
+
+        if intent in ("greeting", "thanks"):
+            text = (
+                "Xin chào! Mình là trợ lý ảo của hệ thống quản lý sinh viên. Mình có thể giúp gì cho bạn?"
+                if intent == "greeting"
+                else "Rất vui được giúp đỡ bạn. Nếu cần thêm thông tin, bạn cứ hỏi tiếp."
+            )
+            return {
+                "segment": seg,
+                "intent": intent_info,
+                "raw_result": {"text": text, "intent": intent},
+                "node3_subtype": None,
+                "clean_query": clean_query,
+                "constraints": constraints,
+            }
+
+        if intent in ("unknown", None, ""):
+            return {
+                "segment": seg,
+                "intent": intent_info,
+                "raw_result": {"text": "Mình chưa hiểu rõ yêu cầu này, bạn vui lòng diễn đạt lại ngắn gọn hơn."},
+                "node3_subtype": None,
+                "clean_query": clean_query,
+                "constraints": constraints,
+            }
+
+        try:
+            raw_result = await asyncio.wait_for(
+                self.tools.call(
+                    intent,
+                    {
+                        "q": clean_query,
+                        "student_id": student_id,
+                        "conversation_id": conversation_id,
+                    },
+                ),
+                timeout=TOOL_EXECUTION_TIMEOUT,
+            )
+            if intent == "subject_registration_suggestion" or constraints.get("exclude_subjects"):
+                raw_result = await self._agent_filter(raw_result, constraints, seg)
+        except Exception as exc:
+            raw_result = {"status": "error", "error": str(exc)}
+
+        formatted_text = format_rule_based_response(raw_result, intent, seg)
+        return {
+            "segment": seg,
+            "intent": intent_info,
+            "raw_result": raw_result,
+            "formatted_text": formatted_text,
+            "node3_subtype": node3_subtype,
+            "clean_query": clean_query,
+            "constraints": constraints,
+        }
+
+    async def _run_parallel_pipeline(
+        self,
+        user_text: str,
+        student_id: Optional[int] = None,
+        conversation_id: Optional[int] = None,
+        pre_split_segments: Optional[List[str]] = None,
+        fallback_mode: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        started_at = time.perf_counter()
+        segments = pre_split_segments or await self.node1_query_splitter(user_text)
+        print(f"[ORCH] node1_done segments={len(segments)}")
+
+        try:
+            intent_infos = await asyncio.wait_for(
+                asyncio.gather(*(self.node2_intent_router(seg) for seg in segments)),
+                timeout=LLM_REASONING_TIMEOUT,
+            )
+        except Exception as exc:
+            text = "Mình chưa phân tích kịp yêu cầu trong thời gian cho phép. Bạn vui lòng thử lại hoặc chia nhỏ câu hỏi giúp mình."
+            print(f"[ORCH] reasoning_fallback error={exc}")
+            return {
+                "raw": [],
+                "response": text,
+                "text": text,
+                "intent": "unknown",
+                "confidence": "low",
+                "confidence_score": 0.0,
+                "is_compound": False,
+                "parts": [],
+                "debug": {
+                    "fallback_mode": fallback_mode or "reasoning_fallback",
+                    "model_used": "rule_based_fallback",
+                    "from_cache": False,
+                },
+            }
+
+        segment_results: List[Optional[Dict[str, Any]]] = [None] * len(segments)
+
+        async def _run_and_store(index: int, seg: str, intent_info: Dict[str, Any]) -> Dict[str, Any]:
+            result = await self._execute_segment_parallel(seg, intent_info, student_id, conversation_id)
+            segment_results[index] = result
+            return result
+
+        tasks = [
+            _run_and_store(index, seg, intent_info)
+            for index, (seg, intent_info) in enumerate(zip(segments, intent_infos))
+        ]
+        await asyncio.gather(*tasks)
+        results = [item for item in segment_results if item is not None]
+
+        node4_result = await self.node4_response_formatter(
+            results,
+            "Generate response",
+            original_query=user_text,
+            intent_hints=[r.get("intent", {}).get("intent") for r in results if r.get("intent")],
+            segment_results=results,
+        )
+        formatted = node4_result["text"]
+
+        if len(results) > 1:
+            summary_intent = "compound"
+            confidence_label = "medium"
+            confidence_score = 0.6
+            is_compound = True
+        elif results:
+            first = results[0].get("intent") or {}
+            summary_intent = first.get("intent", "unknown") if isinstance(first, dict) else "unknown"
+            confidence_score = self._normalize_confidence(first.get("confidence", 0.0)) if isinstance(first, dict) else 0.0
+            confidence_label = self._confidence_label(confidence_score)
+            is_compound = False
+        else:
+            summary_intent = "unknown"
+            confidence_label = "low"
+            confidence_score = 0.0
+            is_compound = False
+
+        total_ms = (time.perf_counter() - started_at) * 1000
+        print(f"[ORCH] parallel_done intent={summary_intent} segments={len(results)} duration={total_ms:.1f}ms")
+        return {
+            "raw": results,
+            "response": formatted,
+            "text": formatted,
+            "intent": summary_intent,
+            "confidence": confidence_label,
+            "confidence_score": confidence_score,
+            "is_compound": is_compound,
+            "parts": [
+                {
+                    "intent": item.get("intent"),
+                    "node3_subtype": item.get("node3_subtype"),
+                    "text": item.get("segment"),
+                    "data": item.get("raw_result"),
+                }
+                for item in results
+            ],
+            "debug": {
+                "fallback_mode": fallback_mode,
+                "llm_processing_time_ms": node4_result.get("processing_time_ms"),
+                "model_used": node4_result.get("model_used"),
+                "from_cache": node4_result.get("from_cache", False),
+                "node3_subtypes": [r.get("node3_subtype") for r in results],
+            },
+        }
+
+    async def _handle_graph(
+        self,
+        user_text: str,
+        student_id: Optional[int] = None,
+        conversation_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        pre_segments = await self.node1_query_splitter(user_text)
+        if len(pre_segments) > 1:
+            return await self._run_parallel_pipeline(
+                user_text,
+                student_id,
+                conversation_id,
+                pre_split_segments=pre_segments,
+            )
+
+        from app.agents.agent_graph import run_graph_for_orchestrator
+        try:
+            return await asyncio.wait_for(
+                run_graph_for_orchestrator(user_text, student_id, conversation_id),
+                timeout=AGENT_REASONING_TIMEOUT,
+            )
+        except Exception as exc:
+            print(f"[ORCH:GRAPH] fallback_to_parallel error={exc}")
+            self.metrics.increment("agent.graph_error_fallback")
+            return await self._run_parallel_pipeline(
+                user_text,
+                student_id,
+                conversation_id,
+                fallback_mode="direct_node3",
+            )
+
+    async def _handle_direct_node3_fallback(
+        self,
+        user_text: str,
+        student_id: Optional[int] = None,
+        conversation_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        return await self._run_parallel_pipeline(
+            user_text,
+            student_id,
+            conversation_id,
+            fallback_mode="direct_node3",
+        )
+
+    async def _handle_linear(
+        self,
+        user_text: str,
+        student_id: Optional[int] = None,
+        conversation_id: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        return await self._run_parallel_pipeline(user_text, student_id, conversation_id)
+
+    async def node2_intent_router(self, text: str) -> Dict[str, Any]:
+        started_at = time.perf_counter()
+        constraint_regex = re.compile(
+            r"(?:tôi\s+)?(?:không\s+muốn|tránh|ngoại\s+trừ|không\s+học|thay\s+vì)[^,;\.]*",
+            re.IGNORECASE,
+        )
+
+        constraint_phrases = [match.group(0).strip() for match in constraint_regex.finditer(text)]
+        clean_query = text
+        for phrase in constraint_phrases:
+            clean_query = clean_query.replace(phrase, "")
+        clean_query = re.sub(r"[,;\s]{2,}", " ", clean_query).strip(" ,;") or text
+
+        exclude_subjects: List[str] = []
+        for phrase in constraint_phrases:
+            normalized = re.sub(
+                r"^(?:tôi\s+)?(?:không\s+muốn|tránh|ngoại\s+trừ|không\s+học|thay\s+vì)\s*",
+                "",
+                phrase,
+                flags=re.IGNORECASE,
+            ).strip(" ,.;")
+            for part in re.split(r",|;|\s+và\s+|\s+hoặc\s+", normalized):
+                cleaned = re.sub(r"^(?:môn|học phần|lớp)\s+", "", part, flags=re.IGNORECASE).strip()
+                if cleaned:
+                    exclude_subjects.append(cleaned)
+
+        constraints: Dict[str, Any] = {
+            "constraint_phrases": constraint_phrases,
+            "exclude_subjects": exclude_subjects,
+            "forbidden_time_slots": [],
+            "forbidden_times": [],
+            "semester": None,
+            "days": [],
+        }
+
+        is_complex = bool(constraint_phrases) or self._is_complex_query(text)
+        lowered = _normalize_text(clean_query)
+        if constraint_phrases and any(keyword in lowered for keyword in ("dang ky", "nen hoc", "tu van mon")):
+            return {
+                "intent": "subject_registration_suggestion",
+                "confidence": 0.95,
+                "source": "keyword_bias",
+                "needs_agent": True,
+                "is_complex": True,
+                "constraints": constraints,
+                "clean_query": clean_query,
+            }
+        if constraint_phrases and any(keyword in lowered for keyword in ("đăng ký", "đăng kí", "nên học", "tư vấn môn")):
+            return {
+                "intent": "subject_registration_suggestion",
+                "confidence": 0.95,
+                "source": "keyword_bias",
+                "needs_agent": True,
+                "is_complex": True,
+                "constraints": constraints,
+                "clean_query": clean_query,
+            }
+
+        if self.tfidf and clean_query:
+            try:
+                tfidf_res = await self.tfidf.classify_intent(clean_query)
+                label = tfidf_res.get("intent", "unknown")
+                score = tfidf_res.get("confidence_score", 0.0)
+                if score >= INTENT_CONF_THRESHOLD:
+                    duration = time.perf_counter() - started_at
+                    self.metrics.increment("node2.tfidf_hit")
+                    self.metrics.observe_latency("node2.latency", duration)
+                    return {
+                        "intent": label,
+                        "confidence": score,
+                        "source": "tfidf",
+                        "needs_agent": is_complex,
+                        "is_complex": is_complex,
+                        "constraints": constraints,
+                        "clean_query": clean_query,
+                    }
+            except Exception as exc:
+                print(f"[NODE-2] TF-IDF failed: {exc}")
+
+        try:
+            llm_res = await self.llm.classify(
+                clean_query,
+                timeout=NODE2_TIMEOUT,
+                max_tokens=NODE2_CLASSIFY_MAX_TOKENS,
+                temperature=0.0,
+            )
+            intent = llm_res.get("intent") or "unknown"
+            confidence = self._normalize_confidence(llm_res.get("confidence", 0.0))
+            duration = time.perf_counter() - started_at
+            self.metrics.increment("node2.llm_success")
+            self.metrics.observe_latency("node2.latency", duration)
+            return {
+                "intent": intent,
+                "confidence": confidence,
+                "source": "llm",
+                "needs_agent": True,
+                "is_complex": is_complex,
+                "constraints": constraints,
+                "clean_query": clean_query,
+            }
+        except Exception as exc:
+            duration = time.perf_counter() - started_at
+            self.metrics.increment("node2.fallback")
+            self.metrics.observe_latency("node2.latency", duration)
+            print(f"[NODE-2] fallback: {exc}")
+            return {
+                "intent": "unknown",
+                "confidence": 0.0,
+                "source": "fallback",
+                "needs_agent": False,
+                "is_complex": is_complex,
+                "constraints": constraints,
+                "clean_query": clean_query,
+            }

@@ -20,21 +20,24 @@ try:
 except ImportError:
     _LANGGRAPH_AVAILABLE = False
 
-GLOBAL_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "35.0"))
+LLM_REASONING_TIMEOUT = float(os.environ.get("LLM_REASONING_TIMEOUT", "5.0"))
+TOOL_EXECUTION_TIMEOUT = float(os.environ.get("TOOL_EXECUTION_TIMEOUT", "10.0"))
+GLOBAL_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "25.0"))
 
-def route_decision(state: AgentState) -> Literal["agent_path", "rule_based_path"]:
+def route_decision(state: AgentState) -> Literal["agent_path", "rule_based_path", "fallback_path"]:
+    if state.get("reasoning_fallback"):
+        return "fallback_path"
     return "agent_path" if state.get("needs_agent") else "rule_based_path"
 
 def should_filter(state: AgentState) -> Literal["filter", "skip_filter"]:
     return "filter" if state.get("needs_agent_filter") else "skip_filter"
 
-def should_continue_loop(state: AgentState) -> Literal["continue_loop", "synthesize_or_end"]:
+def next_after_accumulate(state: AgentState) -> Literal["continue_loop", "synthesize", "end"]:
     segments = state.get("segments", [])
     idx = state.get("current_segment_index", 0)
-    return "continue_loop" if idx < len(segments) else "synthesize_or_end"
-
-def should_synthesize(state: AgentState) -> Literal["synthesize", "skip_synthesize"]:
-    return "synthesize" if len(state.get("segments", [])) >= 2 else "skip_synthesize"
+    if idx < len(segments):
+        return "continue_loop"
+    return "synthesize" if len(segments) >= 2 else "end"
 
 def _build_graph() -> Optional["StateGraph"]:
     if not _LANGGRAPH_AVAILABLE: return None
@@ -52,13 +55,29 @@ def _build_graph() -> Optional["StateGraph"]:
 
     graph.set_entry_point("query_splitter")
     graph.add_edge("query_splitter", "intent_router")
-    graph.add_conditional_edges("intent_router", route_decision, {"rule_based_path": "tool_executor", "agent_path": "constraint_parser"})
+    graph.add_conditional_edges(
+        "intent_router",
+        route_decision,
+        {
+            "rule_based_path": "tool_executor",
+            "agent_path": "constraint_parser",
+            "fallback_path": "rule_based_fallback",
+        },
+    )
     graph.add_edge("constraint_parser", "tool_executor")
     graph.add_conditional_edges("tool_executor", should_filter, {"filter": "agent_filter", "skip_filter": "formatter"})
     graph.add_edge("agent_filter", "formatter")
     graph.add_edge("formatter", "accumulate")
-    graph.add_conditional_edges("accumulate", should_continue_loop, {"continue_loop": "intent_router", "synthesize_or_end": "synthesize"})
-    graph.add_conditional_edges("synthesize", should_synthesize, {"synthesize": "synthesize", "skip_synthesize": END})
+    graph.add_conditional_edges(
+        "accumulate",
+        next_after_accumulate,
+        {
+            "continue_loop": "intent_router",
+            "synthesize": "synthesize",
+            "end": END,
+        },
+    )
+    graph.add_edge("synthesize", END)
     graph.add_edge("rule_based_fallback", "formatter")
 
     return graph
@@ -87,6 +106,8 @@ async def run_graph(user_text: str, student_id: Optional[int] = None, conversati
 
 async def run_graph_for_orchestrator(user_text: str, student_id: Optional[int] = None, conversation_id: Optional[int] = None) -> dict:
     state = await run_graph(user_text, student_id, conversation_id)
+    if state.get("error") == "Timeout":
+        raise asyncio.TimeoutError("LangGraph orchestration timed out")
     return {
         "raw": state.get("segment_results", []),
         "response": state.get("synthesized_response") or state.get("final_response") or "OK",
