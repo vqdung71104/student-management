@@ -447,6 +447,7 @@ async def _process_single_query(
         # Node 3a — NL2SQL
         "subject_info", "class_info", "grade_view",
         "learned_subjects_view", "schedule_view", "schedule_info", "student_info",
+        "graduation_progress",
         # Node 3b — Gợi ý học tập (subject)
         "subject_registration_suggestion",
         # Node 3c — Gợi ý đăng ký (class)
@@ -507,6 +508,29 @@ async def _process_single_query(
             sql=None,
             sql_error=result.get("error"),
         )
+
+    # ── graduation_progress: direct service call (Node-3a style)
+    if intent == "graduation_progress" and confidence in ("high", "medium"):
+        try:
+            result = await chatbot_service.process_graduation_progress(student_id)
+            data = result.get("data")
+            result_data = None
+            if isinstance(data, dict):
+                result_data = [data]
+            else:
+                result_data = data
+
+            return ChatResponseWithData(
+                text=result.get("text") or "",
+                intent="graduation_progress",
+                confidence=result.get("confidence") or "high",
+                data=result_data,
+                metadata=result.get("metadata"),
+                sql=None,
+                sql_error=result.get("error"),
+            )
+        except Exception as gp_err:
+            print(f"⚠️ [GRADUATION_PROGRESS] error: {gp_err}")
 
     # ── class_info: constraint extractor first ────────────────────────────────
     if intent == "class_info" and confidence in ("high", "medium"):

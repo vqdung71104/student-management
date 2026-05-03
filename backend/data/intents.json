@@ -15,6 +15,25 @@
       "description": "Hướng dẫn quy trình đăng ký học phần"
     },
     {
+      "tag": "graduation_progress",
+      "patterns": [
+        "toi còn môn nào chưa học để tốt nghiệp",
+        "tôi còn bao nhiêu môn chưa học",
+        "để tốt nghiệp tôi cần những môn nào",
+        "cần học bao nhiêu môn để tốt nghiệp",
+        "cần học những môn nào để tốt nghiệp",
+        "còn học phần nào để tốt nghiệp",
+        "còn bao nhieu học phần để tốt nghiệp",
+        "còn những học phần nào cần học để tốt nghiệp",
+        "còn những môn nào cần học để tốt nghiệp",
+        "tôi còn bao nhiêu tín chỉ nữa là hoàn thành chương trình học tập",
+        "còn bao nhiêu tín chỉ nữa để tốt nghiệp",
+        "còn những tín chỉ nào cần học để tốt nghiệp",
+        "còn những môn nào cần học để tốt nghiệp"
+      ],
+      "description": "Những môn còn thiếu để tốt nghiệp"
+    },
+    {
       "tag": "subject_registration_suggestion",
       "patterns": [
         "gợi ý môn học phù hợp",

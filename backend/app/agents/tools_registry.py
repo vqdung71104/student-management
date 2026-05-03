@@ -19,6 +19,7 @@ DEFAULT_INTENT_TO_PATH = {
     "subject_registration_suggestion": "/intent/subject_registration_suggestion",
     "class_registration_suggestion": "/intent/class_registration_suggestion",
     "modify_schedule": "/intent/modify_schedule",
+    "graduation_progress": "/intent/graduation_progress",
 }
 
 
@@ -28,10 +29,13 @@ def _join_url(base: str, path: str) -> str:
 
 def _default_tool_map() -> Dict[str, Dict[str, Any]]:
     base_url = DEFAULT_AGENT_TOOLS_BASE_URL
-    return {
-        intent: {"url": _join_url(base_url, path), "timeout": 6}
-        for intent, path in DEFAULT_INTENT_TO_PATH.items()
-    }
+    result = {}
+    for intent, path in DEFAULT_INTENT_TO_PATH.items():
+        timeout = 6
+        if intent == "graduation_progress":
+            timeout = 10  # needs 3 sequential DB queries
+        result[intent] = {"url": _join_url(base_url, path), "timeout": timeout}
+    return result
 
 
 def _load_tool_map_from_env() -> Dict[str, Dict[str, Any]]:

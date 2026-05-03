@@ -75,6 +75,8 @@ class RedisCache:
             Value or None if not found
         """
         try:
+            if not self.client:
+                return None
             value = self.client.get(key)
             if value:
                 # Try to parse JSON
@@ -105,9 +107,11 @@ class RedisCache:
             True if successful
         """
         try:
+            if not self.client:
+                return False
             # Serialize to JSON if dict or list
             if isinstance(value, (dict, list)):
-                value = json.dumps(value, ensure_ascii=False)
+                value = json.dumps(value, ensure_ascii=False, default=str)
             
             if ttl:
                 return self.client.setex(key, ttl, value)
@@ -128,6 +132,8 @@ class RedisCache:
             True if deleted
         """
         try:
+            if not self.client:
+                return False
             return self.client.delete(key) > 0
         except Exception as e:
             print(f"Error deleting key {key}: {e}")
@@ -136,6 +142,8 @@ class RedisCache:
     def exists(self, key: str) -> bool:
         """Check if key exists"""
         try:
+            if not self.client:
+                return False
             return self.client.exists(key) > 0
         except Exception as e:
             print(f"Error checking key {key}: {e}")
@@ -149,6 +157,8 @@ class RedisCache:
             TTL in seconds, -1 if no expiry, -2 if key doesn't exist
         """
         try:
+            if not self.client:
+                return -2
             return self.client.ttl(key)
         except Exception as e:
             print(f"Error getting TTL for {key}: {e}")
@@ -166,6 +176,8 @@ class RedisCache:
             True if successful
         """
         try:
+            if not self.client:
+                return False
             return self.client.expire(key, ttl)
         except Exception as e:
             print(f"Error setting expiry for {key}: {e}")
@@ -183,6 +195,8 @@ class RedisCache:
             New value or None if error
         """
         try:
+            if not self.client:
+                return None
             return self.client.incrby(key, amount)
         except Exception as e:
             print(f"Error incrementing {key}: {e}")
@@ -199,6 +213,8 @@ class RedisCache:
             List of matching keys
         """
         try:
+            if not self.client:
+                return []
             return self.client.keys(pattern)
         except Exception as e:
             print(f"Error getting keys with pattern {pattern}: {e}")
@@ -214,6 +230,8 @@ class RedisCache:
             True if successful
         """
         try:
+            if not self.client:
+                return False
             return self.client.flushdb()
         except Exception as e:
             print(f"Error flushing database: {e}")
@@ -222,6 +240,8 @@ class RedisCache:
     def close(self):
         """Close Redis connection"""
         try:
+            if not self.client:
+                return
             self.client.close()
             print("✅ Redis connection closed")
         except Exception as e:

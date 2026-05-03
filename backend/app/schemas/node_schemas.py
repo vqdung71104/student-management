@@ -121,6 +121,47 @@ class Node4FormatResponseResponse(BaseModel):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Graduation Progress Tool
+# POST /api/agent-tools/intent/graduation_progress
+# ─────────────────────────────────────────────────────────────────────────────
+class GraduationSubjectItem(BaseModel):
+    subject_id: str
+    subject_name: str
+    credits: int
+    learning_semester: Optional[int] = None
+    conditional_subjects: Optional[str] = None
+    grade: Optional[str] = None  # null = chưa học, "F" = học rồi nhưng chưa đạt
+    status: str = Field(
+        ...,
+        description="'not_taken' = chưa học, 'failed' = học rồi nhưng chưa đạt (grade=F), 'passed' = đã đạt",
+    )
+
+
+class GraduationProgressToolResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    status: str = "success"
+    student_id: int
+    course_id: int
+    course_name: Optional[str] = None
+    data: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Structured payload used by Node-4 and clients; mirrors the graduation summary.",
+    )
+    total_required_credits: int = Field(..., description="Tổng tín chỉ yêu cầu của chương trình")
+    accumulated_credits: int = Field(..., description="Tổng tín chỉ đã tích lũy (grade đạt)")
+    remaining_credits: int = Field(..., description="Tín chỉ còn thiếu = total_required - accumulated")
+    passed_subjects: List[GraduationSubjectItem] = Field(default_factory=list)
+    missing_subjects: List[GraduationSubjectItem] = Field(
+        default_factory=list,
+        description="Môn chưa học HOẶC học rồi nhưng chưa đạt (grade=F). "
+                    "Mỗi món được gắn status để biết rõ trạng thái.",
+    )
+    metadata: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Health check
 # ─────────────────────────────────────────────────────────────────────────────
 class NodeHealthResponse(BaseModel):

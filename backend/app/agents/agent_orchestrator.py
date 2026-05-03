@@ -78,6 +78,7 @@ _CONSTRAINT_PREFIX_PATTERNS = [
 _NODE3A_INTENTS = frozenset({
     "subject_info", "class_info", "grade_view",
     "learned_subjects_view", "schedule_view", "schedule_info", "student_info",
+    "graduation_progress",
 })
 _NODE3B_INTENTS = frozenset({"subject_registration_suggestion"})
 _NODE3C_INTENTS = frozenset({"class_registration_suggestion"})

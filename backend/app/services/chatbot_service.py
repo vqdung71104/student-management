@@ -954,6 +954,144 @@ class ChatbotService:
                 "error": str(e),
             }
     
+    async def process_graduation_progress(self, student_id: int) -> Dict:
+        """
+        Compute graduation progress for a student.
+
+        Returns a dict compatible with ChatResponseWithData usage in routes.
+        """
+        try:
+            if not student_id:
+                return {
+                    "text": "⚠️ Vui lòng đăng nhập để kiểm tra tiến độ tốt nghiệp.",
+                    "intent": "graduation_progress",
+                    "confidence": "high",
+                    "data": None,
+                    "error": "missing_student_id",
+                }
+
+            db = self.db
+            from app.models import Student, CourseSubject, LearnedSubject, Subject, Course
+
+            student = db.query(Student).filter(Student.id == student_id).first()
+            if not student:
+                return {
+                    "text": f"Không tìm thấy sinh viên với student_id={student_id}.",
+                    "intent": "graduation_progress",
+                    "confidence": "high",
+                    "data": None,
+                    "error": "student_not_found",
+                }
+
+            course_id = student.course_id
+            course_row = db.query(Course).filter(Course.id == course_id).first()
+            course_name = course_row.course_name if course_row is not None else None
+
+            course_subjects = (
+                db.query(CourseSubject, Subject)
+                .join(Subject, CourseSubject.subject_id == Subject.id)
+                .filter(CourseSubject.course_id == course_id)
+                .all()
+            )
+
+            if not course_subjects:
+                return {
+                    "text": "Không tìm thấy chương trình đào tạo cho sinh viên.",
+                    "intent": "graduation_progress",
+                    "confidence": "high",
+                    "data": None,
+                    "error": "no_course_subjects",
+                }
+
+            total_required_credits = 0
+            course_subject_ids = set()
+            subject_info_map: Dict[int, Dict] = {}
+            for cs, subj in course_subjects:
+                credits = subj.credits or 0
+                total_required_credits += credits
+                course_subject_ids.add(subj.id)
+                subject_info_map[subj.id] = {
+                    "subject_id": subj.subject_id or str(subj.id),
+                    "subject_name": subj.subject_name or "",
+                    "credits": credits,
+                    "learning_semester": cs.learning_semester,
+                    "conditional_subjects": subj.conditional_subjects,
+                }
+
+            learned_rows = (
+                db.query(LearnedSubject)
+                .filter(
+                    LearnedSubject.student_id == student_id,
+                    LearnedSubject.subject_id.in_(course_subject_ids),
+                )
+                .all()
+            )
+
+            learned_map = {lr.subject_id: lr for lr in learned_rows}
+            PASS_GRADES = {"A", "B+", "B", "C+", "C", "D+", "D"}
+
+            passed_items = []
+            missing_items = []
+            accumulated_credits = 0
+
+            for subj_id, info in subject_info_map.items():
+                lr = learned_map.get(subj_id)
+                grade = getattr(lr, "letter_grade", None) or None
+
+                if lr is None:
+                    status = "not_taken"
+                    missing_items.append({**info, "grade": None, "status": status})
+                elif (grade or "").upper() == "F":
+                    status = "failed"
+                    missing_items.append({**info, "grade": grade, "status": status})
+                elif grade in PASS_GRADES:
+                    status = "passed"
+                    accumulated_credits += info["credits"]
+                    passed_items.append({**info, "grade": grade, "status": status})
+                else:
+                    status = "not_taken"
+                    missing_items.append({**info, "grade": grade, "status": status})
+
+            remaining_credits = total_required_credits - accumulated_credits
+
+            friendly_text = (
+                f"Tổng yêu cầu: {total_required_credits} TC. "
+                f"Đã tích lũy: {accumulated_credits} TC. "
+                f"Còn thiếu: {remaining_credits} TC."
+            )
+
+            return {
+                "text": friendly_text,
+                "intent": "graduation_progress",
+                "confidence": "high",
+                "data": {
+                    "student_id": student_id,
+                    "course_id": course_id,
+                    "course_name": course_name,
+                    "total_required_credits": total_required_credits,
+                    "accumulated_credits": accumulated_credits,
+                    "remaining_credits": remaining_credits,
+                    "passed_subjects": passed_items,
+                    "missing_subjects": missing_items,
+                },
+                "metadata": {
+                    "intent": "graduation_progress",
+                    "passed_count": len(passed_items),
+                    "missing_count": len(missing_items),
+                },
+            }
+
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            return {
+                "text": f"Xin lỗi, có lỗi khi tính tiến độ tốt nghiệp: {exc}",
+                "intent": "graduation_progress",
+                "confidence": "low",
+                "data": None,
+                "error": str(exc),
+            }
+    
     async def process_class_suggestion(
         self,
         student_id: int,

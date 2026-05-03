@@ -37,6 +37,7 @@ from app.schemas.node_schemas import (
     Node4FormatResponseRequest,
     Node4FormatResponseResponse,
     NodeHealthResponse,
+    GraduationProgressToolResponse,
 )
 from app.services.chatbot_service import ChatbotService
 from app.services.text_preprocessor import get_text_preprocessor
@@ -59,6 +60,7 @@ ALLOWED_TOOL_INTENTS = {
     "subject_registration_suggestion",
     "class_registration_suggestion",
     "modify_schedule",
+    "graduation_progress",
 }
 
 
@@ -417,6 +419,232 @@ async def node2_intent_classifier(
 # Priority rule: query takes precedence over q when both are provided.
 # Validation: at least one of query or q must be provided. Returns 422 otherwise.
 # ═══════════════════════════════════════════════════════════════════════════════
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# graduation_progress tool
+# Dedicated route for calculating remaining credits toward graduation.
+# Flow:
+#   1. Look up student → get course_id
+#   2. Get all subjects in that course (course_subjects JOIN subjects)
+#   3. Compare against learned_subjects to separate passed / failed / not_taken
+#   4. Return structured summary with total / accumulated / remaining credits
+# ──────────────────────────────────────────────────────────────────────────────
+@router.post(
+    "/intent/graduation_progress",
+    response_model=GraduationProgressToolResponse,
+    summary="Graduation Progress: Tính số tín chỉ còn thiếu",
+    description="Nhận student_id, trả về tổng hợp tín chỉ yêu cầu / đã tích lũy / còn thiếu "
+                "dựa trên chương trình đào tạo và lịch sử học tập của sinh viên.",
+)
+async def graduation_progress_tool(
+    payload: Node3ToolExecutorRequest,
+    db: Session = Depends(get_db),
+    x_agent_internal_key: Optional[str] = Header(None, alias="X-Agent-Internal-Key"),
+):
+    from app.models import Student, CourseSubject, LearnedSubject, Subject, Course
+
+    _verify_internal_key(x_agent_internal_key)
+    started_at = time.perf_counter()
+
+    student_id = payload.student_id
+    if student_id is None:
+        return GraduationProgressToolResponse(
+            status="error",
+            student_id=0,
+            course_id=0,
+            total_required_credits=0,
+            accumulated_credits=0,
+            remaining_credits=0,
+            error="Thiếu student_id trong payload. Vui lòng cung cấp student_id.",
+        )
+
+    print(
+        f"[AGENT-TOOL][graduation_progress] start student_id={student_id}"
+    )
+
+    try:
+        # ── Step 1: Student → course_id ─────────────────────────────────────────
+        student = db.query(Student).filter(Student.id == student_id).first()
+        if not student:
+            return GraduationProgressToolResponse(
+                status="error",
+                student_id=student_id,
+                course_id=0,
+                total_required_credits=0,
+                accumulated_credits=0,
+                remaining_credits=0,
+                error=f"Không tìm thấy sinh viên với student_id={student_id}.",
+            )
+
+        course_id = student.course_id
+
+        # Course name (for response context)
+        course_name = None
+        course_row = db.query(Course).filter(Course.id == course_id).first()
+        if course_row:
+            course_name = getattr(course_row, "course_name", None) or getattr(course_row, "name", None)
+
+        # ── Step 2: All subjects in the student's program ──────────────────────
+        course_subjects = (
+            db.query(CourseSubject, Subject)
+            .join(Subject, CourseSubject.subject_id == Subject.id)
+            .filter(CourseSubject.course_id == course_id)
+            .all()
+        )
+        if not course_subjects:
+            return GraduationProgressToolResponse(
+                status="error",
+                student_id=student_id,
+                course_id=course_id,
+                total_required_credits=0,
+                accumulated_credits=0,
+                remaining_credits=0,
+                error=f"Không tìm thấy chương trình đào tạo nào cho course_id={course_id}.",
+            )
+
+        total_required_credits = 0
+        course_subject_ids = set()
+        subject_info_map: Dict[int, Dict[str, Any]] = {}
+
+        for cs, subj in course_subjects:
+            credits = subj.credits or 0
+            total_required_credits += credits
+            course_subject_ids.add(subj.id)
+            subject_info_map[subj.id] = {
+                "subject_id": subj.subject_id or str(subj.id),
+                "subject_name": subj.subject_name or "",
+                "credits": credits,
+                "learning_semester": cs.learning_semester,
+                "conditional_subjects": subj.conditional_subjects,
+            }
+
+        # ── Step 3: Learned subjects for this student ──────────────────────────
+        learned_rows = (
+            db.query(LearnedSubject)
+            .filter(
+                LearnedSubject.student_id == student_id,
+                LearnedSubject.subject_id.in_(course_subject_ids),
+            )
+            .all()
+        )
+
+        learned_map: Dict[int, LearnedSubject] = {lr.subject_id: lr for lr in learned_rows}
+
+        # ── Step 4: Classify each course subject ──────────────────────────────
+        # Pass: letter_grade in {"A","B+","B","C+","C","D+","D"}
+        # Failed (must retake): grade = "F" or null/empty
+        PASS_GRADES = {"A", "B+", "B", "C+", "C", "D+", "D"}
+
+        passed_items: List[Dict[str, Any]] = []
+        missing_items: List[Dict[str, Any]] = []
+        accumulated_credits = 0
+
+        for subj_id, info in subject_info_map.items():
+            lr = learned_map.get(subj_id)
+            grade = getattr(lr, "letter_grade", None) or None
+
+            if lr is None:
+                status = "not_taken"
+                missing_items.append({
+                    "subject_id": info["subject_id"],
+                    "subject_name": info["subject_name"],
+                    "credits": info["credits"],
+                    "learning_semester": info["learning_semester"],
+                    "conditional_subjects": info["conditional_subjects"],
+                    "grade": None,
+                    "status": status,
+                })
+            elif (grade or "").upper() == "F":
+                status = "failed"
+                missing_items.append({
+                    "subject_id": info["subject_id"],
+                    "subject_name": info["subject_name"],
+                    "credits": info["credits"],
+                    "learning_semester": info["learning_semester"],
+                    "conditional_subjects": info["conditional_subjects"],
+                    "grade": grade,
+                    "status": status,
+                })
+            elif grade in PASS_GRADES:
+                status = "passed"
+                accumulated_credits += info["credits"]
+                passed_items.append({
+                    "subject_id": info["subject_id"],
+                    "subject_name": info["subject_name"],
+                    "credits": info["credits"],
+                    "learning_semester": info["learning_semester"],
+                    "conditional_subjects": info["conditional_subjects"],
+                    "grade": grade,
+                    "status": status,
+                })
+            else:
+                # Grade ambiguous (null, "", unknown) → treat as not passed
+                status = "not_taken"
+                missing_items.append({
+                    "subject_id": info["subject_id"],
+                    "subject_name": info["subject_name"],
+                    "credits": info["credits"],
+                    "learning_semester": info["learning_semester"],
+                    "conditional_subjects": info["conditional_subjects"],
+                    "grade": grade,
+                    "status": status,
+                })
+
+        remaining_credits = total_required_credits - accumulated_credits
+
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        print(
+            f"[AGENT-TOOL][graduation_progress] done student_id={student_id} "
+            f"course_id={course_id} total={total_required_credits} "
+            f"accumulated={accumulated_credits} remaining={remaining_credits} "
+            f"duration_ms={duration_ms:.1f}"
+        )
+
+        return GraduationProgressToolResponse(
+            status="success",
+            student_id=student_id,
+            course_id=course_id,
+            course_name=course_name,
+            data={
+                "student_id": student_id,
+                "course_id": course_id,
+                "course_name": course_name,
+                "total_required_credits": total_required_credits,
+                "accumulated_credits": accumulated_credits,
+                "remaining_credits": remaining_credits,
+                "passed_subjects": passed_items,
+                "missing_subjects": missing_items,
+            },
+            total_required_credits=total_required_credits,
+            accumulated_credits=accumulated_credits,
+            remaining_credits=remaining_credits,
+            passed_subjects=passed_items,
+            missing_subjects=missing_items,
+            metadata={
+                "intent": "graduation_progress",
+                "duration_ms": duration_ms,
+                "passed_count": len(passed_items),
+                "missing_count": len(missing_items),
+                "failed_count": sum(1 for m in missing_items if m.get("status") == "failed"),
+                "not_taken_count": sum(1 for m in missing_items if m.get("status") == "not_taken"),
+            },
+        )
+
+    except Exception as exc:
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        print(f"[AGENT-TOOL][graduation_progress] error student_id={student_id} error={exc}")
+        traceback.print_exc()
+        return GraduationProgressToolResponse(
+            status="error",
+            student_id=student_id,
+            course_id=0,
+            total_required_credits=0,
+            accumulated_credits=0,
+            remaining_credits=0,
+            error=f"Lỗi khi xử lý graduation_progress: {exc}",
+        )
+
 
 @router.post(
     "/intent/{intent_name}",
