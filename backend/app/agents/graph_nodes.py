@@ -54,6 +54,7 @@ NODE4_GENERATE_TOP_P = float(os.environ.get("LLM_TOP_P", "0.9"))
 NODE4_REPEAT_PENALTY = float(os.environ.get("LLM_REPEAT_PENALTY", "1.08"))
 NODE4_TIMEOUT = float(os.environ.get("LLM_GENERATE_TIMEOUT", "10.0"))
 AGENT_REASONING_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "10.0"))
+GLOBAL_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "10.0"))
 AGENT_EXTRACT_MAX_TOKENS = int(os.environ.get("AGENT_EXTRACT_MAX_TOKENS", "64"))
 AGENT_FILTER_MAX_TOKENS = int(os.environ.get("AGENT_FILTER_MAX_TOKENS", "128"))
 
@@ -70,6 +71,14 @@ _MAX_ITEMS_PER_LIST = 20
 _CONSTRAINT_KEYWORDS = frozenset({
     "không muốn", "ngoại trừ", "tránh", "lúc", "thay vì",
     "không học", "sau", "trước",
+})
+
+# Graduation query keywords → always forces needs_agent + sets intent=graduation_progress
+_GRADUATION_KEYWORDS = frozenset({
+    "tín chỉ còn lại", "tín chỉ thiếu", "tín chỉ phải học",
+    "hoàn thành chương trình", "chương trình đào tạo", "tốt nghiệp",
+    "tín chỉ học xong", "số tín chỉ còn", "bao nhiêu tín chỉ nữa",
+    "để tốt nghiệp", "tín chỉ để tốt nghiệp",
 })
 
 # Multi-intent connectors: trigger segment split
@@ -421,6 +430,24 @@ def intent_router_node(state: AgentState) -> AgentState:
     # Determine complexity from original full query
     original_text = state.get("user_text", "")
     is_complex = _is_complex_query(original_text)
+
+    # Graduation keyword detection: always forces agent path + sets graduation_progress intent
+    lower_text = original_text.lower()
+    is_graduation_query = any(kw in lower_text for kw in _GRADUATION_KEYWORDS)
+    if is_graduation_query:
+        print(f"[NODE2] GRADUATION KEYWORD DETECTED → needs_agent=True, intent=graduation_progress")
+        return {
+            **state,
+            "intent": "graduation_progress",
+            "confidence": 0.95,
+            "intent_source": "keyword",
+            "is_complex": True,
+            "needs_agent": True,
+            "constraints": constraints,
+            "clean_query": seg,
+            "node_trace": state.get("node_trace", []) + ["intent_router_node"],
+        }
+
     needs_agent = is_complex
 
     started = time.perf_counter()
@@ -677,6 +704,49 @@ def tool_executor_node(state: AgentState) -> AgentState:
     tools = _get_tools()
     started = time.perf_counter()
 
+    # Graduation Progress: gather course + learned subjects for multi-step reasoning
+    if intent == "graduation_progress":
+        raw_data = {"graduation_data": {}, "_graduation_note": "Gathering graduation data..."}
+        student_info_data = None
+        learned_data = None
+
+        if student_id:
+            try:
+                async def _call_grad_tools():
+                    s_info = await tools.call("student_info", {
+                        "q": seg,
+                        "student_id": student_id,
+                        "conversation_id": conversation_id,
+                    })
+                    s_learned = await tools.call("learned_subjects_view", {
+                        "q": f"learned subjects for student {student_id}",
+                        "student_id": student_id,
+                        "conversation_id": conversation_id,
+                    })
+                    return s_info, s_learned
+
+                student_info_data, learned_data = asyncio.run(_call_grad_tools())
+            except Exception as exc:
+                print(f"[TOOL:graduation] tool call error: {exc}")
+
+        raw_data = {
+            "student_info": student_info_data,
+            "learned_subjects": learned_data,
+            "_graduation_note": (
+                "Dùng student_info để lấy course_id, "
+                "dùng learned_subjects để tính tổng tín chỉ đã tích lũy."
+            ),
+        }
+        _metrics.increment("tools.graduation_progress.success")
+        _metrics.observe_latency("tools.graduation_progress.latency", time.perf_counter() - started)
+        print(f"[TOOL] graduation_progress done")
+        return {
+            **state,
+            "raw_data": raw_data,
+            "needs_agent_filter": True,
+            "node_trace": state.get("node_trace", []) + ["tool_executor_node"],
+        }
+
     raw_data: Any = {"message": "No tool mapped", "items": []}
     needs_agent_filter = False
 
@@ -737,6 +807,66 @@ CONSTRAINT_FILTER_PROMPT = (
     "Nếu tất cả bị loại, trả về: {{'status': 'success', 'data': []}}"
 )
 
+# ─── Graduation reasoning knowledge base ───────────────────────────────────
+GRADUATION_DB_KNOWLEDGE = """\
+## Cấu trúc Database liên quan đến TỐT NGHIỆP:
+
+### Bảng students
+Chứa thông tin sinh viên, bao gồm:
+  - student_id, name, course_id (mã chương trình đào tạo)
+
+### Bảng course_subjects
+Chứa danh sách MÔN BẮT BUỘC của từng chương trình đào tạo:
+  - course_id: mã chương trình
+  - subject_id: mã môn học
+  - subject_name: tên môn học
+  - credits: số tín chỉ của môn đó
+  - is_required: True nếu là môn bắt buộc
+
+  → Tổng tín chỉ yêu cầu (total_credits) = SUM(credits) của tất cả môn is_required=True trong course_id tương ứng.
+
+### Bảng learned_subjects
+Chứa danh sách MÔN SINH VIÊN ĐÃ HỌC:
+  - student_id: mã sinh viên
+  - subject_id: mã môn đã học
+  - grade: điểm chữ (A, B+, B, C+, C, D+, D, F)
+  - semester: kỳ học
+
+  → Tín chỉ đã tích lũy (accumulated_credits) = SUM(credits) của các môn trong learned_subjects
+    mà grade đạt (A, B+, B, C+, C — KHÔNG tính D+, D, F hoặc null).
+    Cần JOIN với course_subjects để lấy số tín chỉ tương ứng.
+
+### Công thức tính:
+  remaining_credits = total_required_credits - accumulated_credits
+"""
+
+GRADUATION_REASONING_PROMPT = (
+    "Bạn là trợ lý học vụ chuyên về tiến độ tốt nghiệp.\n"
+    + GRADUATION_DB_KNOWLEDGE
+    + "\n## Dữ liệu hiện có:\n{data}\n\n"
+    "## Câu hỏi của sinh viên:\n{question}\n\n"
+    "## Nhiệm vụ — Multi-Step Reasoning:\n"
+    "Bước 1: Xác định course_id của sinh viên từ bảng students.\n"
+    "Bước 2: Tính tổng tín chỉ bắt buộc của chương trình đào tạo (SUM credits trong course_subjects, is_required=True).\n"
+    "Bước 3: Tính tổng tín chỉ đã tích lũy (SUM credits trong learned_subjects, chỉ môn có grade đạt: A,B+,B,C+,C).\n"
+    "Bước 4: Tính remaining = total_required - accumulated.\n\n"
+    "## Yêu cầu định dạng — TRẢ VỀ JSON THUẦN:\n"
+    "{{\n"
+    '  "status": "success",\n'
+    '  "total_credits": <int>,\n'
+    '  "accumulated_credits": <int>,\n'
+    '  "remaining_credits": <int>,\n'
+    '  "passed_subjects": ["<tên môn đã đạt>", ...],\n'
+    '  "missing_subjects": ["<tên môn chưa học hoặc chưa đạt>", ...],\n'
+    '  "summary": "<câu trả lời ngắn gọn 1-2 câu>"\n'
+    "}}\n\n"
+    "Nếu không có đủ dữ liệu để tính, trả về:\n"
+    "{{\n"
+    '  "status": "error",\n'
+    '  "error": "<mô tả lý do không tính được>"\n'
+    "}}"
+)
+
 
 def agent_filter_node(state: AgentState) -> AgentState:
     """
@@ -745,13 +875,72 @@ def agent_filter_node(state: AgentState) -> AgentState:
     Bắt buộc chạy khi:
       - intent = subject_registration_suggestion
       - hoặc constraints có bất kỳ filter nào (exclude_subjects, forbidden_time_slots, ...)
+      - hoặc intent = graduation_progress (multi-step reasoning)
+
+    Graduation Multi-Step Reasoning:
+      1. Lấy course_id từ students
+      2. Truy vấn tổng tín chỉ yêu cầu trong course_subjects
+      3. Truy vấn tổng tín chỉ đã tích lũy trong learned_subjects
+      4. Tính remaining = total_required - accumulated
 
     Fallback: dùng raw_data nếu LLM filter thất bại.
     """
     raw_data = state.get("raw_data")
     constraints = state.get("constraints") or {}
+    intent = state.get("intent", "")
+    student_id = state.get("student_id")
     llm = _get_llm()
     started = time.perf_counter()
+
+    # ── Graduation Progress: Multi-Step Reasoning ───────────────────────────────
+    if intent == "graduation_progress":
+        _metrics.increment("agent_filter.graduation_reasoning")
+        print("[AGENT_FILTER] graduation_progress → multi-step reasoning")
+
+        segments = state.get("segments", [state.get("user_text", "")])
+        idx = state.get("current_segment_index", 0)
+        seg = segments[idx] if idx < len(segments) else state.get("user_text", "")
+
+        compact = _compact_data(raw_data)
+        prompt = GRADUATION_REASONING_PROMPT.format(
+            data=compact or "(chưa có dữ liệu — hãy suy luận từ dữ liệu có sẵn)",
+            question=seg,
+        )
+
+        try:
+            async def _reason():
+                return await llm.generate(
+                    prompt,
+                    timeout=AGENT_REASONING_TIMEOUT,
+                    max_tokens=AGENT_FILTER_MAX_TOKENS,
+                    temperature=0.1,
+                )
+
+            res = asyncio.run(_reason())
+            text = res.get("text", "")
+            parsed = json.loads(text)
+            _metrics.increment("agent_filter.graduation_success")
+            _metrics.observe_latency("agent_filter.graduation.latency", time.perf_counter() - started)
+            print(f"[AGENT_FILTER] graduation → {text[:200]}")
+            return {
+                **state,
+                "filtered_data": parsed,
+                "node_trace": state.get("node_trace", []) + ["agent_filter_node"],
+            }
+        except json.JSONDecodeError:
+            _metrics.increment("agent_filter.graduation_parse_error")
+            print(f"[AGENT_FILTER] graduation JSON parse failed")
+        except Exception as exc:
+            _metrics.increment("agent_filter.graduation_error")
+            print(f"[AGENT_FILTER] graduation reasoning error: {exc}")
+        # Fallback: pass raw_data through on failure
+        return {
+            **state,
+            "filtered_data": raw_data,
+            "node_trace": state.get("node_trace", []) + ["agent_filter_node"],
+        }
+
+    # ── Constraint-based filtering (subject_registration, etc.) ───────────────
 
     # Only filter if there are actual constraints to apply
     has_constraints = any(
@@ -858,6 +1047,60 @@ def response_formatter_node(state: AgentState) -> AgentState:
     from_cache = False
     model_used = "none"
     llm_ms = 0.0
+
+    # Handle graduation_progress intent: extract X/Y/Z credits
+    if intent == "graduation_progress":
+        _metrics.increment("node4.graduation_format")
+        _metrics.observe_latency("node4.latency", time.perf_counter() - started)
+        if isinstance(raw, dict) and raw.get("status") == "success":
+            total = raw.get("total_credits", 0)
+            accumulated = raw.get("accumulated_credits", 0)
+            remaining = raw.get("remaining_credits", total)
+            summary = raw.get("summary", "")
+            passed = raw.get("passed_subjects", [])
+            missing = raw.get("missing_subjects", [])
+            if total and accumulated is not None and remaining is not None:
+                text = (
+                    f"Bạn đã hoàn thành {accumulated}/{total} tín chỉ, "
+                    f"còn thiếu {remaining} tín chỉ nữa."
+                )
+                if missing and len(missing) <= 5:
+                    text += f" Các môn cần hoàn thành: {', '.join(missing)}."
+                elif missing:
+                    text += f" Còn {len(missing)} môn chưa hoàn thành."
+                if summary:
+                    text += f" {summary}"
+            elif raw.get("error"):
+                text = (
+                    f"Hiện tại mình chưa thể tính chính xác số tín chỉ còn lại: "
+                    f"{raw['error']}. Bạn vui lòng kiểm tra lại hoặc liên hệ phòng đào tạo nhé!"
+                )
+            else:
+                text = summary or (
+                    "Mình chưa có đủ thông tin để tính số tín chỉ. "
+                    "Bạn vui lòng kiểm tra lại thông tin cá nhân nhé!"
+                )
+        elif isinstance(raw, dict) and raw.get("error"):
+            text = (
+                f"Không thể tính số tín chỉ còn lại: {raw['error']}. "
+                "Bạn vui lòng thử lại hoặc liên hệ phòng đào tạo nhé!"
+            )
+        else:
+            text = "Mình chưa tìm thấy thông tin chương trình đào tạo của bạn. Bạn vui lòng kiểm tra lại nhé!"
+        model_used = "graduation_formatter"
+        print(f"[NODE4] graduation → total={raw.get('total_credits','?')} "
+              f"accumulated={raw.get('accumulated_credits','?')} remaining={raw.get('remaining_credits','?')}")
+        return {
+            **state,
+            "final_response": text,
+            "formatted_result": {
+                "text": text,
+                "from_cache": False,
+                "model_used": model_used,
+                "processing_time_ms": 0.0,
+            },
+            "node_trace": state.get("node_trace", []) + ["response_formatter_node"],
+        }
 
     # Handle error status
     if isinstance(raw, dict) and raw.get("status") == "error":
@@ -1104,11 +1347,25 @@ def synthesize_formatter_node(state: AgentState) -> AgentState:
 # ──────────────────────────────────────────────────────────────────────────────
 # NODE 8: rule_based_fallback_node
 # ──────────────────────────────────────────────────────────────────────────────
+
+def check_fallback(state: AgentState) -> Literal["formatter_done", "fallback"]:
+    """
+    Kiểm tra xem graph đã có error/timeout trước khi vào agent_path chưa.
+    Nếu có → nhảy thẳng vào rule_based_fallback thay vì chạy agent logic.
+    """
+    if state.get("used_fallback") or state.get("error"):
+        print(f"[CHECK_FALLBACK] detected error/fallback → skip agent path, go to rule_based")
+        return "fallback"
+    return "formatter_done"
+
+
 def rule_based_fallback_node(state: AgentState) -> AgentState:
     """
     Fallback khi agent branch vượt quá 10s hoặc gặp lỗi.
     1. Gọi Tool trực tiếp (không qua agent filter)
-    2. Gắn thông báo fallback vào raw_data cho formatter thấy
+    2. Gắn thông báo fallback rõ ràng, intent-specific vào raw_data cho formatter thấy
+
+    Với graduation_progress: ghi rõ lý do không tính được tín chỉ.
     """
     segments = state.get("segments", [state.get("user_text", "")])
     idx = state.get("current_segment_index", 0)
@@ -1138,16 +1395,32 @@ def rule_based_fallback_node(state: AgentState) -> AgentState:
 
     _metrics.increment("agent.fallback_to_rule")
     _metrics.observe_latency("agent.fallback.latency", time.perf_counter() - started)
-    print(f"[FALLBACK] reason={fallback_reason} intent={intent}")
+    print(f"[FALLBACK] reason={fallback_reason} intent={intent} "
+          f"→ Rule-based pipeline activated")
 
     if isinstance(raw_data, dict):
-        fallback_note = (
-            "[Lưu ý] Quá trình xử lý mất hơn bình thường, "
-            "kết quả dưới đây có thể chưa được lọc theo đầy đủ ràng buộc của bạn. "
-            "Bạn vui lòng kiểm tra lại nhé!"
-        )
+        # Intent-specific fallback note
+        if intent == "graduation_progress":
+            fallback_note = (
+                "[Lưu ý] Không thể tính chính xác số tín chỉ còn lại do quá trình suy luận "
+                f"vượt quá thời gian cho phép ({GLOBAL_TIMEOUT}s). "
+                "Kết quả dưới đây là dữ liệu thô từ cơ sở dữ liệu. "
+                "Bạn vui lòng liên hệ phòng đào tạo để biết chính xác số tín chỉ còn thiếu nhé!"
+            )
+        elif fallback_reason in ("graph_timeout", "timeout"):
+            fallback_note = (
+                f"[Lưu ý] Quá trình xử lý mất hơn {GLOBAL_TIMEOUT}s, "
+                "kết quả dưới đây có thể chưa được lọc theo đầy đủ ràng buộc của bạn. "
+                "Bạn vui lòng kiểm tra lại nhé!"
+            )
+        else:
+            fallback_note = (
+                "[Lưu ý] Gặp lỗi trong quá trình xử lý, "
+                "kết quả có thể chưa chính xác. Bạn vui lòng thử lại nhé!"
+            )
         raw_data["_fallback_note"] = fallback_note
-        raw_data["_fallback_reason"] = fallback_reason
+        raw_data["_fallback_reason"] = f"{fallback_reason} (intent={intent})"
+        raw_data["_used_rule_based"] = True
 
     return {
         **state,

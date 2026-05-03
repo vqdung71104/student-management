@@ -55,6 +55,7 @@ from app.agents.graph_nodes import (
     _is_complex_query,
     _resolve_node3_subtype,
     _compact_data,
+    check_fallback,
 )
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -163,7 +164,7 @@ def _build_graph() -> Optional["StateGraph"]:
     if not _LANGGRAPH_AVAILABLE:
         return None
 
-    graph = StateGraph(AgentState, state_schema=AgentState)
+    graph = StateGraph(AgentState)
 
     # ── Nodes ────────────────────────────────────────────────────────────────
     graph.add_node("query_splitter", query_splitter_node)
@@ -191,8 +192,17 @@ def _build_graph() -> Optional["StateGraph"]:
         },
     )
 
-    # ── agent_path: constraint_parser → tool_executor ─────────────────────
-    graph.add_edge("constraint_parser", "tool_executor")
+    # ── agent_path: check for error/timeout → fallback OR continue ────────────────
+    # If graph already detected an error (e.g. outer timeout before entering agent_path),
+    # skip agent logic and go straight to rule-based fallback.
+    graph.add_conditional_edges(
+        "constraint_parser",
+        check_fallback,
+        {
+            "fallback": "rule_based_fallback",
+            "formatter_done": "tool_executor",
+        },
+    )
 
     # ── tool_executor → should_filter ───────────────────────────────────────
     graph.add_conditional_edges(
