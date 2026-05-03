@@ -29,7 +29,6 @@ pyasn1==0.4.8
 pycparser==2.22
 pycryptodome==3.23.0
 pydantic==2.7.4
-pydantic-core==2.14.1
 Pygments==2.19.2
 PyJWT==2.10.1
 PyNaCl==1.5.0
@@ -73,4 +72,4 @@ rapidFuzz>=3.0.0
 langgraph==1.1.10
 langgraph-sdk==0.3.13
 redis==5.2.1
-httpx>=0.25.0
+
