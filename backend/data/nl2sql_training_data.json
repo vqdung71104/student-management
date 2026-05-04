@@ -1,4 +1,4 @@
-﻿{
+{
   "description": "Training data for NL2SQL - Vietnamese Text-to-SQL with updated intent structure",
   "schema": {
     "students": {
@@ -45,10 +45,10 @@
       "requires_auth": true,
       "parameters": ["student_id"]
     },
-    {
+        {
       "intent": "grade_view",
-      "question": "tôi còn nợ bao nhiêu môn",
-      "sql": "SELECT s.failed_subjects_number, s.total_failed_credits, s.warning_level FROM students s WHERE s.id = {student_id}",
+      "question": "xem điểm tích lũy của tôi",
+      "sql": "SELECT s.cpa, s.total_learned_credits, s.year_level FROM students s WHERE s.id = {student_id}",
       "requires_auth": true,
       "parameters": ["student_id"]
     },

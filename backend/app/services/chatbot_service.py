@@ -248,21 +248,33 @@ def _service_format_grade_or_student_payload(intent: Optional[str], payload: Any
 
     if intent == "grade_view":
         cpa = first_item.get("cpa")
+        latest_gpa = first_item.get("latest_gpa")
         total_credits = first_item.get("total_learned_credits")
+        year_level = first_item.get("year_level")
+        warning_level = first_item.get("warning_level")
         parts = []
         if cpa not in (None, ""):
             parts.append(f"CPA hiện tại: {cpa}")
+        if latest_gpa not in (None, ""):
+            parts.append(f"GPA kỳ gần nhất: {latest_gpa}")
         if total_credits not in (None, ""):
             parts.append(f"Tín chỉ tích lũy: {total_credits}")
+        if year_level not in (None, ""):
+            parts.append(f"Năm học: {year_level}")
+        if warning_level not in (None, ""):
+            parts.append(f"Cảnh báo: {warning_level}")
         return " | ".join(parts) if parts else None
 
     if intent == "student_info":
         labels = [
             ("student_name", "Họ tên"),
-            ("student_code", "Mã sinh viên"),
+            ("student_id", "Mã sinh viên"),
             ("class_name", "Lớp"),
             ("course_name", "Chương trình"),
             ("email", "Email"),
+            ("cpa", "CPA"),
+            ("total_learned_credits", "Tín chỉ tích lũy"),
+            ("warning_level", "Cảnh báo"),
         ]
         parts = [f"{label}: {first_item.get(key)}" for key, label in labels if first_item.get(key) not in (None, "")]
         return " | ".join(parts) if parts else None
@@ -301,12 +313,12 @@ def format_rule_based_response(raw_result: Any, intent: Optional[str], segment: 
         if rows:
             return _service_render_subject_info_html(rows)
 
-    if isinstance(payload, dict) and payload.get("text"):
-        return str(payload.get("text"))
-
     specialized_text = _service_format_grade_or_student_payload(intent, payload, extracted)
     if specialized_text:
         return specialized_text
+
+    if isinstance(payload, dict) and payload.get("text"):
+        return str(payload.get("text"))
 
     if _service_is_data_empty(extracted):
         return "Rất tiếc, mình không tìm thấy thông tin phù hợp với yêu cầu của bạn."
@@ -696,79 +708,6 @@ class ChatbotService:
         )
         return candidates[0]
 
-    def _build_subject_info_rows(self, subject_db_id: int, student_course_id: Optional[int]) -> List[Dict[str, Any]]:
-        from app.models.subject_model import Subject
-        from app.models.class_model import Class
-
-        rows = (
-            self.db.query(Subject, Class)
-            .outerjoin(Class, Class.subject_id == Subject.id)
-            .filter(Subject.id == subject_db_id)
-            .order_by(Class.class_id.asc())
-            .all()
-        )
-        course_match = self._subject_in_course(subject_db_id, student_course_id)
-        section = "Môn trong chương trình" if course_match else "Môn ngoài chương trình"
-
-        result_rows: List[Dict[str, Any]] = []
-        for subject, cls in rows:
-            result_rows.append(
-                {
-                    "subject_db_id": subject.id,
-                    "subject_id": subject.subject_id,
-                    "subject_name": subject.subject_name,
-                    "credits": subject.credits,
-                    "conditional_subjects": subject.conditional_subjects,
-                    "class_id": cls.class_id if cls else None,
-                    "class_name": cls.class_name if cls else None,
-                    "course_match": course_match,
-                    "section": section,
-                }
-            )
-        return result_rows
-
-    def _build_class_info_rows(
-        self,
-        *,
-        subject_db_id: Optional[int] = None,
-        class_id: Optional[str] = None,
-        student_course_id: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
-        from app.models.subject_model import Subject
-        from app.models.class_model import Class
-
-        query = self.db.query(Class, Subject).join(Subject, Class.subject_id == Subject.id)
-        if class_id:
-            query = query.filter(Class.class_id == class_id)
-        elif subject_db_id is not None:
-            query = query.filter(Subject.id == subject_db_id)
-        else:
-            return []
-
-        rows = query.order_by(Class.class_id.asc(), Class.study_date.asc()).all()
-        result_rows: List[Dict[str, Any]] = []
-        for cls, subject in rows:
-            course_match = self._subject_in_course(subject.id, student_course_id)
-            result_rows.append(
-                {
-                    "class_id": cls.class_id,
-                    "class_name": cls.class_name,
-                    "subject_db_id": subject.id,
-                    "subject_id": subject.subject_id,
-                    "subject_name": subject.subject_name,
-                    "credits": subject.credits,
-                    "classroom": cls.classroom,
-                    "study_date": cls.study_date,
-                    "study_time_start": cls.study_time_start,
-                    "study_time_end": cls.study_time_end,
-                    "teacher_name": cls.teacher_name,
-                    "study_week": cls.study_week,
-                    "course_match": course_match,
-                    "section": "Lớp trong chương trình" if course_match else "Lớp thuộc môn ngoài chương trình",
-                }
-            )
-        return result_rows
-
     def _build_subject_info_rows(self, subject_db_id: int, student_id: Optional[int], student_course_id: Optional[int]) -> List[Dict[str, Any]]:
         from app.models.subject_model import Subject
 
@@ -1023,6 +962,55 @@ class ChatbotService:
                 "matched_subject_name": matched.get("subject_name") if matched else None,
                 "in_program_count": len(in_program),
                 "out_program_count": len(out_program),
+            },
+        }
+
+    async def process_grade_view(self, student_id: Optional[int]) -> Optional[Dict[str, Any]]:
+        if not student_id:
+            return None
+
+        from app.models.student_model import Student
+        from app.models.semester_gpa_model import SemesterGPA
+
+        student = self.db.query(Student).filter(Student.id == student_id).first()
+        if student is None:
+            return None
+
+        latest_semester_gpa = (
+            self.db.query(SemesterGPA)
+            .filter(SemesterGPA.student_id == student_id)
+            .order_by(SemesterGPA.semester.desc())
+            .first()
+        )
+
+        result_row = {
+            "student_id": student.id,
+            "student_name": student.student_name,
+            "cpa": student.cpa,
+            "total_learned_credits": student.total_learned_credits,
+            "year_level": student.year_level,
+            "warning_level": student.warning_level,
+            "latest_gpa": latest_semester_gpa.gpa if latest_semester_gpa else None,
+            "latest_semester": latest_semester_gpa.semester if latest_semester_gpa else None,
+        }
+
+        summary_parts = []
+        if student.cpa is not None:
+            summary_parts.append(f"CPA: {student.cpa}")
+        if latest_semester_gpa and latest_semester_gpa.gpa is not None:
+            summary_parts.append(f"GPA kỳ gần nhất ({latest_semester_gpa.semester}): {latest_semester_gpa.gpa}")
+        if student.total_learned_credits is not None:
+            summary_parts.append(f"Tín chỉ tích lũy: {student.total_learned_credits}")
+
+        return {
+            "text": " | ".join(summary_parts) if summary_parts else "Đã tổng hợp thông tin học vụ của bạn.",
+            "intent": "grade_view",
+            "confidence": "high",
+            "data": [result_row],
+            "metadata": {
+                "student_id": student.id,
+                "latest_semester": latest_semester_gpa.semester if latest_semester_gpa else None,
+                "has_latest_gpa": bool(latest_semester_gpa and latest_semester_gpa.gpa is not None),
             },
         }
 

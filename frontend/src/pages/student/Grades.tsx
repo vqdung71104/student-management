@@ -40,6 +40,23 @@ const Grades = () => {
     fetchGrades()
   }, [])
 
+  const getAuthRequestOptions = (options: RequestInit = {}): RequestInit => {
+    const token = localStorage.getItem('access_token')
+    const headers: Record<string, string> = {
+      ...(options.headers as Record<string, string> || {}),
+    }
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+
+    return {
+      ...options,
+      credentials: 'include',
+      headers,
+    }
+  }
+
   const fetchGrades = async () => {
     setLoading(true)
     try {
@@ -52,7 +69,10 @@ const Grades = () => {
       console.log('Fetching academic details for student:', userInfo.id)
       
       // Lấy thông tin chi tiết học tập từ API
-      const response = await fetch(`/api/students/${userInfo.id}/academic-details`)
+      const response = await fetch(
+        `/api/students/${userInfo.id}/academic-details`,
+        getAuthRequestOptions(),
+      )
       console.log('Response status:', response.status)
       
       if (response.ok) {
@@ -107,7 +127,9 @@ const Grades = () => {
   const handleAddGrade = async (data: { subject_code: string; semester: string; letter_grade: string }) => {
     setSubmitting(true)
     try {
-      const response = await fetch('/api/learned-subjects/create-new-learned-subject', {
+      const response = await fetch(
+        '/api/learned-subjects/create-new-learned-subject',
+        getAuthRequestOptions({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -118,7 +140,8 @@ const Grades = () => {
           semester: data.semester,
           letter_grade: data.letter_grade
         })
-      })
+        }),
+      )
 
       if (response.ok) {
         const result = await response.json()
@@ -147,12 +170,15 @@ const Grades = () => {
 
     setDeletingId(gradeId)
     try {
-      const response = await fetch(`/api/learned-subjects/${gradeId}`, {
+      const response = await fetch(
+        `/api/learned-subjects/${gradeId}`,
+        getAuthRequestOptions({
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
         }
-      })
+        }),
+      )
 
       if (response.ok) {
         alert('   Đã xóa môn học thành công!')

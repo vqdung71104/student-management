@@ -545,6 +545,8 @@ async def _process_single_query(
             print(f"⚠️ [GRADUATION_PROGRESS] error: {gp_err}")
 
     # ── class_info: constraint extractor first ────────────────────────────────
+    direct_service_fallback_error: Optional[str] = None
+
     if intent == "subject_info" and confidence in ("high", "medium"):
         try:
             result = await chatbot_service.process_subject_info(student_id, normalized_text)
@@ -566,7 +568,25 @@ async def _process_single_query(
                     sql_error=result.get("error"),
                 )
         except Exception as subject_info_err:
-            print(f"âš ï¸ [SUBJECT_INFO] direct service error: {subject_info_err}")
+            direct_service_fallback_error = f"subject_info_direct_error: {subject_info_err}"
+            print(f"[SUBJECT_INFO] direct service error, falling back to NL2SQL: {subject_info_err}")
+
+    if intent == "grade_view" and confidence in ("high", "medium"):
+        try:
+            result = await chatbot_service.process_grade_view(student_id)
+            if result and result.get("data"):
+                return ChatResponseWithData(
+                    text=result.get("text") or "",
+                    intent="grade_view",
+                    confidence=result.get("confidence") or "high",
+                    data=result.get("data"),
+                    metadata=result.get("metadata"),
+                    sql=None,
+                    sql_error=result.get("error"),
+                )
+        except Exception as grade_view_err:
+            direct_service_fallback_error = f"grade_view_direct_error: {grade_view_err}"
+            print(f"[GRADE_VIEW] direct service error, falling back to NL2SQL: {grade_view_err}")
 
     if intent == "learned_subjects_view" and confidence in ("high", "medium"):
         try:
@@ -582,7 +602,8 @@ async def _process_single_query(
                     sql_error=result.get("error"),
                 )
         except Exception as learned_subject_err:
-            print(f"[LEARNED_SUBJECTS_VIEW] direct service error: {learned_subject_err}")
+            direct_service_fallback_error = f"learned_subjects_view_direct_error: {learned_subject_err}"
+            print(f"[LEARNED_SUBJECTS_VIEW] direct service error, falling back to NL2SQL: {learned_subject_err}")
 
     if intent == "student_info" and confidence in ("high", "medium"):
         try:
@@ -598,7 +619,8 @@ async def _process_single_query(
                     sql_error=result.get("error"),
                 )
         except Exception as student_info_err:
-            print(f"[STUDENT_INFO] direct service error: {student_info_err}")
+            direct_service_fallback_error = f"student_info_direct_error: {student_info_err}"
+            print(f"[STUDENT_INFO] direct service error, falling back to NL2SQL: {student_info_err}")
 
     if intent == "class_info" and confidence in ("high", "medium"):
         try:
@@ -614,7 +636,8 @@ async def _process_single_query(
                     sql_error=result.get("error"),
                 )
         except Exception as class_info_err:
-            print(f"âš ï¸ [CLASS_INFO] direct service error: {class_info_err}")
+            direct_service_fallback_error = f"class_info_direct_error: {class_info_err}"
+            print(f"[CLASS_INFO] direct service error, falling back to NL2SQL: {class_info_err}")
 
     if intent == "class_info" and confidence in ("high", "medium"):
         try:
@@ -770,6 +793,7 @@ async def _process_single_query(
         intent=intent,
         confidence=confidence,
         data=data,
+        metadata={"fallback_reason": direct_service_fallback_error} if direct_service_fallback_error else None,
         sql=sql_query,
         sql_error=sql_error,
     )
@@ -1381,11 +1405,41 @@ def _generate_response_text(
         if len(data) == 0:
             return "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn."
         if intent == "grade_view":
-            return "Thông tin học vụ của bạn:"
+            first_row = data[0] if isinstance(data[0], dict) else {}
+            parts = []
+            if first_row.get("cpa") not in (None, ""):
+                parts.append(f"CPA: {first_row.get('cpa')}")
+            if first_row.get("latest_gpa") not in (None, ""):
+                semester_label = first_row.get("latest_semester")
+                if semester_label not in (None, ""):
+                    parts.append(f"GPA kỳ {semester_label}: {first_row.get('latest_gpa')}")
+                else:
+                    parts.append(f"GPA kỳ gần nhất: {first_row.get('latest_gpa')}")
+            if first_row.get("total_learned_credits") not in (None, ""):
+                parts.append(f"Tín chỉ tích lũy: {first_row.get('total_learned_credits')}")
+            if first_row.get("year_level") not in (None, ""):
+                parts.append(f"Năm học: {first_row.get('year_level')}")
+            if first_row.get("warning_level") not in (None, ""):
+                parts.append(f"Cảnh báo: {first_row.get('warning_level')}")
+            return " | ".join(parts) if parts else "Thông tin học vụ của bạn:"
         elif intent == "learned_subjects_view":
             return f"Đây là điểm các môn đã học của bạn (tìm thấy {len(data)} môn):"
         elif intent == "student_info":
-            return "Đây là thông tin sinh viên của bạn (bao gồm chương trình đào tạo và GPA theo từng kỳ):"
+            first_row = data[0] if isinstance(data[0], dict) else {}
+            parts = []
+            if first_row.get("student_name") not in (None, ""):
+                parts.append(f"Họ tên: {first_row.get('student_name')}")
+            if first_row.get("student_id") not in (None, ""):
+                parts.append(f"Mã sinh viên: {first_row.get('student_id')}")
+            if first_row.get("course_name") not in (None, ""):
+                parts.append(f"Chương trình: {first_row.get('course_name')}")
+            if first_row.get("email") not in (None, ""):
+                parts.append(f"Email: {first_row.get('email')}")
+            if first_row.get("cpa") not in (None, ""):
+                parts.append(f"CPA: {first_row.get('cpa')}")
+            if first_row.get("warning_level") not in (None, ""):
+                parts.append(f"Cảnh báo: {first_row.get('warning_level')}")
+            return " | ".join(parts) if parts else "Đây là thông tin sinh viên của bạn (bao gồm chương trình đào tạo và GPA theo từng kỳ):"
         elif intent == "subject_info":
             return f"Thông tin về học phần (tìm thấy {len(data)} kết quả):"
         elif intent == "class_info":

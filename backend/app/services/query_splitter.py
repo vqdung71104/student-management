@@ -28,20 +28,22 @@ from typing import Dict, List, Optional, Tuple
 # ─────────────────────────────────────────────────────────────────────────────
 _MARKERS: Dict[str, Tuple[str, float]] = {
     # grade_view
-    "xem điểm":              ("grade_view", 2.0),
-    "điểm thi":              ("grade_view", 1.5),
-    "điểm số":               ("grade_view", 1.5),
-    "điểm các môn":          ("grade_view", 2.0),
-    "điểm môn":              ("grade_view", 1.5),
-    "kết quả học tập":       ("grade_view", 2.0),
-    "kết quả thi":           ("grade_view", 1.5),
     "điểm cpa":              ("grade_view", 2.0),
     "gpa":                   ("grade_view", 2.0),
     "cpa":                   ("grade_view", 2.0),
     "điểm trung bình":       ("grade_view", 2.0),
     "điểm tích lũy":         ("grade_view", 2.0),
+    "điểm tổng kết":         ("grade_view", 2.0),
+    "kết quả tổng kết":      ("grade_view", 1.5),
 
     # learned_subjects_view
+    "xem điểm":              ("learned_subjects_view", 1.5),
+    "điểm thi":              ("learned_subjects_view", 1.0),
+    "điểm số":               ("learned_subjects_view", 1.5),
+    "điểm các môn":          ("learned_subjects_view", 2.0),
+    "điểm môn":              ("learned_subjects_view", 2.0),
+    "kết quả học tập":       ("learned_subjects_view", 1.5),
+    "kết quả thi":           ("learned_subjects_view", 1.0),
     "môn trượt":             ("learned_subjects_view", 2.5),
     "môn rớt":               ("learned_subjects_view", 2.5),
     "môn đã học":            ("learned_subjects_view", 2.0),

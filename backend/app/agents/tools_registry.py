@@ -8,6 +8,7 @@ import httpx
 
 DEFAULT_AGENT_TOOLS_BASE_URL = os.environ.get("AGENT_TOOLS_BASE_URL", "http://127.0.0.1:8000/api/agent-tools")
 AGENT_INTERNAL_TOOL_KEY = os.environ.get("AGENT_INTERNAL_TOOL_KEY", "dev-agent-key")
+INTERNAL_AUTH_HEADER = "X-Agent-Internal-Key"
 
 DEFAULT_INTENT_TO_PATH = {
     "grade_view": "/intent/grade_view",
@@ -94,10 +95,36 @@ def _classify_error(exc: Exception) -> str:
         return f"REMOTE_PROTOCOL_ERROR: Server sent malformed response on {exc.request.url}"
     return f"UNKNOWN: {type(exc).__name__}: {exc}"
 
+
+def _build_internal_auth_headers() -> Dict[str, str]:
+    return {INTERNAL_AUTH_HEADER: AGENT_INTERNAL_TOOL_KEY}
+
+
+def _merge_tool_headers(custom_headers: Dict[str, Any]) -> Dict[str, str]:
+    headers = _build_internal_auth_headers()
+    if not isinstance(custom_headers, dict):
+        return headers
+
+    merged_custom_headers: Dict[str, str] = {}
+    for key, value in custom_headers.items():
+        if value is None:
+            continue
+        if str(key).lower() == INTERNAL_AUTH_HEADER.lower():
+            if str(value) != AGENT_INTERNAL_TOOL_KEY:
+                print(
+                    "[TOOLS] ignored custom X-Agent-Internal-Key override because it "
+                    "does not match AGENT_INTERNAL_TOOL_KEY"
+                )
+            continue
+        merged_custom_headers[str(key)] = str(value)
+
+    headers.update(merged_custom_headers)
+    return headers
+
 class ToolsRegistry:
     def __init__(self, tool_map: Optional[Dict[str, Dict[str, Any]]] = None):
         self.tools = dict(tool_map) if tool_map is not None else dict(AGENT_TOOL_MAP)
-        self._default_headers = {"X-Agent-Internal-Key": AGENT_INTERNAL_TOOL_KEY}
+        self._default_headers = _build_internal_auth_headers()
 
     def register(self, name: str, url: str, timeout: int = 5):
         if not name or not isinstance(name, str):
@@ -128,7 +155,7 @@ class ToolsRegistry:
             if isinstance(tool.get("headers"), dict)
             else {}
         )
-        headers = {**self._default_headers, **custom_headers}
+        headers = _merge_tool_headers(custom_headers)
         payload_preview = json.dumps(payload, ensure_ascii=False, default=str)
         if len(payload_preview) > 160:
             payload_preview = payload_preview[:160] + "..."
