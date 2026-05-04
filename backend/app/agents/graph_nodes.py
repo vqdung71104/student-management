@@ -18,22 +18,31 @@ from typing import Any, Dict, List, Optional, Tuple
 from app.agents.graph_state import AgentState
 from app.agents.orchestration_metrics import get_orchestration_metrics
 from app.agents.tools_registry import ToolsRegistry
+from app.db.database import SessionLocal
 from app.llm.llm_client import LLMClient
+from app.services.chatbot_service import format_rule_based_response as _service_format_rule_based_response
 
 try:
     from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 except ImportError:
     TfidfIntentClassifier = None
 
+try:
+    from app.services.text_preprocessor import get_text_preprocessor
+except ImportError:
+    get_text_preprocessor = None
+
 
 INTENT_CONF_THRESHOLD = float(os.environ.get("INTENT_CONF_THRESHOLD", "0.6"))
+TFIDF_RULE_CONF_THRESHOLD = float(os.environ.get("TFIDF_RULE_CONF_THRESHOLD", "0.8"))
+SIMPLE_QUERY_WORD_LIMIT = int(os.environ.get("SIMPLE_QUERY_WORD_LIMIT", "20"))
 NODE1_SPLIT_MAX_TOKENS = int(os.environ.get("LLM_SPLIT_MAX_TOKENS", "96"))
-NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", "3.0"))
+NODE1_TIMEOUT = float(os.environ.get("LLM_SPLIT_TIMEOUT", "20.0"))
 NODE2_CLASSIFY_MAX_TOKENS = int(os.environ.get("LLM_CLASSIFY_MAX_TOKENS", "48"))
 NODE2_TIMEOUT = float(os.environ.get("LLM_CLASSIFY_TIMEOUT", "2.0"))
 LLM_REASONING_TIMEOUT = float(os.environ.get("LLM_REASONING_TIMEOUT", "5.0"))
 TOOL_EXECUTION_TIMEOUT = float(os.environ.get("TOOL_EXECUTION_TIMEOUT", "10.0"))
-GLOBAL_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "25.0"))
+GLOBAL_TIMEOUT = float(os.environ.get("AGENT_REASONING_TIMEOUT", "55.0"))
 
 _TRIM_FIELDS = frozenset(
     {
@@ -91,8 +100,35 @@ _SUBJECT_REGISTRATION_BIAS_KEYWORDS = frozenset(
         "tu van mon",
     }
 )
+_CLASS_REGISTRATION_BIAS_KEYWORDS = frozenset(
+    {
+        "dang ky lop",
+        "nen hoc lop",
+        "goi y lop",
+        "lop nao phu hop",
+        "thoi gian hoc",
+        "thu hoc",
+    }
+)
 
 _NODE3B_INTENTS = frozenset({"subject_registration_suggestion"})
+_SOCIAL_INTENTS = frozenset({"greeting", "thanks", "goodbye"})
+_SOCIAL_RESPONSE_MAP = {
+    "greeting": "Xin chào! Mình là trợ lý ảo của hệ thống quản lý sinh viên. Mình có thể giúp gì cho bạn?",
+    "thanks": "Rất vui được giúp đỡ bạn. Nếu cần thêm thông tin, bạn cứ hỏi tiếp.",
+    "goodbye": "Tạm biệt bạn. Khi nào cần tra cứu thông tin sinh viên, mình luôn sẵn sàng hỗ trợ.",
+}
+_SOCIAL_INTENT_PATTERNS = {
+    "greeting": frozenset({"xin chao", "chao ban", "hello", "hi", "hey", "chao chatbot", "chao em", "chao"}),
+    "thanks": frozenset({"cam on", "thank you", "thanks", "cam on ban", "cam on nhieu"}),
+    "goodbye": frozenset({"tam biet", "bye", "goodbye", "hen gap lai", "thoi nhe"}),
+}
+_RULE_INTENT_BIASES = (
+    ("class_registration_suggestion", frozenset({"dang ky lop", "nen hoc lop", "goi y lop", "lop nao phu hop"}), 0.97),
+    ("subject_registration_suggestion", frozenset({"dang ky", "nen hoc", "tu van mon"}), 0.96),
+    ("graduation_progress", frozenset({"tien do", "tot nghiep", "tin chi thieu", "tin chi con lai"}), 0.96),
+    ("grade_view", frozenset({"cpa", "gpa", "diem", "bang diem"}), 0.96),
+)
 _FAST_SPLIT_REGEX = re.compile(
     r"\s*(?:,|;)?\s*(?:sau đó|đồng thời|tiếp theo|rồi|và)\s+",
     re.IGNORECASE,
@@ -106,9 +142,15 @@ _CONSTRAINT_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+_PREFERRED_SUBJECT_REGEX = re.compile(
+    r"(?:toi\s+)?(?:muon\s+hoc|muon\s+dang\s+ky|uu\s+tien\s+hoc|uu\s+tien)\s+(?:mon|hoc\s+phan)\s+[^,;\.]*",
+    re.IGNORECASE,
+)
+
 _llm_client: Optional[LLMClient] = None
 _tools_registry: Optional[ToolsRegistry] = None
 _tfidf_classifier = TfidfIntentClassifier() if TfidfIntentClassifier else None
+_text_preprocessor = get_text_preprocessor() if get_text_preprocessor else None
 _metrics = get_orchestration_metrics()
 
 
@@ -133,9 +175,151 @@ def _get_tools() -> ToolsRegistry:
     return _tools_registry
 
 
+def _normalize_tool_payload(query: str, student_id: Optional[int], conversation_id: Optional[int]) -> Dict[str, Any]:
+    return {
+        "query": query,
+        "q": query,
+        "student_id": student_id,
+        "conversation_id": conversation_id,
+        "params": {},
+    }
+
+
+async def _call_rule_based_backend(
+    intent: str,
+    query: str,
+    student_id: Optional[int],
+    conversation_id: Optional[int],
+    constraints: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    from app.routes.chatbot_routes import _process_single_query
+    from app.services.chatbot_service import ChatbotService
+
+    db = SessionLocal()
+    try:
+        normalized_query = _text_preprocessor.preprocess(query) if _text_preprocessor else query
+        chatbot_service = ChatbotService(db)
+        result = await _process_single_query(
+            normalized_text=normalized_query,
+            student_id=student_id,
+            conversation_id=conversation_id,
+            db=db,
+            chatbot_service=chatbot_service,
+            forced_intent=intent,
+        )
+
+        result_data = result.data
+        data_count = len(result_data) if isinstance(result_data, list) else (1 if result_data else 0)
+        tool_extra: Dict[str, Any] = {}
+        preformatted_text: Optional[str] = None
+        if isinstance(result.metadata, dict):
+            tool_extra = {k: v for k, v in result.metadata.items() if k not in ("node", "duration_ms", "intent")}
+            preformatted_text = result.metadata.get("preformatted_text")
+
+        response_data: Dict[str, Any] = {
+            "text": result.text or "",
+            "intent": result.intent or intent,
+            "confidence": result.confidence or "medium",
+            "data": result_data,
+            "sql": result.sql,
+            "sql_error": result.sql_error,
+        }
+        if preformatted_text:
+            response_data["preformatted_text"] = preformatted_text
+
+        if intent == "subject_registration_suggestion" and constraints:
+            constrained_payload = chatbot_service.apply_subject_suggestion_constraints(response_data, constraints)
+            response_data = constrained_payload
+            updated_meta = constrained_payload.get("metadata")
+            if isinstance(updated_meta, dict):
+                tool_extra.update(updated_meta)
+            result_data = response_data.get("data")
+            data_count = len(result_data) if isinstance(result_data, list) else (1 if result_data else 0)
+
+        return {
+            "status": "success",
+            "data": response_data,
+            "metadata": {
+                "node": "node3_tool_executor",
+                "intent": intent,
+                "data_count": data_count,
+                **tool_extra,
+            },
+            "error": None,
+        }
+    finally:
+        db.close()
+
+
 def _is_complex_query(text: str) -> bool:
     lower = _normalize_text(text)
     return any(kw in lower for kw in _CONSTRAINT_KEYWORDS)
+
+
+def _word_count(text: str) -> int:
+    return len([token for token in re.split(r"\s+", text.strip()) if token])
+
+
+def _is_simple_single_query(text: str) -> bool:
+    return _word_count(text) < SIMPLE_QUERY_WORD_LIMIT and not _FAST_SPLIT_CONNECTOR_REGEX.search(text)
+
+
+def _detect_social_intent(text: str) -> Optional[str]:
+    normalized = _normalize_text(text).strip(" ,;.!?")
+    for intent, patterns in _SOCIAL_INTENT_PATTERNS.items():
+        if normalized in patterns:
+            return intent
+    return None
+
+
+def _strip_leading_social_clause(text: str) -> str:
+    parts = [part.strip() for part in re.split(r"\s*[,;:.!?]\s*", text) if part.strip()]
+    if len(parts) < 2:
+        return text
+    if _detect_social_intent(parts[0]) in _SOCIAL_INTENTS:
+        stripped = " ".join(parts[1:]).strip()
+        return stripped or text
+    return text
+
+
+def _sanitize_segments(segments: List[str]) -> List[str]:
+    cleaned = [segment.strip() for segment in segments if isinstance(segment, str) and segment.strip()]
+    if not cleaned:
+        return []
+    if len(cleaned) == 1:
+        return [_strip_leading_social_clause(cleaned[0])]
+
+    non_social_segments = [segment for segment in cleaned if _detect_social_intent(segment) not in _SOCIAL_INTENTS]
+    return non_social_segments or cleaned
+
+
+def _build_social_response(intent: str) -> Dict[str, Any]:
+    text = _SOCIAL_RESPONSE_MAP.get(intent, "Mình luôn sẵn sàng hỗ trợ bạn.")
+    return {
+        "text": text,
+        "data": None,
+        "model_used": "rule_based_social",
+        "raw_data": {"text": text, "intent": intent},
+        "intent": intent,
+        "confidence": 1.0,
+    }
+
+
+def _pick_rule_based_intent(clean_query: str) -> Optional[Tuple[str, float, str]]:
+    normalized = _normalize_text(clean_query)
+
+    social_intent = _detect_social_intent(clean_query)
+    if social_intent:
+        return social_intent, 1.0, "social"
+
+    for intent, keywords, confidence in _RULE_INTENT_BIASES:
+        if any(keyword in normalized for keyword in keywords):
+            return intent, confidence, "keyword_bias"
+
+    if any(keyword in normalized for keyword in _GRADUATION_KEYWORDS):
+        return "graduation_progress", 0.95, "keyword"
+
+    return None
 
 
 def safe_json_parse(text: str) -> Dict[str, Any]:
@@ -298,6 +482,7 @@ def _render_class_info_html(rows: List[Dict[str, Any]]) -> str:
 
 
 def format_rule_based_response(raw_result: Any, intent: Optional[str], segment: Optional[str] = None) -> str:
+    return _service_format_rule_based_response(raw_result, intent, segment)
     payload = _unwrap_tool_payload(raw_result)
     extracted = _extract_result_data(payload)
 
@@ -333,6 +518,107 @@ def format_rule_based_response(raw_result: Any, intent: Optional[str], segment: 
             return f"<ul>{''.join(items)}</ul>"
 
     return "Mình đã xử lý xong yêu cầu của bạn."
+
+
+def _build_graduation_rows(payload: Any, raw: Any) -> List[Dict[str, Any]]:
+    if isinstance(payload, dict) and isinstance(payload.get("data"), list):
+        return payload.get("data") or []
+
+    metadata = raw.get("metadata") if isinstance(raw, dict) else None
+    if metadata is None and isinstance(payload, dict):
+        metadata = payload.get("metadata")
+    summary = metadata.get("summary") if isinstance(metadata, dict) else None
+    missing_subjects = summary.get("missing_subjects") if isinstance(summary, dict) else None
+    rows: List[Dict[str, Any]] = []
+
+    if not isinstance(missing_subjects, list):
+        return rows
+
+    for item in missing_subjects:
+        if not isinstance(item, dict):
+            continue
+        status = item.get("status")
+        rows.append(
+            {
+                "action": "Cáº§n há»c láº¡i ngay" if status == "failed" else "Cáº§n há»c",
+                "status": status,
+                "credits": item.get("credits"),
+                "subject_id": item.get("subject_id"),
+                "subject_name": item.get("subject_name"),
+            }
+        )
+    return rows
+
+
+def _extract_preserved_data(raw: Any, payload: Any, intent: Optional[str]) -> Any:
+    if intent == "graduation_progress":
+        rows = _build_graduation_rows(payload, raw)
+        return rows if rows else None
+
+    if isinstance(payload, dict) and payload.get("data") is not None:
+        return payload.get("data")
+    if isinstance(payload, list):
+        return payload
+    return None
+
+
+def _build_formatted_response(raw: Any, intent: Optional[str], segment: Optional[str] = None) -> Dict[str, Any]:
+    payload = _unwrap_tool_payload(raw)
+    text = format_rule_based_response(raw, intent, segment)
+    data = _extract_preserved_data(raw, payload, intent)
+    metadata = raw.get("metadata") if isinstance(raw, dict) else None
+
+    if isinstance(raw, dict) and raw.get("status") == "success" and isinstance(payload, dict):
+        header = payload.get("text", "")
+        details = payload.get("data")
+        if isinstance(details, list) and details:
+            if intent == "grade_view":
+                first_item = details[0]
+                data_str = (
+                    f" CPA: {first_item.get('cpa')} | "
+                    f"TÃ­n chá»‰ tÃ­ch lÅ©y: {first_item.get('total_learned_credits')}"
+                )
+                text = header if str(first_item.get("cpa")) in header else f"{header}\n- {data_str}"
+            else:
+                text = text or header
+
+    service_text = _service_format_rule_based_response(raw, intent, segment)
+    if service_text and str(service_text).strip():
+        text = service_text
+
+    if not text or not str(text).strip():
+        text = "YÃªu cáº§u Ä‘Ã£ Ä‘Æ°á»£c xá»­ lÃ½ thÃ nh cÃ´ng."
+
+    formatted: Dict[str, Any] = {
+        "text": text,
+        "data": data,
+        "model_used": "rule_based_enhanced",
+        "raw_data": raw,
+    }
+    if metadata is not None:
+        formatted["metadata"] = metadata
+    for source in (payload if isinstance(payload, dict) else None, metadata if isinstance(metadata, dict) else None):
+        if not isinstance(source, dict):
+            continue
+        for key in (
+            "question_type",
+            "question_options",
+            "conversation_state",
+            "is_preference_collecting",
+            "requires_auth",
+            "rule_engine_used",
+            "intent",
+            "confidence",
+            "file_url",
+            "download_url",
+            "excel_url",
+            "xlsx_url",
+            "export_url",
+            "preformatted_text",
+        ):
+            if key in source and key not in formatted:
+                formatted[key] = source.get(key)
+    return formatted
 
 
 def join_rule_based_segments(segment_texts: List[str]) -> str:
@@ -386,12 +672,56 @@ def _extract_excluded_subjects(constraint_phrases: List[str]) -> List[str]:
     return exclude_subjects
 
 
+def _extract_preferred_subjects(text: str) -> List[str]:
+    preferred_subjects: List[str] = []
+    seen = set()
+    for phrase in _PREFERRED_SUBJECT_REGEX.findall(_normalize_text(text)):
+        normalized = re.sub(
+            r"^(?:toi\s+)?(?:muon\s+hoc|muon\s+dang\s+ky|uu\s+tien\s+hoc|uu\s+tien)\s+(?:mon|hoc\s+phan)\s*",
+            "",
+            phrase,
+        ).strip(" ,.;")
+        if not normalized:
+            continue
+        for part in re.split(r",|;|\s+va\s+|\s+hoac\s+", normalized):
+            cleaned = re.sub(r"^(?:mon|hoc phan|lop)\s+", "", part).strip()
+            if cleaned and cleaned not in seen:
+                seen.add(cleaned)
+                preferred_subjects.append(cleaned)
+    return preferred_subjects
+
+
+def _should_force_class_info(clean_query: str) -> bool:
+    lowered = _normalize_text(clean_query)
+    return "lop" in lowered and not any(keyword in lowered for keyword in _CLASS_REGISTRATION_BIAS_KEYWORDS | _SUBJECT_REGISTRATION_BIAS_KEYWORDS)
+
+
+def _should_force_subject_info(clean_query: str) -> bool:
+    lowered = _normalize_text(clean_query)
+    if "lop" in lowered:
+        return False
+    if any(keyword in lowered for keyword in _CLASS_REGISTRATION_BIAS_KEYWORDS | _SUBJECT_REGISTRATION_BIAS_KEYWORDS):
+        return False
+    return any(token in lowered for token in ("hoc phan", "mon ")) or bool(re.search(r"\b[a-z]{2,4}\d{3,4}[a-z]?\b", lowered))
+
+
+def _should_use_agent(state: AgentState, intent: str, is_complex: bool) -> bool:
+    segments = state.get("segments", []) or []
+    is_single_segment = len(segments) <= 1
+    if is_single_segment and not is_complex:
+        return False
+    return True
+
+
 async def query_splitter_node(state: AgentState) -> Dict[str, Any]:
     text = state.get("user_text", "")
+    if _is_simple_single_query(text):
+        return {"segments": _sanitize_segments([text]), "node_trace": ["query_splitter_node"]}
+
     regex_segments, has_connector, uncertain = _regex_split_segments(text)
     if has_connector and len(regex_segments) >= 2 and not uncertain:
         print(f"[NODE1] fast_regex_split={len(regex_segments)}")
-        return {"segments": regex_segments, "node_trace": ["query_splitter_node"]}
+        return {"segments": _sanitize_segments(regex_segments), "node_trace": ["query_splitter_node"]}
 
     if has_connector:
         fallback_segments = regex_segments
@@ -407,20 +737,22 @@ async def query_splitter_node(state: AgentState) -> Dict[str, Any]:
             max_tokens=NODE1_SPLIT_MAX_TOKENS,
             temperature=0.0,
         )
-        segments = res.get("segments", []) or fallback_segments
+        segments = _sanitize_segments(res.get("segments", []) or fallback_segments)
         print(f"[NODE1] openai_split={len(segments)}")
         return {"segments": segments, "node_trace": ["query_splitter_node"]}
     except Exception as exc:
         print(f"[NODE1] splitter_fallback error={exc}")
-        return {"segments": fallback_segments or [text], "node_trace": ["query_splitter_node"]}
+        return {"segments": _sanitize_segments(fallback_segments or [text]), "node_trace": ["query_splitter_node"]}
 
 
 async def intent_router_node(state: AgentState) -> Dict[str, Any]:
     seg = state.get("segments")[state.get("current_segment_index", 0)]
+    seg = _strip_leading_social_clause(seg)
     clean_query, constraint_phrases = _strip_constraints(seg)
     constraints: Dict[str, Any] = {
         "constraint_phrases": constraint_phrases,
-        "exclude_subjects": [],
+        "exclude_subjects": _extract_excluded_subjects(constraint_phrases) if constraint_phrases else [],
+        "preferred_subjects": _extract_preferred_subjects(seg),
         "forbidden_time_slots": [],
         "forbidden_times": [],
         "semester": None,
@@ -428,6 +760,21 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
     }
     is_complex = bool(constraint_phrases) or _is_complex_query(seg)
     lower_clean_query = _normalize_text(clean_query)
+    is_single_segment = len(state.get("segments", []) or []) <= 1
+
+    forced_intent = _pick_rule_based_intent(clean_query)
+    if forced_intent:
+        intent, confidence, source = forced_intent
+        return {
+            "intent": intent,
+            "confidence": confidence,
+            "intent_source": source,
+            "is_complex": is_complex,
+            "needs_agent": False,
+            "constraints": constraints,
+            "clean_query": clean_query,
+            "node_trace": ["intent_router_node"],
+        }
 
     if constraint_phrases and any(keyword in lower_clean_query for keyword in _SUBJECT_REGISTRATION_BIAS_KEYWORDS):
         return {
@@ -435,19 +782,68 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
             "confidence": 0.95,
             "intent_source": "keyword_bias",
             "is_complex": True,
+            "needs_agent": False,
+            "constraints": constraints,
+            "clean_query": clean_query,
+            "node_trace": ["intent_router_node"],
+        }
+
+    if constraints.get("preferred_subjects") and any(keyword in lower_clean_query for keyword in ("muon hoc", "muon dang ky", "uu tien")):
+        return {
+            "intent": "subject_registration_suggestion",
+            "confidence": 0.95,
+            "intent_source": "constraint_bias",
+            "is_complex": True,
             "needs_agent": True,
             "constraints": constraints,
             "clean_query": clean_query,
             "node_trace": ["intent_router_node"],
         }
 
+    if any(keyword in lower_clean_query for keyword in _CLASS_REGISTRATION_BIAS_KEYWORDS):
+        return {
+            "intent": "class_registration_suggestion",
+            "confidence": 0.97,
+            "intent_source": "keyword_bias",
+            "is_complex": is_complex,
+            "needs_agent": bool(constraints.get("exclude_subjects") or constraints.get("preferred_subjects")),
+            "constraints": constraints,
+            "clean_query": clean_query,
+            "node_trace": ["intent_router_node"],
+        }
+
     if any(keyword in lower_clean_query for keyword in _GRADUATION_KEYWORDS):
+        needs_agent = _should_use_agent(state, "graduation_progress", is_complex)
         return {
             "intent": "graduation_progress",
             "confidence": 0.95,
             "intent_source": "keyword",
-            "is_complex": True,
-            "needs_agent": True,
+            "is_complex": is_complex,
+            "needs_agent": needs_agent,
+            "constraints": constraints,
+            "clean_query": clean_query,
+            "node_trace": ["intent_router_node"],
+        }
+
+    if _should_force_class_info(clean_query):
+        return {
+            "intent": "class_info",
+            "confidence": 0.96,
+            "intent_source": "keyword",
+            "is_complex": is_complex,
+            "needs_agent": False,
+            "constraints": constraints,
+            "clean_query": clean_query,
+            "node_trace": ["intent_router_node"],
+        }
+
+    if _should_force_subject_info(clean_query):
+        return {
+            "intent": "subject_info",
+            "confidence": 0.95,
+            "intent_source": "keyword",
+            "is_complex": is_complex,
+            "needs_agent": False,
             "constraints": constraints,
             "clean_query": clean_query,
             "node_trace": ["intent_router_node"],
@@ -475,12 +871,13 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
             intent = tfidf_res.get("intent", "unknown")
             confidence = float(tfidf_res.get("confidence_score", 0.0))
             if confidence >= INTENT_CONF_THRESHOLD:
+                needs_agent = False if is_single_segment and confidence >= TFIDF_RULE_CONF_THRESHOLD else _should_use_agent(state, intent, is_complex)
                 return {
                     "intent": intent,
                     "confidence": confidence,
                     "intent_source": "tfidf",
                     "is_complex": is_complex,
-                    "needs_agent": is_complex,
+                    "needs_agent": needs_agent,
                     "constraints": constraints,
                     "clean_query": clean_query,
                     "node_trace": ["intent_router_node"],
@@ -488,7 +885,8 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
         except Exception as exc:
             print(f"[NODE2] TF-IDF failed: {exc}")
 
-    if clean_query:
+    should_call_llm = bool(clean_query) and (is_complex or intent in ("unknown", "out_of_scope") or confidence < INTENT_CONF_THRESHOLD)
+    if should_call_llm:
         try:
             llm = _get_llm()
 
@@ -500,12 +898,13 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
             )
             intent = llm_res.get("intent", "unknown")
             confidence = float(llm_res.get("confidence", 0.0))
+            needs_agent = _should_use_agent(state, intent, is_complex)
             return {
                 "intent": intent,
                 "confidence": confidence,
                 "intent_source": "openai",
                 "is_complex": is_complex,
-                "needs_agent": True,
+                "needs_agent": needs_agent,
                 "constraints": constraints,
                 "clean_query": clean_query,
                 "node_trace": ["intent_router_node"],
@@ -541,24 +940,38 @@ async def tool_executor_node(state: AgentState) -> Dict[str, Any]:
     needs_agent_filter = (intent in _NODE3B_INTENTS) or bool(
         state.get("constraints", {}).get("exclude_subjects")
     )
+    query = state.get("clean_query", seg)
+    student_id = state.get("student_id")
+    conversation_id = state.get("conversation_id")
+
+    if intent in _SOCIAL_INTENTS:
+        return {
+            "raw_data": {"text": _SOCIAL_RESPONSE_MAP.get(intent), "intent": intent},
+            "needs_agent_filter": False,
+            "node_trace": ["tool_executor_node"],
+        }
 
     if intent not in ("unknown", None, ""):
         try:
-            tools = _get_tools()
-
             raw_data = await asyncio.wait_for(
-                tools.call(
-                    intent,
-                    {
-                        "q": state.get("clean_query", seg),
-                        "student_id": state.get("student_id"),
-                        "conversation_id": state.get("conversation_id"),
-                    },
+                _call_rule_based_backend(
+                    intent=intent,
+                    query=query,
+                    student_id=student_id,
+                    conversation_id=conversation_id,
+                    constraints=state.get("constraints"),
                 ),
                 timeout=TOOL_EXECUTION_TIMEOUT,
             )
         except Exception as exc:
-            raw_data = {"status": "error", "error": str(exc)}
+            try:
+                tools = _get_tools()
+                raw_data = await asyncio.wait_for(
+                    tools.call(intent, _normalize_tool_payload(query, student_id, conversation_id)),
+                    timeout=TOOL_EXECUTION_TIMEOUT,
+                )
+            except Exception as fallback_exc:
+                raw_data = {"status": "error", "error": str(fallback_exc or exc)}
 
     return {
         "raw_data": raw_data,
@@ -571,6 +984,7 @@ def agent_filter_node(state: AgentState) -> Dict[str, Any]:
     raw_data = state.get("raw_data")
     constraints = state.get("constraints", {})
     excluded = constraints.get("exclude_subjects", [])
+    preferred = constraints.get("preferred_subjects", [])
     filtered_data = raw_data
 
     payload = _unwrap_tool_payload(raw_data)
@@ -584,7 +998,18 @@ def agent_filter_node(state: AgentState) -> Dict[str, Any]:
             for item in rows
             if not any(exc in _normalize_text(str(item.get("subject_name", ""))) for exc in excluded)
         ]
-        payload["data"] = filtered_rows
+        rows = filtered_rows
+
+    if preferred and rows is not None:
+        preferred_rows = [
+            item for item in rows
+            if any(term in _normalize_text(str(item.get("subject_name", ""))) or term in _normalize_text(str(item.get("subject_id", ""))) for term in preferred)
+        ]
+        remaining_rows = [item for item in rows if item not in preferred_rows]
+        rows = preferred_rows + remaining_rows
+
+    if rows is not None:
+        payload["data"] = rows
         if isinstance(raw_data, dict) and "status" in raw_data and "data" in raw_data:
             raw_data["data"] = payload
             filtered_data = raw_data
@@ -594,7 +1019,7 @@ def agent_filter_node(state: AgentState) -> Dict[str, Any]:
     return {"filtered_data": filtered_data, "node_trace": ["agent_filter_node"]}
 
 
-def response_formatter_node(state: AgentState) -> Dict[str, Any]:
+def _legacy_response_formatter_node(state: AgentState) -> Dict[str, Any]:
     raw = state.get("filtered_data") or state.get("raw_data")
     idx = state.get("current_segment_index", 0)
     segments = state.get("segments", [""])
@@ -641,6 +1066,30 @@ def response_formatter_node(state: AgentState) -> Dict[str, Any]:
     }
 
 
+def response_formatter_node(state: AgentState) -> Dict[str, Any]:
+    intent = state.get("intent", "unknown")
+    segments = state.get("segments", [])
+    if intent in _SOCIAL_INTENTS and len(segments) <= 1:
+        formatted = _build_social_response(intent)
+        return {
+            "final_response": formatted["text"],
+            "formatted_result": formatted,
+            "node_trace": ["response_formatter_node"],
+        }
+
+    raw = state.get("filtered_data") or state.get("raw_data")
+    idx = state.get("current_segment_index", 0)
+    segments = segments or [""]
+    seg = segments[idx] if idx < len(segments) else ""
+    formatted = _build_formatted_response(raw, intent, seg)
+
+    return {
+        "final_response": formatted["text"],
+        "formatted_result": formatted,
+        "node_trace": ["response_formatter_node"],
+    }
+
+
 def _accumulate_and_route_node(state: AgentState) -> Dict[str, Any]:
     idx = state.get("current_segment_index", 0)
     final_raw = state.get("filtered_data") or state.get("raw_data")
@@ -650,6 +1099,7 @@ def _accumulate_and_route_node(state: AgentState) -> Dict[str, Any]:
         "intent": {"intent": state.get("intent"), "confidence": state.get("confidence")},
         "raw_result": final_raw,
         "formatted_text": current_formatted,
+        "formatted_result": state.get("formatted_result"),
         "route": "agent" if state.get("needs_agent") else "rule_based",
     }
     return {
@@ -669,6 +1119,40 @@ def synthesize_formatter_node(state: AgentState) -> Dict[str, Any]:
     if len(results) == 1:
         return {"final_response": results[0].get("formatted_text")}
     final_output = join_rule_based_segments([result.get("formatted_text", "") for result in results])
+    return {
+        "synthesized_response": final_output,
+        "final_response": final_output,
+        "node_trace": ["synthesize_formatter_node"],
+    }
+
+
+def join_rule_based_segments(segment_texts: List[str]) -> str:
+    cleaned = [text.strip() for text in segment_texts if isinstance(text, str) and text.strip()]
+    return "<hr/>".join(cleaned) if cleaned else "Xin loi, minh khong tim thay du lieu."
+
+
+def _segment_result_text(result: Dict[str, Any]) -> str:
+    formatted_result = result.get("formatted_result") or {}
+    raw_result = result.get("raw_result") or {}
+    return (
+        result.get("formatted_text")
+        or formatted_result.get("text")
+        or _service_format_rule_based_response(
+            raw_result,
+            ((result.get("intent") or {}).get("intent")) or "unknown",
+            result.get("segment"),
+        )
+        or ""
+    )
+
+
+def synthesize_formatter_node(state: AgentState) -> Dict[str, Any]:
+    results = state.get("segment_results", [])
+    if not results:
+        return {"final_response": "Xin loi, minh khong tim thay du lieu."}
+
+    combined_parts = [_segment_result_text(result) for result in results]
+    final_output = join_rule_based_segments(combined_parts)
     return {
         "synthesized_response": final_output,
         "final_response": final_output,

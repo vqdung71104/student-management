@@ -533,6 +533,45 @@ async def _process_single_query(
             print(f"⚠️ [GRADUATION_PROGRESS] error: {gp_err}")
 
     # ── class_info: constraint extractor first ────────────────────────────────
+    if intent == "subject_info" and confidence in ("high", "medium"):
+        try:
+            result = await chatbot_service.process_subject_info(student_id, normalized_text)
+            if result:
+                result_data = result.get("data")
+                if result_data is not None and not isinstance(result_data, list):
+                    if isinstance(result_data, dict):
+                        result_data = [result_data]
+                    else:
+                        result_data = [{"value": result_data}]
+
+                return ChatResponseWithData(
+                    text=result.get("text") or "",
+                    intent="subject_info",
+                    confidence=result.get("confidence") or "high",
+                    data=result_data,
+                    metadata=result.get("metadata"),
+                    sql=None,
+                    sql_error=result.get("error"),
+                )
+        except Exception as subject_info_err:
+            print(f"âš ï¸ [SUBJECT_INFO] direct service error: {subject_info_err}")
+
+    if intent == "class_info" and confidence in ("high", "medium"):
+        try:
+            result = await chatbot_service.process_class_info(student_id, normalized_text)
+            if result and result.get("data"):
+                return ChatResponseWithData(
+                    text=result.get("text") or "",
+                    intent="class_info",
+                    confidence=result.get("confidence") or "high",
+                    data=result.get("data"),
+                    metadata=result.get("metadata"),
+                    sql=None,
+                    sql_error=result.get("error"),
+                )
+        except Exception as class_info_err:
+            print(f"âš ï¸ [CLASS_INFO] direct service error: {class_info_err}")
+
     if intent == "class_info" and confidence in ("high", "medium"):
         try:
             from app.services.constraint_extractor import get_constraint_extractor
