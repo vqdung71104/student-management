@@ -104,14 +104,51 @@ async def run_graph(user_text: str, student_id: Optional[int] = None, conversati
         initial_state["error"] = "Timeout"
         return initial_state
 
-async def run_graph_for_orchestrator(user_text: str, student_id: Optional[int] = None, conversation_id: Optional[int] = None) -> dict:
+async def run_graph_for_orchestrator(
+    user_text: str, 
+    student_id: Optional[int] = None, 
+    conversation_id: Optional[int] = None
+) -> dict:
     state = await run_graph(user_text, student_id, conversation_id)
+    
     if state.get("error") == "Timeout":
         raise asyncio.TimeoutError("LangGraph orchestration timed out")
+
+    # --- LOGIC LẤY PHẢN HỒI THÔNG MINH ---
+    # 1. Ưu tiên kết quả tổng hợp (Synthesized) hoặc kết quả cuối cùng (Final)
+    final_txt = state.get("synthesized_response") or state.get("final_response")
+
+    # 2. Nếu vẫn chưa có (thường do chạy song song hoặc lỗi formatter), 
+    #    duyệt qua từng segment_results để nối văn bản đã format
+    if not final_txt or final_txt == "OK":
+        segment_results = state.get("segment_results", [])
+        if segment_results:
+            parts = []
+            for res in segment_results:
+                # Lấy text từ formatted_text (nếu bạn đã lưu ở bước accumulate) 
+                # hoặc bóc trực tiếp từ raw_result
+                seg_formatted = res.get("formatted_text")
+                if seg_formatted:
+                    parts.append(seg_formatted)
+                else:
+                    raw = res.get("raw_result")
+                    if isinstance(raw, dict):
+                        # Bóc tách linh hoạt cấu trúc dữ liệu từ Backend
+                        text_data = raw.get("text") or (raw.get("data", {}) if isinstance(raw.get("data"), dict) else {}).get("text")
+                        if text_data:
+                            parts.append(text_data)
+            
+            if parts:
+                final_txt = "\n\n---\n\n".join(parts)
+
+    # 3. Chốt hạ: Không bao giờ để hiện chữ "OK"
+    if not final_txt or final_txt == "OK":
+        final_txt = "Mình đã xử lý xong yêu cầu của bạn, bạn hãy kiểm tra kết quả bên dưới nhé."
+
     return {
         "raw": state.get("segment_results", []),
-        "response": state.get("synthesized_response") or state.get("final_response") or "OK",
-        "text": state.get("synthesized_response") or state.get("final_response") or "OK",
+        "response": final_txt,
+        "text": final_txt,
         "intent": state.get("intent", "unknown"),
         "confidence": "high",
         "confidence_score": 1.0,

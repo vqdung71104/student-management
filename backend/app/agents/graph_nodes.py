@@ -596,16 +596,46 @@ def agent_filter_node(state: AgentState) -> Dict[str, Any]:
 
 def response_formatter_node(state: AgentState) -> Dict[str, Any]:
     raw = state.get("filtered_data") or state.get("raw_data")
-    seg = state.get("segments", [""])[state.get("current_segment_index", 0)]
+    idx = state.get("current_segment_index", 0)
+    segments = state.get("segments", [""])
+    seg = segments[idx] if idx < len(segments) else ""
     intent = state.get("intent", "unknown")
+    
+    # 1. Thử lấy text theo rule-based formatter
     text = format_rule_based_response(raw, intent, seg)
+    
+    # 2. KIỂM TRA NÂNG CAO: Nếu text chỉ là câu dẫn, hãy nối thêm dữ liệu số liệu
+    if isinstance(raw, dict) and raw.get("status") == "success":
+        payload = raw.get("data", {})
+        if isinstance(payload, dict):
+            # Lấy câu dẫn
+            header = payload.get("text", "")
+            
+            # Lấy dữ liệu chi tiết (như cpa, credits)
+            details = payload.get("data")
+            if details and isinstance(details, list) and len(details) > 0:
+                # Nếu là grade_view, tạo chuỗi hiển thị số liệu
+                if intent == "grade_view":
+                    d = details[0]
+                    data_str = f" CPA: {d.get('cpa')} | Tín chỉ tích lũy: {d.get('total_learned_credits')}"
+                    # Nối vào câu dẫn nếu câu dẫn chưa chứa số liệu
+                    if str(d.get('cpa')) not in header:
+                        text = f"{header}\n- {data_str}"
+                    else:
+                        text = header
+                else:
+                    # Cho các intent khác, dùng lại logic cũ hoặc để header
+                    text = text or header
+
+    # 3. Dự phòng cuối cùng
+    if not text or text.strip() == "":
+        text = "Yêu cầu đã được xử lý thành công."
+
     return {
         "final_response": text,
         "formatted_result": {
             "text": text,
-            "from_cache": False,
-            "model_used": "rule_based",
-            "processing_time_ms": 0,
+            "model_used": "rule_based_enhanced",
         },
         "node_trace": ["response_formatter_node"],
     }
