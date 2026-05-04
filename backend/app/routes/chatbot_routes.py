@@ -498,13 +498,25 @@ async def _process_single_query(
                 result_data = [{"value": result_data}]
 
         display_text = _prepend_registration_reminder(result["intent"], result["text"])
+        metadata = _sanitize_class_suggestion_metadata(result.get("metadata"))
+        if isinstance(metadata, dict):
+            for key in (
+                "question_type",
+                "question_options",
+                "conversation_state",
+                "is_preference_collecting",
+                "requires_auth",
+                "preformatted_text",
+            ):
+                if result.get(key) is not None:
+                    metadata[key] = result.get(key)
 
         return ChatResponseWithData(
             text=display_text,
             intent=result["intent"],
             confidence=result["confidence"],
             data=result_data,
-            metadata=_sanitize_class_suggestion_metadata(result.get("metadata")),
+            metadata=metadata,
             sql=None,
             sql_error=result.get("error"),
         )
@@ -555,6 +567,38 @@ async def _process_single_query(
                 )
         except Exception as subject_info_err:
             print(f"âš ï¸ [SUBJECT_INFO] direct service error: {subject_info_err}")
+
+    if intent == "learned_subjects_view" and confidence in ("high", "medium"):
+        try:
+            result = await chatbot_service.process_learned_subjects_view(student_id, normalized_text)
+            if result and result.get("data"):
+                return ChatResponseWithData(
+                    text=result.get("text") or "",
+                    intent="learned_subjects_view",
+                    confidence=result.get("confidence") or "high",
+                    data=result.get("data"),
+                    metadata=result.get("metadata"),
+                    sql=None,
+                    sql_error=result.get("error"),
+                )
+        except Exception as learned_subject_err:
+            print(f"[LEARNED_SUBJECTS_VIEW] direct service error: {learned_subject_err}")
+
+    if intent == "student_info" and confidence in ("high", "medium"):
+        try:
+            result = await chatbot_service.process_student_info(student_id)
+            if result and result.get("data"):
+                return ChatResponseWithData(
+                    text=result.get("text") or "",
+                    intent="student_info",
+                    confidence=result.get("confidence") or "high",
+                    data=result.get("data"),
+                    metadata=result.get("metadata"),
+                    sql=None,
+                    sql_error=result.get("error"),
+                )
+        except Exception as student_info_err:
+            print(f"[STUDENT_INFO] direct service error: {student_info_err}")
 
     if intent == "class_info" and confidence in ("high", "medium"):
         try:

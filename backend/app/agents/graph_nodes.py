@@ -110,6 +110,21 @@ _CLASS_REGISTRATION_BIAS_KEYWORDS = frozenset(
         "thu hoc",
     }
 )
+_LEARNED_SUBJECT_KEYWORDS = frozenset(
+    {
+        "diem mon",
+        "diem hoc phan",
+        "ket qua mon",
+        "ket qua hoc phan",
+        "mon da hoc",
+        "mon bi d",
+        "mon bi f",
+        "mon truot",
+        "mon rot",
+    }
+)
+_GRADE_SUMMARY_KEYWORDS = frozenset({"cpa", "gpa", "diem tong ket"})
+_STUDENT_INFO_KEYWORDS = frozenset({"thong tin sinh vien", "ma sinh vien", "lop sinh hoat"})
 
 _NODE3B_INTENTS = frozenset({"subject_registration_suggestion"})
 _SOCIAL_INTENTS = frozenset({"greeting", "thanks", "goodbye"})
@@ -127,7 +142,9 @@ _RULE_INTENT_BIASES = (
     ("class_registration_suggestion", frozenset({"dang ky lop", "nen hoc lop", "goi y lop", "lop nao phu hop"}), 0.97),
     ("subject_registration_suggestion", frozenset({"dang ky", "nen hoc", "tu van mon"}), 0.96),
     ("graduation_progress", frozenset({"tien do", "tot nghiep", "tin chi thieu", "tin chi con lai"}), 0.96),
-    ("grade_view", frozenset({"cpa", "gpa", "diem", "bang diem"}), 0.96),
+    ("learned_subjects_view", frozenset({"diem mon", "diem hoc phan", "ket qua mon"}), 0.97),
+    ("grade_view", frozenset({"cpa", "gpa", "diem tong ket"}), 0.96),
+    ("student_info", frozenset({"thong tin sinh vien", "ma sinh vien", "lop sinh hoat"}), 0.96),
 )
 _FAST_SPLIT_REGEX = re.compile(
     r"\s*(?:,|;)?\s*(?:sau đó|đồng thời|tiếp theo|rồi|và)\s+",
@@ -226,6 +243,19 @@ async def _call_rule_based_backend(
         }
         if preformatted_text:
             response_data["preformatted_text"] = preformatted_text
+        for key in (
+            "question_type",
+            "question_options",
+            "conversation_state",
+            "is_preference_collecting",
+            "requires_auth",
+            "download_url",
+            "excel_url",
+            "xlsx_url",
+            "export_url",
+        ):
+            if isinstance(result.metadata, dict) and key in result.metadata:
+                response_data[key] = result.metadata.get(key)
 
         if intent == "subject_registration_suggestion" and constraints:
             constrained_payload = chatbot_service.apply_subject_suggestion_constraints(response_data, constraints)
@@ -311,6 +341,10 @@ def _pick_rule_based_intent(clean_query: str) -> Optional[Tuple[str, float, str]
     social_intent = _detect_social_intent(clean_query)
     if social_intent:
         return social_intent, 1.0, "social"
+
+    personal_info_intent = _pick_personal_info_intent(clean_query)
+    if personal_info_intent:
+        return personal_info_intent
 
     for intent, keywords, confidence in _RULE_INTENT_BIASES:
         if any(keyword in normalized for keyword in keywords):
@@ -705,6 +739,36 @@ def _should_force_subject_info(clean_query: str) -> bool:
     return any(token in lowered for token in ("hoc phan", "mon ")) or bool(re.search(r"\b[a-z]{2,4}\d{3,4}[a-z]?\b", lowered))
 
 
+def _contains_subject_reference(clean_query: str) -> bool:
+    lowered = _normalize_text(clean_query)
+    if bool(re.search(r"\b[a-z]{2,4}\d{3,4}[a-z]?\b", lowered)):
+        return True
+    if any(keyword in lowered for keyword in ("mon ", "hoc phan", "tieng nhat", "giai tich", "dai so")):
+        return True
+    return False
+
+
+def _pick_personal_info_intent(clean_query: str) -> Optional[Tuple[str, float, str]]:
+    normalized = _normalize_text(clean_query)
+
+    if any(keyword in normalized for keyword in _CLASS_REGISTRATION_BIAS_KEYWORDS):
+        return "class_registration_suggestion", 0.98, "keyword_bias"
+
+    if any(keyword in normalized for keyword in _STUDENT_INFO_KEYWORDS):
+        return "student_info", 0.97, "keyword_bias"
+
+    if any(keyword in normalized for keyword in _LEARNED_SUBJECT_KEYWORDS):
+        return "learned_subjects_view", 0.98, "keyword_bias"
+
+    if "diem" in normalized and _contains_subject_reference(clean_query) and not any(keyword in normalized for keyword in _GRADE_SUMMARY_KEYWORDS):
+        return "learned_subjects_view", 0.96, "keyword_bias"
+
+    if any(keyword in normalized for keyword in _GRADE_SUMMARY_KEYWORDS):
+        return "grade_view", 0.97, "keyword_bias"
+
+    return None
+
+
 def _should_use_agent(state: AgentState, intent: str, is_complex: bool) -> bool:
     segments = state.get("segments", []) or []
     is_single_segment = len(segments) <= 1
@@ -806,7 +870,7 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
             "confidence": 0.97,
             "intent_source": "keyword_bias",
             "is_complex": is_complex,
-            "needs_agent": bool(constraints.get("exclude_subjects") or constraints.get("preferred_subjects")),
+            "needs_agent": False,
             "constraints": constraints,
             "clean_query": clean_query,
             "node_trace": ["intent_router_node"],

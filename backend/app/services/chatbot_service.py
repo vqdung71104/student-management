@@ -9,7 +9,7 @@ import re
 import unicodedata
 from datetime import time as dtime, timedelta
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_
+from sqlalchemy import and_, func, or_
 from app.rules.subject_suggestion_rules import SubjectSuggestionRuleEngine
 from app.rules.class_suggestion_rules import ClassSuggestionRuleEngine
 
@@ -171,6 +171,105 @@ def _service_render_class_info_html(rows: List[Dict[str, Any]]) -> str:
     )
 
 
+def _service_render_subject_info_html(rows: List[Dict[str, Any]]) -> str:
+    if not rows:
+        return "<p>Không tìm thấy học phần phù hợp.</p>"
+
+    body_rows: List[str] = []
+    for idx, row in enumerate(rows, start=1):
+        body_rows.append(
+            "<tr>"
+            f"<td>{idx}</td>"
+            f"<td>{escape(str(row.get('subject_id') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('subject_name') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('credits') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('learning_semester') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('letter_grade') or 'Chưa học'))}</td>"
+            f"<td>{escape(str(row.get('learning_status') or 'Chưa học'))}</td>"
+            "</tr>"
+        )
+
+    return (
+        f"<div><strong>Thông tin học phần</strong> - tìm thấy {len(rows)} kết quả phù hợp.</div>"
+        "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%;margin-top:8px;'>"
+        "<thead>"
+        "<tr>"
+        "<th>STT</th><th>Mã môn</th><th>Tên môn</th><th>Tín chỉ</th><th>Kỳ học</th><th>Điểm chữ</th><th>Trạng thái</th>"
+        "</tr>"
+        "</thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+
+def _service_render_graduation_html(summary_text: str, rows: List[Dict[str, Any]]) -> str:
+    if not rows:
+        return summary_text
+
+    body_rows: List[str] = []
+    for idx, row in enumerate(rows, start=1):
+        body_rows.append(
+            "<tr>"
+            f"<td>{idx}</td>"
+            f"<td>{escape(str(row.get('subject_id') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('subject_name') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('credits') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('status') or 'N/A'))}</td>"
+            f"<td>{escape(str(row.get('action') or 'N/A'))}</td>"
+            "</tr>"
+        )
+
+    return (
+        f"<div>{escape(summary_text)}</div>"
+        "<table border='1' cellspacing='0' cellpadding='6' style='border-collapse:collapse;width:100%;margin-top:8px;'>"
+        "<thead>"
+        "<tr>"
+        "<th>STT</th><th>Mã môn</th><th>Tên môn</th><th>Tín chỉ</th><th>Trạng thái</th><th>Hành động</th>"
+        "</tr>"
+        "</thead>"
+        f"<tbody>{''.join(body_rows)}</tbody>"
+        "</table>"
+    )
+
+
+def _service_get_payload_rows(payload: Any, extracted: Any) -> List[Dict[str, Any]]:
+    if isinstance(payload, dict) and isinstance(payload.get("data"), list):
+        return [item for item in payload.get("data") if isinstance(item, dict)]
+    if isinstance(extracted, list):
+        return [item for item in extracted if isinstance(item, dict)]
+    return []
+
+
+def _service_format_grade_or_student_payload(intent: Optional[str], payload: Any, extracted: Any) -> Optional[str]:
+    rows = _service_get_payload_rows(payload, extracted)
+    if not rows:
+        return None
+
+    first_item = rows[0]
+
+    if intent == "grade_view":
+        cpa = first_item.get("cpa")
+        total_credits = first_item.get("total_learned_credits")
+        parts = []
+        if cpa not in (None, ""):
+            parts.append(f"CPA hiện tại: {cpa}")
+        if total_credits not in (None, ""):
+            parts.append(f"Tín chỉ tích lũy: {total_credits}")
+        return " | ".join(parts) if parts else None
+
+    if intent == "student_info":
+        labels = [
+            ("student_name", "Họ tên"),
+            ("student_code", "Mã sinh viên"),
+            ("class_name", "Lớp"),
+            ("course_name", "Chương trình"),
+            ("email", "Email"),
+        ]
+        parts = [f"{label}: {first_item.get(key)}" for key, label in labels if first_item.get(key) not in (None, "")]
+        return " | ".join(parts) if parts else None
+
+    return None
+
+
 def format_rule_based_response(raw_result: Any, intent: Optional[str], segment: Optional[str] = None) -> str:
     payload = _service_unwrap_tool_payload(raw_result)
     extracted = _service_extract_result_data(payload)
@@ -181,6 +280,14 @@ def format_rule_based_response(raw_result: Any, intent: Optional[str], segment: 
     if isinstance(payload, dict) and payload.get("text") and intent == "subject_registration_suggestion":
         return str(payload.get("text"))
 
+    if intent == "graduation_progress":
+        rows = _service_get_payload_rows(payload, extracted)
+        summary_text = str(payload.get("text") or "") if isinstance(payload, dict) else ""
+        if rows:
+            return _service_render_graduation_html(summary_text, rows)
+        if summary_text:
+            return summary_text
+
     if intent == "class_info":
         rows = []
         if isinstance(payload, dict) and isinstance(payload.get("data"), list):
@@ -189,8 +296,17 @@ def format_rule_based_response(raw_result: Any, intent: Optional[str], segment: 
             rows = payload
         return _service_render_class_info_html(rows)
 
+    if intent in ("subject_info", "learned_subjects_view"):
+        rows = _service_get_payload_rows(payload, extracted)
+        if rows:
+            return _service_render_subject_info_html(rows)
+
     if isinstance(payload, dict) and payload.get("text"):
         return str(payload.get("text"))
+
+    specialized_text = _service_format_grade_or_student_payload(intent, payload, extracted)
+    if specialized_text:
+        return specialized_text
 
     if _service_is_data_empty(extracted):
         return "Rất tiếc, mình không tìm thấy thông tin phù hợp với yêu cầu của bạn."
@@ -260,7 +376,8 @@ class ChatbotService:
         return list(dict.fromkeys(match.upper() for match in re.findall(r"\b[A-Za-z]{2,4}\d{3,4}[A-Za-z]?\b", text or "")))
 
     def _extract_class_codes(self, text: str) -> List[str]:
-        return list(dict.fromkeys(match for match in re.findall(r"\b\d{5,8}\b", text or "")))
+        pattern = r"\b(?:[A-Za-z]{2,6}\d{3,4}(?:[-_]\d{1,3})?|\d{5,8})\b"
+        return list(dict.fromkeys(match.upper() for match in re.findall(pattern, text or "")))
 
     def _get_student_course_id(self, student_id: Optional[int]) -> Optional[int]:
         if not student_id:
@@ -281,6 +398,96 @@ class ChatbotService:
             .first()
             is not None
         )
+
+    def _get_course_semester_map(self, subject_ids: List[int], course_id: Optional[int]) -> Dict[int, Optional[int]]:
+        if not subject_ids or not course_id:
+            return {}
+        from app.models.course_subject_model import CourseSubject
+
+        rows = (
+            self.db.query(CourseSubject.subject_id, CourseSubject.learning_semester)
+            .filter(
+                CourseSubject.course_id == course_id,
+                CourseSubject.subject_id.in_(subject_ids),
+            )
+            .all()
+        )
+        return {subject_id: learning_semester for subject_id, learning_semester in rows}
+
+    def _get_learned_subject_map(self, student_id: Optional[int], subject_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        if not student_id or not subject_ids:
+            return {}
+        from app.models.learned_subject_model import LearnedSubject
+
+        rows = (
+            self.db.query(LearnedSubject)
+            .filter(
+                LearnedSubject.student_id == student_id,
+                LearnedSubject.subject_id.in_(subject_ids),
+            )
+            .order_by(LearnedSubject.id.desc())
+            .all()
+        )
+        learned_map: Dict[int, Dict[str, Any]] = {}
+        for row in rows:
+            if row.subject_id not in learned_map:
+                learned_map[row.subject_id] = {
+                    "letter_grade": row.letter_grade,
+                    "semester": row.semester,
+                    "credits": row.credits,
+                }
+        return learned_map
+
+    def _build_learning_status(self, learned_info: Optional[Dict[str, Any]]) -> Tuple[str, Optional[str]]:
+        if not learned_info:
+            return "Chưa học", None
+
+        letter_grade = learned_info.get("letter_grade")
+        if not letter_grade:
+            return "Chưa học", None
+
+        normalized_grade = str(letter_grade).strip().upper()
+        if normalized_grade == "F":
+            return "Cần học lại", letter_grade
+        return "Đã học", letter_grade
+
+    def _letter_grade_to_score(self, letter_grade: Optional[str]) -> Optional[float]:
+        if not letter_grade:
+            return None
+        mapping = {
+            "A+": 4.0,
+            "A": 4.0,
+            "B+": 3.5,
+            "B": 3.0,
+            "C+": 2.5,
+            "C": 2.0,
+            "D+": 1.5,
+            "D": 1.0,
+            "F": 0.0,
+        }
+        return mapping.get(str(letter_grade).strip().upper())
+
+    def _safe_unpack_entity_row(self, row: Any, expected: int = 2) -> List[Any]:
+        if isinstance(row, tuple):
+            values = list(row)
+        elif isinstance(row, list):
+            values = list(row)
+        elif hasattr(row, "_mapping"):
+            values = list(row._mapping.values())
+        else:
+            values = [row]
+
+        if len(values) < expected:
+            values.extend([None] * (expected - len(values)))
+        return values[:expected]
+
+    def _coerce_fuzzy_match(self, candidate: Any) -> Any:
+        if isinstance(candidate, (list, tuple)):
+            if not candidate:
+                return None
+            first_item = candidate[0]
+            return first_item if hasattr(first_item, "subject_id") or hasattr(first_item, "class_id") else None
+        return candidate
 
     def _resolve_subject_match(self, question: str, preferred_course_id: Optional[int]) -> Optional[Dict[str, Any]]:
         from app.models.subject_model import Subject
@@ -309,10 +516,13 @@ class ChatbotService:
             class_rows = (
                 self.db.query(Class, Subject)
                 .join(Subject, Class.subject_id == Subject.id)
-                .filter(Class.class_id == class_code)
+                .filter(func.upper(Class.class_id) == class_code)
                 .all()
             )
-            for cls, subject in class_rows:
+            for raw_row in class_rows:
+                cls, subject = self._safe_unpack_entity_row(raw_row, expected=2)
+                if cls is None or subject is None:
+                    continue
                 if subject.id in seen_subjects:
                     continue
                 candidates.append(
@@ -329,11 +539,11 @@ class ChatbotService:
         if self._fuzzy_matcher is not None:
             self._fuzzy_matcher.ensure_fresh(self.db)
 
-            subject_id_match = self._fuzzy_matcher.match_subject_by_id(
+            subject_id_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_subject_by_id(
                 raw_query,
                 db=self.db,
                 preferred_course_id=preferred_course_id,
-            )
+            ))
             if subject_id_match:
                 subject = self.db.query(Subject).filter(Subject.subject_id == subject_id_match.subject_id).first()
                 if subject and subject.id not in seen_subjects:
@@ -348,11 +558,11 @@ class ChatbotService:
                     )
                     seen_subjects.add(subject.id)
 
-            subject_match = self._fuzzy_matcher.match_subject(
+            subject_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_subject(
                 cleaned_query,
                 db=self.db,
                 preferred_course_id=preferred_course_id,
-            )
+            ))
             if subject_match:
                 subject = self.db.query(Subject).filter(Subject.subject_id == subject_match.subject_id).first()
                 if subject and subject.id not in seen_subjects:
@@ -367,11 +577,11 @@ class ChatbotService:
                     )
                     seen_subjects.add(subject.id)
 
-            class_match = self._fuzzy_matcher.match_class(
+            class_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_class(
                 cleaned_query,
                 db=self.db,
                 preferred_course_id=preferred_course_id,
-            )
+            ))
             if class_match:
                 subject = self.db.query(Subject).filter(Subject.subject_id == class_match.subject_id).first()
                 if subject and subject.id not in seen_subjects:
@@ -411,10 +621,13 @@ class ChatbotService:
             class_rows = (
                 self.db.query(Class, Subject)
                 .join(Subject, Class.subject_id == Subject.id)
-                .filter(Class.class_id == class_code)
+                .filter(func.upper(Class.class_id) == class_code)
                 .all()
             )
-            for cls, subject in class_rows:
+            for raw_row in class_rows:
+                cls, subject = self._safe_unpack_entity_row(raw_row, expected=2)
+                if cls is None or subject is None:
+                    continue
                 key = ("class", cls.class_id)
                 if key in seen_keys:
                     continue
@@ -433,11 +646,11 @@ class ChatbotService:
 
         if self._fuzzy_matcher is not None:
             self._fuzzy_matcher.ensure_fresh(self.db)
-            class_match = self._fuzzy_matcher.match_class(
+            class_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_class(
                 raw_query,
                 db=self.db,
                 preferred_course_id=preferred_course_id,
-            )
+            ))
             if class_match:
                 key = ("class", class_match.class_id)
                 if key not in seen_keys:
@@ -556,19 +769,110 @@ class ChatbotService:
             )
         return result_rows
 
+    def _build_subject_info_rows(self, subject_db_id: int, student_id: Optional[int], student_course_id: Optional[int]) -> List[Dict[str, Any]]:
+        from app.models.subject_model import Subject
+
+        subject = self.db.query(Subject).filter(Subject.id == subject_db_id).first()
+        if subject is None:
+            return []
+
+        course_semester_map = self._get_course_semester_map([subject_db_id], student_course_id)
+        learned_map = self._get_learned_subject_map(student_id, [subject_db_id])
+        learned_info = learned_map.get(subject_db_id)
+        learning_status, letter_grade = self._build_learning_status(learned_info)
+        course_match = subject_db_id in course_semester_map if student_course_id else False
+
+        return [
+            {
+                "subject_db_id": subject.id,
+                "subject_id": subject.subject_id,
+                "subject_name": subject.subject_name,
+                "credits": subject.credits,
+                "conditional_subjects": subject.conditional_subjects,
+                "learning_semester": course_semester_map.get(subject_db_id),
+                "letter_grade": letter_grade,
+                "learning_status": learning_status,
+                "learned_semester": learned_info.get("semester") if learned_info else None,
+                "course_match": course_match,
+                "section": "Môn trong chương trình" if course_match else "Môn ngoài chương trình",
+            }
+        ]
+
+    def _build_class_info_rows(
+        self,
+        *,
+        subject_db_id: Optional[int] = None,
+        class_id: Optional[str] = None,
+        student_id: Optional[int] = None,
+        student_course_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        from app.models.subject_model import Subject
+        from app.models.class_model import Class
+
+        query = self.db.query(Class, Subject).join(Subject, Class.subject_id == Subject.id)
+        if class_id:
+            query = query.filter(func.upper(Class.class_id) == str(class_id).upper())
+        elif subject_db_id is not None:
+            query = query.filter(Subject.id == subject_db_id)
+        else:
+            return []
+
+        rows = query.order_by(Class.class_id.asc(), Class.study_date.asc()).all()
+        subject_ids = []
+        for raw_row in rows:
+            cls, subject = self._safe_unpack_entity_row(raw_row, expected=2)
+            if cls is not None and subject is not None:
+                subject_ids.append(subject.id)
+
+        course_semester_map = self._get_course_semester_map(subject_ids, student_course_id)
+        learned_map = self._get_learned_subject_map(student_id, subject_ids)
+
+        result_rows: List[Dict[str, Any]] = []
+        for raw_row in rows:
+            cls, subject = self._safe_unpack_entity_row(raw_row, expected=2)
+            if cls is None or subject is None:
+                continue
+
+            learned_info = learned_map.get(subject.id)
+            learning_status, letter_grade = self._build_learning_status(learned_info)
+            course_match = subject.id in course_semester_map if student_course_id else False
+            result_rows.append(
+                {
+                    "class_id": cls.class_id,
+                    "class_name": cls.class_name,
+                    "subject_db_id": subject.id,
+                    "subject_id": subject.subject_id,
+                    "subject_name": subject.subject_name,
+                    "credits": subject.credits,
+                    "classroom": cls.classroom,
+                    "study_date": cls.study_date,
+                    "study_time_start": cls.study_time_start,
+                    "study_time_end": cls.study_time_end,
+                    "teacher_name": cls.teacher_name,
+                    "study_week": cls.study_week,
+                    "learning_semester": course_semester_map.get(subject.id),
+                    "letter_grade": letter_grade,
+                    "learning_status": learning_status,
+                    "learned_semester": learned_info.get("semester") if learned_info else None,
+                    "course_match": course_match,
+                    "section": "Lớp trong chương trình" if course_match else "Lớp thuộc môn ngoài chương trình",
+                }
+            )
+        return result_rows
+
     async def process_subject_info(self, student_id: Optional[int], question: str) -> Optional[Dict[str, Any]]:
         student_course_id = self._get_student_course_id(student_id)
         matched = self._resolve_subject_match(question, student_course_id)
         if not matched:
             return None
 
-        rows = self._build_subject_info_rows(matched["subject_db_id"], student_course_id)
+        rows = self._build_subject_info_rows(matched["subject_db_id"], student_id, student_course_id)
         if not rows:
             return None
 
         in_program = [row for row in rows if row.get("course_match")]
         out_program = [row for row in rows if not row.get("course_match")]
-        ordered_rows = in_program + out_program
+        ordered_rows = in_program if in_program else out_program
         lead = ordered_rows[0]
 
         notes: List[str] = []
@@ -591,6 +895,7 @@ class ChatbotService:
                 "matched_subject_name": lead.get("subject_name"),
                 "in_program_count": len(in_program),
                 "out_program_count": len(out_program),
+                "showing_outside_course": not bool(in_program) and bool(out_program),
             },
         }
 
@@ -603,6 +908,7 @@ class ChatbotService:
         rows = self._build_class_info_rows(
             subject_db_id=matched.get("subject_db_id"),
             class_id=matched.get("class_id"),
+            student_id=student_id,
             student_course_id=student_course_id,
         )
         if not rows:
@@ -610,7 +916,7 @@ class ChatbotService:
 
         in_program = [row for row in rows if row.get("course_match")]
         out_program = [row for row in rows if not row.get("course_match")]
-        ordered_rows = in_program + out_program
+        ordered_rows = in_program if in_program else out_program
         lead = ordered_rows[0]
 
         return {
@@ -626,6 +932,95 @@ class ChatbotService:
                 "matched_subject_id": lead.get("subject_id"),
                 "matched_subject_name": lead.get("subject_name"),
                 "matched_class_id": matched.get("class_id"),
+                "in_program_count": len(in_program),
+                "out_program_count": len(out_program),
+                "showing_outside_course": not bool(in_program) and bool(out_program),
+            },
+        }
+
+    async def process_learned_subjects_view(self, student_id: Optional[int], question: str) -> Optional[Dict[str, Any]]:
+        if not student_id:
+            return None
+
+        from app.models.subject_model import Subject
+        from app.models.learned_subject_model import LearnedSubject
+
+        student_course_id = self._get_student_course_id(student_id)
+        matched = self._resolve_subject_match(question, student_course_id) if question else None
+
+        query = (
+            self.db.query(LearnedSubject, Subject)
+            .join(Subject, LearnedSubject.subject_id == Subject.id)
+            .filter(LearnedSubject.student_id == student_id)
+        )
+
+        if matched:
+            query = query.filter(Subject.id == matched["subject_db_id"])
+
+        learned_rows = query.order_by(LearnedSubject.id.desc()).all()
+        result_rows: List[Dict[str, Any]] = []
+        seen_subject_ids: Set[int] = set()
+
+        subject_ids = []
+        for raw_row in learned_rows:
+            learned, subject = self._safe_unpack_entity_row(raw_row, expected=2)
+            if learned is not None and subject is not None and subject.id not in seen_subject_ids:
+                subject_ids.append(subject.id)
+                seen_subject_ids.add(subject.id)
+
+        course_semester_map = self._get_course_semester_map(subject_ids, student_course_id)
+
+        seen_subject_ids.clear()
+        for raw_row in learned_rows:
+            learned, subject = self._safe_unpack_entity_row(raw_row, expected=2)
+            if learned is None or subject is None or subject.id in seen_subject_ids:
+                continue
+            seen_subject_ids.add(subject.id)
+            learning_status, letter_grade = self._build_learning_status({"letter_grade": learned.letter_grade, "semester": learned.semester})
+            course_match = subject.id in course_semester_map if student_course_id else False
+            result_rows.append(
+                {
+                    "subject_db_id": subject.id,
+                    "subject_id": subject.subject_id,
+                    "subject_name": subject.subject_name,
+                    "credits": subject.credits or learned.credits,
+                    "learning_semester": course_semester_map.get(subject.id),
+                    "letter_grade": letter_grade,
+                    "score": self._letter_grade_to_score(letter_grade),
+                    "learning_status": learning_status,
+                    "learned_semester": learned.semester,
+                    "course_match": course_match,
+                    "section": "Trong chương trình" if course_match else "Ngoài chương trình",
+                }
+            )
+
+        if matched and not result_rows:
+            subject_rows = self._build_subject_info_rows(matched["subject_db_id"], student_id, student_course_id)
+            if subject_rows:
+                result_rows = [
+                    {
+                        **subject_rows[0],
+                        "score": None,
+                        "section": "Trong chương trình" if subject_rows[0].get("course_match") else "Ngoài chương trình",
+                    }
+                ]
+
+        if not result_rows:
+            return None
+
+        in_program = [row for row in result_rows if row.get("course_match")]
+        out_program = [row for row in result_rows if not row.get("course_match")]
+        ordered_rows = in_program + out_program if in_program else out_program
+
+        return {
+            "text": f"Tìm thấy {len(ordered_rows)} kết quả điểm học phần phù hợp.",
+            "intent": "learned_subjects_view",
+            "confidence": "high",
+            "data": ordered_rows,
+            "metadata": {
+                "student_id": student_id,
+                "matched_subject_id": matched.get("subject_id") if matched else None,
+                "matched_subject_name": matched.get("subject_name") if matched else None,
                 "in_program_count": len(in_program),
                 "out_program_count": len(out_program),
             },
@@ -689,6 +1084,95 @@ class ChatbotService:
         metadata["total_subjects"] = len(ordered_rows)
         updated_result["metadata"] = metadata
         return updated_result
+
+    async def process_student_info(self, student_id: Optional[int]) -> Optional[Dict[str, Any]]:
+        if not student_id:
+            return None
+
+        from app.models.student_model import Student
+        from app.models.course_model import Course
+        from app.models.course_subject_model import CourseSubject
+        from app.models.semester_gpa_model import SemesterGPA
+
+        student_row = (
+            self.db.query(Student, Course)
+            .outerjoin(Course, Course.id == Student.course_id)
+            .filter(Student.id == student_id)
+            .first()
+        )
+        if not student_row:
+            return None
+
+        student, course = self._safe_unpack_entity_row(student_row, expected=2)
+        if student is None:
+            return None
+
+        semester_rows = (
+            self.db.query(SemesterGPA)
+            .filter(SemesterGPA.student_id == student_id)
+            .order_by(SemesterGPA.semester.asc())
+            .all()
+        )
+        semester_gpa = [
+            {
+                "semester": row.semester,
+                "gpa": row.gpa,
+                "total_credits": row.total_credits,
+            }
+            for row in semester_rows
+        ]
+
+        pathway_rows = (
+            self.db.query(CourseSubject.learning_semester, func.count(CourseSubject.subject_id))
+            .filter(CourseSubject.course_id == student.course_id)
+            .group_by(CourseSubject.learning_semester)
+            .order_by(CourseSubject.learning_semester.asc())
+            .all()
+            if student.course_id
+            else []
+        )
+        learning_pathway = [
+            {
+                "learning_semester": semester,
+                "subject_count": subject_count,
+            }
+            for semester, subject_count in pathway_rows
+        ]
+
+        result_row = {
+            "student_id": student.id,
+            "student_name": student.student_name,
+            "email": student.email,
+            "cpa": student.cpa,
+            "course_id": student.course_id,
+            "course_name": course.course_name if course else None,
+            "total_learned_credits": student.total_learned_credits,
+            "year_level": student.year_level,
+            "warning_level": student.warning_level,
+            "learning_pathway": learning_pathway,
+            "semester_gpa": semester_gpa,
+        }
+
+        summary_parts = [
+            f"Họ tên: {student.student_name}",
+            f"CPA: {student.cpa}",
+        ]
+        if course and course.course_name:
+            summary_parts.append(f"Chương trình: {course.course_name}")
+
+        return {
+            "text": " | ".join(summary_parts),
+            "intent": "student_info",
+            "confidence": "high",
+            "data": [result_row],
+            "metadata": {
+                "student_id": student.id,
+                "course_id": student.course_id,
+                "course_name": course.course_name if course else None,
+                "semester_gpa_count": len(semester_gpa),
+                "learning_pathway_count": len(learning_pathway),
+            },
+        }
 
     def _has_class_data(self) -> bool:
         from app.models.class_model import Class

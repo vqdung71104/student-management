@@ -16,6 +16,7 @@ from app.agents.graph_nodes import (
     synthesize_formatter_node,
     tool_executor_node,
 )
+from app.services.chatbot_service import format_rule_based_response as service_format_rule_based_response
 from app.llm.response_cache import ResponseCache
 
 class FakeLLM:
@@ -532,6 +533,33 @@ async def test_intent_router_routes_class_registration_separately():
     )
 
     assert result["intent"] == "class_registration_suggestion"
+    assert result["needs_agent"] is False
+
+
+@pytest.mark.asyncio
+async def test_intent_router_routes_learned_subject_view_for_specific_subject_score():
+    result = await intent_router_node(
+        {
+            "segments": ["diem mon tieng nhat 6"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "learned_subjects_view"
+    assert result["needs_agent"] is False
+
+
+@pytest.mark.asyncio
+async def test_intent_router_routes_student_info_for_personal_keywords():
+    result = await intent_router_node(
+        {
+            "segments": ["thong tin sinh vien va ma sinh vien cua toi"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "student_info"
+    assert result["needs_agent"] is False
 
 
 def test_synthesize_formatter_joins_all_segment_outputs_with_hr():
@@ -601,3 +629,194 @@ async def test_run_graph_for_orchestrator_keeps_all_part_data_for_multi_intent(m
     assert isinstance(result["data"], list)
     assert result["data"][0][0]["cpa"] == 3.2
     assert result["data"][1][0]["subject_id"] == "SSH1111"
+
+
+def test_service_formatter_renders_graduation_table_html():
+    html = service_format_rule_based_response(
+        {
+            "status": "success",
+            "data": {
+                "text": "Con thieu 3 tin chi.",
+                "data": [
+                    {
+                        "subject_id": "SSH1111",
+                        "subject_name": "Triet hoc",
+                        "credits": 3,
+                        "status": "not_taken",
+                        "action": "Can hoc",
+                    }
+                ],
+            },
+        },
+        "graduation_progress",
+    )
+
+    assert "<table" in html
+    assert "SSH1111" in html
+    assert "Triet hoc" in html
+
+
+def test_response_formatter_keeps_class_preference_collection_metadata():
+    result = response_formatter_node(
+        {
+            "raw_data": {
+                "status": "success",
+                "data": {
+                    "text": "Ban muon hoc buoi nao?",
+                    "intent": "class_registration_suggestion",
+                    "confidence": "high",
+                    "data": None,
+                    "is_preference_collecting": True,
+                    "conversation_state": "collecting",
+                    "question_type": "single_choice",
+                    "question_options": ["Sang", "Chieu"],
+                },
+                "metadata": {
+                    "is_preference_collecting": True,
+                    "conversation_state": "collecting",
+                    "question_type": "single_choice",
+                    "question_options": ["Sang", "Chieu"],
+                },
+            },
+            "segments": ["dang ky lop"],
+            "current_segment_index": 0,
+            "intent": "class_registration_suggestion",
+        }
+    )
+
+    assert result["formatted_result"]["is_preference_collecting"] is True
+    assert result["formatted_result"]["question_options"] == ["Sang", "Chieu"]
+    assert result["formatted_result"]["conversation_state"] == "collecting"
+
+
+def test_service_formatter_handles_grade_view_without_text():
+    text = service_format_rule_based_response(
+        {
+            "status": "success",
+            "data": {
+                "data": [
+                    {
+                        "cpa": 3.21,
+                        "total_learned_credits": 96,
+                    }
+                ]
+            },
+        },
+        "grade_view",
+    )
+
+    assert "3.21" in text
+    assert "96" in text
+
+
+def test_service_formatter_handles_student_info_without_text():
+    text = service_format_rule_based_response(
+        {
+            "status": "success",
+            "data": {
+                "data": [
+                    {
+                        "student_name": "Nguyen Van A",
+                        "student_code": "B21DCCN001",
+                        "class_name": "D21CQCN01-B",
+                    }
+                ]
+            },
+        },
+        "student_info",
+    )
+
+    assert "Nguyen Van A" in text
+    assert "B21DCCN001" in text
+
+
+def test_service_formatter_renders_subject_info_learning_status():
+    html = service_format_rule_based_response(
+        {
+            "status": "success",
+            "data": {
+                "data": [
+                    {
+                        "subject_id": "MI1114",
+                        "subject_name": "Giai tich 1",
+                        "credits": 4,
+                        "learning_semester": 1,
+                        "letter_grade": None,
+                        "learning_status": "Chua hoc",
+                    }
+                ]
+            },
+        },
+        "subject_info",
+    )
+
+    assert "<table" in html
+    assert "MI1114" in html
+    assert "Chua hoc" in html
+
+
+def test_service_formatter_renders_learned_subject_view_details():
+    html = service_format_rule_based_response(
+        {
+            "status": "success",
+            "data": {
+                "data": [
+                    {
+                        "subject_id": "JPN106",
+                        "subject_name": "Tieng Nhat 6",
+                        "credits": 3,
+                        "learning_semester": 6,
+                        "letter_grade": "B+",
+                        "learning_status": "Da hoc",
+                    }
+                ]
+            },
+        },
+        "learned_subjects_view",
+    )
+
+    assert "<table" in html
+    assert "JPN106" in html
+    assert "B+" in html
+
+
+def test_response_formatter_keeps_graduation_table_data():
+    state = {
+        "raw_data": {
+            "status": "success",
+            "data": {
+                "text": "Ban con thieu 121 tin chi.",
+                "data": [
+                    {
+                        "action": "Can hoc",
+                        "status": "not_taken",
+                        "credits": 3,
+                        "subject_id": "SSH1111",
+                        "subject_name": "Triet hoc Mac - Lenin",
+                    }
+                ],
+            },
+            "metadata": {
+                "summary": {
+                    "missing_subjects": [
+                        {
+                            "subject_id": "SSH1111",
+                            "subject_name": "Triet hoc Mac - Lenin",
+                            "credits": 3,
+                            "status": "not_taken",
+                        }
+                    ]
+                }
+            },
+        },
+        "segments": ["con bao nhieu mon"],
+        "current_segment_index": 0,
+        "intent": "graduation_progress",
+    }
+
+    result = response_formatter_node(state)
+
+    assert "<table" in result["formatted_result"]["text"]
+    assert "SSH1111" in result["formatted_result"]["text"]
+    assert result["formatted_result"]["data"] == state["raw_data"]["data"]["data"]
+    assert result["formatted_result"]["raw_data"] == state["raw_data"]

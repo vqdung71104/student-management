@@ -552,6 +552,64 @@ class NL2SQLService:
         entities: Dict
     ) -> Dict:
         """Generate SQL using rule-based approach (fallback)"""
+        if intent == "grade_view":
+            if student_id is None:
+                return {
+                    "sql": None,
+                    "method": "rule_based",
+                    "intent": intent,
+                    "entities": entities,
+                    "error": "Bạn cần đăng nhập để xem thông tin này",
+                    "requires_auth": True,
+                }
+            return {
+                "sql": f"SELECT s.cpa, s.total_learned_credits FROM students s WHERE s.id = {student_id}",
+                "method": "rule_based",
+                "intent": intent,
+                "entities": entities,
+                "template_match": "grade_view_direct",
+                "requires_auth": True,
+            }
+
+        if intent == "learned_subjects_view":
+            if student_id is None:
+                return {
+                    "sql": None,
+                    "method": "rule_based",
+                    "intent": intent,
+                    "entities": entities,
+                    "error": "Bạn cần đăng nhập để xem thông tin này",
+                    "requires_auth": True,
+                }
+            sql_template = (
+                "SELECT s.subject_id, s.subject_name, ls.credits, ls.letter_grade, ls.semester, "
+                "CASE "
+                "WHEN UPPER(ls.letter_grade) IN ('A+', 'A') THEN 4.0 "
+                "WHEN UPPER(ls.letter_grade) = 'B+' THEN 3.5 "
+                "WHEN UPPER(ls.letter_grade) = 'B' THEN 3.0 "
+                "WHEN UPPER(ls.letter_grade) = 'C+' THEN 2.5 "
+                "WHEN UPPER(ls.letter_grade) = 'C' THEN 2.0 "
+                "WHEN UPPER(ls.letter_grade) = 'D+' THEN 1.5 "
+                "WHEN UPPER(ls.letter_grade) = 'D' THEN 1.0 "
+                "WHEN UPPER(ls.letter_grade) = 'F' THEN 0.0 "
+                "ELSE NULL END AS score "
+                f"FROM learned_subjects ls JOIN subjects s ON ls.subject_id = s.id WHERE ls.student_id = {student_id}"
+            )
+            if entities.get("subject_id"):
+                sql_template += f" AND s.subject_id = '{entities['subject_id']}'"
+            elif entities.get("subject_name"):
+                subject_name = str(entities["subject_name"]).replace("'", "''")
+                sql_template += f" AND s.subject_name LIKE '%{subject_name}%'"
+            sql_template += " ORDER BY ls.semester DESC"
+            return {
+                "sql": sql_template,
+                "method": "rule_based",
+                "intent": intent,
+                "entities": entities,
+                "template_match": "learned_subjects_view_direct",
+                "requires_auth": True,
+            }
+
         # Find best matching example
         match = self._find_best_match(question, intent)
         
@@ -602,6 +660,7 @@ class NL2SQLService:
         # Map intents to relevant tables
         intent_tables = {
             "grade_view": ["students", "learned_subjects"],
+            "learned_subjects_view": ["learned_subjects", "subjects"],
             "student_info": ["students", "courses", "semester_gpa"],
             "subject_info": ["subjects"],
             "class_info": ["classes", "subjects"],
