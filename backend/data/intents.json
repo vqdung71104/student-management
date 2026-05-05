@@ -115,6 +115,14 @@
       "tag": "subject_info",
       "patterns": [
         "thông tin học phần",
+        "gửi tôi thông tin về học phần A",
+        "thông tin về học phần B",
+        "thông tin học phần B",
+        "thông tin môn B",
+        "thông tin về môn học A",
+        "gửi tôi thông tin về môn học B",
+        " thông tin về học phần A",
+        "tôi muốn thông tin về môn học A",
         "thông tin môn học này",
         "thông tin môn học",
         "thông tin môn",
@@ -143,7 +151,19 @@
         "học phần Đại số tuyến tính có bao nhiêu tín chỉ",
         "học phần Toán rời rạc",
         "môn học này có mấy tín chỉ",
-        "học phần học kỳ nào"
+        "học phần học kỳ nào",
+        "thông tin học phần [SUBJECT]",
+        "gửi tôi thông tin về học phần [SUBJECT]",
+        "thông tin chi tiết học phần [SUBJECT]",
+        "nội dung môn học [SUBJECT]",
+        "môn [SUBJECT] có bao nhiêu tín chỉ",
+        "học phần [SUBJECT] học về cái gì",
+        "mã học phần của môn [SUBJECT]",
+        "môn [SUBJECT] có môn tiên quyết không",
+        "tìm học phần [SUBJECT]",
+        "cho tôi biết về học phần [SUBJECT]",
+        "thông tin môn [SUBJECT]",
+        "học phần [SUBJECT] học ở kỳ nào"
       ],
       "description": "Thông tin về học phần"
     },
@@ -224,7 +244,19 @@
         "thông tin các lớp Giải tích",
         "thông tin các lớp môn học Giải tích",
         "cho tôi thông tin các lớp Giải tích",
-        "cho tôi thông tin các lớp môn học Giải tích I"
+        "cho tôi thông tin các lớp môn học Giải tích I",
+        "thông tin lớp học [CLASS_ID]",
+        "lớp [SUBJECT] học lúc mấy giờ",
+        "các lớp [SUBJECT] mở trong kỳ này",
+        "lớp [SUBJECT] học ở tòa nào",
+        "lớp [CLASS_ID] học ở đâu",
+        "lớp [SUBJECT] học vào thứ mấy",
+        "tìm cho tôi lớp của môn [SUBJECT] vào buổi sáng",
+        "danh sách các lớp của học phần [SUBJECT]",
+        "thông tin các lớp môn [SUBJECT]",
+        "lớp [SUBJECT] có còn chỗ không",
+        "giảng viên dạy lớp [CLASS_ID] là ai",
+        "xem lịch học lớp [CLASS_ID]"
       ],
       "description": "Thông tin về lớp học"
     },
@@ -244,7 +276,17 @@
         "gpa",
         "kết quả tổng kết",
         "cho tôi xem cpa",
-        "cho tôi xem gpa"
+        "cho tôi xem gpa",
+        "xem cpa",
+        "xem gpa",
+        "xem điểm cpa",
+        "xem điểm gpa",
+        "xem điểm tổng kết cá nhân",
+        "điểm trung bình tích lũy của tôi",
+        "cpa hiện tại của tôi là bao nhiêu",
+        "gpa của tôi",
+        "kết quả học tập tổng quát",
+        "tổng điểm tích lũy"
       ],
       "description": "Xem tổng điểm CPA, GPA"
     },
@@ -274,7 +316,17 @@
         "xem kết quả học tập chi tiết",
         "xem điểm môn",
         "điểm của môn",
-        "điểm môn học"
+        "điểm môn học",
+        "xem bảng điểm môn học",
+        "điểm của tôi ở môn [SUBJECT]",
+        "điểm số môn [SUBJECT]",
+        "xem điểm học phần [SUBJECT]",
+        "tôi đã học môn [SUBJECT] chưa",
+        "kết quả học tập môn [SUBJECT]",
+        "tra cứu điểm môn [SUBJECT]",
+        "danh sách các môn đã hoàn thành",
+        "các môn bị D hoặc F",
+        "bảng điểm chi tiết của tôi"
       ],
       "description": "Xem danh sách các môn đã học và điểm chi tiết"
     },
@@ -406,7 +458,17 @@
         "thông tin của sinh viên",
         "thông tin về tôi",
         "hồ sơ sinh viên",
-        "thông tin học tập của tôi"
+        "thông tin học tập của tôi",
+        "hồ sơ sinh viên cá nhân",
+        "thông tin lý lịch của tôi",
+        "xem profile sinh viên của tôi",
+        "tôi thuộc lớp sinh hoạt nào",
+        "thông tin định danh cá nhân",
+        "hồ sơ của tôi trên hệ thống",
+        "gửi tôi thông tin sinh viên của tôi",
+        "thông tin học tập cá nhân",
+        "tình trạng sinh viên của tôi",
+        "xem thông tin tài khoản của tôi"
       ],
       "description": "Thông tin sinh viên"
     }

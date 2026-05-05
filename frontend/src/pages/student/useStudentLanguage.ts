@@ -22,36 +22,36 @@ export interface StudentTranslations {
 const texts: Record<Language, StudentTranslations> = {
   vi: {
     study: 'Học tập',
-    registration: 'Đăng ký học tập',
+    registration: 'Lập kế hoạch đăng ký',
     forms: 'Biểu mẫu',
     scholarships: 'Học bổng',
     support: 'Hỗ trợ',
     schedule: 'Thời khóa biểu',
     grades: 'Xem điểm',
     curriculum: 'Chương trình đào tạo',
-    subjectRegistration: 'Đăng ký học phần',
-    classRegistration: 'Đăng ký lớp',
+    subjectRegistration: 'Chọn học phần (mẫu)',
+    classRegistration: 'Chọn lớp (mẫu)',
     userGuide: 'Hướng dẫn sử dụng',
     faq: 'Những câu hỏi thường gặp',
     feedback: 'Phản hồi và góp ý',
-    logout: 'Đăng xuất'
+    logout: 'Đăng xuất',
   },
   en: {
     study: 'Study',
-    registration: 'Course Registration',
+    registration: 'Registration Planner',
     forms: 'Forms',
     scholarships: 'Scholarships',
     support: 'Support',
     schedule: 'Schedule',
     grades: 'Grades',
     curriculum: 'Curriculum',
-    subjectRegistration: 'Subject Registration',
-    classRegistration: 'Class Registration',
+    subjectRegistration: 'Pick Subjects (Mock)',
+    classRegistration: 'Pick Classes (Mock)',
     userGuide: 'User Guide',
     faq: 'Frequently Asked Questions',
     feedback: 'Feedback',
-    logout: 'Logout'
-  }
+    logout: 'Logout',
+  },
 }
 
 export const useStudentLanguage = () => {
@@ -64,6 +64,7 @@ export const useStudentLanguage = () => {
   return {
     language,
     changeLanguage,
-    t: texts[language]
+    t: texts[language],
   }
 }
+
