@@ -295,11 +295,11 @@ const StudentDashboard = () => {
             <p className="text-sm font-medium text-gray-900">Đăng ký lớp</p>
           </button>
           <button
-            onClick={() => navigate('/student/forms')}
+            onClick={() => navigate('/student/support/user-guide')}
             className="p-4 text-center border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="text-2xl mb-2">  </div>
-            <p className="text-sm font-medium text-gray-900">Biểu mẫu</p>
+            <p className="text-sm font-medium text-gray-900">Hướng dẫn</p>
           </button>
         </div>
       </div>

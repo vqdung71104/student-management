@@ -178,7 +178,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     }`}
                   >
                     <span>  </span>
-                    <span className="hidden lg:inline">{t.study}</span>
+                    <span className="hidden lg:inline">{t.nav.study}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -187,13 +187,13 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     <div className="absolute top-full left-0 pt-1 w-44 z-50">
                       <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
                         <button onClick={() => navigateTo('/student/schedule')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.schedule}
+                             {t.nav.schedule}
                         </button>
                         <button onClick={() => navigateTo('/student/grades')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.grades}
+                             {t.nav.grades}
                         </button>
                         <button onClick={() => navigateTo('/student/curriculum')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.curriculum}
+                             {t.nav.curriculum}
                         </button>
                       </div>
                     </div>
@@ -214,7 +214,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     }`}
                   >
                     <span>  </span>
-                    <span className="hidden lg:inline">{t.registration}</span>
+                    <span className="hidden lg:inline">{t.nav.registration}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -223,10 +223,10 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     <div className="absolute top-full left-0 pt-1 w-44 z-50">
                       <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
                         <button onClick={() => navigateTo('/student/subject-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.subjectRegistration}
+                             {t.nav.subjectRegistration}
                         </button>
                         <button onClick={() => navigateTo('/student/class-registration')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.classRegistration}
+                             {t.nav.classRegistration}
                         </button>
                       </div>
                     </div>
@@ -243,7 +243,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   onClick={() => navigateTo('/student/forms')}
                 >
                   <span>  </span>
-                  <span className="hidden lg:inline">{t.forms}</span>
+                    <span className="hidden lg:inline">{t.nav.forms}</span>
                 </button>*/}
 
                 {/* Học bổng 
@@ -258,7 +258,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     onMouseLeave={() => setScholarshipMenuOpen(true)}
                   >
                     <span></span>
-                    <span className="hidden lg:inline">{t.scholarships}</span>
+                    <span className="hidden lg:inline">{t.nav.scholarships}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -306,7 +306,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     }`}
                   >
                     <span>  </span>
-                    <span className="hidden lg:inline">{t.support}</span>
+                    <span className="hidden lg:inline">{t.nav.support}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -315,13 +315,13 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                     <div className="absolute top-full left-0 pt-1 w-52 z-50">
                       <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
                         <button onClick={() => navigateTo('/student/support/user-guide')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.userGuide}
+                             {t.nav.userGuide}
                         </button>
                         <button onClick={() => navigateTo('/student/support/faq')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.faq}
+                             {t.nav.faq}
                         </button>
                         <button onClick={() => navigateTo('/student/support/feedback')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.feedback}
+                             {t.nav.feedback}
                         </button>
                       </div>
                     </div>
@@ -329,16 +329,16 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                 </div>
               </div>
 
-              {/* Language Switcher */}
+              {/* Language Switcher 
               <div className="relative flex items-center bg-white border border-gray-300 h-8 rounded-none">
-                {/* Sliding background */}
+                
                 <div
                   className={`absolute top-0 bottom-0 w-1/2 bg-blue-100 border-blue-200 transition-transform duration-300 ease-in-out ${
                     language === 'vi' ? 'translate-x-full' : 'translate-x-0'
                   }`}
                 />
                 
-                {/* EN Button */}
+                
                 <button
                   onClick={() => changeLanguage('en')}
                   className={`relative z-10 flex-1 h-full px-3 text-xs font-medium transition-colors duration-300 rounded-none ${
@@ -350,7 +350,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   EN
                 </button>
                 
-                {/* VI Button */}
+                
                 <button
                   onClick={() => changeLanguage('vi')}
                   className={`relative z-10 flex-1 h-full px-3 text-xs font-medium transition-colors duration-300 rounded-none ${
@@ -361,7 +361,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                 >
                   VI
                 </button>
-              </div>
+              </div>*/}
             </div>
 
             {/* Mobile menu và User actions */}
@@ -443,7 +443,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                 className="h-8 px-3 bg-gray-500 text-white rounded-md hover:bg-gray-400 border border-gray-300 transition-all duration-200 text-xs font-medium flex items-center space-x-1 shadow-sm hover:shadow-md"
               >
                 
-                <span className="hidden lg:inline">{t.logout}</span>
+                  <span className="hidden lg:inline">{t.nav.logout}</span>
               </button>
             </div>
           </div>
@@ -454,19 +454,19 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
           <div className="md:hidden bg-gray-100 border-t border-gray-300 w-full">
             <div className="w-full px-4 py-2 space-y-1">
               <button onClick={() => { navigateTo('/student/schedule'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.study}
+                   {t.nav.study}
               </button>
               <button onClick={() => { navigateTo('/student/subject-registration'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.registration}
+                   {t.nav.registration}
               </button>
               <button onClick={() => { navigateTo('/student/forms'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.forms}
+                   {t.nav.forms}
               </button>
               <button onClick={() => { navigateTo('/student/scholarships'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                🏆 {t.scholarships}
+                🏆 {t.nav.scholarships}
               </button>
               <button onClick={() => { navigateTo('/student/support/faq'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.support}
+                   {t.nav.support}
               </button>
             </div>
           </div>

@@ -75,7 +75,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   onClick={() => navigateTo('/admin')}
                 >
                   <span>  </span>
-                  <span className="hidden lg:inline">{t.dashboard}</span>
+                  <span className="hidden lg:inline">{t.nav.dashboard}</span>
                 </button>
 
                 {/* Student Management */}
@@ -88,7 +88,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   onClick={() => navigateTo('/admin/students')}
                 >
                   <span>👥</span>
-                  <span className="hidden lg:inline">{t.studentManagement}</span>
+                  <span className="hidden lg:inline">{t.nav.studentManagement}</span>
                 </button>
 
                 {/* Subject Management */}
@@ -105,7 +105,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     }`}
                   >
                     <span>  </span>
-                    <span className="hidden lg:inline">{t.subjectManagement}</span>
+                    <span className="hidden lg:inline">{t.nav.subjectManagement}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -114,10 +114,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     <div className="absolute top-full left-0 pt-1 w-52 z-50">
                       <div className="bg-white rounded-md shadow-lg border border-gray-200 py-1">
                         <button onClick={() => navigateTo('/admin/schedule-update')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.updateSchedule}
+                             {t.nav.updateSchedule}
                         </button>
                         <button onClick={() => navigateTo('/admin/subjects')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.updateSubjects}
+                             {t.nav.updateSubjects}
                         </button>
                       </div>
                     </div>
@@ -138,7 +138,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     }`}
                   >
                     <span>  </span>
-                    <span className="hidden lg:inline">{t.settings}</span>
+                    <span className="hidden lg:inline">{t.nav.settings}</span>
                     <svg className="w-2 h-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
@@ -156,7 +156,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                             Quản lý thông báo
                         </button> */}
                         <button onClick={() => navigateTo('/admin/change-password')} className="block w-full px-3 py-1.5 text-xs text-gray-700 hover:bg-blue-50 text-left">
-                             {t.changePassword}
+                             {t.nav.changePassword}
                         </button>
                       </div>
                     </div>
@@ -173,19 +173,19 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   onClick={toggleChatbot}
                 >
                   <span>  </span>
-                  <span className="hidden lg:inline">{t.chatbotSupport}</span>
+                  <span className="hidden lg:inline">{t.nav.chatbotSupport}</span>
                 </button>*/}
 
-                {/* Language Switcher */}
+                {/* Language Switcher 
                 <div className="relative flex items-center bg-white border border-gray-300 h-8 rounded-none">
-                  {/* Sliding background */}
+                  
                   <div
                     className={`absolute top-0 bottom-0 w-1/2 bg-blue-100 border-blue-200 transition-transform duration-300 ease-in-out ${
                       language === 'vi' ? 'translate-x-full' : 'translate-x-0'
                     }`}
                   />
                   
-                  {/* EN Button */}
+                  
                   <button
                     onClick={() => changeLanguage('en')}
                     className={`relative z-10 flex-1 h-full px-3 text-xs font-medium transition-colors duration-300 rounded-none ${
@@ -197,7 +197,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                     EN
                   </button>
                   
-                  {/* VI Button */}
+                  
                   <button
                     onClick={() => changeLanguage('vi')}
                     className={`relative z-10 flex-1 h-full px-3 text-xs font-medium transition-colors duration-300 rounded-none ${
@@ -208,7 +208,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
                   >
                     VI
                   </button>
-                </div>
+                </div>*/}
               </div>
             </div>
 
@@ -218,7 +218,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
               className="h-8 px-3 bg-gray-500 text-white rounded-md hover:bg-gray-400 border border-gray-300 transition-all duration-200 text-xs font-medium flex items-center space-x-1 shadow-sm hover:shadow-md"
             >
               <span>  </span>
-              <span className="hidden lg:inline">{t.logout}</span>
+              <span className="hidden lg:inline">{t.nav.logout}</span>
             </button>
           </div>
         </div>
