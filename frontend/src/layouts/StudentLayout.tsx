@@ -21,7 +21,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { logout } = useAuth()
-  const { language, changeLanguage, t } = useStudentLanguage()
+  const { t } = useStudentLanguage()
   const { formatDate } = useNotifications()
   const [chatbotOpen, setChatbotOpen] = useState(false)
   const [studyMenuOpen, setStudyMenuOpen] = useState(false)

@@ -12,7 +12,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { logout } = useAuth()
-  const { language, changeLanguage, t } = useLanguage()
+  const { t } = useLanguage()
   const [subjectMenuOpen, setSubjectMenuOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [chatbotOpen, setChatbotOpen] = useState(false)
