@@ -636,14 +636,14 @@ const ChatBot: React.FC = () => {
                       key={classKey}
                       className={`combo-class-block ${isSelected ? 'is-selected' : ''}`}
                       style={{ top: `${top}px`, height: `${height}px` }}
-                      title={`${cls.subject_id || '-'} - ${cls.subject_name || cls.class_name || '-'}\n${cls.study_time_start || '--:--'} - ${cls.study_time_end || '--:--'}\nPhòng: ${cls.classroom || '-'}${cls.teacher_name ? `\nGV: ${cls.teacher_name}` : ''}`}
+                      title={`${cls.class_id || '-'} - ${cls.subject_name || cls.class_name || '-'}\n${cls.study_time_start || '--:--'} - ${cls.study_time_end || '--:--'}\nPhòng: ${cls.classroom || '-'}${cls.teacher_name ? `\nGV: ${cls.teacher_name}` : ''}`}
                       onClick={() => setSelectedComboClass({
                         combinationKey,
                         classKey,
                         classInfo: cls,
                       })}
                     >
-                      <div className="combo-class-name">{cls.subject_id || '-'} - {cls.subject_name || cls.class_name || '-'}</div>
+                      <div className="combo-class-name">{cls.class_id || '-'} - {cls.subject_name || cls.class_name || '-'}</div>
                       <div className="combo-class-time">{cls.study_time_start || '--:--'} - {cls.study_time_end || '--:--'}</div>
                       <div className="combo-class-room">{cls.classroom || '-'}</div>
                     </div>
@@ -669,6 +669,7 @@ const ChatBot: React.FC = () => {
             <div className="combo-class-detail-body">
               <div><strong>Môn:</strong> {selectedInCurrentCombination.classInfo.subject_id || '-'} - {selectedInCurrentCombination.classInfo.subject_name || selectedInCurrentCombination.classInfo.class_name || '-'}</div>
               <div><strong>Lớp:</strong> {selectedInCurrentCombination.classInfo.class_name || '-'}</div>
+              <div><strong>Mã lớp:</strong> {selectedInCurrentCombination.classInfo.class_id || '-'}</div>
               <div><strong>Thời gian:</strong> {selectedInCurrentCombination.classInfo.study_time_start || '--:--'} - {selectedInCurrentCombination.classInfo.study_time_end || '--:--'}</div>
               <div><strong>Thứ:</strong> {getComboDayLabel(selectedInCurrentCombination.classInfo.study_date)}{selectedInCurrentCombination.classInfo.study_date ? ` (${selectedInCurrentCombination.classInfo.study_date})` : ''}</div>
               <div><strong>Phòng:</strong> {selectedInCurrentCombination.classInfo.classroom || '-'}</div>

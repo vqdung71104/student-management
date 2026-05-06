@@ -455,6 +455,7 @@ export const exportScheduleToExcel = async (
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       combination,
