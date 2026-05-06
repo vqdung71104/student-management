@@ -70,6 +70,16 @@ class PreferenceFilter:
         if preferences.get('prefer_late_start'):
             filtered = self._sort_by_late_end(filtered)
             print(f"  🌙 After prefer_late_start sort: {len(filtered)} classes")
+
+        # Filter 6b: Avoid early start
+        if preferences.get('avoid_early_start'):
+            filtered = self._filter_avoid_early_start(filtered)
+            print(f"  🚫 After avoid_early_start filter: {len(filtered)} classes")
+
+        # Filter 6c: Avoid late end
+        if preferences.get('avoid_late_end'):
+            filtered = self._filter_avoid_late_end(filtered)
+            print(f"  🚫 After avoid_late_end filter: {len(filtered)} classes")
         
         # Filter 7: Preferred teachers
         if preferences.get('preferred_teachers'):
@@ -178,6 +188,22 @@ class PreferenceFilter:
             key=lambda cls: self._parse_time(cls.get('study_time_end')) or time(0, 0),
             reverse=True
         )
+
+    def _filter_avoid_early_start(self, classes: List[Dict]) -> List[Dict]:
+        """Filter out classes that start too early."""
+        filtered = [
+            cls for cls in classes
+            if (self._parse_time(cls.get('study_time_start')) or time(23, 59)) >= time(9, 0)
+        ]
+        return filtered if filtered else classes
+
+    def _filter_avoid_late_end(self, classes: List[Dict]) -> List[Dict]:
+        """Filter out classes that end too late."""
+        filtered = [
+            cls for cls in classes
+            if (self._parse_time(cls.get('study_time_end')) or time(0, 0)) <= time(18, 0)
+        ]
+        return filtered if filtered else classes
     
     def _boost_preferred_teachers(self, classes: List[Dict], preferred_teachers: List[str]) -> List[Dict]:
         """

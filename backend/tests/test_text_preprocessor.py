@@ -136,6 +136,15 @@ class TestTextPreprocessor:
         instance2 = get_text_preprocessor()
         assert instance1 is instance2
 
+    def test_preprocess_preserves_academic_codes(self, preprocessor):
+        """Academic codes must not be altered by typo/normalization steps."""
+        assert "MI1114" in preprocessor.preprocess("tôi muốn học môn MI1114")
+        assert "JP3110" in preprocessor.preprocess("tôi không muốn học môn JP3110")
+        assert "IT1111" in preprocessor.preprocess("không được có môn IT1111")
+        assert "MI1114" in preprocessor.preprocess(
+            "tôi nên đăng ký học phần nào kỳ sau, tôi muốn học môn MI1114"
+        )
+
 
 class TestRealWorldScenarios:
     """Test real-world chatbot input scenarios"""

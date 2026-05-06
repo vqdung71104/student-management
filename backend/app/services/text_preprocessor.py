@@ -6,9 +6,31 @@ import json
 import os
 import re
 import unicodedata
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 from functools import lru_cache
 from pathlib import Path
+
+_CODE_PATTERN = re.compile(r"\b[A-Za-z]{2,6}\d{3,5}[A-Za-z]?\b")
+
+
+def _protect_academic_codes(text: str) -> Tuple[str, Dict[str, str]]:
+    placeholders: Dict[str, str] = {}
+
+    def repl(match: re.Match) -> str:
+        code = match.group(0)
+        placeholder = f"__ACADEMIC_CODE_{len(placeholders)}__"
+        placeholders[placeholder] = code
+        return placeholder
+
+    protected = _CODE_PATTERN.sub(repl, text or "")
+    return protected, placeholders
+
+
+def _restore_academic_codes(text: str, placeholders: Dict[str, str]) -> str:
+    restored = text or ""
+    for placeholder, code in placeholders.items():
+        restored = restored.replace(placeholder, code)
+    return restored
 
 
 class TextPreprocessor:
@@ -397,6 +419,8 @@ class TextPreprocessor:
             return text
         
         original_text = text
+        protected_text, code_placeholders = _protect_academic_codes(text)
+        text = protected_text
         
         # 1. Unicode normalization
         text = self.normalize_unicode(text)
@@ -431,7 +455,7 @@ class TextPreprocessor:
         if verbose:
             print(f"✨ Final result: {original_text} → {text}")
         
-        return text
+        return _restore_academic_codes(text, code_placeholders)
 
 
 # Singleton instance for global use

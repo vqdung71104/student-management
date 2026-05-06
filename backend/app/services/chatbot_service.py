@@ -384,6 +384,31 @@ class ChatbotService:
         lowered = re.sub(r"\s+", " ", lowered).strip()
         return lowered or self._normalize_lookup_text(question)
 
+    def _row_matches_subject_term(self, row: Dict[str, Any], term: str) -> bool:
+        if not isinstance(row, dict) or not term:
+            return False
+
+        normalized_term = self._normalize_lookup_text(term)
+        normalized_term = re.sub(r"^(?:mon|hoc phan|lop)\s+", "", normalized_term).strip()
+        if not normalized_term:
+            return False
+
+        haystacks = [
+            row.get("subject_id", ""),
+            row.get("subject_code", ""),
+            row.get("course_code", ""),
+            row.get("subject_name", ""),
+            row.get("course_name", ""),
+            row.get("name", ""),
+            row.get("title", ""),
+        ]
+        normalized_haystack = " ".join(
+            self._normalize_lookup_text(str(value))
+            for value in haystacks
+            if value is not None
+        )
+        return normalized_term in normalized_haystack
+
     def _extract_subject_codes(self, text: str) -> List[str]:
         return list(dict.fromkeys(match.upper() for match in re.findall(r"\b[A-Za-z]{2,4}\d{3,4}[A-Za-z]?\b", text or "")))
 
@@ -1033,20 +1058,13 @@ class ChatbotService:
         if not exclude_terms and not prefer_terms:
             return result
 
-        def _row_matches(row: Dict[str, Any], term: str) -> bool:
-            haystacks = [
-                self._normalize_lookup_text(str(row.get("subject_name", ""))),
-                self._normalize_lookup_text(str(row.get("subject_id", ""))),
-            ]
-            return any(term and term in haystack for haystack in haystacks)
-
         filtered_rows = [
             row for row in rows
-            if not any(_row_matches(row, term) for term in exclude_terms)
+            if not any(self._row_matches_subject_term(row, term) for term in exclude_terms)
         ]
         preferred_rows = [
             row for row in filtered_rows
-            if any(_row_matches(row, term) for term in prefer_terms)
+            if any(self._row_matches_subject_term(row, term) for term in prefer_terms)
         ]
         remaining_rows = [row for row in filtered_rows if row not in preferred_rows]
         ordered_rows = preferred_rows + remaining_rows
@@ -1503,10 +1521,39 @@ class ChatbotService:
             preferences.time.has_answer = True
             captured.append('time')
 
+        forbidden_time_slots = [
+            str(slot).strip().lower()
+            for slot in (constraints_dict.get('forbidden_time_slots') or [])
+            if slot
+        ]
+        if forbidden_time_slots:
+            time_changed = False
+            for slot in forbidden_time_slots:
+                if slot in ('morning', 'afternoon') and slot not in preferences.time.avoid_time_periods:
+                    preferences.time.avoid_time_periods.append(slot)
+                    time_changed = True
+            if time_changed:
+                preferences.time.has_answer = True
+                if 'time' not in captured:
+                    captured.append('time')
+
         if constraints_dict.get('time_from') or constraints_dict.get('start_time_exact') or constraints_dict.get('avoid_start_times') or constraints_dict.get('avoid_end_times'):
             preferences.time.has_answer = True
             if 'time' not in captured:
                 captured.append('time')
+
+        preferred_subjects = constraints_dict.get('preferred_subjects') or []
+        if isinstance(preferred_subjects, list):
+            specific_changed = False
+            for subject in preferred_subjects:
+                cleaned = str(subject).strip()
+                if cleaned and cleaned not in preferences.specific.specific_subjects:
+                    preferences.specific.specific_subjects.append(cleaned)
+                    specific_changed = True
+            if specific_changed:
+                preferences.specific.has_answer = True
+                if 'specific' not in captured:
+                    captured.append('specific')
 
         return captured
 
@@ -2235,7 +2282,8 @@ class ChatbotService:
         student_id: int,
         question: str,
         conversation_id: Optional[int] = None,
-        subject_id: Optional[str] = None
+        subject_id: Optional[str] = None,
+        extracted_constraints: Optional[Dict[str, Any]] = None,
     ) -> Dict:
         """
         Process class suggestion request with interactive preference collection
@@ -2296,6 +2344,17 @@ class ChatbotService:
                 }
 
             state = conv_manager.get_state(conversation_id)
+            if state and extracted_constraints:
+                merged = dict(getattr(state, 'nlq_constraints', None) or {})
+                merged.update(extracted_constraints)
+                state.nlq_constraints = merged
+                self._append_supplemental_keys(
+                    state,
+                    self._merge_constraints_into_preferences(
+                        preferences=state.preferences,
+                        constraints_dict=state.nlq_constraints,
+                    ),
+                )
             
             if state and state.stage == 'choose_subject_source':
                 selected_source = self._parse_subject_source_choice(question)
@@ -2505,19 +2564,26 @@ class ChatbotService:
 
                 # Extract hard constraints (time/day) from initial message
                 try:
+                    merged_constraints = dict(extracted_constraints or {})
                     from app.services.constraint_extractor import get_constraint_extractor
                     _extractor = get_constraint_extractor()
                     _constraints = _extractor.extract(question, query_type="class_registration_suggestion")
-                    state.nlq_constraints = _constraints.dict()
+                    merged_constraints.update(_constraints.dict())
+                    state.nlq_constraints = merged_constraints
                     constraint_keys = self._merge_constraints_into_preferences(
                         preferences=state.preferences,
                         constraints_dict=state.nlq_constraints,
                     )
                     self._append_supplemental_keys(state, constraint_keys)
-                    print(f"🔒 [CONSTRAINTS] Extracted: days={_constraints.days} session={_constraints.session} avoid_start={_constraints.avoid_start_times}")
+                    print(
+                        f"🔒 [CONSTRAINTS] Extracted: days={state.nlq_constraints.get('days')} "
+                        f"session={state.nlq_constraints.get('session')} "
+                        f"forbidden_slots={state.nlq_constraints.get('forbidden_time_slots')} "
+                        f"avoid_start={state.nlq_constraints.get('avoid_start_times')}"
+                    )
                 except Exception as _ce:
                     print(f"⚠️ [CONSTRAINTS] Extract failed: {_ce}")
-                    state.nlq_constraints = None
+                    state.nlq_constraints = dict(extracted_constraints or {}) or None
                 
                 # Check if preferences are already complete
                 if state.preferences.is_complete():

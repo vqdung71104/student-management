@@ -10,6 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from app.agents.agent_orchestrator import AgentOrchestrator
 from app.agents.agent_graph import run_graph, run_graph_for_orchestrator
 from app.agents.graph_nodes import (
+    _clean_subject_token,
+    agent_filter_node,
     intent_router_node,
     query_splitter_node,
     response_formatter_node,
@@ -431,7 +433,7 @@ async def test_tool_executor_uses_direct_rule_based_backend(monkeypatch):
         "query": "xem cpa",
         "student_id": 7,
         "conversation_id": 9,
-        "constraints": {},
+        "constraints": None,
     }
     assert result["raw_data"]["data"]["text"] == "CPA hiện tại là 3.2"
 
@@ -821,3 +823,279 @@ def test_response_formatter_keeps_graduation_table_data():
     assert "SSH1111" in result["formatted_result"]["text"]
     assert result["formatted_result"]["data"] == state["raw_data"]["data"]["data"]
     assert result["formatted_result"]["raw_data"] == state["raw_data"]
+
+
+@pytest.mark.asyncio
+async def test_intent_router_extracts_excluded_subject_code_constraint():
+    result = await intent_router_node(
+        {
+            "segments": ["Cho toi danh sach cac mon hoc nen hoc ky sau, khong duoc co mon IT1111"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "subject_registration_suggestion"
+    assert "it1111" in result["constraints"]["exclude_subjects"]
+    assert "khong duoc co" not in result["clean_query"].lower()
+    assert result["needs_agent_filter"] is True
+
+
+@pytest.mark.asyncio
+async def test_intent_router_extracts_excluded_subject_name_constraint():
+    result = await intent_router_node(
+        {
+            "segments": ["Goi y mon nen hoc, khong co Giai tich 1"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "subject_registration_suggestion"
+    assert "giai tich 1" in result["constraints"]["exclude_subjects"]
+
+
+@pytest.mark.asyncio
+async def test_intent_router_keeps_non_subject_intents_constraint_free():
+    result = await intent_router_node(
+        {
+            "segments": ["CPA cua toi la bao nhieu?"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "grade_view"
+    assert result["constraints"] == {}
+    assert result["needs_agent_filter"] is False
+
+
+@pytest.mark.asyncio
+async def test_query_splitter_keeps_constraint_clause_attached(monkeypatch):
+    class NoLLM:
+        async def split(self, text: str, **kwargs):
+            raise AssertionError("LLM split should not be called when semantic splitter already decides")
+
+    monkeypatch.setattr("app.agents.graph_nodes._get_llm", lambda: NoLLM())
+
+    result = await query_splitter_node(
+        {"user_text": "Goi y mon hoc ky sau va khong duoc co mon IT1111", "node_trace": []}
+    )
+
+    assert result["segments"] == ["Goi y mon hoc ky sau va khong duoc co mon IT1111"]
+
+
+@pytest.mark.asyncio
+async def test_query_splitter_splits_true_multi_intent():
+    result = await query_splitter_node(
+        {"user_text": "Xem diem cac mon truot, va goi y dang ky hoc lai", "node_trace": []}
+    )
+
+    assert len(result["segments"]) == 2
+
+
+def test_agent_filter_excludes_subject_by_multiple_fields():
+    state = {
+        "intent": "subject_registration_suggestion",
+        "raw_data": {
+            "status": "success",
+            "data": {
+                "data": [
+                    {"subject_id": "IT1111", "subject_name": "Nhap mon CNTT"},
+                    {"subject_id": "MI1111", "subject_name": "Giai tich 1"},
+                ]
+            },
+        },
+        "constraints": {"exclude_subjects": ["IT1111", "Giai tich 1"], "preferred_subjects": []},
+    }
+
+    result = agent_filter_node(state)
+    rows = result["filtered_data"]["data"]["data"]
+
+    assert rows == []
+
+
+def test_agent_filter_skips_non_subject_intent():
+    state = {
+        "intent": "class_registration_suggestion",
+        "raw_data": {
+            "status": "success",
+            "data": {
+                "data": [
+                    {"class_id": "A1", "study_time_start": "07:00", "study_time_end": "09:00"},
+                    {"class_id": "A2", "study_time_start": "13:00", "study_time_end": "15:00"},
+                ]
+            },
+        },
+        "constraints": {
+            "exclude_subjects": [],
+            "preferred_subjects": [],
+            "forbidden_time_slots": ["morning"],
+            "days": [],
+        },
+    }
+
+    result = agent_filter_node(state)
+    rows = result["filtered_data"]["data"]["data"]
+
+    assert [row["class_id"] for row in rows] == ["A1", "A2"]
+
+
+@pytest.mark.asyncio
+async def test_tool_executor_marks_filter_when_constraints_present(monkeypatch):
+    async def fake_rule_backend(intent, query, student_id, conversation_id, constraints=None):
+        return {
+            "status": "success",
+            "data": {"text": "ok", "data": [{"class_id": "A1"}]},
+            "metadata": {},
+            "error": None,
+        }
+
+    monkeypatch.setattr("app.agents.graph_nodes._call_rule_based_backend", fake_rule_backend)
+
+    result = await tool_executor_node(
+        {
+            "segments": ["Goi y lop hoc, khong hoc sang"],
+            "current_segment_index": 0,
+            "intent": "class_registration_suggestion",
+            "clean_query": "Goi y lop hoc",
+            "student_id": 7,
+            "conversation_id": 9,
+            "constraints": {"forbidden_time_slots": ["morning"]},
+            "needs_agent": True,
+        }
+    )
+
+    assert result["needs_agent_filter"] is False
+
+
+@pytest.mark.asyncio
+async def test_tool_executor_skips_agent_filter_for_class_registration(monkeypatch):
+    async def fake_rule_backend(intent, query, student_id, conversation_id, constraints=None):
+        return {
+            "status": "success",
+            "data": {"text": "ok", "data": [{"class_id": "A1"}]},
+            "metadata": {
+                "question_type": "single_choice",
+                "question_options": ["A", "B"],
+                "conversation_state": "collecting",
+                "is_preference_collecting": True,
+            },
+            "error": None,
+        }
+
+    monkeypatch.setattr("app.agents.graph_nodes._call_rule_based_backend", fake_rule_backend)
+
+    result = await tool_executor_node(
+        {
+            "segments": ["Goi y lop hoc, khong hoc sang"],
+            "current_segment_index": 0,
+            "intent": "class_registration_suggestion",
+            "clean_query": "Goi y lop hoc",
+            "student_id": 7,
+            "conversation_id": 9,
+            "constraints": {"forbidden_time_slots": ["morning"]},
+            "needs_agent": True,
+        }
+    )
+
+    assert result["needs_agent_filter"] is False
+
+
+def test_build_formatted_response_does_not_leak_class_preference_metadata():
+    result = response_formatter_node(
+        {
+            "raw_data": {
+                "status": "success",
+                "data": {
+                    "text": "CPA hien tai la 3.2",
+                    "data": [{"cpa": 3.2}],
+                    "question_type": "single_choice",
+                    "question_options": ["A", "B"],
+                    "conversation_state": "collecting",
+                    "is_preference_collecting": True,
+                },
+                "metadata": {
+                    "question_type": "single_choice",
+                    "question_options": ["A", "B"],
+                    "conversation_state": "collecting",
+                    "is_preference_collecting": True,
+                },
+            },
+            "segments": ["cpa cua toi"],
+            "current_segment_index": 0,
+            "intent": "grade_view",
+        }
+    )
+
+    formatted = result["formatted_result"]
+    assert "question_type" not in formatted
+    assert "question_options" not in formatted
+    assert "conversation_state" not in formatted
+    assert "is_preference_collecting" not in formatted
+
+
+def test_clean_subject_token_strips_stacked_prefixes():
+    assert _clean_subject_token("hoc mon jp3110") == "jp3110"
+    assert _clean_subject_token("môn JP3110") == "jp3110"
+    assert _clean_subject_token("học phần Giải tích 1") == "giai tich 1"
+
+
+@pytest.mark.asyncio
+async def test_intent_router_negative_preference_is_exclusion_only():
+    result = await intent_router_node(
+        {
+            "segments": ["toi nen dang ky hoc phan nao ky sau, toi khong muon hoc mon JP3110"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "subject_registration_suggestion"
+    assert "jp3110" in result["constraints"]["exclude_subjects"]
+    assert result["constraints"]["preferred_subjects"] == []
+
+
+@pytest.mark.asyncio
+async def test_intent_router_positive_subject_preference():
+    result = await intent_router_node(
+        {
+            "segments": ["toi nen dang ky hoc phan nao ky sau, toi muon hoc mon MI1114"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "subject_registration_suggestion"
+    assert "mi1114" in result["constraints"]["preferred_subjects"]
+    assert result["constraints"]["exclude_subjects"] == []
+
+
+@pytest.mark.asyncio
+async def test_query_splitter_keeps_registration_with_subject_preference_single_segment():
+    result = await query_splitter_node(
+        {"user_text": "toi nen dang ky hoc phan nao ky sau, toi muon hoc mon MI1114", "node_trace": []}
+    )
+    assert len(result["segments"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_query_splitter_keeps_registration_with_subject_exclusion_single_segment():
+    result = await query_splitter_node(
+        {"user_text": "toi nen dang ky hoc phan nao ky sau, toi khong muon hoc mon JP3110", "node_trace": []}
+    )
+    assert len(result["segments"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_query_splitter_keeps_class_registration_preferences_single_segment():
+    result = await query_splitter_node(
+        {
+            "user_text": "toi nen dang ky lop nao ky sau, toi muon hoc mon MI1114, toi muon hoc buoi sang",
+            "node_trace": [],
+        }
+    )
+    assert len(result["segments"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_query_splitter_keeps_class_registration_constraint_single_segment():
+    result = await query_splitter_node(
+        {"user_text": "toi nen dang ky lop nao ky sau, khong hoc buoi sang", "node_trace": []}
+    )
+    assert len(result["segments"]) == 1

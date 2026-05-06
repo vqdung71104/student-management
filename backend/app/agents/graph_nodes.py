@@ -28,6 +28,11 @@ except ImportError:
     TfidfIntentClassifier = None
 
 try:
+    from app.services.query_splitter import get_query_splitter
+except ImportError:
+    get_query_splitter = None
+
+try:
     from app.services.text_preprocessor import get_text_preprocessor
 except ImportError:
     get_text_preprocessor = None
@@ -90,6 +95,42 @@ _GRADUATION_KEYWORDS = frozenset(
         "chuong trinh dao tao",
         "tot nghiep",
         "bao nhieu tin chi",
+    }
+)
+
+_CONSTRAINT_PREFIXES = (
+    "khong muon",
+    "khong duoc co",
+    "khong co",
+    "dung co",
+    "tranh",
+    "ngoai tru",
+    "tru",
+    "loai bo",
+    "bo",
+    "khong hoc",
+    "khong bao gom",
+    "without",
+    "exclude",
+    "thay vi",
+)
+
+_CONSTRAINT_KEYWORDS = frozenset(
+    {
+        "khong muon",
+        "khong duoc co",
+        "khong co",
+        "dung co",
+        "khong hoc",
+        "khong bao gom",
+        "ngoai tru",
+        "tranh",
+        "tru",
+        "loai bo",
+        "bo",
+        "thay vi",
+        "sau",
+        "truoc",
     }
 )
 
@@ -164,6 +205,57 @@ _PREFERRED_SUBJECT_REGEX = re.compile(
     re.IGNORECASE,
 )
 
+_CONSTRAINT_REGEX = re.compile(
+    r"(?:(?:tôi|toi)\s+)?(?:không\s+muốn|khong\s+muon|không\s+được\s+có|khong\s+duoc\s+co|không\s+có|khong\s+co|đừng\s+có|dung\s+co|tránh|tranh|ngoại\s+trừ|ngoai\s+tru|trừ|tru|loại\s+bỏ|loai\s+bo|bỏ|bo|không\s+học|khong\s+hoc|không\s+bao\s+gồm|khong\s+bao\s+gom|without|exclude|thay\s+vì|thay\s+vi)[^,;\.]*",
+    re.IGNORECASE,
+)
+
+_SEMANTIC_FRAME_INTENTS = frozenset(
+    {
+        "subject_registration_suggestion",
+        "class_registration_suggestion",
+        "grade_view",
+        "learned_subjects_view",
+        "schedule_view",
+        "subject_info",
+        "class_info",
+        "graduation_progress",
+    }
+)
+
+_DANGLING_CONNECTOR_REGEX = re.compile(r"(?:\bva\b|\bhoac\b|[,&])\s*$", re.IGNORECASE)
+_DAY_ALIASES = (
+    ("thu 2", "Monday"),
+    ("thu hai", "Monday"),
+    ("t2", "Monday"),
+    ("thu 3", "Tuesday"),
+    ("thu ba", "Tuesday"),
+    ("t3", "Tuesday"),
+    ("thu 4", "Wednesday"),
+    ("thu tu", "Wednesday"),
+    ("t4", "Wednesday"),
+    ("thu 5", "Thursday"),
+    ("thu nam", "Thursday"),
+    ("t5", "Thursday"),
+    ("thu 6", "Friday"),
+    ("thu sau", "Friday"),
+    ("t6", "Friday"),
+    ("thu 7", "Saturday"),
+    ("thu bay", "Saturday"),
+    ("t7", "Saturday"),
+    ("chu nhat", "Sunday"),
+    ("cn", "Sunday"),
+)
+
+_FAST_SPLIT_REGEX = re.compile(
+    r"\s*(?:,|;)?\s*(?:sau do|sau đó|dong thoi|đồng thời|tiep theo|tiếp theo|roi|rồi|va|và)\s+",
+    re.IGNORECASE,
+)
+_FAST_SPLIT_CONNECTOR_REGEX = re.compile(
+    r"(?:sau do|sau đó|dong thoi|đồng thời|tiep theo|tiếp theo|roi|rồi|va|và)",
+    re.IGNORECASE,
+)
+
 _llm_client: Optional[LLMClient] = None
 _tools_registry: Optional[ToolsRegistry] = None
 _tfidf_classifier = TfidfIntentClassifier() if TfidfIntentClassifier else None
@@ -176,6 +268,278 @@ def _normalize_text(text: str) -> str:
     normalized = unicodedata.normalize("NFD", normalized)
     normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
     return normalized.lower()
+
+
+def _clean_subject_token(value: str) -> str:
+    cleaned = _normalize_text(str(value or ""))
+
+    # Strip negative / command prefixes
+    cleaned = re.sub(
+        r"^(?:"
+        r"toi\s+|"
+        r"minh\s+|"
+        r"em\s+|"
+        r"muon\s+|"
+        r"khong\s+muon\s+|"
+        r"khong\s+duoc\s+co\s+|"
+        r"khong\s+co\s+|"
+        r"dung\s+co\s+|"
+        r"tranh\s+|"
+        r"ngoai\s+tru\s+|"
+        r"tru\s+|"
+        r"loai\s+bo\s+|"
+        r"bo\s+|"
+        r"khong\s+hoc\s+|"
+        r"khong\s+bao\s+gom\s+"
+        r")+",
+        "",
+        cleaned,
+    )
+
+    # Strip subject/class noun phrases
+    cleaned = re.sub(
+        r"^(?:"
+        r"hoc\s+mon|"
+        r"hoc\s+phan|"
+        r"mon\s+hoc|"
+        r"mon|"
+        r"lop"
+        r")\s+",
+        "",
+        cleaned,
+    )
+
+    return cleaned.strip(" ,.;")
+
+
+def _extract_day_constraints(text: str) -> List[str]:
+    normalized = _normalize_text(text)
+    days: List[str] = []
+    for alias, day in _DAY_ALIASES:
+        if alias in normalized and day not in days:
+            days.append(day)
+    return days
+
+
+def _extract_semester_constraint(text: str) -> Optional[str]:
+    normalized = _normalize_text(text)
+    if any(token in normalized for token in ("ky sau", "hoc ky sau", "ki sau", "hoc ki sau", "ky toi", "ky tiep theo")):
+        return "next"
+    if any(token in normalized for token in ("ky nay", "hoc ky nay", "ki nay", "hoc ki nay", "hien tai")):
+        return "current"
+    return None
+
+
+def _extract_forbidden_time_slots(text: str) -> List[str]:
+    normalized = _normalize_text(text)
+    slots: List[str] = []
+    negative_markers = ("khong", "tranh", "ngoai tru", "tru", "loai bo", "bo", "without", "exclude", "dung")
+
+    def _contains_negative(target: str) -> bool:
+        if target not in normalized:
+            return False
+        idx = normalized.find(target)
+        window = normalized[max(0, idx - 24): idx + len(target) + 24]
+        return any(marker in window for marker in negative_markers)
+
+    for token, slot in (("sang", "morning"), ("chieu", "afternoon"), ("toi", "evening")):
+        if _contains_negative(token) and slot not in slots:
+            slots.append(slot)
+    return slots
+
+
+def _extract_period_numbers(item: Dict[str, Any]) -> List[int]:
+    values = [
+        item.get("period"),
+        item.get("periods"),
+        item.get("study_period"),
+        item.get("study_periods"),
+        item.get("lesson_period"),
+        item.get("lesson_periods"),
+    ]
+    periods: List[int] = []
+    for value in values:
+        if value is None:
+            continue
+        for match in re.findall(r"\d+", str(value)):
+            try:
+                period = int(match)
+            except ValueError:
+                continue
+            if period not in periods:
+                periods.append(period)
+    return periods
+
+
+def _coerce_minutes(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    if hasattr(value, "hour") and hasattr(value, "minute"):
+        return int(value.hour) * 60 + int(value.minute)
+    match = re.search(r"(\d{1,2}):(\d{2})", str(value))
+    if not match:
+        return None
+    hour = int(match.group(1))
+    minute = int(match.group(2))
+    return hour * 60 + minute
+
+
+def _subject_matches_exclusion(item: Dict[str, Any], excluded: List[str]) -> bool:
+    if not isinstance(item, dict) or not excluded:
+        return False
+
+    fields = [
+        item.get("subject_id", ""),
+        item.get("subject_code", ""),
+        item.get("course_code", ""),
+        item.get("subject_name", ""),
+        item.get("course_name", ""),
+        item.get("name", ""),
+        item.get("title", ""),
+    ]
+    haystack = " ".join(_normalize_text(str(value)) for value in fields if value is not None)
+
+    for exc in excluded:
+        needle = _clean_subject_token(str(exc or ""))
+        if needle and needle in haystack:
+            return True
+    return False
+
+
+def _subject_matches_preference(item: Dict[str, Any], preferred: List[str]) -> bool:
+    return _subject_matches_exclusion(item, preferred)
+
+
+def _item_matches_forbidden_time_slot(item: Dict[str, Any], forbidden_slots: List[str]) -> bool:
+    if not isinstance(item, dict) or not forbidden_slots:
+        return False
+
+    periods = _extract_period_numbers(item)
+    start_minutes = _coerce_minutes(
+        item.get("study_time_start")
+        or item.get("time_start")
+        or item.get("start_time")
+    )
+
+    for slot in forbidden_slots:
+        normalized_slot = _normalize_text(slot).strip()
+        if normalized_slot == "morning":
+            if any(1 <= period <= 5 for period in periods):
+                return True
+            if start_minutes is not None and start_minutes < (10 * 60 + 31):
+                return True
+        elif normalized_slot == "afternoon":
+            if any(6 <= period <= 12 for period in periods):
+                return True
+            if start_minutes is not None and (10 * 60 + 30) <= start_minutes < (16 * 60 + 16):
+                return True
+        elif normalized_slot == "evening":
+            if any(period >= 13 for period in periods):
+                return True
+            if start_minutes is not None and start_minutes >= (16 * 60 + 15):
+                return True
+    return False
+
+
+def _item_matches_day_constraints(item: Dict[str, Any], days: List[str]) -> bool:
+    if not isinstance(item, dict) or not days:
+        return True
+
+    haystack = _normalize_text(
+        ",".join(
+            str(value)
+            for value in (
+                item.get("study_date"),
+                item.get("day"),
+                item.get("days"),
+            )
+            if value is not None
+        )
+    )
+    if not haystack:
+        return True
+
+    normalized_days = {_normalize_text(day) for day in days if day}
+    return any(day in haystack for day in normalized_days)
+
+
+def _has_actionable_constraints(constraints: Optional[Dict[str, Any]]) -> bool:
+    if not isinstance(constraints, dict):
+        return False
+
+    keys = (
+        "exclude_subjects",
+        "preferred_subjects",
+        "forbidden_time_slots",
+        "forbidden_times",
+        "days",
+    )
+    return any(bool(constraints.get(key)) for key in keys)
+
+
+def _merge_semantic_constraints(
+    constraints: Dict[str, Any],
+    frame_constraints: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    if not isinstance(frame_constraints, dict):
+        return constraints
+
+    for key in ("exclude_subjects", "preferred_subjects", "forbidden_time_slots", "forbidden_times", "days"):
+        value = frame_constraints.get(key)
+        if isinstance(value, list) and value:
+            existing = list(constraints.get(key) or [])
+            for item in value:
+                if item not in existing:
+                    existing.append(item)
+            constraints[key] = existing
+    return constraints
+
+
+async def _parse_semantic_frame_with_llm(seg: str) -> Optional[Dict[str, Any]]:
+    prompt = f"""
+Ban la semantic parser cho tro ly hoc vu.
+Tra ve JSON thuan, khong giai thich.
+
+Nhiem vu:
+- Tach clean_query khoi constraint.
+- Trich xuat intent_hint neu ro.
+- Trich xuat entities nhu semester.
+- Trich xuat constraints nhu exclude_subjects, preferred_subjects, forbidden_time_slots, days.
+
+Schema:
+{{
+  "clean_query": string,
+  "intent_hint": string | null,
+  "entities": {{
+    "semester": "current" | "next" | null
+  }},
+  "constraints": {{
+    "exclude_subjects": [],
+    "preferred_subjects": [],
+    "forbidden_time_slots": [],
+    "days": []
+  }}
+}}
+
+User query:
+{seg}
+"""
+
+    try:
+        llm = _get_llm()
+        res = await llm.generate(
+            prompt,
+            timeout=3.0,
+            max_tokens=160,
+            temperature=0.0,
+        )
+        parsed = safe_json_parse(res.get("text", "{}"))
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception as exc:
+        print(f"[SEMANTIC_FRAME] failed: {exc}")
+
+    return None
 
 
 def _get_llm() -> LLMClient:
@@ -223,6 +587,7 @@ async def _call_rule_based_backend(
             db=db,
             chatbot_service=chatbot_service,
             forced_intent=intent,
+            extracted_constraints=constraints,
         )
 
         result_data = result.data
@@ -244,10 +609,6 @@ async def _call_rule_based_backend(
         if preformatted_text:
             response_data["preformatted_text"] = preformatted_text
         for key in (
-            "question_type",
-            "question_options",
-            "conversation_state",
-            "is_preference_collecting",
             "requires_auth",
             "download_url",
             "excel_url",
@@ -256,6 +617,16 @@ async def _call_rule_based_backend(
         ):
             if isinstance(result.metadata, dict) and key in result.metadata:
                 response_data[key] = result.metadata.get(key)
+
+        if intent == "class_registration_suggestion":
+            for key in (
+                "question_type",
+                "question_options",
+                "conversation_state",
+                "is_preference_collecting",
+            ):
+                if isinstance(result.metadata, dict) and key in result.metadata:
+                    response_data[key] = result.metadata.get(key)
 
         if intent == "subject_registration_suggestion" and constraints:
             constrained_payload = chatbot_service.apply_subject_suggestion_constraints(response_data, constraints)
@@ -631,27 +1002,40 @@ def _build_formatted_response(raw: Any, intent: Optional[str], segment: Optional
     }
     if metadata is not None:
         formatted["metadata"] = metadata
+
+    common_format_keys = (
+        "requires_auth",
+        "rule_engine_used",
+        "intent",
+        "confidence",
+        "file_url",
+        "download_url",
+        "excel_url",
+        "xlsx_url",
+        "export_url",
+        "preformatted_text",
+    )
+    class_format_keys = (
+        "question_type",
+        "question_options",
+        "conversation_state",
+        "is_preference_collecting",
+    )
+
     for source in (payload if isinstance(payload, dict) else None, metadata if isinstance(metadata, dict) else None):
         if not isinstance(source, dict):
             continue
-        for key in (
-            "question_type",
-            "question_options",
-            "conversation_state",
-            "is_preference_collecting",
-            "requires_auth",
-            "rule_engine_used",
-            "intent",
-            "confidence",
-            "file_url",
-            "download_url",
-            "excel_url",
-            "xlsx_url",
-            "export_url",
-            "preformatted_text",
-        ):
+        for key in common_format_keys:
             if key in source and key not in formatted:
                 formatted[key] = source.get(key)
+        if intent == "class_registration_suggestion":
+            for key in class_format_keys:
+                if key in source and key not in formatted:
+                    formatted[key] = source.get(key)
+
+    if intent != "class_registration_suggestion":
+        for key in ("question_type", "question_options", "conversation_state", "is_preference_collecting"):
+            formatted.pop(key, None)
     return formatted
 
 
@@ -682,6 +1066,7 @@ def _strip_constraints(text: str) -> tuple[str, List[str]]:
     for phrase in phrases:
         clean = clean.replace(phrase, "")
     clean = re.sub(r"[,;\s]{2,}", " ", clean)
+    clean = re.sub(r"(?:\bvà\b|\bva\b|\bhoặc\b|\bhoac\b|[,&])\s*$", "", clean, flags=re.IGNORECASE).strip()
     clean = re.sub(r"^[,;\s]+|[,;\s]+$", "", clean).strip()
     return clean if clean else text, phrases
 
@@ -692,14 +1077,14 @@ def _extract_excluded_subjects(constraint_phrases: List[str]) -> List[str]:
     for phrase in constraint_phrases:
         normalized = _normalize_text(phrase)
         normalized = re.sub(
-            r"^(?:toi\s+)?(?:khong\s+muon|tranh|ngoai\s+tru|khong\s+hoc|thay\s+vi)\s*",
+            r"^(?:toi\s+)?(?:khong\s+muon|khong\s+duoc\s+co|khong\s+co|dung\s+co|tranh|ngoai\s+tru|tru|loai\s+bo|bo|khong\s+hoc|khong\s+bao\s+gom|without|exclude|thay\s+vi)\s*",
             "",
             normalized,
         ).strip(" ,.;")
         if not normalized:
             continue
         for part in re.split(r",|;|\s+va\s+|\s+hoac\s+", normalized):
-            cleaned = re.sub(r"^(?:mon|hoc phan|lop)\s+", "", part).strip()
+            cleaned = _clean_subject_token(part)
             if cleaned and cleaned not in seen:
                 seen.add(cleaned)
                 exclude_subjects.append(cleaned)
@@ -709,7 +1094,17 @@ def _extract_excluded_subjects(constraint_phrases: List[str]) -> List[str]:
 def _extract_preferred_subjects(text: str) -> List[str]:
     preferred_subjects: List[str] = []
     seen = set()
-    for phrase in _PREFERRED_SUBJECT_REGEX.findall(_normalize_text(text)):
+    normalized_text = _normalize_text(text)
+
+    for match in _PREFERRED_SUBJECT_REGEX.finditer(normalized_text):
+        start = match.start()
+        prefix_window = normalized_text[max(0, start - 16):start]
+
+        # Guard: "khong muon hoc ..." is exclusion, not preference
+        if "khong" in prefix_window or "ko" in prefix_window:
+            continue
+
+        phrase = match.group(0)
         normalized = re.sub(
             r"^(?:toi\s+)?(?:muon\s+hoc|muon\s+dang\s+ky|uu\s+tien\s+hoc|uu\s+tien)\s+(?:mon|hoc\s+phan)\s*",
             "",
@@ -718,11 +1113,67 @@ def _extract_preferred_subjects(text: str) -> List[str]:
         if not normalized:
             continue
         for part in re.split(r",|;|\s+va\s+|\s+hoac\s+", normalized):
-            cleaned = re.sub(r"^(?:mon|hoc phan|lop)\s+", "", part).strip()
+            cleaned = _clean_subject_token(part)
             if cleaned and cleaned not in seen:
                 seen.add(cleaned)
                 preferred_subjects.append(cleaned)
     return preferred_subjects
+
+
+def _looks_like_registration_request_with_preferences(text: str) -> bool:
+    normalized = _normalize_text(text)
+
+    has_registration_intent = any(
+        token in normalized
+        for token in (
+            "dang ky hoc phan",
+            "nen dang ky hoc phan",
+            "hoc phan nao",
+            "nen hoc mon",
+            "nen hoc hoc phan",
+            "goi y mon",
+            "tu van mon",
+            "dang ky mon",
+            "dang ky lop",
+            "nen dang ky lop",
+            "lop nao",
+            "goi y lop",
+            "lop nao phu hop",
+        )
+    )
+
+    has_preference_or_constraint_clause = any(
+        token in normalized
+        for token in (
+            "toi muon hoc",
+            "muon hoc",
+            "muon dang ky",
+            "uu tien",
+            "thich",
+            "mong muon",
+            "buoi sang",
+            "buoi chieu",
+            "buoi toi",
+            "hoc sang",
+            "hoc chieu",
+            "hoc toi",
+            "giao vien",
+            "giang vien",
+            "khong muon",
+            "khong duoc co",
+            "khong co",
+            "khong hoc",
+            "khong thich",
+            "tranh",
+            "ngoai tru",
+            "tru",
+            "loai bo",
+            "bo qua",
+            "khong bao gom",
+        )
+    )
+
+    return has_registration_intent and has_preference_or_constraint_clause
 
 
 def _should_force_class_info(clean_query: str) -> bool:
@@ -777,17 +1228,73 @@ def _should_use_agent(state: AgentState, intent: str, is_complex: bool) -> bool:
     return True
 
 
+def _empty_constraints() -> Dict[str, Any]:
+    return {}
+
+
+def _build_subject_registration_constraints(
+    original_text: str,
+    constraint_phrases: List[str],
+) -> Dict[str, Any]:
+    return {
+        "constraint_phrases": constraint_phrases,
+        "exclude_subjects": _extract_excluded_subjects(constraint_phrases) if constraint_phrases else [],
+        "preferred_subjects": _extract_preferred_subjects(original_text),
+    }
+
+
+def _build_class_registration_constraints(original_text: str) -> Dict[str, Any]:
+    return {
+        "forbidden_time_slots": _extract_forbidden_time_slots(original_text),
+        "days": _extract_day_constraints(original_text),
+        "semester": _extract_semester_constraint(original_text),
+    }
+
+
+def _build_constraints_for_intent(
+    intent: str,
+    original_text: str,
+    constraint_phrases: List[str],
+) -> Dict[str, Any]:
+    if intent == "subject_registration_suggestion":
+        return _build_subject_registration_constraints(original_text, constraint_phrases)
+    if intent == "class_registration_suggestion":
+        return _build_class_registration_constraints(original_text)
+    return _empty_constraints()
+
+
 async def query_splitter_node(state: AgentState) -> Dict[str, Any]:
     text = state.get("user_text", "")
+
+    if _looks_like_registration_request_with_preferences(text):
+        print("[NODE1] preference_constraint_guard -> 1 segment")
+        return {
+            "segments": _sanitize_segments([text]),
+            "node_trace": ["query_splitter_node", "preference_constraint_guard"],
+        }
+
     if _is_simple_single_query(text):
         return {"segments": _sanitize_segments([text]), "node_trace": ["query_splitter_node"]}
+
+    if get_query_splitter is not None:
+        try:
+            semantic_parts = get_query_splitter().split(text)
+            semantic_segments = [part.text for part in semantic_parts if getattr(part, "text", "").strip()]
+            if len(semantic_segments) > 1:
+                print(f"[NODE1] semantic_split={len(semantic_segments)}")
+                return {
+                    "segments": _sanitize_segments(semantic_segments),
+                    "node_trace": ["query_splitter_node", "semantic_query_splitter"],
+                }
+        except Exception as exc:
+            print(f"[NODE1] semantic splitter failed: {exc}")
 
     regex_segments, has_connector, uncertain = _regex_split_segments(text)
     if has_connector and len(regex_segments) >= 2 and not uncertain:
         print(f"[NODE1] fast_regex_split={len(regex_segments)}")
         return {"segments": _sanitize_segments(regex_segments), "node_trace": ["query_splitter_node"]}
 
-    if has_connector:
+    if has_connector and not uncertain:
         fallback_segments = regex_segments
     else:
         fallback_segments = [text]
@@ -813,118 +1320,103 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
     seg = state.get("segments")[state.get("current_segment_index", 0)]
     seg = _strip_leading_social_clause(seg)
     clean_query, constraint_phrases = _strip_constraints(seg)
-    constraints: Dict[str, Any] = {
-        "constraint_phrases": constraint_phrases,
-        "exclude_subjects": _extract_excluded_subjects(constraint_phrases) if constraint_phrases else [],
-        "preferred_subjects": _extract_preferred_subjects(seg),
-        "forbidden_time_slots": [],
-        "forbidden_times": [],
-        "semester": None,
-        "days": [],
-    }
     is_complex = bool(constraint_phrases) or _is_complex_query(seg)
     lower_clean_query = _normalize_text(clean_query)
     is_single_segment = len(state.get("segments", []) or []) <= 1
 
-    forced_intent = _pick_rule_based_intent(clean_query)
-    if forced_intent:
-        intent, confidence, source = forced_intent
-        return {
+    def _build_result(
+        intent: str,
+        confidence: float,
+        source: str,
+        *,
+        force_complex: Optional[bool] = None,
+        force_fallback: bool = False,
+    ) -> Dict[str, Any]:
+        effective_complex = is_complex if force_complex is None else force_complex
+        scoped_constraints = _build_constraints_for_intent(intent, seg, constraint_phrases)
+
+        if intent == "subject_registration_suggestion":
+            needs_agent_filter = bool(
+                scoped_constraints.get("exclude_subjects")
+                or scoped_constraints.get("preferred_subjects")
+            )
+            needs_agent = needs_agent_filter or _should_use_agent(state, intent, effective_complex)
+        elif intent == "class_registration_suggestion":
+            needs_agent_filter = False
+            needs_agent = _should_use_agent(state, intent, effective_complex)
+        elif intent in _SOCIAL_INTENTS:
+            needs_agent = False
+            needs_agent_filter = False
+        else:
+            needs_agent = False if is_single_segment else _should_use_agent(state, intent, effective_complex)
+            needs_agent_filter = False
+            scoped_constraints = {}
+
+        result = {
             "intent": intent,
             "confidence": confidence,
             "intent_source": source,
-            "is_complex": is_complex,
-            "needs_agent": False,
-            "constraints": constraints,
+            "is_complex": effective_complex,
+            "needs_agent": needs_agent,
+            "needs_agent_filter": needs_agent_filter,
+            "constraints": scoped_constraints,
             "clean_query": clean_query,
             "node_trace": ["intent_router_node"],
         }
+        if force_fallback:
+            result["reasoning_fallback"] = True
+        return result
+
+    forced_intent = _pick_rule_based_intent(clean_query)
+    if forced_intent:
+        intent, confidence, source = forced_intent
+        print(
+            f"[INTENT] clean_query={clean_query} "
+            f"constraints={_build_constraints_for_intent(intent, seg, constraint_phrases)} source={source}"
+        )
+        return _build_result(intent, confidence, source)
 
     if constraint_phrases and any(keyword in lower_clean_query for keyword in _SUBJECT_REGISTRATION_BIAS_KEYWORDS):
-        return {
-            "intent": "subject_registration_suggestion",
-            "confidence": 0.95,
-            "intent_source": "keyword_bias",
-            "is_complex": True,
-            "needs_agent": False,
-            "constraints": constraints,
-            "clean_query": clean_query,
-            "node_trace": ["intent_router_node"],
-        }
+        print(
+            f"[INTENT] clean_query={clean_query} "
+            f"constraints={_build_constraints_for_intent('subject_registration_suggestion', seg, constraint_phrases)} "
+            f"source=keyword_bias"
+        )
+        return _build_result("subject_registration_suggestion", 0.95, "keyword_bias", force_complex=True)
 
-    if constraints.get("preferred_subjects") and any(keyword in lower_clean_query for keyword in ("muon hoc", "muon dang ky", "uu tien")):
-        return {
-            "intent": "subject_registration_suggestion",
-            "confidence": 0.95,
-            "intent_source": "constraint_bias",
-            "is_complex": True,
-            "needs_agent": True,
-            "constraints": constraints,
-            "clean_query": clean_query,
-            "node_trace": ["intent_router_node"],
-        }
+    subject_constraints = _build_subject_registration_constraints(seg, constraint_phrases)
+    if subject_constraints.get("preferred_subjects") and any(keyword in lower_clean_query for keyword in ("muon hoc", "muon dang ky", "uu tien")):
+        print(f"[INTENT] clean_query={clean_query} constraints={subject_constraints} source=constraint_bias")
+        return _build_result("subject_registration_suggestion", 0.95, "constraint_bias", force_complex=True)
 
     if any(keyword in lower_clean_query for keyword in _CLASS_REGISTRATION_BIAS_KEYWORDS):
-        return {
-            "intent": "class_registration_suggestion",
-            "confidence": 0.97,
-            "intent_source": "keyword_bias",
-            "is_complex": is_complex,
-            "needs_agent": False,
-            "constraints": constraints,
-            "clean_query": clean_query,
-            "node_trace": ["intent_router_node"],
-        }
+        print(
+            f"[INTENT] clean_query={clean_query} "
+            f"constraints={_build_constraints_for_intent('class_registration_suggestion', seg, constraint_phrases)} "
+            f"source=keyword_bias"
+        )
+        return _build_result("class_registration_suggestion", 0.97, "keyword_bias")
 
     if any(keyword in lower_clean_query for keyword in _GRADUATION_KEYWORDS):
-        needs_agent = _should_use_agent(state, "graduation_progress", is_complex)
-        return {
-            "intent": "graduation_progress",
-            "confidence": 0.95,
-            "intent_source": "keyword",
-            "is_complex": is_complex,
-            "needs_agent": needs_agent,
-            "constraints": constraints,
-            "clean_query": clean_query,
-            "node_trace": ["intent_router_node"],
-        }
+        print(f"[INTENT] clean_query={clean_query} constraints={{}} source=keyword")
+        return _build_result("graduation_progress", 0.95, "keyword")
 
     if _should_force_class_info(clean_query):
-        return {
-            "intent": "class_info",
-            "confidence": 0.96,
-            "intent_source": "keyword",
-            "is_complex": is_complex,
-            "needs_agent": False,
-            "constraints": constraints,
-            "clean_query": clean_query,
-            "node_trace": ["intent_router_node"],
-        }
+        print(f"[INTENT] clean_query={clean_query} constraints={{}} source=keyword")
+        return _build_result("class_info", 0.96, "keyword")
 
     if _should_force_subject_info(clean_query):
-        return {
-            "intent": "subject_info",
-            "confidence": 0.95,
-            "intent_source": "keyword",
-            "is_complex": is_complex,
-            "needs_agent": False,
-            "constraints": constraints,
-            "clean_query": clean_query,
-            "node_trace": ["intent_router_node"],
-        }
+        print(f"[INTENT] clean_query={clean_query} constraints={{}} source=keyword")
+        return _build_result("subject_info", 0.95, "keyword")
 
     has_reg = "dang ky" in lower_clean_query or "register" in lower_clean_query
     if has_reg and is_complex:
-        return {
-            "intent": "subject_registration_suggestion",
-            "confidence": 0.95,
-            "intent_source": "bias",
-            "is_complex": True,
-            "needs_agent": True,
-            "constraints": constraints,
-            "clean_query": clean_query,
-            "node_trace": ["intent_router_node"],
-        }
+        print(
+            f"[INTENT] clean_query={clean_query} "
+            f"constraints={_build_constraints_for_intent('subject_registration_suggestion', seg, constraint_phrases)} "
+            f"source=bias"
+        )
+        return _build_result("subject_registration_suggestion", 0.95, "bias", force_complex=True)
 
     intent = "unknown"
     confidence = 0.0
@@ -935,21 +1427,18 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
             intent = tfidf_res.get("intent", "unknown")
             confidence = float(tfidf_res.get("confidence_score", 0.0))
             if confidence >= INTENT_CONF_THRESHOLD:
-                needs_agent = False if is_single_segment and confidence >= TFIDF_RULE_CONF_THRESHOLD else _should_use_agent(state, intent, is_complex)
-                return {
-                    "intent": intent,
-                    "confidence": confidence,
-                    "intent_source": "tfidf",
-                    "is_complex": is_complex,
-                    "needs_agent": needs_agent,
-                    "constraints": constraints,
-                    "clean_query": clean_query,
-                    "node_trace": ["intent_router_node"],
-                }
+                tfidf_result = _build_result(intent, confidence, "tfidf")
+                if intent not in ("subject_registration_suggestion", "class_registration_suggestion") and is_single_segment and confidence >= TFIDF_RULE_CONF_THRESHOLD:
+                    tfidf_result["needs_agent"] = False
+                print(
+                    f"[INTENT] clean_query={clean_query} "
+                    f"constraints={_build_constraints_for_intent(intent, seg, constraint_phrases)} source=tfidf"
+                )
+                return tfidf_result
         except Exception as exc:
             print(f"[NODE2] TF-IDF failed: {exc}")
 
-    should_call_llm = bool(clean_query) and (is_complex or intent in ("unknown", "out_of_scope") or confidence < INTENT_CONF_THRESHOLD)
+    should_call_llm = bool(clean_query) and (intent in ("unknown", "out_of_scope") or confidence < INTENT_CONF_THRESHOLD)
     if should_call_llm:
         try:
             llm = _get_llm()
@@ -962,35 +1451,24 @@ async def intent_router_node(state: AgentState) -> Dict[str, Any]:
             )
             intent = llm_res.get("intent", "unknown")
             confidence = float(llm_res.get("confidence", 0.0))
-            needs_agent = _should_use_agent(state, intent, is_complex)
-            return {
-                "intent": intent,
-                "confidence": confidence,
-                "intent_source": "openai",
-                "is_complex": is_complex,
-                "needs_agent": needs_agent,
-                "constraints": constraints,
-                "clean_query": clean_query,
-                "node_trace": ["intent_router_node"],
-            }
+            print(
+                f"[INTENT] clean_query={clean_query} "
+                f"constraints={_build_constraints_for_intent(intent, seg, constraint_phrases)} source=openai"
+            )
+            return _build_result(intent, confidence, "openai")
         except Exception as exc:
             print(f"[NODE2] OpenAI classify failed: {exc}")
 
-    return {
-        "intent": intent,
-        "confidence": confidence,
-        "intent_source": "fallback",
-        "is_complex": is_complex,
-        "needs_agent": False,
-        "constraints": constraints,
-        "clean_query": clean_query,
-        "reasoning_fallback": True,
-        "node_trace": ["intent_router_node"],
-    }
+    print(f"[INTENT] clean_query={clean_query} constraints={{}} source=fallback")
+    return _build_result(intent, confidence, "fallback", force_fallback=True)
 
 
 def constraint_parser_node(state: AgentState) -> Dict[str, Any]:
+    intent = state.get("intent")
     constraints = state.get("constraints", {})
+    if intent != "subject_registration_suggestion":
+        return {"constraints": constraints, "node_trace": ["constraint_parser_node"]}
+
     phrases = constraints.get("constraint_phrases") or []
     if phrases:
         constraints["exclude_subjects"] = _extract_excluded_subjects(phrases)
@@ -1001,9 +1479,15 @@ async def tool_executor_node(state: AgentState) -> Dict[str, Any]:
     seg = state.get("segments", [""])[state.get("current_segment_index", 0)]
     intent = state.get("intent", "unknown")
     raw_data = {"message": "No tool mapped", "items": []}
-    needs_agent_filter = (intent in _NODE3B_INTENTS) or bool(
-        state.get("constraints", {}).get("exclude_subjects")
+    constraints = state.get("constraints") or {}
+    needs_agent_filter = (
+        intent == "subject_registration_suggestion"
+        and bool(
+            constraints.get("exclude_subjects")
+            or constraints.get("preferred_subjects")
+        )
     )
+    constraints_for_backend = constraints if intent in ("subject_registration_suggestion", "class_registration_suggestion") else None
     query = state.get("clean_query", seg)
     student_id = state.get("student_id")
     conversation_id = state.get("conversation_id")
@@ -1023,7 +1507,7 @@ async def tool_executor_node(state: AgentState) -> Dict[str, Any]:
                     query=query,
                     student_id=student_id,
                     conversation_id=conversation_id,
-                    constraints=state.get("constraints"),
+                    constraints=constraints_for_backend,
                 ),
                 timeout=TOOL_EXECUTION_TIMEOUT,
             )
@@ -1045,6 +1529,13 @@ async def tool_executor_node(state: AgentState) -> Dict[str, Any]:
 
 
 def agent_filter_node(state: AgentState) -> Dict[str, Any]:
+    intent = state.get("intent")
+    if intent != "subject_registration_suggestion":
+        return {
+            "filtered_data": state.get("raw_data"),
+            "node_trace": ["agent_filter_node:skipped_non_subject"],
+        }
+
     raw_data = state.get("raw_data")
     constraints = state.get("constraints", {})
     excluded = constraints.get("exclude_subjects", [])
@@ -1060,19 +1551,21 @@ def agent_filter_node(state: AgentState) -> Dict[str, Any]:
         filtered_rows = [
             item
             for item in rows
-            if not any(exc in _normalize_text(str(item.get("subject_name", ""))) for exc in excluded)
+            if not _subject_matches_exclusion(item, excluded)
         ]
         rows = filtered_rows
 
     if preferred and rows is not None:
         preferred_rows = [
-            item for item in rows
-            if any(term in _normalize_text(str(item.get("subject_name", ""))) or term in _normalize_text(str(item.get("subject_id", ""))) for term in preferred)
+            item
+            for item in rows
+            if _subject_matches_preference(item, preferred)
         ]
         remaining_rows = [item for item in rows if item not in preferred_rows]
         rows = preferred_rows + remaining_rows
 
     if rows is not None:
+        print(f"[FILTER] before={len(payload.get('data', []))} after={len(rows)} excluded={excluded}")
         payload["data"] = rows
         if isinstance(raw_data, dict) and "status" in raw_data and "data" in raw_data:
             raw_data["data"] = payload

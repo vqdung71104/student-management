@@ -1,6 +1,7 @@
 from app.schemas.preference_schema import CompletePreference
 from app.services.preference_service import PreferenceCollectionService
 from app.services.schedule_combination_service import ScheduleCombinationGenerator
+from app.services.chatbot_service import ChatbotService
 
 
 def test_day_parser_accepts_typo_and_compact_numbers():
@@ -218,4 +219,19 @@ def test_specific_parser_rejects_unparseable_response():
     assert updated.specific.preferred_teachers == []
     assert updated.specific.specific_class_ids == []
     assert updated.specific.specific_times is None
-    assert "specific" in updated.get_missing_preferences()
+
+
+def test_merge_constraints_into_preferences_marks_time_answered():
+    service = ChatbotService.__new__(ChatbotService)
+    prefs = CompletePreference()
+
+    captured = service._merge_constraints_into_preferences(
+        preferences=prefs,
+        constraints_dict={"forbidden_time_slots": ["morning"]},
+    )
+
+    assert "time" in captured
+    assert prefs.time.avoid_time_periods == ["morning"]
+    assert prefs.time.has_answer is True
+    assert "time" not in prefs.get_missing_preferences()
+    assert "specific" in prefs.get_missing_preferences()

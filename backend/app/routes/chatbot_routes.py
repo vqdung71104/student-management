@@ -4,6 +4,7 @@ Chatbot Routes - API endpoints cho chatbot with NL2SQL and Rule Engine
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 import asyncio
+import unicodedata
 from typing import Any, Dict, List, Optional
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
@@ -52,6 +53,97 @@ def _get_agent_orchestrator() -> AgentOrchestrator:
     if _agent_orchestrator is None:
         _agent_orchestrator = AgentOrchestrator()
     return _agent_orchestrator
+
+
+def _normalize_text(text: str) -> str:
+    normalized = str(text or "").replace("đ", "d").replace("Đ", "D")
+    normalized = unicodedata.normalize("NFD", normalized)
+    normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+    return normalized.lower()
+
+
+def _fast_fallback_intent(text: str) -> str:
+    normalized = _normalize_text(text)
+
+    if any(token in normalized for token in (
+        "cpa",
+        "gpa",
+        "diem tong ket",
+        "diem trung binh",
+        "diem tich luy",
+    )):
+        return "grade_view"
+
+    if any(token in normalized for token in (
+        "dang ky lop",
+        "nen dang ky lop",
+        "goi y lop",
+        "lop nao",
+        "lop nao phu hop",
+    )):
+        return "class_registration_suggestion"
+
+    if any(token in normalized for token in (
+        "dang ky hoc phan",
+        "nen dang ky hoc phan",
+        "hoc phan nao",
+        "nen hoc mon",
+        "goi y mon",
+        "tu van mon",
+        "dang ky mon",
+    )):
+        return "subject_registration_suggestion"
+
+    if any(token in normalized for token in (
+        "diem mon",
+        "diem hoc phan",
+        "ket qua mon",
+        "mon da hoc",
+        "mon truot",
+        "mon rot",
+    )):
+        return "learned_subjects_view"
+
+    if any(token in normalized for token in (
+        "thong tin sinh vien",
+        "ma sinh vien",
+        "lop sinh hoat",
+    )):
+        return "student_info"
+
+    if any(token in normalized for token in (
+        "thong tin mon",
+        "thong tin hoc phan",
+        "mon ",
+        "hoc phan ",
+    )):
+        return "subject_info"
+
+    return "unknown"
+
+
+async def _run_fast_rule_fallback(
+    *,
+    normalized_text: str,
+    student_id: Optional[int],
+    conversation_id: Optional[int],
+    db: Session,
+    chatbot_service: ChatbotService,
+    extracted_constraints: Optional[Dict[str, Any]] = None,
+) -> ChatResponseWithData:
+    fallback_intent = _fast_fallback_intent(normalized_text)
+    print(f"[AGENT_FALLBACK] fast_intent={fallback_intent}")
+
+    forced_intent = fallback_intent if fallback_intent != "unknown" else None
+    return await _process_single_query(
+        normalized_text=normalized_text,
+        student_id=student_id,
+        conversation_id=conversation_id,
+        db=db,
+        chatbot_service=chatbot_service,
+        forced_intent=forced_intent,
+        extracted_constraints=extracted_constraints,
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -422,6 +514,7 @@ async def _process_single_query(
     db: Session,
     chatbot_service: ChatbotService,
     forced_intent: Optional[str] = None,
+    extracted_constraints: Optional[Dict[str, Any]] = None,
 ) -> ChatResponseWithData:
     """Process one normalized sub-query and return ChatResponseWithData."""
 
@@ -488,6 +581,7 @@ async def _process_single_query(
                 student_id=student_id,
                 question=normalized_text,
                 conversation_id=conversation_id,
+                extracted_constraints=extracted_constraints,
             )
 
         result_data = result.get("data")
@@ -755,10 +849,10 @@ async def _process_single_query(
                 try:
                     result_rows = await asyncio.wait_for(
                         asyncio.to_thread(lambda: db.execute(text(sql_query))),
-                        timeout=10.0,
+                        timeout=40.0,
                     )
                 except asyncio.TimeoutError:
-                    sql_error = "Query execution timed out after 10 seconds"
+                    sql_error = "Query execution timed out after 40 seconds"
                     print(f"⚠️ SQL timeout: {sql_error}")
                     result_rows = None
 
@@ -1240,8 +1334,8 @@ async def chat(
                 _traceback.print_exc()
                 print(f"[EXEC][{request_trace_id}] path=AGENT_FAIL_FALLBACK reason={error_reason}")
 
-                # Rule-base fallback via _process_single_query
-                response_payload = await _process_single_query(
+                # Rule-base fallback via fast intent guard (avoid wrong default intent)
+                response_payload = await _run_fast_rule_fallback(
                     normalized_text=normalized_message,
                     student_id=effective_student_id,
                     conversation_id=effective_conversation_id,
@@ -1690,7 +1784,7 @@ async def chat_stream(
                             stream_debug["mode"] = "agent_failed_fallback"
                             stream_debug["route"] = "agent_orchestrator"
                             stream_debug["fallback_reason"] = error_reason
-                            response_payload = await _process_single_query(
+                            response_payload = await _run_fast_rule_fallback(
                                 normalized_text=normalized_message,
                                 student_id=effective_student_id,
                                 conversation_id=effective_conversation_id,
