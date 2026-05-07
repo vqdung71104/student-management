@@ -705,6 +705,15 @@ class SubjectSuggestionRuleEngine:
         
         for subject in subjects:
             subject_id = subject['subject_id']
+            credits = subject.get('credits')
+            try:
+                credits_value = float(credits)
+            except (TypeError, ValueError):
+                credits_value = 0.0
+
+            # Không áp dụng học cải thiện cho môn 0 tín chỉ.
+            if credits_value <= 0:
+                continue
             
             if subject_id in completed:
                 grade = completed[subject_id]['grade']

@@ -394,6 +394,7 @@ export const renameConversation = async (
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({
       student_id: studentId,
@@ -418,7 +419,12 @@ export const deleteConversation = async (
 
   const response = await fetch(
     `${API_BASE_URL}/chatbot/conversations/${conversationId}?${query.toString()}`,
-    { method: 'DELETE' }
+    {
+      method: 'DELETE',
+      headers: {
+        ...getAuthHeaders(),
+      },
+    }
   );
 
   if (!response.ok) {

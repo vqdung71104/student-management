@@ -144,9 +144,9 @@ class _RedisRateLimiter:
 # ──────────────────────────────────────────────────────────────────────────────
 
 RATE_LIMIT_TIERS = [
-    ("per_minute", 5,   60),      # 5 requests / 60 seconds
-    ("per_hour",   20,  3600),    # 20 requests / 3600 seconds (1 hour)
-    ("per_day",    50,  86400),   # 50 requests / 86400 seconds (1 day)
+    ("per_minute", 15,   60),      # 15 requests / 60 seconds
+    ("per_hour",   200,  3600),    # 200 requests / 3600 seconds (1 hour)
+    ("per_day",    300,  86400),   # 300 requests / 86400 seconds (1 day)
 ]
 
 
@@ -181,14 +181,14 @@ class RateLimitExceeded(HTTPException):
 def _get_tiers() -> List[Tuple[str, int, int]]:
     """
     Build the active rate-limit tiers from environment variables.
-    Format: RATE_LIMIT_PER_MINUTE=5, RATE_LIMIT_PER_HOUR=20, RATE_LIMIT_PER_DAY=50
+    Format: RATE_LIMIT_PER_MINUTE=15, RATE_LIMIT_PER_HOUR=200, RATE_LIMIT_PER_DAY=300
     Set to 0 to disable a specific tier.
     """
     tiers: List[Tuple[str, int, int]] = []
     env_map = {
-        "per_minute": ("RATE_LIMIT_PER_MINUTE", 5, 60),
-        "per_hour":   ("RATE_LIMIT_PER_HOUR",   20, 3600),
-        "per_day":    ("RATE_LIMIT_PER_DAY",     50, 86400),
+        "per_minute": ("RATE_LIMIT_PER_MINUTE", 15, 60),
+        "per_hour":   ("RATE_LIMIT_PER_HOUR",   200, 3600),
+        "per_day":    ("RATE_LIMIT_PER_DAY",     300, 86400),
     }
     for tier_name, (env_var, default_limit, window) in env_map.items():
         import os
@@ -224,7 +224,7 @@ def rate_limit(
 
     Args:
         limit:   Max requests allowed within `window` seconds.
-                 If None, reads from env var RATE_LIMIT_PER_MINUTE (default 5).
+                 If None, reads from env var RATE_LIMIT_PER_MINUTE (default 15).
         window:  Window size in seconds.
                  If None, reads from env var RATE_LIMIT_PER_MINUTE_WINDOW (default 60).
         key_func: Callable that receives the same kwargs as the decorated function
@@ -244,7 +244,7 @@ def rate_limit(
     _limit = (
         limit
         if limit is not None
-        else int(os.getenv("RATE_LIMIT_PER_MINUTE", "5"))
+        else int(os.getenv("RATE_LIMIT_PER_MINUTE", "15"))
     )
     _window = (
         window
