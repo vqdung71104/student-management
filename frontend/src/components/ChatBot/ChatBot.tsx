@@ -1,7 +1,7 @@
 /**
  * ChatBot Component - Messenger-style Chat Interface
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   sendMessage,
   sendMessageStream,
@@ -94,6 +94,11 @@ const ChatBot: React.FC = () => {
     y: number;
     conversation: ChatConversation;
   } | null>(null);
+  const [editingConversationId, setEditingConversationId] = useState<number | null>(null);
+  const [editingConversationTitle, setEditingConversationTitle] = useState('');
+  const [renameError, setRenameError] = useState('');
+  const [deleteTargetConversation, setDeleteTargetConversation] = useState<ChatConversation | null>(null);
+  const [deleteConversationLoading, setDeleteConversationLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingStatus, setStreamingStatus] = useState<string>('');
@@ -105,18 +110,50 @@ const ChatBot: React.FC = () => {
     classKey: string;
     classInfo: any;
   } | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
+  const pendingScrollRestoreRef = useRef<{ scrollTop: number; scrollHeight: number } | null>(null);
+  const shouldStickToBottomRef = useRef(true);
+  const isSavingRenameRef = useRef(false);
 
-  // Auto scroll to bottom when new message added
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const updateScrollStickiness = () => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 120;
   };
 
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) {
+      return;
+    }
+
+    if (pendingScrollRestoreRef.current) {
+      const { scrollTop, scrollHeight } = pendingScrollRestoreRef.current;
+      const heightDelta = container.scrollHeight - scrollHeight;
+      container.scrollTop = scrollTop + heightDelta;
+      pendingScrollRestoreRef.current = null;
+      updateScrollStickiness();
+      return;
+    }
+
+    if (shouldStickToBottomRef.current) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (editingConversationId !== null) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [editingConversationId]);
 
   // Auto-resize textarea
   useEffect(() => {
@@ -159,6 +196,20 @@ const ChatBot: React.FC = () => {
 
     const result = await getConversationMessages(conversationId, userInfo.id, page, 20);
     const loaded = mapHistoryMessages(result.items);
+
+    if (appendOlder) {
+      const container = messagesContainerRef.current;
+      if (container) {
+        pendingScrollRestoreRef.current = {
+          scrollTop: container.scrollTop,
+          scrollHeight: container.scrollHeight,
+        };
+      }
+      shouldStickToBottomRef.current = false;
+    } else {
+      pendingScrollRestoreRef.current = null;
+      shouldStickToBottomRef.current = true;
+    }
 
     setMessages((prev) => {
       if (appendOlder) {
@@ -238,6 +289,7 @@ const ChatBot: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    shouldStickToBottomRef.current = true;
     setInputValue('');
     setIsLoading(true);
     setStreamingStatus('Đang gửi câu hỏi...');
@@ -1027,6 +1079,9 @@ const ChatBot: React.FC = () => {
       return;
     }
 
+    setEditingConversationId(null);
+    setEditingConversationTitle('');
+    setRenameError('');
     setActiveConversationId(null);
     setMessagesPage(1);
     setHasOlderMessages(false);
@@ -1041,6 +1096,9 @@ const ChatBot: React.FC = () => {
       return;
     }
     try {
+      setEditingConversationId(null);
+      setEditingConversationTitle('');
+      setRenameError('');
       await loadConversation(conversationId);
       setIsHistoryOpen(false);
     } catch (error) {
@@ -1048,47 +1106,107 @@ const ChatBot: React.FC = () => {
     }
   };
 
-  const handleDeleteConversation = async (conversationId?: number) => {
-    const targetConversationId = conversationId ?? activeConversationId;
-    if (!userInfo?.id || !targetConversationId || isLoading) {
+  const startRenameConversation = (conversation: ChatConversation) => {
+    if (isLoading) {
       return;
     }
 
-    const confirmed = window.confirm('Bạn có chắc muốn xóa toàn bộ cuộc trò chuyện này không?');
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      await deleteConversation(targetConversationId, userInfo.id);
-      setContextMenu(null);
-      await refreshConversations(targetConversationId === activeConversationId ? undefined : activeConversationId ?? undefined);
-    } catch (error) {
-      console.error('Error deleting conversation:', error);
-    }
+    setContextMenu(null);
+    setDeleteTargetConversation(null);
+    setEditingConversationId(conversation.id);
+    setEditingConversationTitle(conversation.title || `Conversation #${conversation.id}`);
+    setRenameError('');
   };
 
-  const handleRenameConversation = async (conversationId?: number) => {
-    const targetConversationId = conversationId ?? activeConversationId;
-    if (!userInfo?.id || !targetConversationId || isLoading) {
+  const cancelRenameConversation = () => {
+    if (isSavingRenameRef.current) {
       return;
     }
 
-    const currentConversation = conversations.find((conversation) => conversation.id === targetConversationId);
-    const nextTitle = window.prompt('Nhập tên mới cho cuộc trò chuyện', currentConversation?.title || '');
+    setEditingConversationId(null);
+    setEditingConversationTitle('');
+    setRenameError('');
+  };
 
-    if (!nextTitle || !nextTitle.trim()) {
+  const saveRenameConversation = async () => {
+    if (!userInfo?.id || editingConversationId === null || isLoading) {
       return;
     }
+
+    const nextTitle = editingConversationTitle.trim();
+    if (!nextTitle) {
+      setRenameError('Tên cuộc trò chuyện không được để trống.');
+      renameInputRef.current?.focus();
+      return;
+    }
+
+    const currentConversation = conversations.find((conversation) => conversation.id === editingConversationId);
+    if (currentConversation && (currentConversation.title || `Conversation #${currentConversation.id}`) === nextTitle) {
+      cancelRenameConversation();
+      return;
+    }
+
+    isSavingRenameRef.current = true;
+    setRenameError('');
 
     try {
-      const updated = await renameConversation(targetConversationId, userInfo.id, nextTitle.trim());
+      const updated = await renameConversation(editingConversationId, userInfo.id, nextTitle);
       setConversations((prev) => prev.map((conversation) => (
         conversation.id === updated.id ? updated : conversation
       )));
-      setContextMenu(null);
+      setEditingConversationId(null);
+      setEditingConversationTitle('');
     } catch (error) {
       console.error('Error renaming conversation:', error);
+      setRenameError('Không thể đổi tên cuộc trò chuyện. Vui lòng thử lại.');
+    } finally {
+      isSavingRenameRef.current = false;
+    }
+  };
+
+  const handleRenameKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelRenameConversation();
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void saveRenameConversation();
+    }
+  };
+
+  const openDeleteConversationDialog = (conversation: ChatConversation) => {
+    setContextMenu(null);
+    setDeleteTargetConversation(conversation);
+    setDeleteConversationLoading(false);
+  };
+
+  const closeDeleteConversationDialog = () => {
+    if (deleteConversationLoading) {
+      return;
+    }
+
+    setDeleteTargetConversation(null);
+  };
+
+  const handleDeleteConversation = async () => {
+    const targetConversationId = deleteTargetConversation?.id ?? activeConversationId;
+    if (!userInfo?.id || !targetConversationId || isLoading) {
+      return;
+    }
+
+    setDeleteConversationLoading(true);
+
+    try {
+      await deleteConversation(targetConversationId, userInfo.id);
+      setDeleteTargetConversation(null);
+      await refreshConversations(targetConversationId === activeConversationId ? undefined : activeConversationId ?? undefined);
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+    } finally {
+      setDeleteConversationLoading(false);
     }
   };
 
@@ -1158,14 +1276,37 @@ const ChatBot: React.FC = () => {
                   key={conversation.id}
                   className={`conversation-item ${conversation.id === activeConversationId ? 'active' : ''}`}
                 >
-                  <button
+                  <div
                     className="conversation-item-main"
                     onClick={() => handleConversationSelect(conversation.id)}
                     onContextMenu={(event) => handleConversationContextMenu(event, conversation)}
+                    role="button"
+                    tabIndex={0}
                   >
-                    <span className="conversation-item-title">{conversation.title || `Conversation #${conversation.id}`}</span>
+                    {editingConversationId === conversation.id ? (
+                      <div className="conversation-rename-inline" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          ref={renameInputRef}
+                          className="conversation-rename-input"
+                          value={editingConversationTitle}
+                          onChange={(event) => {
+                            setEditingConversationTitle(event.target.value);
+                            if (renameError) {
+                              setRenameError('');
+                            }
+                          }}
+                          onKeyDown={handleRenameKeyDown}
+                          onBlur={cancelRenameConversation}
+                          placeholder="Nhập tên cuộc trò chuyện"
+                          aria-label="Đổi tên cuộc trò chuyện"
+                        />
+                        {renameError && <div className="conversation-rename-error">{renameError}</div>}
+                      </div>
+                    ) : (
+                      <span className="conversation-item-title">{conversation.title || `Conversation #${conversation.id}`}</span>
+                    )}
                     <span className="conversation-item-time">{formatTime(new Date(conversation.updated_at))}</span>
-                  </button>
+                  </div>
                 </div>
               ))
             )}
@@ -1178,16 +1319,16 @@ const ChatBot: React.FC = () => {
           className="conversation-context-menu"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
-          <button onClick={() => handleRenameConversation(contextMenu.conversation.id)}>
+          <button onClick={() => startRenameConversation(contextMenu.conversation)}>
             Đổi tên
           </button>
-          <button className="danger" onClick={() => handleDeleteConversation(contextMenu.conversation.id)}>
+          <button className="danger" onClick={() => openDeleteConversationDialog(contextMenu.conversation)}>
             Xóa cuộc trò chuyện
           </button>
         </div>
       )}
 
-      <div className="chatbot-messages">
+      <div className="chatbot-messages" ref={messagesContainerRef} onScroll={updateScrollStickiness}>
         {hasOlderMessages && (
           <div className="messages-toolbar">
             <button
@@ -1265,9 +1406,41 @@ const ChatBot: React.FC = () => {
             </div>
           </div>
         )}
-
-        <div ref={messagesEndRef} />
       </div>
+
+      {deleteTargetConversation && (
+        <div className="chatbot-modal-overlay" role="presentation" onMouseDown={closeDeleteConversationDialog}>
+          <div
+            className="chatbot-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-conversation-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div className="chatbot-modal-header">
+              <div className="chatbot-modal-icon danger">!</div>
+              <div>
+                <h4 id="delete-conversation-title">Xóa cuộc trò chuyện</h4>
+                <p>Hành động này sẽ xóa vĩnh viễn cuộc trò chuyện đã chọn.</p>
+              </div>
+            </div>
+
+            <div className="chatbot-modal-body">
+              <strong>{deleteTargetConversation.title || `Conversation #${deleteTargetConversation.id}`}</strong>
+              <p>Tất cả tin nhắn trong cuộc trò chuyện này sẽ không thể khôi phục.</p>
+            </div>
+
+            <div className="chatbot-modal-actions">
+              <button type="button" className="chatbot-modal-secondary" onClick={closeDeleteConversationDialog} disabled={deleteConversationLoading}>
+                Hủy
+              </button>
+              <button type="button" className="chatbot-modal-danger" onClick={() => void handleDeleteConversation()} disabled={deleteConversationLoading}>
+                {deleteConversationLoading ? 'Đang xóa...' : 'Xóa'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="chatbot-input">
         <textarea

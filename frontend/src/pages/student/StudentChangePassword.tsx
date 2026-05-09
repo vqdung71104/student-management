@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
+import AuthService from '../../services/authService'
 
 const StudentChangePassword = () => {
   const { userInfo } = useAuth()
   const [currentStep, setCurrentStep] = useState<'current' | 'otp' | 'success'>('current')
   const [isLoading, setIsLoading] = useState(false)
-  const [, setError] = useState('')
+  const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   
   // Form data for current password method
@@ -27,21 +28,24 @@ const StudentChangePassword = () => {
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 8) {
-      return 'Mật khẩu phải có ít nhất 8 ký tự'
+      return 'Mật khẩu mới phải có ít nhất 8 ký tự'
     }
-    if (!/[A-Z]/.test(password)) {
-      return 'Mật khẩu phải có ít nhất 1 chữ cái viết hoa'
-    }
-    if (!/[a-z]/.test(password)) {
-      return 'Mật khẩu phải có ít nhất 1 chữ cái viết thường'
-    }
-    if (!/\d/.test(password)) {
-      return 'Mật khẩu phải có ít nhất 1 chữ số'
-    }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?]/.test(password)) {
-      return 'Mật khẩu phải có ít nhất 1 ký tự đặc biệt'
-    }
+
     return null
+  }
+
+  const readApiError = async (response: Response, fallbackMessage: string) => {
+    const rawBody = await response.text()
+    if (!rawBody) {
+      return fallbackMessage
+    }
+
+    try {
+      const parsed = JSON.parse(rawBody)
+      return parsed.detail || parsed.message || fallbackMessage
+    } catch {
+      return rawBody || fallbackMessage
+    }
   }
 
   const handleCurrentPasswordSubmit = async (e: React.FormEvent) => {
@@ -73,6 +77,7 @@ const StudentChangePassword = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...AuthService.getAuthHeaders(),
         },
         body: JSON.stringify({
           student_email: userInfo?.email,
@@ -80,18 +85,22 @@ const StudentChangePassword = () => {
           new_password: currentPasswordData.newPassword
         }),
       })
-      
-      const data = await response.json()
-      
+
       if (response.ok) {
         setCurrentStep('success')
         setSuccessMessage('Đổi mật khẩu thành công!')
         setCurrentPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
       } else {
-        setError(data.detail || 'Có lỗi xảy ra khi đổi mật khẩu')
+        const detail = await readApiError(response, 'Không thể đổi mật khẩu lúc này. Vui lòng thử lại.')
+        console.error('[ChangePassword][student] change-password failed', {
+          status: response.status,
+          detail,
+        })
+        setError(detail)
       }
     } catch (error) {
-      setError('Có lỗi xảy ra khi đổi mật khẩu')
+      console.error('[ChangePassword][student] change-password network error', error)
+      setError('Không thể kết nối đến server. Vui lòng kiểm tra lại mạng hoặc đăng nhập lại.')
     } finally {
       setIsLoading(false)
     }
@@ -106,22 +115,27 @@ const StudentChangePassword = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...AuthService.getAuthHeaders(),
         },
         body: JSON.stringify({
           email: userInfo?.email
         }),
       })
-      
-      const data = await response.json()
-      
+
       if (response.ok) {
         setOtpSent(true)
         setSuccessMessage('Mã OTP đã được gửi đến email của bạn')
       } else {
-        setError(data.detail || 'Có lỗi xảy ra khi gửi OTP')
+        const detail = await readApiError(response, 'Không thể gửi OTP lúc này. Vui lòng thử lại.')
+        console.error('[ChangePassword][student] request-password-reset failed', {
+          status: response.status,
+          detail,
+        })
+        setError(detail)
       }
     } catch (error) {
-      setError('Có lỗi xảy ra khi gửi OTP')
+      console.error('[ChangePassword][student] request-password-reset network error', error)
+      setError('Không thể kết nối đến server. Vui lòng kiểm tra lại mạng hoặc đăng nhập lại.')
     } finally {
       setIsLoading(false)
     }
@@ -151,6 +165,7 @@ const StudentChangePassword = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...AuthService.getAuthHeaders(),
         },
         body: JSON.stringify({
           email: userInfo?.email,
@@ -158,18 +173,22 @@ const StudentChangePassword = () => {
           new_password: otpData.newPassword
         }),
       })
-      
-      const data = await response.json()
-      
+
       if (response.ok) {
         setCurrentStep('success')
         setSuccessMessage('Đổi mật khẩu thành công!')
         setOtpData({ otp: '', newPassword: '', confirmPassword: '' })
       } else {
-        setError(data.detail || 'Có lỗi xảy ra khi xác thực OTP')
+        const detail = await readApiError(response, 'Không thể xác thực OTP lúc này. Vui lòng thử lại.')
+        console.error('[ChangePassword][student] verify-otp-and-change-password failed', {
+          status: response.status,
+          detail,
+        })
+        setError(detail)
       }
     } catch (error) {
-      setError('Có lỗi xảy ra khi xác thực OTP')
+      console.error('[ChangePassword][student] verify-otp-and-change-password network error', error)
+      setError('Không thể kết nối đến server. Vui lòng kiểm tra lại mạng hoặc đăng nhập lại.')
     } finally {
       setIsLoading(false)
     }
@@ -256,35 +275,48 @@ const StudentChangePassword = () => {
             </div>
           )}
 
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
           {!useOtpMethod ? (
             <form onSubmit={handleCurrentPasswordSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Mật khẩu hiện tại
                 </label>
-                <input
-                  type="password"
-                  value={currentPasswordData.currentPassword}
-                  onChange={(e) => setCurrentPasswordData({...currentPasswordData, currentPassword: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={currentPasswordData.currentPassword}
+                    onChange={(e) => setCurrentPasswordData({...currentPasswordData, currentPassword: e.target.value})}
+                    className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    autoComplete="current-password"
+                    required
+                  />
+                  <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Mật khẩu mới
                 </label>
-                <input
-                  type="password"
-                  value={currentPasswordData.newPassword}
-                  onChange={(e) => setCurrentPasswordData({...currentPasswordData, newPassword: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={currentPasswordData.newPassword}
+                    onChange={(e) => setCurrentPasswordData({...currentPasswordData, newPassword: e.target.value})}
+                    className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    autoComplete="new-password"
+                    required
+                  />
+                  <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                </div>
                 <div className="mt-2 text-xs text-gray-500">
                   <p>• Ít nhất 8 ký tự</p>
-                  <p>• Có chữ hoa, chữ thường, số và ký tự đặc biệt</p>
                 </div>
               </div>
 
@@ -292,13 +324,17 @@ const StudentChangePassword = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Xác nhận mật khẩu mới
                 </label>
-                <input
-                  type="password"
-                  value={currentPasswordData.confirmPassword}
-                  onChange={(e) => setCurrentPasswordData({...currentPasswordData, confirmPassword: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={currentPasswordData.confirmPassword}
+                    onChange={(e) => setCurrentPasswordData({...currentPasswordData, confirmPassword: e.target.value})}
+                    className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    autoComplete="new-password"
+                    required
+                  />
+                  <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                </div>
               </div>
 
               <button
@@ -346,16 +382,19 @@ const StudentChangePassword = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Mật khẩu mới
                     </label>
-                    <input
-                      type="password"
-                      value={otpData.newPassword}
-                      onChange={(e) => setOtpData({...otpData, newPassword: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={otpData.newPassword}
+                        onChange={(e) => setOtpData({...otpData, newPassword: e.target.value})}
+                        className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        autoComplete="new-password"
+                        required
+                      />
+                      <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                    </div>
                     <div className="mt-2 text-xs text-gray-500">
                       <p>• Ít nhất 8 ký tự</p>
-                      <p>• Có chữ hoa, chữ thường, số và ký tự đặc biệt</p>
                     </div>
                   </div>
 
@@ -363,13 +402,17 @@ const StudentChangePassword = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Xác nhận mật khẩu mới
                     </label>
-                    <input
-                      type="password"
-                      value={otpData.confirmPassword}
-                      onChange={(e) => setOtpData({...otpData, confirmPassword: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type="password"
+                        value={otpData.confirmPassword}
+                        onChange={(e) => setOtpData({...otpData, confirmPassword: e.target.value})}
+                        className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        autoComplete="new-password"
+                        required
+                      />
+                      <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                    </div>
                   </div>
 
                   <button

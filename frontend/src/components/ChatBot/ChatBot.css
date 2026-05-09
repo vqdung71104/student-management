@@ -139,6 +139,38 @@
   color: #64748b;
 }
 
+.conversation-rename-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.conversation-rename-input {
+  width: 100%;
+  border: 1px solid #60a5fa;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  line-height: 1.35;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.12);
+}
+
+.conversation-rename-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+}
+
+.conversation-rename-error {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #b91c1c;
+}
+
 .conversation-item-menu {
   width: 40px;
   border-radius: 12px;
@@ -740,7 +772,7 @@
 .chatbot-input textarea {
   flex: 1;
   padding: 10px 14px;
-  padding-right: 8px;
+  padding-right: 12px;
   border: 1px solid #e2e8f0;
   border-radius: 20px;
   font-size: 14px;
@@ -753,6 +785,8 @@
   line-height: 1.4;
   overflow-y: auto;
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 transparent;
 }
 
 .chatbot-input textarea:focus {
@@ -767,7 +801,7 @@
 
 /* Scrollbar cho textarea - nằm bên trong viền */
 .chatbot-input textarea::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .chatbot-input textarea::-webkit-scrollbar-track {
@@ -776,15 +810,137 @@
 }
 
 .chatbot-input textarea::-webkit-scrollbar-thumb {
-  background: #cbd5e0;
-  border-radius: 10px;
+  background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+  border-radius: 999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
 .chatbot-input textarea::-webkit-scrollbar-thumb:hover {
-  background: #a0aec0;
+  background: linear-gradient(180deg, #94a3b8 0%, #64748b 100%);
   background-clip: padding-box;
+}
+
+.chatbot-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(6px);
+}
+
+.chatbot-modal {
+  width: min(100%, 430px);
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+  padding: 20px;
+}
+
+.chatbot-modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.chatbot-modal-header h4 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.chatbot-modal-header p,
+.chatbot-modal-body p {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.chatbot-modal-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.chatbot-modal-icon.danger {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.chatbot-modal-body {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.chatbot-modal-body strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.chatbot-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.chatbot-modal-secondary,
+.chatbot-modal-danger {
+  min-width: 92px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chatbot-modal-secondary {
+  background: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.chatbot-modal-secondary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+.chatbot-modal-danger {
+  color: #ffffff;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.22);
+}
+
+.chatbot-modal-danger:hover:not(:disabled) {
+  filter: brightness(1.02);
+}
+
+.chatbot-modal-secondary:disabled,
+.chatbot-modal-danger:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 .send-button {

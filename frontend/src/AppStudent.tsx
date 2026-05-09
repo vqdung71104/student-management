@@ -667,7 +667,7 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-gray-700 text-center text-sm text-gray-400">
-            <p>© 2023 Hệ thống đăng ký học tập. Bản quyền thuộc về Trường Đại học.</p>
+            <p>© Hệ thống gợi ý đăng ký học tập.</p>
           </div>
         </div>
       </footer>

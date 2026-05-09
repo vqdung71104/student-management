@@ -1,7 +1,6 @@
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime
 from typing import Optional
-import re
 
 
 class AdminBase(BaseModel):
@@ -14,21 +13,9 @@ class AdminCreate(AdminBase):
     
     @validator('password')
     def validate_password(cls, v):
-        """Kiểm tra mật khẩu mạnh"""
+        """Kiểm tra độ dài mật khẩu tối thiểu"""
         if len(v) < 8:
             raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
-        
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết hoa')
-        
-        if not re.search(r'[a-z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết thường')
-        
-        if not re.search(r'\d', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ số')
-        
-        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>?]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt')
         
         return v
 
@@ -55,21 +42,9 @@ class ChangePasswordRequest(BaseModel):
     
     @validator('new_password')
     def validate_new_password(cls, v):
-        """Kiểm tra mật khẩu mạnh"""
+        """Kiểm tra độ dài mật khẩu tối thiểu"""
         if len(v) < 8:
             raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
-        
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết hoa')
-        
-        if not re.search(r'[a-z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết thường')
-        
-        if not re.search(r'\d', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ số')
-        
-        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>?]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt')
         
         return v
 
@@ -85,21 +60,9 @@ class VerifyOTPRequest(BaseModel):
     
     @validator('new_password')
     def validate_new_password(cls, v):
-        """Kiểm tra mật khẩu mạnh"""
+        """Kiểm tra độ dài mật khẩu tối thiểu"""
         if len(v) < 8:
             raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
-        
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết hoa')
-        
-        if not re.search(r'[a-z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết thường')
-        
-        if not re.search(r'\d', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ số')
-        
-        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>?]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt')
         
         return v
 

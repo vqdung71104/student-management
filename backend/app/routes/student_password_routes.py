@@ -11,7 +11,6 @@ from app.schemas.student_schemas import (
     StudentPasswordResetResponse
 )
 from pydantic import BaseModel, validator
-import re
 from datetime import datetime
 
 router = APIRouter(prefix="/student", tags=["Student Password Management"])
@@ -50,21 +49,9 @@ class StudentChangePasswordWithEmailRequest(BaseModel):
     
     @validator('new_password')
     def validate_new_password(cls, v):
-        """Kiểm tra mật khẩu mạnh"""
+        """Kiểm tra độ dài mật khẩu tối thiểu"""
         if len(v) < 8:
             raise ValueError('Mật khẩu phải có ít nhất 8 ký tự')
-        
-        if not re.search(r'[A-Z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết hoa')
-        
-        if not re.search(r'[a-z]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ cái viết thường')
-        
-        if not re.search(r'\d', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 chữ số')
-        
-        if not re.search(r'[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>?]', v):
-            raise ValueError('Mật khẩu phải có ít nhất 1 ký tự đặc biệt')
         
         return v
 

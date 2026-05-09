@@ -319,7 +319,7 @@ const Register = () => {
 
         <div className="mt-4 text-center">
           <p className="text-xs text-gray-500">
-            © 2023 Hệ thống hỗ trợ đăng ký học tập. Bản quyền thuộc về Trường Đại học.
+            © Hệ thống gợi ý đăng ký học tập.
           </p>
         </div>
       </div>

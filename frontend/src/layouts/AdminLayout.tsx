@@ -49,7 +49,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
     <div className="min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 w-full">
-        <div className="w-full max-w-none px-4 py-2">
+        <div className="w-full max-w-none px-6 lg:px-8 py-2">
           <div className="flex justify-between items-center w-full min-w-full">
             {/* Logo */}
             <button 
@@ -225,7 +225,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow w-full max-w-none px-4 py-6 overflow-x-hidden">
+      <main className="flex-grow w-full max-w-none px-6 lg:px-8 py-6 overflow-x-hidden">
         <div className="w-full max-w-none">
           {children}
         </div>
@@ -264,7 +264,7 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
 
       {/* Chatbot */}
       {chatbotOpen && (
-        <div className="fixed bottom-4 right-4 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+        <div className="fixed bottom-4 right-6 w-80 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
           <div className="bg-blue-600 rounded-t-lg p-4 cursor-pointer" onClick={toggleChatbot}>
             <div className="flex justify-between items-center text-white">
               <div className="flex items-center space-x-2">

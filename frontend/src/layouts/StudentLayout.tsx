@@ -148,7 +148,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     <div className="min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 w-full">
-        <div className="w-full max-w-none px-4 py-2">
+        <div className="w-full max-w-none px-6 lg:px-8 py-2">
           <div className="flex justify-between items-center w-full min-w-full">
             {/* Logo */}
             <button 
@@ -474,7 +474,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow w-full max-w-none px-4 py-6 overflow-x-hidden">
+      <main className="flex-grow w-full max-w-none px-6 lg:px-8 py-6 overflow-x-hidden">
         <div className="w-full max-w-none">
           {children}
         </div>
@@ -561,7 +561,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       {/* Chatbot */}
       {chatbotOpen && (
         <div
-          className="chatbot-resizable fixed right-4 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden"
+          className="chatbot-resizable fixed right-6 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden"
           style={{
             width: `${chatbotWidth}px`,
             bottom: `${CHATBOT_BUTTON_BOTTOM + CHATBOT_BUTTON_SIZE}px`,
@@ -590,7 +590,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       {/* Floating Chatbot Button */}
       <button
         onClick={toggleChatbot}
-        className="fixed bottom-4 right-4 bg-gradient-to-br from-purple-600 to-purple-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200 z-40"
+        className="fixed bottom-4 right-6 bg-gradient-to-br from-purple-600 to-purple-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200 z-40"
         aria-label="Open chatbot"
       >
         {chatbotOpen ? (
