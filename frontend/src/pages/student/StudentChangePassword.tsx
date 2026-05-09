@@ -8,6 +8,13 @@ const StudentChangePassword = () => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+    otpNew: false,
+    otpConfirm: false,
+  })
   
   // Form data for current password method
   const [currentPasswordData, setCurrentPasswordData] = useState({
@@ -46,6 +53,13 @@ const StudentChangePassword = () => {
     } catch {
       return rawBody || fallbackMessage
     }
+  }
+
+  const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
+    setShowPasswords((previous) => ({
+      ...previous,
+      [field]: !previous[field],
+    }))
   }
 
   const handleCurrentPasswordSubmit = async (e: React.FormEvent) => {
@@ -89,6 +103,7 @@ const StudentChangePassword = () => {
       if (response.ok) {
         setCurrentStep('success')
         setSuccessMessage('Đổi mật khẩu thành công!')
+        setShowPasswords({ current: false, new: false, confirm: false, otpNew: false, otpConfirm: false })
         setCurrentPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
       } else {
         const detail = await readApiError(response, 'Không thể đổi mật khẩu lúc này. Vui lòng thử lại.')
@@ -177,6 +192,7 @@ const StudentChangePassword = () => {
       if (response.ok) {
         setCurrentStep('success')
         setSuccessMessage('Đổi mật khẩu thành công!')
+        setShowPasswords({ current: false, new: false, confirm: false, otpNew: false, otpConfirm: false })
         setOtpData({ otp: '', newPassword: '', confirmPassword: '' })
       } else {
         const detail = await readApiError(response, 'Không thể xác thực OTP lúc này. Vui lòng thử lại.')
@@ -200,6 +216,7 @@ const StudentChangePassword = () => {
     setSuccessMessage('')
     setUseOtpMethod(false)
     setOtpSent(false)
+    setShowPasswords({ current: false, new: false, confirm: false, otpNew: false, otpConfirm: false })
     setCurrentPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
     setOtpData({ otp: '', newPassword: '', confirmPassword: '' })
   }
@@ -289,14 +306,30 @@ const StudentChangePassword = () => {
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPasswords.current ? 'text' : 'password'}
                     value={currentPasswordData.currentPassword}
                     onChange={(e) => setCurrentPasswordData({...currentPasswordData, currentPassword: e.target.value})}
-                    className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     autoComplete="current-password"
                     required
                   />
-                  <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility('current')}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                    aria-label={showPasswords.current ? 'Ẩn mật khẩu hiện tại' : 'Hiện mật khẩu hiện tại'}
+                  >
+                    {showPasswords.current ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -306,14 +339,30 @@ const StudentChangePassword = () => {
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPasswords.new ? 'text' : 'password'}
                     value={currentPasswordData.newPassword}
                     onChange={(e) => setCurrentPasswordData({...currentPasswordData, newPassword: e.target.value})}
-                    className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     autoComplete="new-password"
                     required
                   />
-                  <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility('new')}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                    aria-label={showPasswords.new ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+                  >
+                    {showPasswords.new ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
                 <div className="mt-2 text-xs text-gray-500">
                   <p>• Ít nhất 8 ký tự</p>
@@ -326,14 +375,30 @@ const StudentChangePassword = () => {
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPasswords.confirm ? 'text' : 'password'}
                     value={currentPasswordData.confirmPassword}
                     onChange={(e) => setCurrentPasswordData({...currentPasswordData, confirmPassword: e.target.value})}
-                    className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     autoComplete="new-password"
                     required
                   />
-                  <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                  <button
+                    type="button"
+                    onClick={() => togglePasswordVisibility('confirm')}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                    aria-label={showPasswords.confirm ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                  >
+                    {showPasswords.confirm ? (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                      </svg>
+                    ) : (
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -384,14 +449,30 @@ const StudentChangePassword = () => {
                     </label>
                     <div className="relative">
                       <input
-                        type="password"
+                        type={showPasswords.otpNew ? 'text' : 'password'}
                         value={otpData.newPassword}
                         onChange={(e) => setOtpData({...otpData, newPassword: e.target.value})}
-                        className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         autoComplete="new-password"
                         required
                       />
-                      <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility('otpNew')}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                        aria-label={showPasswords.otpNew ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+                      >
+                        {showPasswords.otpNew ? (
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                          </svg>
+                        ) : (
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
                     <div className="mt-2 text-xs text-gray-500">
                       <p>• Ít nhất 8 ký tự</p>
@@ -404,14 +485,30 @@ const StudentChangePassword = () => {
                     </label>
                     <div className="relative">
                       <input
-                        type="password"
+                        type={showPasswords.otpConfirm ? 'text' : 'password'}
                         value={otpData.confirmPassword}
                         onChange={(e) => setOtpData({...otpData, confirmPassword: e.target.value})}
-                        className="w-full px-3 py-2 pr-14 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 pr-11 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         autoComplete="new-password"
                         required
                       />
-                      <div className="absolute inset-y-0 right-0 w-11 rounded-r-lg border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                      <button
+                        type="button"
+                        onClick={() => togglePasswordVisibility('otpConfirm')}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                        aria-label={showPasswords.otpConfirm ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                      >
+                        {showPasswords.otpConfirm ? (
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                          </svg>
+                        ) : (
+                          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
                   </div>
 

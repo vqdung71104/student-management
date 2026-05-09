@@ -13,6 +13,11 @@ const ChangePassword = () => {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
+  })
   const [passwordForm, setPasswordForm] = useState<PasswordFormData>({
     currentPassword: '',
     newPassword: '',
@@ -39,6 +44,13 @@ const ChangePassword = () => {
     } catch {
       return rawBody || fallbackMessage
     }
+  }
+
+  const togglePasswordVisibility = (field: keyof typeof showPasswords) => {
+    setShowPasswords((previous) => ({
+      ...previous,
+      [field]: !previous[field],
+    }))
   }
 
   const handlePasswordSubmit = async (event: React.FormEvent) => {
@@ -79,6 +91,7 @@ const ChangePassword = () => {
       if (response.ok) {
         setMessage('Đổi mật khẩu thành công!')
         setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+        setShowPasswords({ current: false, new: false, confirm: false })
         setTimeout(() => navigate('/admin'), 2000)
         return
       }
@@ -130,14 +143,30 @@ const ChangePassword = () => {
               <div className="relative mt-1">
                 <input
                   id="currentPassword"
-                  type="password"
+                  type={showPasswords.current ? 'text' : 'password'}
                   required
                   value={passwordForm.currentPassword}
                   onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
-                  className="block w-full px-3 py-2 pr-14 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 pr-11 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   autoComplete="current-password"
                 />
-                <div className="absolute inset-y-0 right-0 w-11 rounded-r-md border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => togglePasswordVisibility('current')}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                  aria-label={showPasswords.current ? 'Ẩn mật khẩu hiện tại' : 'Hiện mật khẩu hiện tại'}
+                >
+                  {showPasswords.current ? (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -148,14 +177,30 @@ const ChangePassword = () => {
               <div className="relative mt-1">
                 <input
                   id="newPassword"
-                  type="password"
+                  type={showPasswords.new ? 'text' : 'password'}
                   required
                   value={passwordForm.newPassword}
                   onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
-                  className="block w-full px-3 py-2 pr-14 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 pr-11 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   autoComplete="new-password"
                 />
-                <div className="absolute inset-y-0 right-0 w-11 rounded-r-md border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => togglePasswordVisibility('new')}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                  aria-label={showPasswords.new ? 'Ẩn mật khẩu mới' : 'Hiện mật khẩu mới'}
+                >
+                  {showPasswords.new ? (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 
@@ -166,14 +211,30 @@ const ChangePassword = () => {
               <div className="relative mt-1">
                 <input
                   id="confirmPassword"
-                  type="password"
+                  type={showPasswords.confirm ? 'text' : 'password'}
                   required
                   value={passwordForm.confirmPassword}
                   onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })}
-                  className="block w-full px-3 py-2 pr-14 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full px-3 py-2 pr-11 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   autoComplete="new-password"
                 />
-                <div className="absolute inset-y-0 right-0 w-11 rounded-r-md border-l border-gray-200 bg-gray-50" aria-hidden="true" />
+                <button
+                  type="button"
+                  onClick={() => togglePasswordVisibility('confirm')}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-500 hover:text-gray-700"
+                  aria-label={showPasswords.confirm ? 'Ẩn xác nhận mật khẩu' : 'Hiện xác nhận mật khẩu'}
+                >
+                  {showPasswords.confirm ? (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9.27-3.11-11-7 1.3-2.92 3.6-5.26 6.5-6.47M17.94 17.94A9.96 9.96 0 0023 12c-1.73-3.89-6-7-11-7-.83 0-1.64.08-2.42.24M9.88 9.88A3 3 0 0012 15a3 3 0 002.12-.88M3 3l18 18" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
               </div>
             </div>
 
