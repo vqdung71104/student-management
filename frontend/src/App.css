@@ -546,3 +546,10 @@ button.hover\:bg-blue-700:hover {
 input:focus {
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
+
+/* Hide browser default password reveal and clear buttons */
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
+}
+
