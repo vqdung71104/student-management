@@ -1211,7 +1211,7 @@ const ChatBot: React.FC = () => {
   };
 
   const handleConversationContextMenu = (
-    event: React.MouseEvent<HTMLButtonElement>,
+    event: React.MouseEvent<HTMLElement>,
     conversation: ChatConversation
   ) => {
     event.preventDefault();
