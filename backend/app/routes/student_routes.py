@@ -138,6 +138,24 @@ def get_student_academic_details(
         for ls in learned_subjects
     ])
     overall_gpa = total_grade_points / total_credits if total_credits > 0 else 0.0
+
+    # Failed subjects (F)
+    failed_subjects = [
+        ls for ls in learned_subjects
+        if (ls.letter_grade or "").upper() == "F"
+    ]
+    failed_subjects_data = []
+    for ls in failed_subjects:
+        failed_subjects_data.append({
+            "id": ls.id,
+            "subject_name": ls.subject_name,
+            "credits": ls.credits,
+            "letter_grade": ls.letter_grade,
+            "semester": ls.semester,
+            "student_id": ls.student_id,
+            "subject_id": ls.subject_id,
+            "subject_code": ls.subject.subject_id if ls.subject else None
+        })
     
     # Map learned subjects với subject_code từ relationship
     learned_subjects_data = []
@@ -158,10 +176,12 @@ def get_student_academic_details(
         "student": student,
         "semester_gpas": semester_gpas,
         "learned_subjects": learned_subjects_data,
+        "failed_subjects": failed_subjects_data,
         "overall_gpa": round(overall_gpa, 2),
         "total_credits": total_credits,
         "total_learned_credits": student.total_learned_credits,
-        "total_failed_credits": student.total_failed_credits,
+        "total_failed_credits": sum([ls.credits for ls in failed_subjects]),
+        "failed_subjects_number": len(failed_subjects),
         "warning_level": student.warning_level,
         "year_level": student.year_level
     }

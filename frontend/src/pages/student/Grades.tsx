@@ -12,6 +12,15 @@ interface Grade {
   letter_grade: string  // Chỉ giữ lại letter_grade
 }
 
+interface FailedSubject {
+  id: number
+  subject_code: string
+  subject_name: string
+  credits: number
+  semester: string
+  letter_grade: string
+}
+
 interface SemesterGPA {
   semester: string
   gpa_10: number
@@ -35,6 +44,12 @@ const Grades = () => {
   const [showExcelUpload, setShowExcelUpload] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [failedSubjects, setFailedSubjects] = useState<FailedSubject[]>([])
+  const [failedStats, setFailedStats] = useState({
+    failed_subjects_number: 0,
+    total_failed_credits: 0
+  })
+  const [showFailedSubjectsModal, setShowFailedSubjectsModal] = useState(false)
 
   useEffect(() => {
     fetchGrades()
@@ -110,16 +125,40 @@ const Grades = () => {
           gpa_4: data.overall_gpa ? (data.overall_gpa * 4 / 10).toFixed(2) : '0.00',
           total_credits: data.total_credits || 0
         })
+
+        const failedSubjectsData = (data.failed_subjects || []).map((subject: any) => ({
+          id: subject.id,
+          subject_code: subject.subject_code || 'N/A',
+          subject_name: subject.subject_name,
+          credits: subject.credits,
+          semester: subject.semester,
+          letter_grade: subject.letter_grade
+        }))
+        setFailedSubjects(failedSubjectsData)
+        setFailedStats({
+          failed_subjects_number: data.failed_subjects_number || failedSubjectsData.length || 0,
+          total_failed_credits: data.total_failed_credits || 0
+        })
       } else {
         const errorText = await response.text()
         console.error('Failed to fetch academic details:', response.status, errorText)
         setGrades([])
         setSemesterGPAs([])
+        setFailedSubjects([])
+        setFailedStats({
+          failed_subjects_number: 0,
+          total_failed_credits: 0
+        })
       }
     } catch (error) {
       console.error('Error fetching grades:', error)
       setGrades([])
       setSemesterGPAs([])
+      setFailedSubjects([])
+      setFailedStats({
+        failed_subjects_number: 0,
+        total_failed_credits: 0
+      })
     }
     setLoading(false)
   }
@@ -309,6 +348,22 @@ const Grades = () => {
                 {grades.reduce((sum, g) => sum + g.credits, 0)}
               </span>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowFailedSubjectsModal(true)}
+              className="w-full flex justify-between rounded-lg px-2 py-1 hover:bg-red-50 transition"
+            >
+              <span className="text-gray-600">Trượt bao nhiêu môn:</span>
+              <span className="font-bold text-red-600">{failedStats.failed_subjects_number}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowFailedSubjectsModal(true)}
+              className="w-full flex justify-between rounded-lg px-2 py-1 hover:bg-red-50 transition"
+            >
+              <span className="text-gray-600">Trượt bao nhiêu tín:</span>
+              <span className="font-bold text-red-600">{failedStats.total_failed_credits}</span>
+            </button>
           </div>
         </div>
       </div>
@@ -422,6 +477,57 @@ const Grades = () => {
             fetchGrades() // Refresh data after successful upload
           }}
         />
+      )}
+
+      {showFailedSubjectsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl bg-white rounded-xl shadow-xl border border-gray-200">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Danh sách môn trượt</h3>
+              <button
+                type="button"
+                onClick={() => setShowFailedSubjectsModal(false)}
+                className="px-3 py-1 text-sm rounded-lg bg-gray-100 hover:bg-gray-200"
+              >
+                Đóng
+              </button>
+            </div>
+            <div className="p-6">
+              {failedSubjects.length === 0 ? (
+                <p className="text-gray-500">Hiện tại không có môn trượt.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mã môn</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tên môn</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Tín chỉ</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Điểm chữ</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Học kỳ</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {failedSubjects.map((subject) => (
+                        <tr key={subject.id}>
+                          <td className="px-4 py-2 text-sm text-gray-900">{subject.subject_code}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{subject.subject_name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900 text-center">{subject.credits}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getLetterGradeColor(subject.letter_grade)}`}>
+                              {subject.letter_grade}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 text-sm text-gray-900 text-center">{subject.semester}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
