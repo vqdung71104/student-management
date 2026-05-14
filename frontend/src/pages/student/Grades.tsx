@@ -353,7 +353,7 @@ const Grades = () => {
               onClick={() => setShowFailedSubjectsModal(true)}
               className="w-full flex justify-between rounded-lg px-2 py-1 hover:bg-red-50 transition"
             >
-              <span className="text-gray-600">Trượt bao nhiêu môn:</span>
+              <span className="text-gray-600">Số môn trượt:</span>
               <span className="font-bold text-red-600">{failedStats.failed_subjects_number}</span>
             </button>
             <button
@@ -361,7 +361,7 @@ const Grades = () => {
               onClick={() => setShowFailedSubjectsModal(true)}
               className="w-full flex justify-between rounded-lg px-2 py-1 hover:bg-red-50 transition"
             >
-              <span className="text-gray-600">Trượt bao nhiêu tín:</span>
+              <span className="text-gray-600">Số tín chỉ trượt:</span>
               <span className="font-bold text-red-600">{failedStats.total_failed_credits}</span>
             </button>
           </div>
