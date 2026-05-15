@@ -5,12 +5,13 @@ Rule-Based System (RBS) for suggesting subjects to register
 Priority Rules:
 1. Register minimum credits and maximize (close to max allowed)
 2. Priority for F-grade subjects (retake failed subjects)
-3. Priority for subjects in current semester (based on learning_semester)
-4. Register political subjects (SSH series)
-5. Register physical education subjects (PE series)
-6. Register supplementary subjects (CH, ME, EM, ED, ET, TEX series)
-7. Register other program subjects if CPA > 3.4
-8. Improve D/D+/C grades if credits <= 20
+3. Priority for unlearned subjects from previous semesters
+4. Priority for subjects in current semester (based on learning_semester)
+5. Register political subjects (SSH series)
+6. Register physical education subjects (PE series)
+7. Register supplementary subjects (CH, ME, EM, ED, ET, TEX series)
+8. Register other program subjects if CPA > 3.4
+9. Improve D/D+/C grades if credits <= 20
 
 Credit Limits:
 - Maximum: 28 credits (or 18 if warning level 2-3)
@@ -466,6 +467,61 @@ class SubjectSuggestionRuleEngine:
                 remaining.append(subject)
         
         return failed, remaining
+
+    def rule_2_filter_previous_semester_unlearned(
+        self,
+        subjects: List[Dict],
+        current_semester_number: int,
+        student_data: Dict
+    ) -> Tuple[List[Dict], List[Dict]]:
+        """
+        RULE 2: Priority for unlearned subjects from previous semesters
+        (learning_semester < current_semester_number)
+
+        Args:
+            subjects: List of available subjects
+            current_semester_number: Current semester number (1-8)
+            student_data: Student data including completed_subjects
+
+        Returns:
+            (previous_semester_unlearned, remaining_subjects)
+        """
+        previous_semester_unlearned = []
+        remaining = []
+        completed = student_data['completed_subjects']
+
+        for subject in subjects:
+            subject_id = subject['subject_id']
+            learning_sem = subject.get('learning_semester')
+
+            # Skip if subject already learned with passing grade
+            if subject_id in completed and completed[subject_id]['grade'] != self.FAILED_GRADE:
+                remaining.append(subject)
+                continue
+
+            try:
+                learning_sem_num = int(learning_sem) if learning_sem is not None else None
+            except (TypeError, ValueError):
+                learning_sem_num = None
+
+            if learning_sem_num is not None and learning_sem_num < current_semester_number:
+                subject['priority_reason'] = (
+                    f'Unlearned subject from previous semester {learning_sem_num}'
+                )
+                subject['priority_level'] = 2
+                previous_semester_unlearned.append(subject)
+            else:
+                remaining.append(subject)
+
+        # Older semesters first, then subject code for deterministic ordering
+        previous_semester_unlearned.sort(
+            key=lambda x: (
+                x.get('learning_semester') if x.get('learning_semester') is not None else 999,
+                x.get('subject_id', '')
+            )
+        )
+
+        return previous_semester_unlearned, remaining
     
     def rule_2_filter_semester_match(
         self,
@@ -474,7 +530,7 @@ class SubjectSuggestionRuleEngine:
         student_data: Dict
     ) -> Tuple[List[Dict], List[Dict]]:
         """
-        RULE 2: Priority for subjects matching current semester
+        RULE 3: Priority for subjects matching current semester
         Excludes subjects already learned (not failed)
         
         Args:
@@ -500,7 +556,7 @@ class SubjectSuggestionRuleEngine:
             
             if learning_sem and learning_sem == current_semester_number:
                 subject['priority_reason'] = f'Matches semester {current_semester_number}'
-                subject['priority_level'] = 2
+                subject['priority_level'] = 3
                 matching.append(subject)
             else:
                 non_matching.append(subject)
@@ -513,7 +569,7 @@ class SubjectSuggestionRuleEngine:
         student_data: Dict
     ) -> Tuple[List[Dict], List[Dict]]:
         """
-        RULE 3: Register political subjects (SSH series, EM1170)
+        RULE 4: Register political subjects (SSH series, EM1170)
         Must complete all 6 subjects
         If all political subjects are completed, don't suggest any more
         
@@ -555,7 +611,7 @@ class SubjectSuggestionRuleEngine:
         student_data: Dict
     ) -> Tuple[List[Dict], List[Dict]]:
         """
-        RULE 4: Register physical education subjects (PE series)
+        RULE 5: Register physical education subjects (PE series)
         Must complete 4 out of all PE subjects
         If 4 PE subjects completed, don't suggest more
         
@@ -597,7 +653,7 @@ class SubjectSuggestionRuleEngine:
         student_data: Dict
     ) -> Tuple[List[Dict], List[Dict]]:
         """
-        RULE 5: Register supplementary subjects
+        RULE 6: Register supplementary subjects
         Must complete 3 out of the list
         If 3 supplementary subjects completed, don't suggest more
         
@@ -639,7 +695,7 @@ class SubjectSuggestionRuleEngine:
         student_data: Dict
     ) -> Tuple[List[Dict], List[Dict]]:
         """
-        RULE 6: Register additional subjects for fast track
+        RULE 7: Register additional subjects for fast track
         Only if CPA > 3.4
         
         Returns:
@@ -672,7 +728,7 @@ class SubjectSuggestionRuleEngine:
         student_id: int
     ) -> List[Dict]:
         """
-        RULE 7: Improve low grades (D, D+, C, C+)
+        RULE 8: Improve low grades (D, D+, C, C+)
         Only if total credits <= 20
         Only suggest if subject has fewer occurrences in learned_subjects
         Priority order: D+ > D > C+ > C (lower grades first)
@@ -798,6 +854,7 @@ class SubjectSuggestionRuleEngine:
         # Track subjects by category for summary
         summary = {
             'failed_retake': [],
+            'previous_semester_unlearned': [],
             'semester_match': [],
             'political': [],
             'physical_education': [],
@@ -816,8 +873,19 @@ class SubjectSuggestionRuleEngine:
                 suggested.append(subject)
                 summary['failed_retake'].append(subject)
                 total_credits += subject['credits']
+
+        # RULE 2: Unlearned subjects from previous semesters
+        previous_semester_unlearned, remaining = self.rule_2_filter_previous_semester_unlearned(
+            remaining, student_semester_number, student_data
+        )
+
+        for subject in previous_semester_unlearned:
+            if total_credits + subject['credits'] <= max_credits_allowed:
+                suggested.append(subject)
+                summary['previous_semester_unlearned'].append(subject)
+                total_credits += subject['credits']
         
-        # RULE 2: Semester match (with learned subjects check)
+        # RULE 3: Semester match (with learned subjects check)
         semester_match, remaining = self.rule_2_filter_semester_match(
             remaining, student_semester_number, student_data
         )
@@ -828,7 +896,7 @@ class SubjectSuggestionRuleEngine:
                 summary['semester_match'].append(subject)
                 total_credits += subject['credits']
         
-        # RULE 3: Political subjects
+        # RULE 4: Political subjects
         political, remaining = self.rule_3_filter_political_subjects(
             remaining, student_data
         )
@@ -839,7 +907,7 @@ class SubjectSuggestionRuleEngine:
                 summary['political'].append(subject)
                 total_credits += subject['credits']
         
-        # RULE 4: Physical education
+        # RULE 5: Physical education
         pe, remaining = self.rule_4_filter_physical_education(
             remaining, student_data
         )
@@ -850,7 +918,7 @@ class SubjectSuggestionRuleEngine:
                 summary['physical_education'].append(subject)
                 total_credits += subject['credits']
         
-        # RULE 5: Supplementary subjects
+        # RULE 6: Supplementary subjects
         supplementary, remaining = self.rule_5_filter_supplementary_subjects(
             remaining, student_data
         )
@@ -861,7 +929,7 @@ class SubjectSuggestionRuleEngine:
                 summary['supplementary'].append(subject)
                 total_credits += subject['credits']
         
-        # RULE 6: Fast track (if CPA > threshold)
+        # RULE 7: Fast track (if CPA > threshold)
         fast_track, remaining = self.rule_6_filter_fast_track(
             remaining, student_data
         )
@@ -872,7 +940,7 @@ class SubjectSuggestionRuleEngine:
                 summary['fast_track'].append(subject)
                 total_credits += subject['credits']
         
-        # RULE 7: Grade improvement (if credits <= 20)
+        # RULE 8: Grade improvement (if credits <= 20)
         if total_credits <= self.IMPROVEMENT_THRESHOLD:
             improvement = self.rule_7_filter_grade_improvement(
                 available_subjects, student_data, total_credits, student_id
@@ -957,38 +1025,47 @@ class SubjectSuggestionRuleEngine:
             for i, subj in enumerate(summary['failed_retake'], 1):
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
 
+        if summary['previous_semester_unlearned']:
+            response.append("\n**🟠 ƯU TIÊN 2: Môn chưa học của các kỳ trước**")
+            response.append("Các môn đúng lộ trình kỳ trước nhưng bạn chưa học:")
+            for i, subj in enumerate(summary['previous_semester_unlearned'], 1):
+                response.append(
+                    f"{i}. **{subj['subject_id']}** - {subj['subject_name']} "
+                    f"({subj['credits']} tín chỉ, kỳ gợi ý: {subj.get('learning_semester')})"
+                )
+
         if summary['semester_match']:
-            response.append("\n**🟢 ƯU TIÊN 2: Môn đúng lộ trình**")
+            response.append("\n**🟢 ƯU TIÊN 3: Môn đúng lộ trình kỳ hiện tại**")
             response.append("Các môn nên học trong kỳ này theo lộ trình:")
             for i, subj in enumerate(summary['semester_match'], 1):
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
 
         if summary['political']:
-            response.append("\n**🟡 ƯU TIÊN 3: Môn chính trị**")
+            response.append("\n**🟡 ƯU TIÊN 4: Môn chính trị**")
             response.append("Các môn chính trị bắt buộc:")
             for i, subj in enumerate(summary['political'], 1):
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
 
         if summary['physical_education']:
-            response.append("\n**🏃 ƯU TIÊN 4: Môn thể chất**")
+            response.append("\n**🏃 ƯU TIÊN 5: Môn thể chất**")
             response.append("Các môn giáo dục thể chất:")
             for i, subj in enumerate(summary['physical_education'], 1):
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
 
         if summary['supplementary']:
-            response.append("\n**🔵 ƯU TIÊN 5: Môn bổ trợ**")
+            response.append("\n**🔵 ƯU TIÊN 6: Môn bổ trợ**")
             response.append("Các môn bổ trợ kiến thức:")
             for i, subj in enumerate(summary['supplementary'], 1):
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
 
         if summary['fast_track']:
-            response.append("\n**⚡ ƯU TIÊN 6: Học nhanh**")
+            response.append("\n**⚡ ƯU TIÊN 7: Học nhanh**")
             response.append(f"Các môn học nhanh (dành cho sinh viên CPA > {self.FAST_TRACK_CPA}):")
             for i, subj in enumerate(summary['fast_track'], 1):
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
 
         if summary['grade_improvement']:
-            response.append("\n**📈 ƯU TIÊN 7: Cải thiện điểm**")
+            response.append("\n**📈 ƯU TIÊN 8: Cải thiện điểm**")
             response.append("Các môn nên học lại để cải thiện điểm:")
             for i, subj in enumerate(summary['grade_improvement'], 1):
                 orig_grade = subj.get('original_grade', '?')
