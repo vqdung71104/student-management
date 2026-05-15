@@ -1981,15 +1981,15 @@ class ChatbotService:
         "remaining_course": 9,
     }
     _SUBJECT_REASON_LABELS = {
-        "failed_retake": "Hoc lai (diem F)",
-        "previous_semester_unlearned": "Mon ky truoc chua hoc",
-        "semester_match": "Mon dung lo trinh",
-        "political": "Mon chinh tri bat buoc",
-        "physical_education": "Mon the chat",
-        "supplementary": "Mon bo tro kien thuc",
-        "fast_track": "Hoc nhanh (CPA cao)",
-        "grade_improvement": "Cai thien diem (D/D+/C)",
-        "remaining_course": "Mon con lai trong chuong trinh",
+        "failed_retake": "Học lại (điểm F)",
+        "previous_semester_unlearned": "Môn kỳ trước chưa học",
+        "semester_match": "Môn đúng lộ trình",
+        "political": "Môn chính trị bắt buộc",
+        "physical_education": "Môn thể chất",
+        "supplementary": "Môn bổ trợ kiến thức",
+        "fast_track": "Học nhanh (CPA cao)",
+        "grade_improvement": "Cải thiện điểm (D/D+/C)",
+        "remaining_course": "Môn còn lại trong chương trình",
     }
 
     def _format_subject_reason(self, rule_category: str) -> str:
@@ -2044,7 +2044,7 @@ class ChatbotService:
                 subject_codes = [str(subj.get("subject_id", "?")) for subj in group]
                 lines.append(
                     f"{global_idx}. **{'/'.join(subject_codes)}** - "
-                    f"Cac lua chon co the dang ky "
+                    f"Các lựa chọn có thể đăng ký "
                     f"(Lý do: {reason})"
                 )
                 continue
