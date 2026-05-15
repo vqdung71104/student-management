@@ -18,12 +18,14 @@ Credit Limits:
 - Minimum: 8 credits
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 import json
 import os
+import re
+import unicodedata
 
 
 class SubjectSuggestionRuleEngine:
@@ -66,7 +68,7 @@ class SubjectSuggestionRuleEngine:
             
             # Credit limits by semester type and warning level
             self.MIN_CREDITS_MAIN_SEMESTER = config['credit_limits'].get('min_credits_main_semester', 12)
-            self.MAX_CREDITS_MAIN_SEMESTER = config['credit_limits'].get('max_credits_main_semester', 24)
+            self.MAX_CREDITS_MAIN_SEMESTER = config['credit_limits'].get('max_credits_main_semester', 28)
             self.MAX_CREDITS_SUMMER = config['credit_limits'].get('max_credits_summer', 28)
             
             # Credit limits for warning levels (main semester)
@@ -91,6 +93,24 @@ class SubjectSuggestionRuleEngine:
             self.POLITICAL_REQUIRED = config['requirements']['political_required']
             self.PE_REQUIRED = config['requirements']['pe_required']
             self.SUPPLEMENTARY_REQUIRED = config['requirements']['supplementary_required']
+
+            # Load optional exclusions (not mandatory / excluded from suggestions)
+            optional_rules = config.get('optional_subject_rules', {})
+            self.EXCLUDED_SUBJECT_PREFIXES = [
+                str(prefix).upper()
+                for prefix in optional_rules.get('excluded_prefixes', ['MIL'])
+                if prefix
+            ]
+            self.NON_MANDATORY_PE_SUBJECT_IDS = {
+                str(subject_id).upper()
+                for subject_id in optional_rules.get('non_mandatory_pe_subject_ids', ['PE1024'])
+                if subject_id
+            }
+            self.NON_MANDATORY_PE_NAME_KEYWORDS = [
+                self._normalize_text(str(keyword))
+                for keyword in optional_rules.get('non_mandatory_pe_name_keywords', ['boi loi', 'bơi lội'])
+                if keyword
+            ]
             
             print(f"✅ Rule engine configuration loaded from {config_path}")
             
@@ -128,7 +148,7 @@ class SubjectSuggestionRuleEngine:
         
         # Credit limits by semester type and warning level
         self.MIN_CREDITS_MAIN_SEMESTER = 12
-        self.MAX_CREDITS_MAIN_SEMESTER = 24
+        self.MAX_CREDITS_MAIN_SEMESTER = 28
         self.MAX_CREDITS_SUMMER = 28
         
         self.MIN_CREDITS_WARNING_1 = 10
@@ -154,6 +174,43 @@ class SubjectSuggestionRuleEngine:
         self.POLITICAL_REQUIRED = 6
         self.PE_REQUIRED = 4
         self.SUPPLEMENTARY_REQUIRED = 3
+
+        # Optional exclusions
+        self.EXCLUDED_SUBJECT_PREFIXES = ['MIL']
+        self.NON_MANDATORY_PE_SUBJECT_IDS = {'PE1024'}
+        self.NON_MANDATORY_PE_NAME_KEYWORDS = ['boi loi']
+
+    def _normalize_text(self, value: str) -> str:
+        if not value:
+            return ""
+        text_value = value.replace("đ", "d").replace("Đ", "D")
+        text_value = unicodedata.normalize("NFD", text_value)
+        text_value = "".join(ch for ch in text_value if unicodedata.category(ch) != "Mn")
+        text_value = text_value.lower()
+        text_value = re.sub(r"[^a-z0-9\s]", " ", text_value)
+        return re.sub(r"\s+", " ", text_value).strip()
+
+    def _is_excluded_subject_code(self, subject_code: Optional[str]) -> bool:
+        code = (subject_code or "").strip().upper()
+        if not code:
+            return False
+        return any(code.startswith(prefix) for prefix in self.EXCLUDED_SUBJECT_PREFIXES)
+
+    def _is_optional_pe_subject(self, subject: Dict) -> bool:
+        code = str(subject.get('subject_id') or '').strip().upper()
+        if code and code in self.NON_MANDATORY_PE_SUBJECT_IDS:
+            return True
+        normalized_name = self._normalize_text(str(subject.get('subject_name') or ''))
+        if not normalized_name:
+            return False
+        return any(keyword and keyword in normalized_name for keyword in self.NON_MANDATORY_PE_NAME_KEYWORDS)
+
+    def _eligible_pe_subject_ids(self) -> Set[str]:
+        return {
+            str(subject_id).upper()
+            for subject_id in self.PHYSICAL_EDUCATION_SUBJECTS
+            if subject_id and str(subject_id).upper() not in self.NON_MANDATORY_PE_SUBJECT_IDS
+        }
     
     def get_current_semester(self) -> str:
         """
@@ -319,7 +376,7 @@ class SubjectSuggestionRuleEngine:
         Get min/max credits allowed based on regulations
         
         Quy định:
-        - Học kỳ chính (1,2): Học lực bình thường 12-24 TC
+        - Học kỳ chính (1,2): Học lực bình thường 12-28 TC
         - Học kỳ hè (3): Tối đa 8 TC
         - Cảnh cáo mức 1: 10-18 TC (học kỳ chính)
         - Cảnh cáo mức 2: 8-14 TC (học kỳ chính)
@@ -420,13 +477,18 @@ class SubjectSuggestionRuleEngine:
         
         available_subjects = []
         for row in subjects_result:
-            available_subjects.append({
+            subject = {
                 'id': row[0],
                 'subject_id': row[1],
                 'subject_name': row[2],
                 'credits': row[3],
                 'learning_semester': row[4] if row[4] else None
-            })
+            }
+            if self._is_excluded_subject_code(subject['subject_id']):
+                continue
+            if self._is_optional_pe_subject(subject):
+                continue
+            available_subjects.append(subject)
         
         return available_subjects
     
@@ -616,11 +678,16 @@ class SubjectSuggestionRuleEngine:
         remaining = []
         
         completed = student_data['completed_subjects']
+        eligible_pe_ids = self._eligible_pe_subject_ids()
         
         # Count how many PE subjects already completed
         pe_completed_count = sum(
             1 for sid, data in completed.items()
-            if sid in self.PHYSICAL_EDUCATION_SUBJECTS and data['grade'] != 'F'
+            if (
+                sid in eligible_pe_ids
+                and data['grade'] != 'F'
+                and not self._is_optional_pe_subject(data)
+            )
         )
         
         # If already completed 4 PE subjects, don't suggest more
@@ -630,7 +697,7 @@ class SubjectSuggestionRuleEngine:
         for subject in subjects:
             subject_id = subject['subject_id']
             
-            if subject_id in self.PHYSICAL_EDUCATION_SUBJECTS:
+            if subject_id in eligible_pe_ids and not self._is_optional_pe_subject(subject):
                 # Only suggest if not yet completed with passing grade
                 if subject_id not in completed or completed[subject_id]['grade'] == 'F':
                     subject['priority_reason'] = f'PE subject ({pe_completed_count}/{self.PE_REQUIRED} completed)'
@@ -854,7 +921,8 @@ class SubjectSuggestionRuleEngine:
             'physical_education': [],
             'supplementary': [],
             'fast_track': [],
-            'grade_improvement': []
+            'grade_improvement': [],
+            'remaining_course': []
         }
         
         # RULE 1: Failed subjects (F)
@@ -905,8 +973,18 @@ class SubjectSuggestionRuleEngine:
         pe, remaining = self.rule_4_filter_physical_education(
             remaining, student_data
         )
-        
-        for subject in pe[:self.PE_REQUIRED]:  # Max PE subjects required
+
+        pe_completed_count = sum(
+            1 for sid, data in student_data['completed_subjects'].items()
+            if (
+                sid in self._eligible_pe_subject_ids()
+                and data['grade'] != self.FAILED_GRADE
+                and not self._is_optional_pe_subject(data)
+            )
+        )
+        pe_needed_count = max(self.PE_REQUIRED - pe_completed_count, 0)
+
+        for subject in pe[:pe_needed_count]:
             if total_credits + subject['credits'] <= max_credits_allowed:
                 suggested.append(subject)
                 summary['physical_education'].append(subject)
@@ -946,19 +1024,39 @@ class SubjectSuggestionRuleEngine:
                     summary['grade_improvement'].append(subject)
                     total_credits += subject['credits']
         
-        # RULE 8: Remaining course subjects (if total < 28 credits)
-      #  if total_credits < 28:
-      #      remaining_subjects = self.rule_8_filter_remaining_course_subjects(
-      #          remaining, student_data
-      #      )
-      #      
-      #      for subject in remaining_subjects:
-      #          if total_credits + subject['credits'] <= max_credits_allowed:
-      #              suggested.append(subject)
-      #              if 'remaining_course' not in summary:
-      #                  summary['remaining_course'] = []
-      #              summary['remaining_course'].append(subject)
-      #              total_credits += subject['credits']
+        # RULE 9: Fill remaining credits toward maximum allowed
+        if total_credits < max_credits_allowed:
+            suggested_ids = {subj['subject_id'] for subj in suggested}
+            completed = student_data['completed_subjects']
+
+            remaining_subjects = []
+            for subject in available_subjects:
+                subject_id = subject['subject_id']
+                if subject_id in suggested_ids:
+                    continue
+                if self._is_excluded_subject_code(subject_id):
+                    continue
+                if self._is_optional_pe_subject(subject):
+                    continue
+                # Skip subjects already completed with passing grade
+                if subject_id in completed and completed[subject_id]['grade'] != self.FAILED_GRADE:
+                    continue
+                remaining_subjects.append(subject)
+
+            remaining_subjects.sort(
+                key=lambda x: (
+                    x.get('learning_semester') if x.get('learning_semester') is not None else 999,
+                    x.get('subject_id', '')
+                )
+            )
+
+            for subject in remaining_subjects:
+                if total_credits + subject['credits'] <= max_credits_allowed:
+                    subject['priority_reason'] = 'Fill remaining credits toward max allowed'
+                    subject['priority_level'] = 9
+                    suggested.append(subject)
+                    summary['remaining_course'].append(subject)
+                    total_credits += subject['credits']
         
         # Check minimum credits requirement
         meets_minimum = total_credits >= min_credits_required

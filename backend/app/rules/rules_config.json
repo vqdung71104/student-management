@@ -5,7 +5,7 @@
     "max_credits_warning": 18,
     "improvement_threshold": 20,
     "min_credits_main_semester": 12,
-    "max_credits_main_semester": 24,
+    "max_credits_main_semester": 28,
     "max_credits_summer": 28,
     "min_credits_warning_1": 10,
     "max_credits_warning_1": 18,
@@ -82,6 +82,11 @@
     "political_required": 6,
     "pe_required": 4,
     "supplementary_required": 3
+  },
+  "optional_subject_rules": {
+    "excluded_prefixes": ["MIL"],
+    "non_mandatory_pe_subject_ids": ["PE1024"],
+    "non_mandatory_pe_name_keywords": ["boi loi", "bơi lội"]
   },
   "grade_thresholds": {
     "fast_track_cpa": 3.4,
