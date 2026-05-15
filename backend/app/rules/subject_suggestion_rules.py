@@ -786,7 +786,8 @@ class SubjectSuggestionRuleEngine:
         subjects: List[Dict],
         student_data: Dict,
         current_total_credits: int,
-        student_id: int
+        student_id: int,
+        enforce_threshold: bool = True,
     ) -> List[Dict]:
         """
         RULE 8: Improve low grades (D, D+, C, C+)
@@ -797,7 +798,7 @@ class SubjectSuggestionRuleEngine:
         Returns:
             List of subjects to improve
         """
-        if current_total_credits > self.IMPROVEMENT_THRESHOLD:
+        if enforce_threshold and current_total_credits > self.IMPROVEMENT_THRESHOLD:
             return []
         
         improvement = []
@@ -1057,6 +1058,62 @@ class SubjectSuggestionRuleEngine:
                     suggested.append(subject)
                     summary['remaining_course'].append(subject)
                     total_credits += subject['credits']
+
+            # If still below max credits, allow grade-improvement subjects to top up.
+            if total_credits < max_credits_allowed:
+                improvement_topup = self.rule_7_filter_grade_improvement(
+                    available_subjects,
+                    student_data,
+                    total_credits,
+                    student_id,
+                    enforce_threshold=False,
+                )
+                for subject in improvement_topup:
+                    subject_id = subject.get('subject_id')
+                    if not subject_id or subject_id in suggested_ids:
+                        continue
+                    if self._is_excluded_subject_code(subject_id):
+                        continue
+                    if self._is_optional_pe_subject(subject):
+                        continue
+                    if total_credits + subject['credits'] <= max_credits_allowed:
+                        suggested.append(subject)
+                        summary['grade_improvement'].append(subject)
+                        suggested_ids.add(subject_id)
+                        total_credits += subject['credits']
+
+            # Final top-up: allow retake/improvement for medium grades to approach max credits.
+            if total_credits < max_credits_allowed:
+                retake_pool = []
+                for subject in available_subjects:
+                    subject_id = subject.get('subject_id')
+                    if not subject_id or subject_id in suggested_ids:
+                        continue
+                    if self._is_excluded_subject_code(subject_id):
+                        continue
+                    if self._is_optional_pe_subject(subject):
+                        continue
+                    if subject_id not in completed:
+                        continue
+                    grade = str(completed[subject_id].get('grade') or '').upper()
+                    # Keep strong grades out of top-up retake recommendations.
+                    if grade in {'A+', 'A', 'B+'}:
+                        continue
+                    grade_score = self.GRADE_PRIORITY.get(grade, 99)
+                    retake_item = dict(subject)
+                    retake_item['priority_reason'] = f'Top-up credits via retake/improvement (current grade {grade or "N/A"})'
+                    retake_item['priority_level'] = 9
+                    retake_item['_retake_grade_score'] = grade_score
+                    retake_pool.append(retake_item)
+
+                retake_pool.sort(key=lambda x: (x.get('_retake_grade_score', 99), x.get('subject_id', '')))
+                for subject in retake_pool:
+                    if total_credits + subject['credits'] <= max_credits_allowed:
+                        subject.pop('_retake_grade_score', None)
+                        suggested.append(subject)
+                        summary['remaining_course'].append(subject)
+                        suggested_ids.add(subject.get('subject_id'))
+                        total_credits += subject['credits']
         
         # Check minimum credits requirement
         meets_minimum = total_credits >= min_credits_required
