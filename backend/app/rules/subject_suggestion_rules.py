@@ -157,40 +157,29 @@ class SubjectSuggestionRuleEngine:
     
     def get_current_semester(self) -> str:
         """
-        Calculate current semester name based on current date
-        
-        Semester naming: YYYYS where:
-        - YYYY: academic year start (e.g., 2024 for 2024-2025)
-        - S: semester number (1, 2, 3)
-        
-        Semester periods:
-        - Semester 2: September - January
-        - Semester 3: February - July  
-        - Semester 1: August (supplementary)
-        
-        Examples:
-        - November 2025 → "20251" (semester 1 of 2024-2025)
-        - March 2025 → "20242" (semester 2 of 2024-2025)
-        - August 2025 → "20243" (semester 3 of 2024-2025)
-        - Đăng ký học phần thì sẽ đăng ký cho kỳ sau đó
+        Calculate current semester name based on current date.
+
+        Semester naming: YYYYS
+        - S=1: Sep-Jan (main semester)
+        - S=2: Feb-Jul (main semester)
+        - S=3: Aug (summer/supplementary)
         """
         now = datetime.now()
         month = now.month
         year = now.year
-        
+
+        if month == 8:
+            # August: summer semester of previous academic year
+            return f"{year - 1}3"
         if 9 <= month <= 12:
-            # September - December: Semester 1 of current year
-            return f"{year}2"
-        elif 1 <= month <= 1:
-            # January: Semester 1 of previous year
-            return f"{year - 1}3"
-        elif 2 <= month <= 7:
-            # February - July: Semester 2 of previous year
-            return f"{year - 1}3"
-        else:  # month == 8
-            # August: Semester 3 of previous year
+            # Sep-Dec: semester 1 of current academic year
+            return f"{year}1"
+        if month == 1:
+            # Jan: still semester 1 of previous academic year
             return f"{year - 1}1"
-    
+        # Feb-Jul: semester 2 of previous academic year
+        return f"{year - 1}2"
+
     def calculate_student_semester_number(
         self, 
         student_id: int, 
@@ -554,7 +543,12 @@ class SubjectSuggestionRuleEngine:
                 non_matching.append(subject)
                 continue
             
-            if learning_sem and learning_sem == current_semester_number:
+            try:
+                learning_sem_num = int(learning_sem) if learning_sem is not None else None
+            except (TypeError, ValueError):
+                learning_sem_num = None
+
+            if learning_sem_num is not None and learning_sem_num == current_semester_number:
                 subject['priority_reason'] = f'Matches semester {current_semester_number}'
                 subject['priority_level'] = 3
                 matching.append(subject)

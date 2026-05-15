@@ -1068,10 +1068,12 @@ class ChatbotService:
         ]
         remaining_rows = [row for row in filtered_rows if row not in preferred_rows]
         ordered_rows = preferred_rows + remaining_rows
+        grouped_summary = self._group_subjects_by_rule_category(ordered_rows)
+        display_total_credits = self._calculate_subject_total_credits(ordered_rows)
 
         updated_result = dict(result)
         updated_result["data"] = ordered_rows
-        updated_result["preformatted_text"] = self._build_subject_text({"summary": self._group_subjects_by_rule_category(ordered_rows)})
+        updated_result["preformatted_text"] = self._build_subject_text({"summary": grouped_summary})
 
         header = result.get("text") or ""
         notes = []
@@ -1080,7 +1082,15 @@ class ChatbotService:
             notes.append(f"Ưu tiên môn: {preferred_names}.")
         if exclude_terms:
             notes.append("Đã loại bỏ các môn bạn không muốn học.")
-        updated_result["text"] = " ".join(part for part in [header] + notes if part).strip()
+        notes.append(f"Tong goi y sau loc: {display_total_credits:g} TC.")
+
+        rebuilt_preformatted = updated_result.get("preformatted_text") or ""
+        if rebuilt_preformatted:
+            updated_result["text"] = "\n".join(
+                part for part in [header, " ".join(notes).strip(), rebuilt_preformatted] if part
+            ).strip()
+        else:
+            updated_result["text"] = " ".join(part for part in [header] + notes if part).strip()
 
         metadata = dict(result.get("metadata") or {})
         metadata["applied_constraints"] = {
@@ -1088,6 +1098,8 @@ class ChatbotService:
             "exclude_subjects": constraints.get("exclude_subjects", []),
         }
         metadata["total_subjects"] = len(ordered_rows)
+        metadata["total_credits"] = display_total_credits
+        metadata["summary"] = grouped_summary
         updated_result["metadata"] = metadata
         return updated_result
 
@@ -1959,27 +1971,51 @@ class ChatbotService:
     # ── Priority mapping for subject rules (lower = higher priority) ──────────────
     _SUBJECT_PRIORITY_MAP = {
         "failed_retake": 1,
-        "semester_match": 2,
-        "political": 3,
-        "physical_education": 4,
-        "supplementary": 5,
-        "fast_track": 6,
-        "grade_improvement": 7,
-        "remaining_course": 8,
+        "previous_semester_unlearned": 2,
+        "semester_match": 3,
+        "political": 4,
+        "physical_education": 5,
+        "supplementary": 6,
+        "fast_track": 7,
+        "grade_improvement": 8,
+        "remaining_course": 9,
     }
     _SUBJECT_REASON_LABELS = {
-        "failed_retake": "Học lại (điểm F)",
-        "semester_match": "Môn đúng lộ trình",
-        "political": "Môn chính trị bắt buộc",
-        "physical_education": "Môn thể chất",
-        "supplementary": "Môn bổ trợ kiến thức",
-        "fast_track": "Học nhanh (CPA cao)",
-        "grade_improvement": "Cải thiện điểm (D/D+/C)",
-        "remaining_course": "Môn còn lại trong chương trình",
+        "failed_retake": "Hoc lai (diem F)",
+        "previous_semester_unlearned": "Mon ky truoc chua hoc",
+        "semester_match": "Mon dung lo trinh",
+        "political": "Mon chinh tri bat buoc",
+        "physical_education": "Mon the chat",
+        "supplementary": "Mon bo tro kien thuc",
+        "fast_track": "Hoc nhanh (CPA cao)",
+        "grade_improvement": "Cai thien diem (D/D+/C)",
+        "remaining_course": "Mon con lai trong chuong trinh",
     }
 
     def _format_subject_reason(self, rule_category: str) -> str:
         return self._SUBJECT_REASON_LABELS.get(rule_category, rule_category)
+
+    def _ordered_subject_rule_categories(self, summary: Dict[str, List[Dict[str, Any]]]) -> List[str]:
+        if not isinstance(summary, dict):
+            return [k for k, _ in sorted(self._SUBJECT_PRIORITY_MAP.items(), key=lambda x: x[1])]
+
+        ordered = [k for k in summary.keys() if isinstance(summary.get(k), list)]
+        if ordered:
+            return ordered
+        return [k for k, _ in sorted(self._SUBJECT_PRIORITY_MAP.items(), key=lambda x: x[1])]
+
+    def _to_credit_value(self, value: Any) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _calculate_subject_total_credits(self, subjects: List[Dict[str, Any]]) -> float:
+        total = 0.0
+        for subj in subjects or []:
+            if isinstance(subj, dict):
+                total += self._to_credit_value(subj.get("credits"))
+        return total
 
     def _build_subject_text(self, result: Dict) -> str:
         """
@@ -1992,13 +2028,14 @@ class ChatbotService:
         lines: List[str] = []
         global_idx = 0
 
-        for rule_cat, priority in sorted(self._SUBJECT_PRIORITY_MAP.items(), key=lambda x: x[1]):
+        for rule_cat in self._ordered_subject_rule_categories(summary):
             group: List[Dict] = summary.get(rule_cat, [])
             if not group:
                 continue
 
-            category_label = self._SUBJECT_REASON_LABELS.get(rule_cat, rule_cat)
             reason = self._format_subject_reason(rule_cat)
+            if reason == rule_cat and group:
+                reason = str(group[0].get("priority_reason") or reason)
 
             for subj in group:
                 global_idx += 1
@@ -2050,16 +2087,21 @@ class ChatbotService:
             # Each subject gets its rule category from the summary groups.
             # Rebuild a flat sorted list with _rule_priority and _rule_category fields.
             sorted_subjects: List[Dict] = []
-            summary = raw_result.get("summary", {})
+            summary = raw_result.get("summary", {}) or {}
 
-            for rule_cat, priority in sorted(self._SUBJECT_PRIORITY_MAP.items(), key=lambda x: x[1]):
+            for priority, rule_cat in enumerate(self._ordered_subject_rule_categories(summary), start=1):
                 group: List[Dict] = summary.get(rule_cat, [])
                 for subj in group:
                     enriched = dict(subj)
                     enriched["_rule_category"] = rule_cat
                     enriched["_rule_priority"] = priority
-                    enriched["_rule_reason"] = self._SUBJECT_REASON_LABELS.get(rule_cat, rule_cat)
+                    enriched["_rule_reason"] = self._SUBJECT_REASON_LABELS.get(
+                        rule_cat,
+                        str(subj.get("priority_reason") or rule_cat),
+                    )
                     sorted_subjects.append(enriched)
+
+            display_total_credits = self._calculate_subject_total_credits(sorted_subjects)
 
             # ── Build pre-formatted text (Node 3b is responsible for formatting) ─────
             preformatted = self._build_subject_text(raw_result)
@@ -2071,7 +2113,7 @@ class ChatbotService:
                 f"Mức cảnh báo: {raw_result['warning_level']}\n"
                 f"Tín chỉ tối thiểu: {raw_result['min_credits_required']} TC | "
                 f"Tối đa: {raw_result['max_credits_allowed']} TC | "
-                f"Tổng gợi ý: {raw_result['total_credits']} TC"
+                f"Tổng gợi ý: {display_total_credits:g} TC"
             )
             intro = f"📚 **Danh sách môn học gợi ý cho bạn:**\n\n{student_info}\n\n"
 
@@ -2093,8 +2135,9 @@ class ChatbotService:
                 "data": sorted_subjects,
                 "summary": raw_result.get("summary"),
                 "metadata": {
-                    "total_credits": raw_result["total_credits"],
-                    "meets_minimum": raw_result["meets_minimum"],
+                    "total_credits": display_total_credits,
+                    "raw_total_credits": raw_result.get("total_credits"),
+                    "meets_minimum": display_total_credits >= raw_result["min_credits_required"],
                     "min_credits_required": raw_result["min_credits_required"],
                     "max_credits_allowed": raw_result["max_credits_allowed"],
                     "current_semester": raw_result["current_semester"],
