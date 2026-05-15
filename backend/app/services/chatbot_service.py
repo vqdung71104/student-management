@@ -2014,6 +2014,8 @@ class ChatbotService:
         total = 0.0
         for subj in subjects or []:
             if isinstance(subj, dict):
+                if subj.get("option_only"):
+                    continue
                 total += self._to_credit_value(subj.get("credits"))
         return total
 
@@ -2036,6 +2038,16 @@ class ChatbotService:
             reason = self._format_subject_reason(rule_cat)
             if reason == rule_cat and group:
                 reason = str(group[0].get("priority_reason") or reason)
+
+            if rule_cat in ("physical_education", "supplementary") and len(group) > 1:
+                global_idx += 1
+                subject_codes = [str(subj.get("subject_id", "?")) for subj in group]
+                lines.append(
+                    f"{global_idx}. **{'/'.join(subject_codes)}** - "
+                    f"Cac lua chon co the dang ky "
+                    f"(Lý do: {reason})"
+                )
+                continue
 
             for subj in group:
                 global_idx += 1

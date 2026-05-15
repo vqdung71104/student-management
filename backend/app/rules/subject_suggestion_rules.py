@@ -21,7 +21,7 @@ Credit Limits:
 from typing import Dict, List, Optional, Set, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, bindparam
 import json
 import os
 import re
@@ -211,6 +211,100 @@ class SubjectSuggestionRuleEngine:
             for subject_id in self.PHYSICAL_EDUCATION_SUBJECTS
             if subject_id and str(subject_id).upper() not in self.NON_MANDATORY_PE_SUBJECT_IDS
         }
+
+    def _is_advanced_subject_name(self, subject_name: Optional[str]) -> bool:
+        normalized = self._normalize_text(str(subject_name or ""))
+        return "chuyen sau" in normalized
+
+    def _extract_pe_level(self, subject_name: Optional[str]) -> Tuple[Optional[str], Optional[int]]:
+        """
+        Extract PE progression group and level from subject_name.
+        Supports:
+        - Arabic: "... 1", "... 2", "... 3", "... 4"
+        - Roman : "... I", "... II", "... III", "... IV"
+        """
+        raw_name = str(subject_name or "").strip()
+        if not raw_name:
+            return None, None
+
+        name = re.sub(r"\s+", " ", raw_name).strip()
+        m_arabic = re.search(r"^(.*?)(?:\s+|\-|\()([1-4])\)?\s*$", name, flags=re.IGNORECASE)
+        if m_arabic:
+            base = self._normalize_text(m_arabic.group(1))
+            if base:
+                return base, int(m_arabic.group(2))
+
+        m_roman = re.search(r"^(.*?)(?:\s+|\-|\()(?:(IV|III|II|I))\)?\s*$", name, flags=re.IGNORECASE)
+        if m_roman:
+            base = self._normalize_text(m_roman.group(1))
+            roman = m_roman.group(2).upper()
+            roman_to_int = {"I": 1, "II": 2, "III": 3, "IV": 4}
+            if base and roman in roman_to_int:
+                return base, roman_to_int[roman]
+
+        return None, None
+
+    def _get_external_subject_candidates(self, subject_ids: Set[str]) -> List[Dict]:
+        """
+        Get subject rows from subjects table for explicit subject_id list,
+        independent from course_subjects.
+        """
+        if not subject_ids:
+            return []
+
+        query = """
+            SELECT s.id, s.subject_id, s.subject_name, s.credits
+            FROM subjects s
+            WHERE s.subject_id IN :subject_ids
+        """
+        stmt = text(query).bindparams(bindparam("subject_ids", expanding=True))
+        rows = self.db.execute(stmt, {"subject_ids": list(subject_ids)}).fetchall()
+        result: List[Dict] = []
+        for row in rows:
+            result.append(
+                {
+                    "id": row[0],
+                    "subject_id": row[1],
+                    "subject_name": row[2],
+                    "credits": row[3],
+                    "learning_semester": None,
+                }
+            )
+        return result
+
+    def _filter_pe_by_progression(self, pe_subjects: List[Dict], student_data: Dict) -> List[Dict]:
+        """
+        Progression rule for PE:
+        - Student can learn level 1 by default.
+        - Next level is allowed only if previous level has been passed.
+        """
+        completed = student_data['completed_subjects']
+        passed_levels_by_base: Dict[str, Set[int]] = {}
+
+        for data in completed.values():
+            grade = str(data.get("grade") or "").upper()
+            if grade == self.FAILED_GRADE:
+                continue
+            base, lvl = self._extract_pe_level(data.get("subject_name"))
+            if base and lvl:
+                passed_levels_by_base.setdefault(base, set()).add(lvl)
+
+        filtered: List[Dict] = []
+        for subject in pe_subjects:
+            base, lvl = self._extract_pe_level(subject.get("subject_name"))
+            if not base or not lvl:
+                # If name has no clear level, keep it as candidate.
+                filtered.append(subject)
+                continue
+
+            passed_levels = passed_levels_by_base.get(base, set())
+            if lvl == 1:
+                filtered.append(subject)
+                continue
+            if (lvl - 1) in passed_levels:
+                filtered.append(subject)
+
+        return filtered
     
     def get_current_semester(self) -> str:
         """
@@ -705,6 +799,25 @@ class SubjectSuggestionRuleEngine:
                     pe.append(subject)
             else:
                 remaining.append(subject)
+
+        # Fallback: PE can be selected from global PE list even if not in course_subjects.
+        if not pe:
+            existing_ids = {str(s.get("subject_id") or "").upper() for s in subjects}
+            extra_rows = self._get_external_subject_candidates(eligible_pe_ids - existing_ids)
+            for subject in extra_rows:
+                subject_id = str(subject.get("subject_id") or "").upper()
+                if self._is_optional_pe_subject(subject):
+                    continue
+                if self._is_advanced_subject_name(subject.get("subject_name")):
+                    continue
+                if subject_id in completed and completed[subject_id]['grade'] != 'F':
+                    continue
+                subject['priority_reason'] = f'PE subject ({pe_completed_count}/{self.PE_REQUIRED} completed)'
+                subject['priority_level'] = 4
+                pe.append(subject)
+
+        pe = self._filter_pe_by_progression(pe, student_data)
+        pe.sort(key=lambda x: (x.get('subject_id', ''), x.get('subject_name', '')))
         
         return pe, remaining
     
@@ -747,6 +860,23 @@ class SubjectSuggestionRuleEngine:
                     supplementary.append(subject)
             else:
                 remaining.append(subject)
+
+        # Fallback: supplementary can be selected from global supplementary list.
+        if not supplementary:
+            supp_ids = {str(sid).upper() for sid in self.SUPPLEMENTARY_SUBJECTS if sid}
+            existing_ids = {str(s.get("subject_id") or "").upper() for s in subjects}
+            extra_rows = self._get_external_subject_candidates(supp_ids - existing_ids)
+            for subject in extra_rows:
+                subject_id = str(subject.get("subject_id") or "").upper()
+                if self._is_advanced_subject_name(subject.get("subject_name")):
+                    continue
+                if subject_id in completed and completed[subject_id]['grade'] != 'F':
+                    continue
+                subject['priority_reason'] = f'Supplementary subject ({supp_completed_count}/{self.SUPPLEMENTARY_REQUIRED} completed)'
+                subject['priority_level'] = 5
+                supplementary.append(subject)
+
+        supplementary.sort(key=lambda x: (x.get('subject_id', ''), x.get('subject_name', '')))
         
         return supplementary, remaining
     
@@ -990,6 +1120,11 @@ class SubjectSuggestionRuleEngine:
                 suggested.append(subject)
                 summary['physical_education'].append(subject)
                 total_credits += subject['credits']
+            else:
+                # Keep showing PE options even if current credit plan is full.
+                option_subject = dict(subject)
+                option_subject['option_only'] = True
+                summary['physical_education'].append(option_subject)
         
         # RULE 6: Supplementary subjects
         supplementary, remaining = self.rule_5_filter_supplementary_subjects(
@@ -1001,6 +1136,11 @@ class SubjectSuggestionRuleEngine:
                 suggested.append(subject)
                 summary['supplementary'].append(subject)
                 total_credits += subject['credits']
+            else:
+                # Keep showing supplementary options even if current credit plan is full.
+                option_subject = dict(subject)
+                option_subject['option_only'] = True
+                summary['supplementary'].append(option_subject)
         
         # RULE 7: Fast track (if CPA > threshold)
         fast_track, remaining = self.rule_6_filter_fast_track(
