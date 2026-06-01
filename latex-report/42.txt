@@ -1,0 +1,197 @@
+\subsection{Thiết kế giao diện}
+
+\subsubsection{1. Đặc tả thông tin màn hình}
+
+Ứng dụng Student Management là một ứng dụng web chạy trên trình duyệt và được thiết kế theo hướng \textit{responsive} để sử dụng tốt trên nhiều kích thước màn hình khác nhau. Trong quá trình xây dựng giao diện, nhóm ưu tiên hai nhóm người dùng chính là sinh viên và cán bộ quản trị, vì đây là các vai trò thao tác thường xuyên nhất với hệ thống.
+
+Về độ phân giải hiển thị, giao diện được tối ưu tốt nhất ở mức từ 1366$\times$768 trở lên. Trên các màn hình lớn hơn như 1440$\times$900 hoặc 1920$\times$1080, bố cục vẫn giữ được sự cân đối nhờ các khung nội dung rộng, các thẻ thông tin tách bạch và khoảng đệm hợp lý. Trên màn hình nhỏ hơn, giao diện tự động co giãn theo chiều ngang, chuyển một số khu vực điều hướng sang dạng menu gọn hơn để tránh chiếm nhiều diện tích hiển thị.
+
+Xét theo kích thước màn hình, hệ thống hướng đến ba nhóm chính:
+\begin{itemize}
+    \item Nhóm màn hình nhỏ: điện thoại và máy tính bảng dọc, chiều rộng dưới 768px.
+    \item Nhóm màn hình trung bình: máy tính bảng ngang và laptop phổ thông, chiều rộng từ 768px đến dưới 1024px.
+    \item Nhóm màn hình lớn: laptop và desktop, chiều rộng từ 1024px trở lên.
+\end{itemize}
+
+Các ngưỡng này tương ứng với cơ chế responsive đang được sử dụng ở frontend. Cụ thể, ở màn hình nhỏ, thanh menu điều hướng được thu gọn để người dùng tập trung vào nội dung chính; ở màn hình trung bình, các thành phần bắt đầu giãn đều hơn; còn ở màn hình lớn, các khối chức năng có thể hiển thị đầy đủ mà vẫn giữ được khoảng trống hợp lý. Cách thiết kế này giúp giao diện thích nghi tốt với không gian hiển thị thay vì cố định ở một kích thước duy nhất.
+
+Về màu sắc, giao diện sử dụng xanh dương làm màu chủ đạo, xám làm màu nền và chữ phụ, trắng cho các thẻ nội dung, đồng thời kết hợp một số màu nhấn như xanh lá, vàng, đỏ và tím cho trạng thái hoặc thông báo. Cách phối màu này giúp hệ thống có khả năng nhận diện cao nhưng vẫn giữ cảm giác hiện đại, sạch sẽ và phù hợp với môi trường học tập.
+
+Từ góc nhìn trải nghiệm người dùng, giao diện cần đáp ứng ba tiêu chí: dễ đọc, dễ thao tác và dễ mở rộng. Do đó, các vùng nội dung chính được đặt trên nền sáng, chữ có độ tương phản tốt, các nút hành động quan trọng được làm nổi bật rõ ràng, còn các thành phần phụ được tiết chế để tránh gây rối mắt. Đây là lựa chọn phù hợp với một hệ thống quản lý học tập, nơi người dùng cần truy cập nhanh vào thông tin và thao tác thường xuyên.
+
+\subsubsection{2. Các thống nhất và chuẩn hóa khi thiết kế giao diện}
+
+Để đảm bảo tính nhất quán giữa các màn hình, nhóm xây dựng một số quy ước chung như sau.
+
+Thứ nhất, về bố cục tổng thể, hệ thống dùng cấu trúc quen thuộc gồm header ở trên cùng, nội dung chính ở giữa và footer hoặc vùng phụ trợ ở cuối trang. Header chứa logo, tên hệ thống, các menu điều hướng và nút đăng xuất. Phần nội dung chính luôn có khoảng đệm hai bên và khoảng cách trên dưới đồng đều để người dùng không bị cảm giác chật trang. Cách bố cục này được áp dụng xuyên suốt cho cả khu sinh viên và khu quản trị nhằm tạo cảm giác liền mạch.
+
+Thứ hai, về thiết kế nút, các nút hành động chính dùng nền xanh dương đậm, chữ trắng, bo góc nhẹ và có hiệu ứng hover rõ ràng. Các nút phụ thường dùng nền xám nhạt hoặc trắng, còn các nút nguy hiểm như xóa dữ liệu hoặc đăng xuất được dùng màu đỏ để cảnh báo. Kích thước nút được giữ vừa đủ lớn để thao tác thuận tiện trên cả chuột máy tính và màn hình cảm ứng.
+
+Thứ ba, về điều khiển nhập liệu, các ô input được thiết kế đồng nhất với viền xám nhạt, nền trắng và hiệu ứng focus màu xanh. Các thành phần như input, select, checkbox và radio dùng chung một ngôn ngữ hình thức để tránh cảm giác rời rạc. Trong các form đăng nhập, đổi mật khẩu, thêm mới hay lọc dữ liệu, nhãn trường nhập được đặt rõ ràng phía trên ô nhập để tăng khả năng đọc hiểu.
+
+Thứ tư, về thông báo và phản hồi, hệ thống ưu tiên hai vị trí chính: thông báo ngắn gọn xuất hiện ngay gần khu vực thao tác, còn các thông báo xác nhận hoặc cảnh báo quan trọng được hiển thị ở dạng modal. Cách làm này phù hợp với ngữ cảnh người dùng trong hệ thống quản lý học tập, vì họ cần biết ngay kết quả của các thao tác như lưu, cập nhật, xóa hoặc đăng xuất.
+
+Thứ năm, về phối màu, giao diện sử dụng xanh dương làm màu nhận diện chính. Màu này xuất hiện ở logo, nút chính, liên kết đang hoạt động và một số điểm nhấn quan trọng. Màu xám được dùng cho nền phụ, nền thẻ, viền và chữ thứ cấp. Màu xanh lá biểu thị trạng thái thành công, vàng cho cảnh báo, đỏ cho lỗi hoặc thao tác nguy hiểm, còn màu tím được dùng cho một số điểm nhấn đặc biệt như chatbot. Việc phân vai màu rõ ràng giúp người dùng nhận diện trạng thái nhanh hơn.
+
+Thứ sáu, về font chữ và khoảng cách, hệ thống dùng font sans-serif hiện đại, ưu tiên sự rõ ràng hơn là trang trí. Kích thước chữ được phân tầng theo chức năng như tiêu đề lớn, tiêu đề khối, nhãn trường, nội dung phụ và chú thích. Khoảng cách giữa các nhóm nội dung được giữ đều để giảm cảm giác rối mắt, đặc biệt ở các trang bảng dữ liệu và form nhập liệu.
+
+Thứ bảy, về các thành phần lặp lại, thẻ thông tin dạng card, bảng dữ liệu, form, menu thả xuống, hộp thoại xác nhận và chatbot đều được chuẩn hóa để xuất hiện nhất quán trên toàn hệ thống. Ví dụ, các thẻ thống kê trên dashboard của sinh viên và admin có cùng tinh thần thiết kế: nền trắng, biểu tượng màu nhấn, tiêu đề nhỏ và số liệu lớn. Bảng dữ liệu dùng hàng xen kẽ màu nhẹ để dễ theo dõi. Các modal luôn có lớp phủ tối phía sau để tập trung sự chú ý của người dùng.
+
+Nhìn chung, việc chuẩn hóa này giúp hệ thống có tính đồng bộ cao giữa các phân hệ, giảm thời gian học giao diện cho người dùng mới và hỗ trợ mở rộng chức năng trong tương lai mà không phá vỡ phong cách thiết kế hiện tại.
+
+\subsubsection{3. Hình ảnh minh họa thiết kế giao diện}
+
+Dưới đây là các hình ảnh minh họa giao diện được dựng theo hướng mô phỏng thiết kế, không phải ảnh chụp sản phẩm cuối cùng. Mục tiêu của các hình này là thể hiện cấu trúc thị giác, mức độ ưu tiên thông tin và cách tổ chức các vùng tương tác chính.
+
+%\begin{figure}[h]
+%    \centering
+%    \includegraphics[width=0.95\linewidth]{latex-report/thietkegiaodien/01-student-dashboard-mockup.svg}
+%    \caption{Minh họa giao diện trang tổng quan sinh viên}
+%\end{figure}
+
+Hình trên thể hiện trang tổng quan của sinh viên, nơi ưu tiên hiển thị các chỉ số học tập, thông báo mới, lịch học và chatbot hỗ trợ nổi. Đây là màn hình quan trọng nhất đối với sinh viên vì cung cấp cái nhìn tổng quát ngay khi đăng nhập.
+
+%\begin{figure}[h]
+%    \centering
+%    \includegraphics[width=0.95\linewidth]{latex-report/thietkegiaodien/02-admin-dashboard-mockup.svg}
+%    \caption{Minh họa giao diện trang tổng quan quản trị}
+%\end{figure}
+
+Hình tiếp theo mô tả trang tổng quan của quản trị viên với các khối thống kê, khu vực quản lý sinh viên và vùng cập nhật thời khóa biểu, môn học. Giao diện quản trị được thiết kế theo hướng nhiều dữ liệu, dễ lọc và dễ thao tác hàng loạt.
+
+%\begin{figure}[h]
+%    \centering
+%    \includegraphics[width=0.95\linewidth]{latex-report/thietkegiaodien/03-auth-form-mockup.svg}
+%    \caption{Minh họa giao diện đăng nhập và biểu mẫu xác thực}
+%\end{figure}
+
+Hình cuối cùng minh họa nhóm màn hình xác thực như đăng nhập, đăng ký và quên mật khẩu. Đây là nơi giao diện cần rõ ràng, ít nhiễu và tập trung vào thao tác nhập liệu, thông báo lỗi và nút hành động chính.
+
+Từ các hình minh họa trên có thể thấy phong cách thiết kế của hệ thống mang tính nhất quán, hiện đại và phù hợp cho môi trường quản lý học tập. Giao diện không chỉ hỗ trợ chức năng, mà còn giúp người dùng nhanh chóng định vị thông tin và thao tác thuận tiện hơn.
+
+\subsection{Thiết kế lớp}
+
+Phần thiết kế lớp của hệ thống tập trung vào hai nhóm chính: các lớp miền nghiệp vụ dùng để ánh xạ dữ liệu với cơ sở dữ liệu, và các lớp dịch vụ dùng để xử lý logic ở tầng ứng dụng. Cách tổ chức này giúp mã nguồn tách biệt rõ ràng giữa dữ liệu, nghiệp vụ và giao tiếp API, đồng thời thuận tiện cho việc kiểm thử và mở rộng.
+
+Trong nhóm lớp miền nghiệp vụ, các lớp quan trọng nhất gồm \texttt{Student}, \texttt{Subject}, \texttt{Class}, \texttt{Course}, \texttt{Department}, \texttt{LearnedSubject}, \texttt{SemesterGPA}, \texttt{ClassRegister}, \texttt{SubjectRegister}, \texttt{Feedback}, \texttt{FAQ}, \texttt{ChatConversation} và \texttt{ChatMessage}. Các lớp này phản ánh đúng các thực thể trong hệ thống quản lý học tập và chatbot hỗ trợ.
+
+Trong nhóm lớp dịch vụ, một số lớp có vai trò trung tâm gồm \texttt{ChatbotService}, \texttt{NL2SQLService}, \texttt{ClassQueryService}, \texttt{ScheduleCombinationGenerator}, \texttt{ExcelExportService}, \texttt{PasswordResetService} và \texttt{EmailService}. Đây là các lớp chịu trách nhiệm xử lý thông minh cho gợi ý môn học, gợi ý lớp học, truy vấn học tập, xuất dữ liệu và gửi email xác thực.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{Lớp} & \textbf{Thuộc tính chính} & \textbf{Vai trò và phương thức tiêu biểu} \\ \hline
+\texttt{Student} & \texttt{id}, \texttt{student\_name}, \texttt{email}, \texttt{password}, \texttt{course\_id}, \texttt{department\_id}, \texttt{cpa}, \texttt{warning\_level} & Lưu thông tin sinh viên, trạng thái học tập và các quan hệ với lớp học phần, kết quả học tập. \\ \hline
+\texttt{Subject} & \texttt{subject\_id}, \texttt{subject\_name}, \texttt{credits}, \texttt{department\_id}, \texttt{conditional\_subjects} & Đại diện cho học phần, mô tả tên môn, số tín chỉ, khoa quản lý và điều kiện tiên quyết. \\ \hline
+\texttt{Class} & \texttt{class\_id}, \texttt{class\_name}, \texttt{study\_date}, \texttt{study\_time\_start}, \texttt{study\_time\_end}, \texttt{teacher\_name}, \texttt{study\_week} & Biểu diễn lớp mở của một học phần; có validator để kiểm tra ngày học và thời gian học hợp lệ. \\ \hline
+\texttt{ChatbotService} & Kết nối DB, rule engine, bộ phân loại ý định và bộ sinh phản hồi & Xử lý hội thoại chatbot, gợi ý học phần, gợi ý lớp học và định dạng kết quả cho frontend. \\ \hline
+\texttt{ClassQueryService} & \texttt{db}, bộ lọc ràng buộc, logic chuyển ngày/giờ & Chuyển các ràng buộc từ người dùng thành truy vấn ORM an toàn, lọc lớp học theo thời gian, ngày học và mã lớp. \\ \hline
+\end{tabularx}
+\caption{Một số lớp chủ đạo trong hệ thống}
+\end{table}
+
+Các mối quan hệ giữa những lớp này được thiết kế như sau:
+\begin{itemize}
+    \item \texttt{Department} liên kết một-nhiều với \texttt{Student} và \texttt{Subject}.
+    \item \texttt{Course} liên kết nhiều-nhiều với \texttt{Student} thông qua bảng trung gian \texttt{student\_course}.
+    \item \texttt{Subject} liên kết một-nhiều với \texttt{Class}, \texttt{LearnedSubject}, \texttt{SubjectRegister} và \texttt{CourseSubject}.
+    \item \texttt{Class} liên kết một-nhiều với \texttt{ClassRegister} và có thể liên kết nhiều-nhiều với chính nó qua \texttt{linked\_class}.
+    \item \texttt{ChatConversation} liên kết một-nhiều với \texttt{ChatMessage}, bảo đảm lưu lịch sử hội thoại đầy đủ theo từng sinh viên.
+\end{itemize}
+
+Đối với các luồng nghiệp vụ chính, hệ thống sử dụng mô hình tương tác theo chuỗi như sau:
+\begin{itemize}
+    \item Với luồng tra cứu học tập, frontend gửi yêu cầu đến các API như \texttt{learned\_subject\_routes}, \texttt{semester\_gpa\_routes} và \texttt{student\_routes}, sau đó backend truy vấn dữ liệu từ \texttt{LearnedSubject}, \texttt{SemesterGPA} và \texttt{Student} để trả về kết quả cho giao diện.
+    \item Với luồng gợi ý học phần, người dùng gửi câu hỏi vào \texttt{ChatbotService}, câu hỏi được chuẩn hóa và phân loại ý định, sau đó \texttt{SubjectSuggestionRuleEngine} lựa chọn các môn học phù hợp dựa trên kết quả học tập, chương trình đào tạo và các ràng buộc của sinh viên.
+    \item Với luồng gợi ý lớp học, \texttt{ChatbotService} kết hợp \texttt{ConstraintExtractor}, \texttt{ClassQueryService} và \texttt{ScheduleCombinationGenerator} để lọc lớp theo thời gian, ngày học, phòng học, giảng viên và các ràng buộc mềm hoặc cứng do người dùng cung cấp.
+\end{itemize}
+
+Nhờ cách tổ chức này, từng lớp đều có trách nhiệm rõ ràng. Lớp miền dữ liệu chỉ lo lưu trữ và ánh xạ, còn lớp dịch vụ tập trung vào nghiệp vụ, giúp hệ thống dễ bảo trì, dễ kiểm thử và ít phụ thuộc chéo giữa các thành phần.
+
+\subsection{Thiết kế cơ sở dữ liệu}
+
+Hệ thống sử dụng MySQL 8.0 và ORM SQLAlchemy để xây dựng cơ sở dữ liệu. Thiết kế dữ liệu được chuẩn hóa theo hướng tách các thực thể chính thành từng bảng riêng, đồng thời dùng các bảng liên kết cho các quan hệ nhiều-nhiều. Hiện tại hệ thống có 19 bảng chính, bao phủ các nhóm dữ liệu về người dùng, chương trình đào tạo, đăng ký học tập, lịch sử học tập, hỗ trợ và chatbot.
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{|l|X|X|}
+\hline
+\textbf{Nhóm dữ liệu} & \textbf{Bảng chính} & \textbf{Mục đích} \\ \hline
+Người dùng và xác thực & \texttt{students}, \texttt{admins}, \texttt{password\_reset\_tokens} & Quản lý tài khoản, phân quyền, đặt lại mật khẩu và lịch sử xác thực. \\ \hline
+Tổ chức đào tạo & \texttt{departments}, \texttt{courses}, \texttt{subjects}, \texttt{course\_subjects}, \texttt{student\_course}, \texttt{subject\_condition}, \texttt{linked\_class} & Lưu cấu trúc khoa, khóa học, môn học, quan hệ chương trình đào tạo và các liên kết giữa môn/lớp. \\ \hline
+Đăng ký và kết quả học tập & \texttt{classes}, \texttt{class\_registers}, \texttt{subject\_registers}, \texttt{learned\_subjects}, \texttt{semester\_gpa} & Quản lý lớp mở, đăng ký lớp, đăng ký học phần, kết quả học tập và GPA học kỳ. \\ \hline
+Hỗ trợ và hội thoại & \texttt{feedbacks}, \texttt{faqs}, \texttt{chat\_conversations}, \texttt{chat\_messages} & Lưu phản hồi người dùng, câu hỏi thường gặp, lịch sử hội thoại và nội dung chat. \\ \hline
+\end{tabularx}
+\caption{Phân nhóm các bảng dữ liệu chính trong hệ thống}
+\end{table}
+
+Một số quan hệ quan trọng trong cơ sở dữ liệu như sau:
+\begin{itemize}
+    \item \texttt{students.course\_id} tham chiếu đến \texttt{courses.id}, còn \texttt{students.department\_id} tham chiếu đến \texttt{departments.id}.
+    \item \texttt{subjects.department\_id} cho phép xác định học phần thuộc khoa nào; đồng thời \texttt{subjects} liên kết với \texttt{classes}, \texttt{learned\_subjects}, \texttt{subject\_registers} và \texttt{course\_subjects}.
+    \item \texttt{classes.subject\_id} liên kết mỗi lớp với đúng một học phần, còn \texttt{class\_registers} lưu lịch sử đăng ký của sinh viên đối với lớp đó.
+    \item \texttt{chat\_conversations} và \texttt{chat\_messages} tạo thành mô hình một-nhiều để lưu lịch sử hội thoại theo từng sinh viên.
+    \item Các bảng liên kết như \texttt{student\_course}, \texttt{subject\_condition} và \texttt{linked\_class} giúp biểu diễn quan hệ nhiều-nhiều mà không làm trùng lặp dữ liệu.
+\end{itemize}
+
+Thiết kế này có một số ưu điểm nổi bật. Trước hết, dữ liệu được chia tách hợp lý nên tránh dư thừa và dễ mở rộng. Thứ hai, các khóa ngoại và ràng buộc duy trì tính toàn vẹn tham chiếu giữa các bảng. Thứ ba, những bảng có tần suất truy cập cao như \texttt{chat\_conversations} và \texttt{chat\_messages} đã được bổ sung chỉ mục để cải thiện hiệu năng truy vấn. Thứ tư, lớp \texttt{Class} có validator kiểm tra \texttt{study\_date}, \texttt{study\_time\_start} và \texttt{study\_time\_end}, giúp dữ liệu lịch học luôn hợp lệ ngay từ tầng mô hình.
+
+Ngoài ra, các bảng nghiệp vụ như \texttt{feedbacks}, \texttt{faqs} và \texttt{password\_reset\_tokens} hỗ trợ đầy đủ cho các chức năng phụ trợ của hệ thống như phản hồi người dùng, hỏi đáp và khôi phục mật khẩu. Nhờ vậy, cơ sở dữ liệu không chỉ phục vụ các nghiệp vụ chính mà còn bao phủ tốt các nhu cầu vận hành thực tế.
+
+\section{Xây dựng ứng dụng}
+
+\subsection{Thư viện và công cụ sử dụng}
+
+Trong quá trình xây dựng hệ thống, nhóm sử dụng kết hợp nhiều công cụ và thư viện cho cả backend, frontend và kiểm thử. Các công cụ chính được tổng hợp như sau:
+
+\begin{table}[H]
+\centering
+\begin{tabularx}{\textwidth}{|l|l|X|}
+\hline
+\textbf{Mục đích} & \textbf{Công cụ / thư viện} & \textbf{Phiên bản hoặc ghi chú} \\ \hline
+Ngôn ngữ backend & Python & 3.11 \\ \hline
+Framework backend & FastAPI & 0.110.0 \\ \hline
+ORM và truy cập CSDL & SQLAlchemy, PyMySQL & 2.0.25, 1.0.2 \\ \hline
+Xác thực và bảo mật & PyJWT, argon2-cffi, python-dotenv & 2.10.1, 25.1.0, 1.0.1 \\ \hline
+Xuất dữ liệu & openpyxl & 3.1.5 \\ \hline
+Xử lý chatbot và NLP & scikit-learn, gensim, rapidFuzz, langgraph, redis & 1.5.2, 4.3.0, 3.x, 1.1.10, 5.2.1 \\ \hline
+Kiểm thử backend & pytest, pytest-asyncio & 8.4.1, 1.1.0 \\ \hline
+Ngôn ngữ frontend & React, TypeScript & 19.1.0, 5.8.3 \\ \hline
+Build tool frontend & Vite & 7.0.4 \\ \hline
+Giao diện & Ant Design, Tailwind CSS & 5.27.3, 4.1.11 \\ \hline
+Biểu đồ và xuất file & Chart.js, xlsx, docx, file-saver & 4.5.0, 0.18.5, 9.5.1, 2.0.5 \\ \hline
+Điều hướng và tiện ích UI & React Router, lucide-react, @ant-design/icons & 7.8.2, 0.526.0, 6.0.1 \\ \hline
+Công cụ phát triển & Node.js, npm, MySQL 8.0, Docker & Sử dụng trong phát triển và triển khai \\ \hline
+\end{tabularx}
+\caption{Danh sách công cụ và thư viện sử dụng}
+\end{table}
+
+Backend được xây dựng trên FastAPI, kết hợp SQLAlchemy để ánh xạ đối tượng, PyMySQL để làm việc với MySQL và PyJWT để xử lý đăng nhập theo token. Ngoài các thư viện lõi, hệ thống còn dùng Redis cho lưu trạng thái tạm thời của chatbot, openpyxl cho xuất dữ liệu học tập ra Excel và pytest để kiểm thử các phần nghiệp vụ quan trọng.
+
+Frontend được xây dựng bằng React kết hợp TypeScript để đảm bảo dễ bảo trì và giảm lỗi kiểu dữ liệu. Vite được dùng làm công cụ build, Ant Design hỗ trợ nhanh các thành phần giao diện quản trị, Tailwind CSS hỗ trợ bố cục responsive, còn Chart.js được dùng cho các biểu đồ thống kê trên dashboard. Một số thư viện như \texttt{xlsx}, \texttt{docx}, \texttt{file-saver} và \texttt{@emailjs/browser} hỗ trợ các chức năng xuất dữ liệu và gửi biểu mẫu.
+
+\subsection{Kết quả đạt được}
+
+Sau khi hoàn thành các phần lõi, hệ thống đã đạt được một số kết quả chính sau:
+\begin{itemize}
+    \item Xây dựng được hai cổng giao diện riêng cho sinh viên và quản trị viên, với điều hướng rõ ràng và khả năng thích nghi tốt trên nhiều kích thước màn hình.
+    \item Hoàn thiện các chức năng xác thực như đăng nhập, đăng ký, quên mật khẩu, đặt lại mật khẩu và đổi mật khẩu cho cả sinh viên lẫn quản trị viên.
+    \item Tổ chức được các màn hình quản lý sinh viên, học phần, lớp học, thời khóa biểu, phản hồi, FAQ và thông báo cho phía quản trị.
+    \item Tích hợp chatbot hỗ trợ tra cứu thông tin học tập, gợi ý học phần và gợi ý lớp học dựa trên ràng buộc thời gian, ngày học và nhu cầu cá nhân.
+    \item Lưu được lịch sử hội thoại theo từng người dùng, hỗ trợ khôi phục phiên chat và theo dõi các câu hỏi trước đó.
+    \item Hỗ trợ xuất dữ liệu học tập và lịch học ra Excel, phục vụ nhu cầu chia sẻ và quản lý ngoại tuyến.
+    \item Xây dựng được cơ sở dữ liệu gồm 19 bảng chính, đủ để lưu trữ thông tin sinh viên, chương trình đào tạo, đăng ký học tập và hội thoại chatbot.
+\end{itemize}
+
+Về quy mô mã nguồn, phần backend trong thư mục \texttt{backend/app} hiện có 105 tệp nguồn với khoảng 25 nghìn dòng mã, còn frontend trong \texttt{frontend/src} có 61 tệp nguồn với khoảng 19 nghìn dòng mã. Tổng thể, dự án đã đạt mức hoàn thiện đủ lớn để phản ánh một hệ thống quản lý học tập có tích hợp chatbot, nhưng vẫn giữ cấu trúc phân lớp rõ ràng để có thể tiếp tục phát triển.
+
+Xét về cấu trúc sản phẩm, hệ thống hiện đã bao phủ tốt các nhóm chức năng trọng tâm:
+\begin{itemize}
+    \item Quản lý tài khoản và xác thực người dùng.
+    \item Quản lý học phần, lớp học, chương trình đào tạo và kết quả học tập.
+    \item Tư vấn học tập bằng chatbot và lưu lịch sử hội thoại.
+    \item Phản hồi người dùng, hỏi đáp thường gặp và hỗ trợ thao tác phụ trợ.
+\end{itemize}
+
+Nhìn chung, kết quả đạt được cho thấy mô hình hệ thống đã đáp ứng đúng mục tiêu ban đầu: hỗ trợ sinh viên tra cứu và đăng ký học tập thuận tiện hơn, đồng thời cung cấp cho cán bộ quản trị một công cụ quản lý dữ liệu tập trung, rõ ràng và dễ mở rộng trong tương lai.

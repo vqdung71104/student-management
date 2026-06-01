@@ -1,0 +1,22 @@
+\begin{tikzpicture}[
+    >=Latex,
+    font=\small,
+    box/.style={draw, rounded corners, align=left, inner sep=4pt, minimum width=3.4cm, minimum height=1.0cm},
+    rel/.style={-Latex, thick}
+]
+    \node[box] (admins) at (0,0) {\textbf{admins}\\username, email\\password\_hash, trạng thái};
+    \node[box] (students) at (5.0,0) {\textbf{students}\\student\_name, email\\password, CPA, cảnh báo};
+    \node[box] (departments) at (10.0,0) {\textbf{departments}\\mã khoa, tên khoa};
+
+    \node[box] (courses) at (2.5,-2.8) {\textbf{courses}\\mã khóa, tên khóa};
+    \node[box] (reset) at (7.5,-2.8) {\textbf{password\_reset\_tokens}\\token, hạn dùng, thiết bị};
+    \node[box] (feedbacks) at (12.5,-2.8) {\textbf{feedbacks}\\email, subject, nội dung};
+    \node[box] (faqs) at (5.0,-5.6) {\textbf{faqs}\\question, answer\\trạng thái hiển thị};
+
+    \draw[rel] (students) -- (courses);
+    \draw[rel] (students) -- (departments);
+    \draw[rel] (students) -- (reset);
+    \draw[rel] (students) -- (feedbacks);
+    \draw[rel] (admins) -- (faqs);
+    \draw[rel] (feedbacks) -- (faqs);
+\end{tikzpicture}

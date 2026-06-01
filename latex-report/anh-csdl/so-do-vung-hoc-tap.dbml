@@ -1,0 +1,136 @@
+Table departments {
+  id varchar(50) [pk]
+  name varchar(255)
+}
+
+Table courses {
+  id int [pk, increment]
+  course_id varchar(255) [unique]
+  course_name varchar(255)
+}
+
+Table students {
+  id int [pk, increment]
+  student_name varchar(255) [not null]
+  email varchar(255) [not null, unique]
+  password varchar(255) [not null]
+  course_id int [not null]
+  department_id varchar(50)
+  password_updated_at datetime
+  cpa float [default: 0.0]
+  failed_subjects_number int [default: 0]
+  study_subjects_number int [default: 0]
+  total_learned_credits int [default: 0]
+  total_failed_credits int [default: 0]
+  year_level varchar(20) [default: 'Trinh do nam 1']
+  warning_level varchar(50) [default: 'Canh cao muc 0']
+  level_3_warning_number int [default: 0]
+}
+
+Table subjects {
+  id int [pk, increment]
+  subject_id varchar(50) [not null, unique]
+  department_id varchar(50)
+  subject_name varchar(255)
+  duration varchar(50)
+  credits int
+  tuition_fee int
+  english_subject_name varchar(255)
+  weight float
+  conditional_subjects varchar(255)
+}
+
+Table classes {
+  id int [pk, increment]
+  subject_id int
+  class_id varchar(255)
+  class_name varchar(255)
+  linked_class_ids varchar(255)
+  class_type varchar(255)
+  classroom varchar(255)
+  study_date varchar(255)
+  study_time_start time
+  study_time_end time
+  teacher_name varchar(255)
+  study_week json
+}
+
+Table course_subjects {
+  id int [pk, increment]
+  subject_id int
+  learning_semester int
+  course_id int
+}
+
+Table class_registers {
+  id int [pk, increment]
+  class_info varchar(255)
+  requirement varchar(255)
+  register_type varchar(255)
+  register_status varchar(255)
+  register_date datetime
+  student_id int
+  class_id int
+}
+
+Table subject_registers {
+  id int [pk, increment]
+  student_id int
+  subject_name varchar(255)
+  credits int
+  subject_id int
+  register_date datetime
+}
+
+Table learned_subjects {
+  id int [pk, increment]
+  subject_name varchar(255)
+  credits int
+  letter_grade varchar(10)
+  semester varchar(255)
+  student_id int
+  subject_id int
+}
+
+Table semester_gpa {
+  id int [pk, increment]
+  semester varchar(255)
+  gpa float
+  total_credits int [default: 0]
+  student_id int
+}
+
+Table student_course {
+  student_id int [pk, not null]
+  course_id int [pk, not null]
+}
+
+Table subject_condition {
+  subject_id int [pk, not null]
+  condition_subject_id int [pk, not null]
+}
+
+Table linked_class {
+  class_id int [pk, not null]
+  linked_class_id int [pk, not null]
+}
+
+Ref: students.course_id > courses.id
+Ref: students.department_id > departments.id
+Ref: subjects.department_id > departments.id
+Ref: classes.subject_id > subjects.id
+Ref: course_subjects.subject_id > subjects.id
+Ref: course_subjects.course_id > courses.id
+Ref: class_registers.student_id > students.id
+Ref: class_registers.class_id > classes.id
+Ref: subject_registers.student_id > students.id
+Ref: subject_registers.subject_id > subjects.id
+Ref: learned_subjects.student_id > students.id
+Ref: learned_subjects.subject_id > subjects.id
+Ref: semester_gpa.student_id > students.id
+Ref: student_course.student_id > students.id
+Ref: student_course.course_id > courses.id
+Ref: subject_condition.subject_id > subjects.id
+Ref: subject_condition.condition_subject_id > subjects.id
+Ref: linked_class.class_id > classes.id
+Ref: linked_class.linked_class_id > classes.id

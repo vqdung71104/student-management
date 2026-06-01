@@ -1,0 +1,171 @@
+\subsection{Thiết kế cơ sở dữ liệu}
+
+Tiếp theo, trong mục này, hệ thống trình bày thiết kế cơ sở dữ liệu cho ứng dụng quản lý sinh viên. CSDL được xây dựng theo hướng chuẩn hóa, tách bạch rõ giữa dữ liệu gốc, dữ liệu phát sinh và các bảng liên kết trung gian. Cách tổ chức này giúp giảm trùng lặp, dễ mở rộng và thuận tiện cho việc bảo trì về sau.
+
+Về mặt tổng thể, các bảng trong hệ thống được chia thành ba nhóm chức năng chính:
+\begin{itemize}
+    \item Nhóm bảng tài khoản và người dùng: lưu thông tin đăng nhập, hồ sơ sinh viên, đơn vị đào tạo và các bảng hỗ trợ xác thực.
+    \item Nhóm bảng học tập và đăng ký: lưu học phần, lớp học phần, kết quả học tập, đăng ký học phần và các bảng liên kết.
+    \item Nhóm bảng hỗ trợ: lưu phản hồi, FAQ, hội thoại chatbot và lịch sử tin nhắn trao đổi.
+\end{itemize}
+
+Trong quá trình thiết kế, hệ thống ưu tiên các quan hệ một-nhiều ở những nơi cần lưu lịch sử phát sinh, còn các quan hệ nhiều-nhiều được tách ra thành bảng trung gian để đảm bảo tính nhất quán dữ liệu. Các bảng như \texttt{student\_course}, \texttt{subject\_condition} và \texttt{linked\_class} đều được xây dựng theo nguyên tắc này.
+
+\subsubsection{Sơ đồ cơ sở dữ liệu tổng quan}
+
+Hình dưới đây thể hiện sơ đồ tổng quan của toàn bộ CSDL. Ở mức khái quát, bảng \texttt{students} là trung tâm của nhiều luồng nghiệp vụ như xem thông tin học tập, đăng ký học phần, đăng ký lớp học và trao đổi với chatbot. Từ đó, các bảng còn lại được tổ chức xung quanh các nhóm chức năng phụ trợ.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/so-do-csdl-tong-quat.png}
+    \caption{Sơ đồ cơ sở dữ liệu tổng quan của hệ thống}
+\end{figure}
+
+Từ sơ đồ tổng quan có thể thấy hệ thống không chỉ lưu trữ dữ liệu học tập mà còn lưu các dữ liệu phục vụ vận hành như khôi phục mật khẩu, phản hồi người dùng, câu hỏi thường gặp và lịch sử hội thoại. Điều này giúp ứng dụng có thể đáp ứng cả nhu cầu chuyên môn lẫn nhu cầu hỗ trợ trong quá trình sử dụng.
+
+\subsubsection{Nhóm bảng tài khoản và người dùng}
+
+Nhóm bảng tài khoản và người dùng chịu trách nhiệm lưu trữ thông tin định danh, thông tin cá nhân và dữ liệu phục vụ xác thực. Trong đó, \texttt{students} là bảng lõi của hệ thống, còn \texttt{admins} phục vụ tài khoản quản trị. Các bảng \texttt{departments} và \texttt{courses} dùng để chuẩn hóa thông tin khoa/ngành và khóa học. Ngoài ra, \texttt{password\_reset\_tokens} được dùng để quản lý quy trình đặt lại mật khẩu an toàn hơn.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/so-do-vung-tai-khoan-nguoi-dung.png}
+    \caption{Sơ đồ vùng dữ liệu tài khoản và người dùng}
+\end{figure}
+
+\texttt{students} lưu các thuộc tính học tập tổng hợp như CPA, số tín chỉ đã học, số tín chỉ trượt, mức cảnh báo và trình độ năm học. Các thông tin này không chỉ được hiển thị trên giao diện người dùng mà còn là đầu vào cho các chức năng tư vấn học tập. \texttt{departments} và \texttt{courses} giúp hệ thống xác định sinh viên thuộc ngành nào, khóa nào, từ đó hỗ trợ lọc dữ liệu học phần và lớp học chính xác hơn.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{|c|l|l|c|l|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{STT} & \textbf{Tên trường} & \textbf{Kiểu dữ liệu} & \textbf{Null} & \textbf{Mặc định} & \textbf{Ghi chú} \\ \hline
+1 & \texttt{id} & int & & & Khóa chính, tự tăng \\ \hline
+2 & \texttt{student\_name} & varchar(255) &  &  & Họ tên sinh viên \\ \hline
+3 & \texttt{email} & varchar(255) &  &  & Email đăng nhập, duy nhất \\ \hline
+4 & \texttt{password} & varchar(255) &  &  & Mật khẩu đã mã hóa \\ \hline
+5 & \texttt{course\_id} & int &  &  & Khóa ngoại tới \texttt{courses} \\ \hline
+6 & \texttt{department\_id} & varchar(50) & X & NULL & Khóa ngoại tới \texttt{departments} \\ \hline
+7 & \texttt{cpa} & float &  & 0.0 & Điểm trung bình tích lũy \\ \hline
+8 & \texttt{failed\_subjects\_number} & int &  & 0 & Số môn trượt \\ \hline
+9 & \texttt{study\_subjects\_number} & int &  & 0 & Số môn đã học \\ \hline
+10 & \texttt{total\_learned\_credits} & int &  & 0 & Tổng tín chỉ đã tích lũy \\ \hline
+11 & \texttt{total\_failed\_credits} & int &  & 0 & Tổng tín chỉ trượt \\ \hline
+12 & \texttt{year\_level} & varchar(20) &  & Trình độ năm 1 & Trình độ học tập hiện tại \\ \hline
+13 & \texttt{warning\_level} & varchar(50) &  & Cảnh cáo mức 0 & Mức cảnh báo học tập \\ \hline
+\end{tabularx}
+\caption{Thiết kế chi tiết bảng \texttt{students}}
+\end{table}
+
+\subsubsection{Nhóm bảng học tập và đăng ký}
+
+Đây là nhóm bảng quan trọng nhất của hệ thống vì phản ánh trực tiếp quá trình học tập và đăng ký môn/lớp của sinh viên. Bảng \texttt{subjects} lưu thông tin học phần, \texttt{classes} lưu thông tin lớp học phần, \texttt{learned\_subjects} lưu kết quả học tập, còn \texttt{semester\_gpa} lưu chỉ số GPA theo học kỳ. Hai bảng \texttt{class\_registers} và \texttt{subject\_registers} phục vụ theo dõi đăng ký; \texttt{course\_subjects}, \texttt{subject\_condition}, \texttt{linked\_class} là các bảng liên kết dùng để chuẩn hóa quan hệ nhiều-nhiều.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/so-do-vung-hoc-tap.png}
+    \caption{Sơ đồ vùng dữ liệu học tập và đăng ký}
+\end{figure}
+
+\texttt{subjects} đóng vai trò là điểm gốc để hệ thống xác định học phần nào thuộc ngành nào, học phần nào có điều kiện tiên quyết và học phần nào được mở ở học kỳ nào. \texttt{classes} mô tả lớp học phần cụ thể với phòng học, lịch học, giảng viên, tuần học và lớp kèm. \texttt{learned\_subjects} là nguồn dữ liệu chính để tính GPA, CPA và mức cảnh báo.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{|c|l|l|c|l|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{STT} & \textbf{Tên trường} & \textbf{Kiểu dữ liệu} & \textbf{Null} & \textbf{Mặc định} & \textbf{Ghi chú} \\ \hline
+1 & \texttt{id} & int & & & Khóa chính, tự tăng \\ \hline
+2 & \texttt{subject\_id} & varchar(50) &  &  & Mã học phần, duy nhất \\ \hline
+3 & \texttt{subject\_name} & varchar(255) &  &  & Tên học phần \\ \hline
+4 & \texttt{department\_id} & varchar(50) & X & NULL & Khóa ngoại tới \texttt{departments} \\ \hline
+5 & \texttt{credits} & int &  &  & Số tín chỉ \\ \hline
+6 & \texttt{duration} & varchar(50) &  &  & Thời lượng học phần \\ \hline
+7 & \texttt{tuition\_fee} & int &  &  & Học phí dự kiến \\ \hline
+8 & \texttt{english\_subject\_name} & varchar(255) & X & NULL & Tên tiếng Anh \\ \hline
+9 & \texttt{weight} & float &  &  & Trọng số học phần \\ \hline
+10 & \texttt{conditional\_subjects} & varchar(255) & X & NULL & Môn học phần tiên quyết \\ \hline
+\end{tabularx}
+\caption{Thiết kế chi tiết bảng \texttt{subjects}}
+\end{table}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{|c|l|l|c|l|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{STT} & \textbf{Tên trường} & \textbf{Kiểu dữ liệu} & \textbf{Null} & \textbf{Mặc định} & \textbf{Ghi chú} \\ \hline
+1 & \texttt{id} & int & & & Khóa chính, tự tăng \\ \hline
+2 & \texttt{subject\_id} & int & & & Khóa ngoại tới \texttt{subjects} \\ \hline
+3 & \texttt{class\_id} & varchar(255) &  &  & Mã lớp học phần \\ \hline
+4 & \texttt{class\_name} & varchar(255) &  &  & Tên lớp học phần \\ \hline
+5 & \texttt{linked\_class\_ids} & varchar(255) & X & NULL & Danh sách lớp kèm \\ \hline
+6 & \texttt{class\_type} & varchar(255) &  &  & Loại lớp \\ \hline
+7 & \texttt{classroom} & varchar(255) & X & NULL & Phòng học \\ \hline
+8 & \texttt{study\_date} & varchar(255) &  &  & Ngày học \\ \hline
+9 & \texttt{study\_time\_start} & time & X & NULL & Giờ bắt đầu \\ \hline
+10 & \texttt{study\_time\_end} & time & X & NULL & Giờ kết thúc \\ \hline
+11 & \texttt{teacher\_name} & varchar(255) & X & NULL & Giảng viên phụ trách \\ \hline
+12 & \texttt{study\_week} & json & X & NULL & Danh sách tuần học \\ \hline
+\end{tabularx}
+\caption{Thiết kế chi tiết bảng \texttt{classes}}
+\end{table}
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{|c|l|l|c|l|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{STT} & \textbf{Tên trường} & \textbf{Kiểu dữ liệu} & \textbf{Null} & \textbf{Mặc định} & \textbf{Ghi chú} \\ \hline
+1 & \texttt{id} & int & & & Khóa chính, tự tăng \\ \hline
+2 & \texttt{subject\_name} & varchar(255) &  &  & Tên học phần đã học \\ \hline
+3 & \texttt{credits} & int &  &  & Số tín chỉ \\ \hline
+4 & \texttt{letter\_grade} & varchar(10) &  &  & Điểm chữ \\ \hline
+5 & \texttt{semester} & varchar(255) &  &  & Học kỳ học \\ \hline
+6 & \texttt{student\_id} & int &  &  & Khóa ngoại tới \texttt{students} \\ \hline
+7 & \texttt{subject\_id} & int &  &  & Khóa ngoại tới \texttt{subjects} \\ \hline
+\end{tabularx}
+\caption{Thiết kế chi tiết bảng \texttt{learned\_subjects}}
+\end{table}
+
+\subsubsection{Nhóm bảng hỗ trợ và tương tác}
+
+Nhóm bảng này phục vụ các tính năng hỗ trợ người dùng như phản hồi, câu hỏi thường gặp, đặt lại mật khẩu và chatbot tư vấn học tập. Mặc dù không trực tiếp tham gia luồng đăng ký, các bảng này giúp hệ thống đầy đủ hơn về mặt vận hành và chăm sóc người dùng.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/so-do-vung-ho-tro.png}
+    \caption{Sơ đồ vùng dữ liệu hỗ trợ và tương tác}
+\end{figure}
+
+\texttt{chat\_conversations} lưu các phiên hội thoại giữa sinh viên và chatbot, còn \texttt{chat\_messages} lưu từng tin nhắn trong mỗi phiên, bao gồm cả intent, độ tin cậy, dữ liệu sinh ra từ truy vấn và lỗi SQL nếu có. Cách lưu này cho phép hệ thống vừa hỗ trợ trả lời theo thời gian thực, vừa có thể truy vết lại lịch sử để cải thiện chất lượng tư vấn.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{|c|l|l|c|l|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{STT} & \textbf{Tên trường} & \textbf{Kiểu dữ liệu} & \textbf{Null} & \textbf{Mặc định} & \textbf{Ghi chú} \\ \hline
+1 & \texttt{id} & bigint & & & Khóa chính, tự tăng \\ \hline
+2 & \texttt{conversation\_id} & bigint &  &  & Khóa ngoại tới \texttt{chat\_conversations} \\ \hline
+3 & \texttt{role} & varchar(16) &  &  & Vai trò tin nhắn: user hoặc assistant \\ \hline
+4 & \texttt{content} & text &  &  & Nội dung tin nhắn \\ \hline
+5 & \texttt{intent} & varchar(64) & X & NULL & Ý định nhận diện được \\ \hline
+6 & \texttt{confidence} & varchar(16) & X & NULL & Mức tin cậy \\ \hline
+7 & \texttt{data\_json} & json & X & NULL & Dữ liệu phụ trợ trả về cho giao diện \\ \hline
+8 & \texttt{sql\_text} & text & X & NULL & Câu truy vấn SQL sinh ra \\ \hline
+9 & \texttt{sql\_error} & text & X & NULL & Lỗi SQL nếu có \\ \hline
+10 & \texttt{created\_at} & datetime &  &  & Thời điểm tạo tin nhắn \\ \hline
+\end{tabularx}
+\caption{Thiết kế chi tiết bảng \texttt{chat\_messages}}
+\end{table}
+
+Ngoài các bảng trên, hệ thống còn có những bảng trung gian như \texttt{course\_subjects}, \texttt{class\_registers}, \texttt{subject\_registers}, \texttt{student\_course}, \texttt{subject\_condition} và \texttt{linked\_class}. Các bảng này đóng vai trò chuẩn hóa quan hệ nhiều-nhiều, giúp dữ liệu đăng ký và dữ liệu ràng buộc được lưu trữ rõ ràng, không bị trùng lặp.
+
+Nhìn chung, thiết kế CSDL của hệ thống đảm bảo ba yêu cầu chính: lưu trữ đầy đủ dữ liệu học tập, hỗ trợ các nghiệp vụ đăng ký và tư vấn, đồng thời giữ được tính mở rộng để có thể bổ sung thêm chức năng mới trong tương lai mà không phải thay đổi kiến trúc dữ liệu cốt lõi.

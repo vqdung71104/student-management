@@ -1,0 +1,28 @@
+\begin{tikzpicture}[
+    >=Latex,
+    font=\small,
+    box/.style={draw, rounded corners, align=center, inner sep=4pt, minimum width=3.2cm, minimum height=1.2cm},
+    rel/.style={-Latex, thick}
+]
+    \node[box] (students) at (0,0) {\textbf{students}\\Thông tin sinh viên\\CPA, cảnh báo, tín chỉ};
+    \node[box] (subjects) at (5.0,0) {\textbf{subjects}\\Học phần\\Tín chỉ, điều kiện tiên quyết};
+    \node[box] (classes) at (10.0,0) {\textbf{classes}\\Lớp học phần\\Lịch học, giảng viên, phòng};
+
+    \node[box] (courses) at (2.5,-3.1) {\textbf{courses}\\Khóa học};
+    \node[box] (departments) at (7.5,-3.1) {\textbf{departments}\\Khoa / ngành};
+    \node[box] (learned) at (12.7,-3.1) {\textbf{learned\_subjects}\\Kết quả học tập};
+
+    \node[box] (support) at (2.5,-6.0) {\textbf{chat / feedback / faq}\\Dữ liệu hỗ trợ};
+    \node[box] (registers) at (9.8,-6.0) {\textbf{registers / relation tables}\\Đăng ký và liên kết};
+
+    \draw[rel] (students) -- (courses);
+    \draw[rel] (students) -- (departments);
+    \draw[rel] (students) -- (learned);
+    \draw[rel] (students) -- (support);
+    \draw[rel] (subjects) -- (departments);
+    \draw[rel] (subjects) -- (classes);
+    \draw[rel] (subjects) -- (learned);
+    \draw[rel] (classes) -- (registers);
+    \draw[rel] (students) -- (registers);
+    \draw[rel] (subjects) -- (registers);
+\end{tikzpicture}

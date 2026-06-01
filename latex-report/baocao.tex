@@ -3,6 +3,7 @@
 \usepackage[top=2cm, bottom=2cm, left=3cm, right=2cm]{geometry}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage{tikz}
 \usepackage{titlesec}
 \usepackage{array}
 \usepackage{booktabs}
@@ -17,6 +18,7 @@
 \usepackage[table,xcdraw]{xcolor}
 \usepackage{xltabular} % Gói quan trọng nhất để ngắt trang và tự căn lề
 \usepackage{multirow}
+\usetikzlibrary{arrows.meta, positioning, calc}
 
 
 % Cấu hình tiêu đề chương
@@ -575,473 +577,401 @@ Tiền điều kiện & \multicolumn{3}{l|}{Admin đăng nhập vào hệ thốn
 \chapter{Công nghệ sử dụng}
 
 \section{Kiến trúc hệ thống}
-Dự án được xây dựng dựa trên mô hình \textbf{Kiến trúc 3 tầng (Three-tier Architecture)}, đảm bảo tính tách biệt giữa giao diện người dùng, logic xử lý và lưu trữ dữ liệu.
+Dự án được triển khai theo mô hình \textbf{3 tầng} gồm giao diện, xử lý nghiệp vụ và cơ sở dữ liệu. Cách tổ chức này giúp hệ thống dễ mở rộng, dễ kiểm thử và tách biệt rõ ràng trách nhiệm của từng lớp.
+
 \begin{itemize}
-    \item \textbf{Tầng Giao diện (Frontend):} Sử dụng React kết hợp TypeScript, đảm bảo giao diện trực quan, phản hồi nhanh và an toàn về kiểu dữ liệu. Giao tiếp với Backend thông qua các RESTful API.
-    \item \textbf{Tầng Xử lý (Backend):} Sử dụng framework FastAPI (Python). Đây là trung tâm điều phối, nơi chứa các dịch vụ lõi như Chatbot Engine (TF-IDF + Word2Vec), NL2SQL Service và Rule Engine để xử lý logic nghiệp vụ đào tạo.
-    \item \textbf{Tầng Dữ liệu (Database):} Sử dụng hệ quản trị cơ sở dữ liệu MySQL 8.0 với cấu trúc gồm 14 bảng quan hệ chặt chẽ.
+    \item \textbf{Tầng giao diện:} xây dựng bằng React 19 và TypeScript, chịu trách nhiệm hiển thị màn hình cho hai nhóm người dùng chính là sinh viên và quản trị viên.
+    \item \textbf{Tầng dịch vụ:} FastAPI đảm nhiệm việc cung cấp REST API, xác thực người dùng, xử lý nghiệp vụ và điều phối các dịch vụ hỗ trợ như chatbot, xuất Excel, gửi email và tính toán điểm.
+    \item \textbf{Tầng dữ liệu:} MySQL lưu trữ dữ liệu học tập, tài khoản, thời khóa biểu, lịch sử đăng ký lớp, lịch sử hội thoại chatbot và các biểu mẫu hỗ trợ.
 \end{itemize}
+
+Ngoài luồng xử lý đồng bộ truyền thống, hệ thống còn có các cơ chế bổ trợ như lưu lịch sử hội thoại, streaming phản hồi cho chatbot và hàng đợi xử lý nội bộ cho một số tác vụ nền. Nhờ đó, ứng dụng có thể phản hồi nhanh nhưng vẫn giữ được khả năng mở rộng trong tương lai.
 
 \section{Công nghệ backend}
-\subsection{Web Framework: FastAPI}
-FastAPI được lựa chọn nhờ hiệu năng vượt trội dựa trên tiêu chuẩn ASGI.
+\subsection{FastAPI}
+FastAPI được sử dụng làm khung backend chính vì hỗ trợ tốt kiểu lập trình bất đồng bộ, có hiệu năng cao và tự sinh tài liệu API.
 \begin{itemize}
-    \item \textbf{Đặc điểm:} Hỗ trợ lập trình bất đồng bộ (async/await), giúp hệ thống xử lý nhiều yêu cầu đồng thời mà không nghẽn mạch.
-    \item \textbf{Ưu điểm:} Tự động tạo tài liệu API tương tác (Swagger UI), giúp việc kiểm thử và tích hợp giữa Frontend và Backend trở nên dễ dàng.
+    \item Hệ thống endpoint được tổ chức rõ ràng theo từng nhóm chức năng như sinh viên, học phần, lớp học, điểm, xác thực, chatbot và quản trị.
+    \item Swagger UI và ReDoc giúp việc kiểm thử API, tích hợp frontend và rà soát lỗi nghiệp vụ thuận tiện hơn.
 \end{itemize}
 
-\subsection{Tương tác Cơ sở dữ liệu (ORM): SQLAlchemy}
-Thay vì viết các câu lệnh SQL thuần túy, dự án sử dụng SQLAlchemy để quản lý dữ liệu dưới dạng đối tượng (Object-Relational Mapping).
+\subsection{SQLAlchemy và MySQL}
 \begin{itemize}
-    \item \textbf{Quản lý quan hệ:} Xử lý phức hợp các mối quan hệ 1-N (Sinh viên - Môn đã học) và N-N thông qua các bảng trung gian.
-    \item \textbf{Driver kết nối:} Sử dụng PyMySQL 1.0.2 làm cầu nối giữa ngôn ngữ Python và hệ quản trị MySQL.
+    \item \textbf{SQLAlchemy 2.0.25} được dùng để ánh xạ dữ liệu theo mô hình đối tượng, hạn chế viết SQL thuần và giảm nguy cơ lỗi truy vấn.
+    \item \textbf{PyMySQL 1.0.2} là driver kết nối với MySQL 8.0.
+    \item Cấu hình kết nối được đặt tập trung trong \texttt{backend/app/core/config.py} và \texttt{backend/app/db/database.py}, giúp quản lý môi trường dev và production dễ hơn.
 \end{itemize}
 
-\subsection{Xác thực và Bảo mật}
-Hệ thống chú trọng bảo mật thông tin sinh viên thông qua các công nghệ:
+\subsection{Xác thực và bảo mật}
 \begin{itemize}
-    \item \textbf{JWT (JSON Web Tokens):} Sử dụng thư viện python-jose và PyJWT để cấp phát token sau khi đăng nhập, duy trì trạng thái phiên làm việc an toàn.
-    \item \textbf{Mã hóa mật khẩu:} Kết hợp passlib và bcrypt để băm (hash) mật khẩu trước khi lưu trữ, chống lại các cuộc tấn công đánh cắp dữ liệu.
-    \item \textbf{OTP Verification:} Hệ thống tích hợp dịch vụ gửi mã OTP qua Email để xác thực tài khoản và khôi phục mật khẩu.
+    \item \textbf{JWT}: dùng để phát hành và kiểm tra token đăng nhập.
+    \item \textbf{Argon2 / passlib}: băm mật khẩu trước khi lưu vào CSDL.
+    \item \textbf{CORS}: cấu hình theo danh sách domain được phép truy cập.
+    \item \textbf{Rate limiting}: hạn chế một số tác vụ nhạy cảm như khôi phục mật khẩu để giảm rủi ro spam và brute-force.
+\end{itemize}
+
+\subsection{Dịch vụ hỗ trợ}
+\begin{itemize}
+    \item \textbf{Gửi email}: phục vụ xác thực và khôi phục mật khẩu.
+    \item \textbf{Xuất Excel}: hỗ trợ tải xuống các phương án thời khóa biểu và các bảng dữ liệu phục vụ người dùng.
+    \item \textbf{Tính toán điểm}: tính CPA/GPA, tổng tín chỉ và mức cảnh báo học tập từ dữ liệu học phần đã học.
 \end{itemize}
 
 \section{Công nghệ chatbot}
-\subsection{Bộ phân loại ý định (Intent Classification)}
-Hệ thống sử dụng cơ chế lai để nhận diện yêu cầu của người dùng:
+\subsection{Phân loại ý định}
+Chatbot sử dụng bộ phân loại lai để nhận diện ý định người dùng dựa trên dữ liệu tiếng Việt.
 \begin{itemize}
-    \item \textbf{TF-IDF (Scikit-learn):} Đánh giá mức độ quan trọng của từ ngữ trong từ ngữ câu hỏi. Ma trận kết quả (1071 patterns x 855 features) giúp xác định từ khóa đặc trưng cho từng Intent.
-    \item \textbf{Word2Vec (Gensim):} Chuyển đổi từ ngữ thành vector 150 chiều. Word2Vec giúp chatbot hiểu được ngữ nghĩa của các từ đồng nghĩa hoặc các câu hỏi ngắn dựa trên ngữ cảnh (context window là 7 từ).
-    \item \textbf{Độ tương đồng Cosine (NumPy):} Sử dụng các phép toán ma trận của NumPy để tính góc giữa vector câu hỏi và vector mẫu. Giá trị gần 1 cho thấy sự tương đồng cao.
+    \item \textbf{TF-IDF + cosine similarity}: đo độ gần nhau giữa câu hỏi hiện tại và các mẫu huấn luyện.
+    \item \textbf{Word2Vec}: bổ sung góc nhìn ngữ nghĩa, giúp hiểu những cách diễn đạt khác nhau nhưng cùng mục đích.
+    \item \textbf{Điểm từ khóa và điểm khớp mẫu}: tăng độ chính xác cho các câu hỏi ngắn hoặc có mẫu rõ ràng.
+    \item \textbf{Adaptive weights}: thay đổi trọng số theo độ dài câu hỏi để phù hợp với từng kiểu truy vấn.
 \end{itemize}
 
-\subsection{Dịch vụ NL2SQL (Natural Language to SQL)}
-Chuyển đổi câu hỏi ngôn ngữ tự nhiên thành truy vấn cơ sở dữ liệu:
+\subsection{Luồng xử lý hội thoại}
+Luồng xử lý chatbot trong backend gồm các bước chính:
 \begin{itemize}
-    \item \textbf{Cơ chế:} Kết hợp Regex (Regular Expressions) để trích xuất thực thể (Mã sinh viên, Mã môn học) và Template Matching với 45 mẫu SQL có sẵn.
-    \item \textbf{Quy trình:} Nhận diện Intent $\rightarrow$ Trích xuất tham số $\rightarrow$ Điền tham số vào Template SQL $\rightarrow$ Thực thi và trả về kết quả.
+    \item Chuẩn hóa văn bản đầu vào.
+    \item Phân loại ý định và tách câu hỏi nhiều phần nếu cần.
+    \item Rẽ nhánh sang xử lý rule-based, NL2SQL hoặc agent orchestration tùy theo intent và cấu hình môi trường.
+    \item Trả về phản hồi dạng văn bản, bảng dữ liệu hoặc tổ hợp lớp học kèm metadata để frontend hiển thị tương tác.
 \end{itemize}
 
-\subsection{Rule Engine (Bộ quy tắc nghiệp vụ)}
-Được thiết kế để đưa ra các tư vấn chính xác về học tập:
+\subsection{Rule engine cho gợi ý học phần và lớp học}
+Hai bộ luật chính được triển khai trong \texttt{SubjectSuggestionRuleEngine} và \texttt{ClassSuggestionRuleEngine}.
 \begin{itemize}
-    \item \textbf{Subject Suggestion:} Logic để gợi ý môn học dựa trên: số tín chỉ tối thiểu/tối đa, môn trượt, môn cải thiện và lộ trình của từng ngành học.
-    \item \textbf{Class Suggestion:} Tự động phát hiện xung đột lịch học (time conflict) và sắp xếp các tổ hợp lớp phù hợp với sở thích người dùng (thứ tự ưu tiên sáng/chiều, ngày nghỉ).
+    \item \textbf{Gợi ý học phần:} ưu tiên các môn cần học lại, môn đúng lộ trình chương trình, môn phù hợp tín chỉ còn lại và tình trạng học tập của sinh viên.
+    \item \textbf{Gợi ý lớp học:} lọc theo xung đột thời gian, số lượng lớp trùng môn, ngày học mong muốn, khung giờ sáng/chiều, giáo viên ưu tiên và các ràng buộc mềm khác.
+    \item \textbf{Tạo tổ hợp lớp:} dùng phép tổ hợp để tạo nhiều phương án thời khóa biểu khả dĩ rồi chấm điểm theo mức độ phù hợp với sở thích người dùng.
 \end{itemize}
 
-\subsection{Công cụ sinh tổ hợp itertools.product}
+\subsection{NL2SQL và tra cứu dữ liệu}
 \begin{itemize}
-    \item \textbf{itertools.product()} là một hàm cực kỳ hữu ích trong Python thuộc module itertools, dùng để tạo ra \textbf{tích Đề-các (Cartesian product)} của các iterables đầu vào. Nó tương đương với việc lồng các vòng lặp for.
-    \item Khi dùng với product, itertools hoạt động tốt hơn với dữ liệu lớn, dễ mở rộng, thêm iterable mới, tạo kết quả ngắn gọn, dễ đọc.
-    \item Được sử dụng để tạo các combination - một thời khóa biểu được gợi ý cho sinh viên với các lớp thuộc các học phần đã gợi ý, tạo thành thời khóa biểu chuẩn cho sinh viên.
-    \item Công cụ itertools.product không tính toán/tạo tất cả giá trị ngay lập tức, chỉ tính toán giá trị khi thực sự cần, lưu trữ trạng thái để tiếp tục từ nơi dừng, giúp tiết kiệm bộ nhớ và thời gian tính toán.
+    \item NL2SQL chuyển những câu hỏi như xem điểm, xem thông tin học phần, xem lớp học hoặc xem lịch học thành truy vấn dữ liệu có cấu trúc.
+    \item Câu hỏi được trích xuất thực thể bằng biểu thức chính quy, sau đó ghép với mẫu truy vấn phù hợp trong kho ví dụ có sẵn.
+    \item Với các truy vấn lớp học, hệ thống còn dùng bộ tách ràng buộc và truy vấn ORM an toàn để tránh lỗ hổng chèn lệnh SQL.
+\end{itemize}
+
+\subsection{Lưu lịch sử và streaming}
+\begin{itemize}
+    \item Chatbot lưu lịch sử hội thoại theo từng sinh viên, cho phép đổi tên, xóa và tải lại các cuộc trò chuyện trước đó.
+    \item Phản hồi được stream theo các trạng thái như chuẩn hóa, phân loại, truy vấn và định dạng để giao diện hiển thị tiến trình rõ ràng hơn.
 \end{itemize}
 
 \section{Công nghệ frontend}
-\subsection{Framework và Ngôn ngữ}
+\subsection{Framework và công cụ}
 \begin{itemize}
-    \item \textbf{React 19.1.0:} Sử dụng kiến trúc Component và Hooks giúp mã nguồn dễ bảo trì và tái sử dụng.
-    \item \textbf{TypeScript 5.8.3:} Bổ sung kiểm soát kiểu dữ liệu nghiêm ngặt, giảm thiểu lỗi runtime trong quá trình phát triển.
+    \item \textbf{React 19.1.0} và \textbf{TypeScript 5.8.3} là nền tảng chính của frontend.
+    \item \textbf{Vite 7.0.4} giúp khởi động và build nhanh.
+    \item \textbf{React Router v7} quản lý điều hướng giữa các màn hình cho sinh viên và admin.
 \end{itemize}
 
-\subsection{Giao diện và Trực quan hóa dữ liệu}
+\subsection{Thư viện giao diện}
 \begin{itemize}
-    \item \textbf{Ant Design 5.27.3:} Thư viện UI components chuyên nghiệp cho các hệ thống quản lý (Bảng biểu, Form, Layout).
-    \item \textbf{Tailwind CSS:} Tối ưu hóa giao diện phản hồi (Responsive) trên nhiều thiết bị.
-    \item \textbf{Chart.js:} Trực quan hóa kết quả học tập của sinh viên thông qua biểu đồ đường (diễn biến CPA) và biểu đồ tròn (phân bổ tín chỉ).
+    \item \textbf{Ant Design 5.27.3}: cung cấp layout, form, bảng, modal, popup và nhiều component quản trị phổ biến.
+    \item \textbf{Tailwind CSS 4.1.11}: hỗ trợ bố cục responsive và tinh chỉnh giao diện nhanh.
+    \item \textbf{Chart.js 4.5.0}: dùng để trực quan hóa dữ liệu học tập, điểm số và thống kê.
+    \item \textbf{xlsx, docx, file-saver}: phục vụ xuất và tải xuống dữ liệu.
+\end{itemize}
+
+\subsection{Các màn hình chính}
+Frontend được chia thành các nhóm chức năng rõ ràng:
+\begin{itemize}
+    \item \textbf{Sinh viên:} trang tổng quan, lịch học, điểm số, chương trình đào tạo, đăng ký học phần, đăng ký lớp, biểu mẫu, FAQ, phản hồi, đổi mật khẩu và hướng dẫn sử dụng.
+    \item \textbf{Quản trị viên:} dashboard quản trị, quản lý sinh viên, học phần, lớp học, thời khóa biểu, phản hồi, FAQ, thông báo và đổi mật khẩu.
+    \item \textbf{Chatbot UI:} giao diện hội thoại riêng có lưu lịch sử và hỗ trợ các lựa chọn tương tác khi chatbot cần thu thập thêm thông tin.
 \end{itemize}
 
 \section{Cơ sở dữ liệu}
-Hệ thống sử dụng \textbf{MySQL 8.0} với cấu trúc 14 bảng chính. Các bảng quan trọng bao gồm:
+Hệ thống sử dụng \textbf{MySQL 8.0}. Từ metadata của mô hình dữ liệu, dự án hiện có \textbf{19 bảng} chính, bao phủ các nhóm dữ liệu sau:
 \begin{itemize}
-    \item \textbf{students:} Lưu trữ thông tin định danh và chương trình học.
-    \item \textbf{subjects \& classes:} Thông tin về học phần và các lớp học mở trong kỳ.
-    \item \textbf{learned\_subjects:} Lưu trữ lịch sử điểm số để tính toán CPA/GPA.
-    \item \textbf{courses:} Quản lý khung chương trình đào tạo của từng ngành/khóa.
+    \item \textbf{Người dùng và xác thực:} \texttt{students}, \texttt{admins}, \texttt{password\_reset\_tokens}.
+    \item \textbf{Tổ chức đào tạo:} \texttt{departments}, \texttt{courses}, \texttt{subjects}, \texttt{course\_subjects}, \texttt{student\_course}, \texttt{subject\_condition}.
+    \item \textbf{Lớp học và đăng ký:} \texttt{classes}, \texttt{class\_registers}, \texttt{subject\_registers}, \texttt{linked\_class}.
+    \item \textbf{Kết quả học tập:} \texttt{learned\_subjects}, \texttt{semester\_gpa}.
+    \item \textbf{Hỗ trợ và hội thoại:} \texttt{feedbacks}, \texttt{faqs}, \texttt{chat\_conversations}, \texttt{chat\_messages}.
 \end{itemize}
+
+Thiết kế này cho phép hệ thống lưu đầy đủ thông tin về sinh viên, chương trình đào tạo, dữ liệu đăng ký, lịch sử học tập và lịch sử chatbot trong cùng một CSDL trung tâm.
 
 \section{Công cụ phát triển và kiểm thử}
 \begin{itemize}
-    \item \textbf{Vite:} Build tool thế hệ mới cho Frontend, giúp tăng tốc độ nạp trang trong quá trình phát triển.
-    \item \textbf{Pytest:} Framework kiểm thử mạnh mẽ cho Python, được sử dụng để viết Unit Test cho các logic tính toán điểm số và gợi ý môn học.
-    \item \textbf{Uvicorn:} ASGI server hiệu năng cao phục vụ cho việc triển khai ứng dụng Backend.
+    \item \textbf{Python 3.11}: ngôn ngữ chính của backend.
+    \item \textbf{Node.js, npm}: môi trường dựng frontend.
+    \item \textbf{Pytest}: kiểm thử các bộ luật, bộ phân loại và thành phần xử lý đăng ký lớp.
+    \item \textbf{Uvicorn}: chạy FastAPI trong quá trình phát triển và triển khai.
+    \item \textbf{ESLint / TypeScript compiler}: kiểm tra chất lượng mã nguồn frontend.
 \end{itemize}
 
 % --- CHƯƠNG 4 ---
-\chapter{Thiết kế và triển khai hệ thống chatbot}
+\chapter{Thiết kế và triển khai hệ thống}
 
 \section{Phát triển cơ sở dữ liệu}
-Xây dựng nền tảng lưu trữ dữ liệu bền vững và nhất quán.
+Thiết kế cơ sở dữ liệu được xây dựng theo hướng chuẩn hóa dữ liệu, ưu tiên các bảng lõi phục vụ nghiệp vụ học tập và các bảng phụ trợ phục vụ chatbot, xác thực và lịch sử hội thoại.
+
 \begin{itemize}
-    \item \textbf{Thiết kế cấu trúc (Database Design):} Thiết kế hệ thống gồm \textbf{14 bảng} chính (students, subjects, classes, learned\_subjects, course\_subjects, v.v.)[cite: 188, 235].
-    \begin{itemize}
-        \item Xác định các mối quan hệ thực thể: \textbf{1-N} (Một lớp thuộc về một môn) và \textbf{N-N} (Sinh viên và các môn học trong chương trình đào tạo)[cite: 249].
-        \item Thiết lập hệ thống khóa ngoại (Foreign Keys) và các ràng buộc dữ liệu (Constraints) để đảm bảo tính toàn vẹn[cite: 250].
-    \end{itemize}
-    \item \textbf{Khởi tạo dữ liệu mẫu (Data Population):}
-    \begin{itemize}
-        \item Xây dựng 10 tệp JSON (sample\_*.json) chứa dữ liệu mẫu về sinh viên, môn học, điểm số.
-        \item Phát triển script \texttt{populate\_data.py} để tự động đổ dữ liệu vào MySQL, giúp rút ngắn thời gian thiết lập môi trường thử nghiệm[cite: 253].
-    \end{itemize}
+    \item Các bảng \texttt{students}, \texttt{courses}, \texttt{subjects} và \texttt{classes} là trục dữ liệu chính của hệ thống.
+    \item Các bảng trung gian như \texttt{course\_subjects}, \texttt{class\_registers}, \texttt{subject\_registers} và \texttt{student\_course} cho phép biểu diễn quan hệ nhiều-nhiều giữa sinh viên, học phần và lớp học.
+    \item Các bảng \texttt{learned\_subjects} và \texttt{semester\_gpa} lưu lịch sử học tập để tính điểm trung bình, tổng tín chỉ và mức cảnh báo học vụ.
+    \item Các bảng \texttt{chat\_conversations} và \texttt{chat\_messages} lưu toàn bộ lịch sử trao đổi với chatbot, hỗ trợ tra cứu lại phiên làm việc cũ.
 \end{itemize}
+
+Việc tách bảng theo đúng vai trò giúp truy vấn dễ hơn, dữ liệu rõ nghĩa hơn và giảm rủi ro trùng lặp thông tin. Các ràng buộc khóa chính, khóa ngoại và quan hệ giữa bảng được khai báo ngay trong mô hình SQLAlchemy, nhờ đó việc tạo CSDL và đồng bộ schema trở nên thống nhất với code.
 
 \section{Phát triển backend}
-Sử dụng FastAPI làm khung xương để xây dựng các API xử lý logic[cite: 255].
+Backend được chia thành các lớp rõ ràng để dễ bảo trì:
 \begin{itemize}
-    \item \textbf{Thiết lập cấu trúc Project:} Chia tách rõ ràng giữa Models (SQLAlchemy), Schemas (Pydantic), và Routes (Endpoints)[cite: 256].
-    \item \textbf{Xây dựng API Routes:}
-    \begin{itemize}
-        \item Chatbot Routes: Tiếp nhận câu hỏi và điều phối các bộ phận loại[cite: 258].
-        \item CRUD Routes: Triển khai đầy đủ các thao tác Thêm, Đọc, Sửa, Xóa cho 14 tài nguyên hệ thống thông qua \texttt{*\_routes.py}[cite: 259].
-    \end{itemize}
-    \item \textbf{Dịch vụ hỗ trợ (Utilities \& Helpers):}
-    \begin{itemize}
-        \item Grade Calculator: Triển khai logic tính GPA/CPA và xác định mức cảnh báo học tập[cite: 261].
-        \item Email Service: Tích hợp gửi mã OTP xác thực và thông báo qua Email[cite: 262].
-    \end{itemize}
-    \item \textbf{Bảo mật:} Cấu hình môi trường qua tệp \texttt{.env} (Database URL, JWT Secret) và thiết lập kịch bản chạy server bằng Uvicorn[cite: 263].
+    \item \textbf{models}: định nghĩa cấu trúc bảng bằng SQLAlchemy.
+    \item \textbf{schemas}: mô tả dữ liệu vào/ra bằng Pydantic.
+    \item \textbf{routes}: khai báo API endpoint.
+    \item \textbf{services}: chứa phần nghiệp vụ như chatbot, tính điểm, xuất Excel, tìm kiếm mờ, gửi email và quản lý lịch sử hội thoại.
+    \item \textbf{rules}: lưu các bộ luật gợi ý học phần và lớp học.
 \end{itemize}
 
-\section{Phát triển frontend}
-Xây dựng giao diện tương tác hiện đại bằng React và TypeScript[cite: 265].
+Một số nhóm API và dịch vụ quan trọng:
 \begin{itemize}
-    \item \textbf{Khởi tạo môi trường:} Sử dụng Vite để tối ưu hóa tốc độ phát triển, tích hợp Ant Design và Tailwind CSS[cite: 266].
-    \item \textbf{Phát triển các trang chức năng:}
-    \begin{itemize}
-        \item \textbf{Admin Pages:} Quản lý Sinh viên, Môn học, Lớp học với các tính năng Bảng biểu (Pagination), Modal form, và xuất/nhập Excel (xlsx, docx)[cite: 268].
-        \item \textbf{Student Pages:} Hiển thị hồ sơ cá nhân, lịch học và trực quan hóa điểm số bằng biểu đồ (Chart.js)[cite: 269].
-    \end{itemize}
-    \item \textbf{Thành phần Chatbot UI:} Xây dựng \texttt{ChatBot.tsx} hỗ trợ giao diện chat thời gian thực, quản lý lịch sử trò chuyện và các hiệu ứng phản hồi[cite: 270].
+    \item \textbf{Xác thực}: đăng nhập, đăng ký, quên mật khẩu, đặt lại mật khẩu.
+    \item \textbf{Sinh viên}: hồ sơ, điểm số, lịch học, chương trình đào tạo, thay đổi mật khẩu.
+    \item \textbf{Học phần và lớp học}: tra cứu, thêm, sửa, xóa, đăng ký và hủy đăng ký.
+    \item \textbf{Quản trị}: quản lý sinh viên, học phần, lớp, thông báo, phản hồi và FAQ.
+    \item \textbf{Chatbot}: hội thoại, phân loại intent, gợi ý học phần, gợi ý lớp, xử lý truy vấn theo ngôn ngữ tự nhiên, lưu lịch sử chat và xuất phương án lịch học.
+\end{itemize}
+
+Ngoài các route chính, backend còn có lớp kiểm tra tình trạng hệ thống, hỗ trợ healthcheck, cache Redis và cơ chế điều phối agent tùy chọn qua biến môi trường.
+
+\subsection{Thiết kế lớp}
+Phần thiết kế lớp của hệ thống tập trung vào các thực thể lõi phản ánh trực tiếp nghiệp vụ đăng ký học tập của sinh viên. Trong phạm vi này, bốn lớp quan trọng nhất là \texttt{Student}, \texttt{Subject}, \texttt{Class} và \texttt{LearnedSubject}. Các lớp này được chọn vì chúng xuất hiện xuyên suốt cả ba luồng nghiệp vụ trọng tâm của hệ thống: xem kết quả học tập và upload bảng điểm, tư vấn học phần nên đăng ký, và tư vấn lớp học nên đăng ký.
+
+Trong cách tổ chức hiện tại, phần lớn lớp miền được hiện thực bằng SQLAlchemy. Vì vậy, thay vì chỉ mô tả thuộc tính dữ liệu, báo cáo cũng làm rõ vai trò nghiệp vụ, các validator quan trọng và các hành vi thường xuyên đi kèm trong service/route. Cách trình bày này giúp thấy rõ lớp nào giữ dữ liệu, lớp nào xử lý quy tắc và lớp nào đóng vai trò điều phối giao tiếp giữa frontend với backend.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|l|X|X|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{Lớp} & \textbf{Thuộc tính chính} & \textbf{Phương thức / validator tiêu biểu} & \textbf{Vai trò trong hệ thống} \\ \hline
+\texttt{Student} & \texttt{id}, \texttt{student\_name}, \texttt{email}, \texttt{course\_id}, \texttt{department\_id}, \texttt{cpa}, \texttt{warning\_level}, \texttt{year\_level}, \texttt{total\_learned\_credits}, \texttt{total\_failed\_credits} & Được truy xuất qua các route hồ sơ học tập; dữ liệu CPA, cảnh báo và năm học được cập nhật khi thay đổi \texttt{LearnedSubject} & Đại diện cho sinh viên, làm gốc cho các quan hệ đăng ký học phần, đăng ký lớp và thống kê học tập \\ \hline
+\texttt{Subject} & \texttt{id}, \texttt{subject\_id}, \texttt{subject\_name}, \texttt{credits}, \texttt{duration}, \texttt{department\_id}, \texttt{conditional\_subjects} & Tra cứu theo mã học phần, liên kết với \texttt{CourseSubject}, \texttt{LearnedSubject}, \texttt{Class} và \texttt{SubjectRegister} & Đại diện cho học phần, là đầu vào của cả gợi ý học phần lẫn gợi ý lớp học \\ \hline
+\texttt{Class} & \texttt{id}, \texttt{subject\_id}, \texttt{class\_id}, \texttt{class\_name}, \texttt{linked\_class\_ids}, \texttt{class\_type}, \texttt{classroom}, \texttt{study\_date}, \texttt{study\_time\_start}, \texttt{study\_time\_end}, \texttt{teacher\_name}, \texttt{study\_week} & \texttt{validate\_study\_date()}, \texttt{validate\_time()}, logic ghép các lớp có cùng mã lớp hoặc lớp kèm & Lưu thông tin lớp mở, phục vụ đăng ký lớp và sinh các phương án thời khóa biểu không trùng lịch \\ \hline
+\texttt{LearnedSubject} & \texttt{id}, \texttt{subject\_name}, \texttt{credits}, \texttt{letter\_grade}, \texttt{semester}, \texttt{student\_id}, \texttt{subject\_id} & Được tạo/sửa/xóa qua các API học tập; kéo theo \texttt{update\_semester\_gpa()} và \texttt{update\_student\_stats()} & Lưu kết quả học tập theo học kỳ, là nguồn dữ liệu chính để tính GPA/CPA, cảnh báo học tập và gợi ý học phần cần đăng ký lại \\ \hline
+\end{tabularx}
+\caption{Các lớp chủ đạo trong phần thiết kế lớp}
+\end{table}
+
+\subsubsection{1. Lớp \texttt{Student}}
+\texttt{Student} là lớp trung tâm của toàn bộ hệ thống. Một đối tượng sinh viên không chỉ chứa thông tin định danh như họ tên, email hay mã khoa, mà còn lưu các chỉ số học tập tổng hợp như CPA, số tín chỉ đã tích lũy, số tín chỉ trượt, mức cảnh báo và trình độ năm học. Các thuộc tính này xuất hiện trực tiếp trong màn hình dashboard của sinh viên và cũng là đầu vào cho chatbot khi gợi ý học phần hoặc lớp học.
+
+Về quan hệ, \texttt{Student} liên kết một-nhiều với \texttt{LearnedSubject}, \texttt{SemesterGPA}, \texttt{ClassRegister} và \texttt{SubjectRegister}. Nhờ các liên kết này, hệ thống có thể nhanh chóng truy xuất lịch sử học tập, lịch sử đăng ký và các lớp đang theo học của sinh viên. Trong luồng \texttt{/students/\{student\_id\}/academic-details}, backend tổng hợp dữ liệu từ các quan hệ này để trả về một cấu trúc học tập đầy đủ cho frontend.
+
+Ở góc độ nghiệp vụ, các hành vi cập nhật của \texttt{Student} chủ yếu đến từ service thay vì method tự thân của model. Khi sinh viên thêm, sửa hoặc xóa một môn trong \texttt{LearnedSubject}, các hàm như \texttt{update\_student\_stats()} sẽ tự động tính lại CPA, số môn trượt, số tín chỉ tích lũy và mức cảnh báo. Điều này giúp lớp \texttt{Student} đóng vai trò “hồ sơ học tập động” thay vì chỉ là bản ghi tĩnh trong cơ sở dữ liệu.
+
+\subsubsection{2. Lớp \texttt{Subject}}
+\texttt{Subject} biểu diễn một học phần trong chương trình đào tạo. Lớp này lưu mã học phần, tên học phần, số tín chỉ, thời lượng, khoa phụ trách và các điều kiện tiên quyết. Đây là lớp được dùng nhiều nhất khi hệ thống cần tra cứu học phần theo mã, đối chiếu với chương trình đào tạo của sinh viên hoặc sinh ra danh sách học phần nên đăng ký.
+
+Trong luồng đăng ký học phần, \texttt{Subject} là điểm nối giữa chương trình đào tạo và dữ liệu học tập thực tế. Bảng \texttt{course\_subjects} dùng để xác định những học phần nào thuộc từng khóa học, còn \texttt{learned\_subjects} cho biết sinh viên đã học hay chưa học môn đó. Khi chatbot tư vấn, service sẽ kết hợp \texttt{Subject} với \texttt{LearnedSubject} để nhận biết môn nào chưa học, môn nào đã học trượt và môn nào là ứng viên phù hợp cho kỳ tới.
+
+\texttt{Subject} cũng liên kết trực tiếp với \texttt{Class}. Điều này cho phép hệ thống đi từ một học phần sang danh sách lớp mở tương ứng, rồi từ đó lọc tiếp theo thời gian, giảng viên và phòng học. Nhờ vậy, lớp \texttt{Subject} giữ vai trò “điểm gốc” cho cả hai nhánh tư vấn: chọn học phần và chọn lớp.
+
+\subsubsection{3. Lớp \texttt{Class}}
+\texttt{Class} là lớp mô tả một lớp mở cụ thể của một học phần. Khác với \texttt{Subject} là khái niệm học phần trừu tượng, \texttt{Class} chứa thông tin vận hành thực tế như mã lớp, tên lớp, loại lớp, phòng học, lịch học, giảng viên, tuần học và danh sách lớp kèm. Đây là lớp quyết định trực tiếp trải nghiệm đăng ký lớp của sinh viên vì mọi phương án đăng ký đều phải thỏa mãn ràng buộc thời gian từ lớp này.
+
+Hai validator quan trọng của \texttt{Class} là \texttt{validate\_study\_date()} và \texttt{validate\_time()}. Validator đầu tiên chuẩn hóa và kiểm tra chuỗi ngày học, bảo đảm chỉ nhận các giá trị hợp lệ như Monday, Tuesday, ...; validator thứ hai chuyển thời gian từ chuỗi sang kiểu \texttt{time} và loại bỏ các giá trị không hợp lệ. Cách làm này giúp dữ liệu lịch học luôn nhất quán ngay từ tầng model, tránh lỗi khi sinh thời khóa biểu hoặc so sánh xung đột giờ học.
+
+Về quan hệ, \texttt{Class} liên kết nhiều-nhất với \texttt{ClassRegister} và nhiều-nhất với \texttt{Subject}. Khi sinh viên đăng ký lớp, frontend sẽ hiển thị danh sách lớp từ endpoint \texttt{/api/classes/}, còn backend sẽ ghi nhận bản ghi đăng ký tương ứng trong \texttt{class\_registers}. Trong phần gợi ý lớp học, service còn dùng thêm thuộc tính \texttt{linked\_class\_ids} để nhóm các buổi học cùng một lớp logic, bảo đảm một phương án thời khóa biểu không bị tách rời sai cách.
+
+\subsubsection{4. Lớp \texttt{LearnedSubject}}
+\texttt{LearnedSubject} lưu lại một kết quả học tập của sinh viên theo từng học kỳ. Mỗi bản ghi chứa tên học phần, số tín chỉ, điểm chữ, học kỳ, khóa ngoại tới sinh viên và khóa ngoại tới học phần. Đây là lớp có tác động lớn nhất đến các chỉ số học tập tổng hợp, vì nó là đầu vào cho tính GPA học kỳ, CPA toàn khóa và số tín chỉ trượt.
+
+Luồng upload bảng điểm của hệ thống đi qua \texttt{LearnedSubject} trước tiên. Frontend ở trang \texttt{Grades.tsx} và component \texttt{GradeExcelUpload.tsx} đọc file Excel, trích từng dòng hợp lệ rồi gọi API tạo mới môn đã học. Ở backend, route \texttt{create\_new\_learned\_subject()} tìm \texttt{Subject} theo mã học phần, tạo \texttt{LearnedSubject}, sau đó gọi \texttt{update\_semester\_gpa()} và \texttt{update\_student\_stats()} để tính lại toàn bộ chỉ số liên quan. Vì vậy, \texttt{LearnedSubject} vừa là lớp lưu trữ lịch sử học tập, vừa là nguồn kích hoạt cho các phép tính thống kê tự động.
+
+Khi một bản ghi \texttt{LearnedSubject} được thêm, sửa hoặc xóa, backend sẽ đồng thời cập nhật bảng \texttt{semester\_gpa} và các trường tổng hợp của \texttt{Student}. Điều này giúp dữ liệu điểm số và dữ liệu hồ sơ sinh viên luôn đồng bộ, đồng thời làm cơ sở cho chatbot gợi ý học phần nên học lại hoặc nên đăng ký tiếp ở kỳ kế tiếp.
+
+Ngoài bốn lớp lõi trên, hệ thống còn có một số lớp dịch vụ trung tâm đóng vai trò điều phối nghiệp vụ. Trong đó, \texttt{ChatbotService} chịu trách nhiệm phân loại intent, gom dữ liệu từ \texttt{Student}, \texttt{Subject}, \texttt{LearnedSubject}, \texttt{Class} và các rule engine để tạo phản hồi cho frontend; \texttt{ClassQueryService} và \texttt{ScheduleCombinationService} lọc và ghép các lớp theo ràng buộc thời gian; \texttt{ExcelExportService} xuất phương án lịch học ra file Excel để sinh viên tải xuống. Các lớp này không được đưa vào bảng chi tiết vì chúng thiên về xử lý nghiệp vụ hơn là mô hình dữ liệu, nhưng lại xuất hiện trực tiếp trong ba luồng trình tự ở phần sau.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Latex, font=\small]
+    \node[draw, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center] (sv) at (0,0) {Sinh viên};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (ui) at (3.5,0) {GradeExcelUpload\\và trang Xem điểm};
+    \node[draw, rounded corners, minimum width=4.2cm, minimum height=0.8cm, align=center] (api) at (7.8,0) {\texttt{/learned-subjects/create-new-learned-subject}};
+    \node[draw, rounded corners, minimum width=2.8cm, minimum height=0.8cm, align=center] (subject) at (12.2,0) {\texttt{Subject}};
+    \node[draw, rounded corners, minimum width=3.2cm, minimum height=0.8cm, align=center] (ls) at (16.1,0) {\texttt{LearnedSubject}\\và GPA};
+
+    \draw[dashed] (0,-0.6) -- (0,-6.7);
+    \draw[dashed] (3.5,-0.6) -- (3.5,-6.7);
+    \draw[dashed] (7.8,-0.6) -- (7.8,-6.7);
+    \draw[dashed] (12.2,-0.6) -- (12.2,-6.7);
+    \draw[dashed] (16.1,-0.6) -- (16.1,-6.7);
+
+    \draw[->] (0.7,-1.1) -- node[above, align=center]{Chọn file Excel\\và xác nhận upload} (3.1,-1.1);
+    \draw[->] (3.1,-2.0) -- node[above, align=center]{Parse từng dòng hợp lệ\\rồi tạo request} (7.4,-2.0);
+    \draw[->] (7.4,-3.0) -- node[above, align=center]{Tìm học phần theo\\mã học phần} (11.8,-3.0);
+    \draw[->] (11.8,-4.0) -- node[above, align=center]{Tạo bản ghi\\\texttt{LearnedSubject}} (15.8,-4.0);
+    \draw[->] (15.8,-5.0) -- node[above, align=center]{Cập nhật GPA học kỳ\\và thống kê sinh viên} (7.9,-5.0);
+    \draw[->] (7.9,-5.9) -- node[above, align=center]{Trả kết quả thành công\\cho giao diện} (3.6,-5.9);
+\end{tikzpicture}
+}%
+\caption{Luồng truyền thông điệp khi sinh viên upload bảng điểm}
+\end{figure}
+
+Trong luồng này, giao diện của sinh viên làm hai việc chính: đọc file Excel và gọi API tạo từng bản ghi \texttt{LearnedSubject}. Backend sau đó tự động tìm \texttt{Subject}, ghi dữ liệu và tính lại các chỉ số học tập. Cách thiết kế này phù hợp với logic FE hiện có, nơi component upload chỉ đóng vai trò nhập dữ liệu, còn toàn bộ kiểm tra và tính toán nằm ở backend.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Latex, font=\small]
+    \node[draw, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center] (sv) at (0,0) {Sinh viên};
+    \node[draw, rounded corners, minimum width=3.0cm, minimum height=0.8cm, align=center] (chatui) at (3.4,0) {ChatBot UI};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (route) at (7.2,0) {\texttt{/chatbot/chat-stream}};
+    \node[draw, rounded corners, minimum width=3.6cm, minimum height=0.8cm, align=center] (service) at (11.5,0) {\texttt{ChatbotService}\\và rule engine};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (data) at (15.7,0) {Dữ liệu học tập\\\texttt{Student}, \texttt{LearnedSubject}, \texttt{CourseSubject}, \texttt{Subject}};
+
+    \draw[dashed] (0,-0.6) -- (0,-6.5);
+    \draw[dashed] (3.4,-0.6) -- (3.4,-6.5);
+    \draw[dashed] (7.2,-0.6) -- (7.2,-6.5);
+    \draw[dashed] (11.5,-0.6) -- (11.5,-6.5);
+    \draw[dashed] (15.7,-0.6) -- (15.7,-6.5);
+
+    \draw[->] (0.7,-1.1) -- node[above]{Nhập câu hỏi gợi ý học phần} (2.9,-1.1);
+    \draw[->] (2.9,-2.0) -- node[above]{Gửi streaming request} (7.0,-2.0);
+    \draw[->] (7.0,-3.0) -- node[above]{Phân loại intent\\\texttt{subject\_registration\_suggestion}} (11.2,-3.0);
+    \draw[->] (11.2,-4.0) -- node[above]{Đọc CPA, học phần đã học\\và học phần trong chương trình} (15.4,-4.0);
+    \draw[->] (15.4,-5.0) -- node[above]{Sinh danh sách học phần nên đăng ký} (11.7,-5.0);
+    \draw[->] (11.7,-5.9) -- node[above]{Trả data và text cho FE\\để render bảng gợi ý} (3.7,-5.9);
+\end{tikzpicture}
+}%
+\caption{Luồng truyền thông điệp khi sinh viên hỏi nên đăng ký học phần nào}
+\end{figure}
+
+Biểu đồ trên mô tả đúng cách FE hiện tại làm việc với chatbot: người dùng nhập câu hỏi, giao diện đẩy câu hỏi lên API streaming, backend phân loại intent rồi gọi phần tư vấn học phần. Kết quả trả về không chỉ là văn bản mà còn có danh sách học phần để giao diện hiển thị dưới dạng bảng hoặc danh sách gợi ý.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Latex, font=\small]
+    \node[draw, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center] (sv) at (0,0) {Sinh viên};
+    \node[draw, rounded corners, minimum width=3.0cm, minimum height=0.8cm, align=center] (chatui) at (3.4,0) {ChatBot UI};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (route) at (7.2,0) {\texttt{/chatbot/chat-stream}};
+    \node[draw, rounded corners, minimum width=3.7cm, minimum height=0.8cm, align=center] (service) at (11.6,0) {\texttt{ChatbotService}\\điều phối hội thoại};
+    \node[draw, rounded corners, minimum width=3.8cm, minimum height=0.8cm, align=center] (query) at (16.1,0) {\texttt{ClassQueryService}\\và \texttt{ScheduleCombinationService}};
+    \node[draw, rounded corners, minimum width=3.5cm, minimum height=0.8cm, align=center] (db) at (20.6,0) {\texttt{Class}, \texttt{Subject}, \texttt{ClassRegister}};
+
+    \draw[dashed] (0,-0.6) -- (0,-6.9);
+    \draw[dashed] (3.4,-0.6) -- (3.4,-6.9);
+    \draw[dashed] (7.2,-0.6) -- (7.2,-6.9);
+    \draw[dashed] (11.6,-0.6) -- (11.6,-6.9);
+    \draw[dashed] (16.1,-0.6) -- (16.1,-6.9);
+    \draw[dashed] (20.6,-0.6) -- (20.6,-6.9);
+
+    \draw[->] (0.7,-1.1) -- node[above]{Nhập câu hỏi gợi ý lớp học} (2.9,-1.1);
+    \draw[->] (2.9,-2.0) -- node[above]{Gửi streaming request} (7.0,-2.0);
+    \draw[->] (7.0,-3.0) -- node[above]{Phân loại intent\\\texttt{class\_registration\_suggestion}} (11.3,-3.0);
+    \draw[->] (11.3,-4.0) -- node[above]{Hỏi thêm preference nếu chưa đủ\\và lưu trạng thái hội thoại} (15.8,-4.0);
+    \draw[->] (15.8,-5.0) -- node[above]{Lọc lớp theo ngày, giờ, giảng viên\\và tạo phương án lịch học} (20.3,-5.0);
+    \draw[->] (20.3,-6.0) -- node[above]{Trả các phương án cho FE\\và cho phép xuất Excel} (3.8,-6.0);
+\end{tikzpicture}
+}%
+\caption{Luồng truyền thông điệp khi sinh viên hỏi nên đăng ký lớp nào}
+\end{figure}
+
+Điểm đáng chú ý của luồng này là chatbot không trả lời một lần duy nhất mà có thể hỏi thêm thông tin nếu còn thiếu ràng buộc. Sau khi đủ preference, backend mới sinh các phương án lớp học và frontend hiển thị thành bảng lịch học trực quan, kèm tùy chọn xuất file Excel cho phương án phù hợp.
+
+\section{Phát triển frontend}
+Frontend được tổ chức theo hai layout chính: layout sinh viên và layout quản trị viên. Cách chia này giúp mỗi nhóm người dùng chỉ nhìn thấy đúng các chức năng phù hợp với vai trò của mình.
+
+\subsection{Khu vực sinh viên}
+\begin{itemize}
+    \item \textbf{Dashboard}: hiển thị CPA hiện tại, số tín chỉ, số môn đã hoàn thành, mức cảnh báo học tập, điểm gần đây và lịch học sắp tới.
+    \item \textbf{Lịch học và điểm số}: cho phép xem lịch học, danh sách môn đã học, GPA/CPA và các thống kê liên quan.
+    \item \textbf{Đăng ký học phần và lớp học}: hỗ trợ tìm kiếm, lọc và gửi yêu cầu đăng ký theo từng kỳ.
+    \item \textbf{Biểu mẫu, FAQ, phản hồi}: cung cấp kênh liên hệ và gửi yêu cầu hỗ trợ.
+\end{itemize}
+
+\subsection{Khu vực quản trị}
+\begin{itemize}
+    \item \textbf{StudentsManagement}: quản lý thông tin sinh viên.
+    \item \textbf{SubjectsManagement}: quản lý học phần.
+    \item \textbf{ClassesManagement, ScheduleManagement}: quản lý lớp học và thời khóa biểu.
+    \item \textbf{FeedbackManagement, FAQManagement, NotificationManagement}: quản lý nội dung hỗ trợ và thông báo.
+\end{itemize}
+
+\subsection{Thành phần dùng chung}
+\begin{itemize}
+    \item \texttt{ProtectedRoute} kiểm tra quyền truy cập theo vai trò.
+    \item \texttt{AuthContext} quản lý trạng thái đăng nhập.
+    \item \texttt{ChatBot} là thành phần hội thoại trung tâm của hệ thống.
+    \item Các component hỗ trợ như upload Excel, modal biểu mẫu và preview tài liệu giúp tái sử dụng giao diện tốt hơn.
 \end{itemize}
 
 \section{Phát triển chatbot}
 \subsection{Mục tiêu}
-Xây dựng giao diện tương tác hiện đại bằng React và TypeScript[cite: 273].
+Chatbot được xây dựng để hỗ trợ sinh viên tra cứu thông tin học tập, nhận gợi ý học phần/lớp học và lưu lại toàn bộ lịch sử hội thoại. Thay vì chỉ trả lời dạng văn bản cứng, chatbot có thể trả về bảng dữ liệu, danh sách lựa chọn hoặc phương án thời khóa biểu.
+
+\subsection{Luồng xử lý}
+\begin{enumerate}
+    \item Người dùng nhập câu hỏi vào giao diện chat.
+    \item Hệ thống chuẩn hóa câu hỏi và phân loại ý định.
+    \item Tùy ý định, backend chuyển sang nhánh NL2SQL, rule engine hoặc agent orchestration.
+    \item Kết quả được định dạng lại trước khi trả về frontend.
+    \item Lịch sử cuộc trò chuyện được lưu vào CSDL để xem lại ở lần sau.
+\end{enumerate}
+
+\subsection{Các hướng xử lý chính}
 \begin{itemize}
-    \item \textbf{Khởi tạo môi trường:} Sử dụng Vite để tối ưu hóa tốc độ phát triển, tích hợp Ant Design và Tailwind CSS[cite: 274].
-    \item \textbf{Phát triển các trang chức năng:}
-    \begin{itemize}
-        \item \textbf{Admin Pages:} Quản lý Sinh viên, Môn học, Lớp học với các tính năng Bảng biểu (Pagination), Modal form, và xuất/nhập Excel (xlsx, docx)[cite: 276].
-        \item \textbf{Student Pages:} Hiển thị hồ sơ cá nhân, lịch học và trực quan hóa điểm số bằng biểu đồ (Chart.js)[cite: 277].
-    \end{itemize}
-    \item \textbf{Thành phần Chatbot UI:} Xây dựng \texttt{ChatBot.tsx} hỗ trợ giao diện chat thời gian thực, quản lý lịch sử trò chuyện và các hiệu ứng phản hồi[cite: 278].
+    \item \textbf{Tra cứu thông tin}: xem điểm, xem học phần, xem lớp, xem lịch học.
+    \item \textbf{Gợi ý học phần}: dựa trên kết quả học tập và lộ trình chương trình đào tạo.
+    \item \textbf{Gợi ý lớp học}: dựa trên sở thích về ngày học, giờ học, giáo viên và các ràng buộc xung đột lịch.
+    \item \textbf{Xuất lịch học}: hỗ trợ tạo file Excel cho các phương án thời khóa biểu.
 \end{itemize}
 
-\noindent Có thể trả lời các câu hỏi như:
+\subsection{Kết quả tích hợp}
+Chatbot trên hệ thống không chỉ phục vụ hỏi đáp đơn giản mà còn đóng vai trò như một công cụ tư vấn học tập. Người dùng có thể nhập các câu hỏi gần với ngôn ngữ tự nhiên, hệ thống sẽ cố gắng hiểu ngữ cảnh, lọc dữ liệu phù hợp và trả về đáp án dễ đọc.
+
+\subsection{Mã nguồn triển khai}
+Các thành phần chính của chatbot được chia thành:
 \begin{itemize}
-    \item "Em muốn ưu tiên các lớp học buổi sáng, em nên đăng ký lớp nào của môn Giải tích 1?" [cite: 280]
-    \item "Em nên đăng ký những học phần nào cho kỳ này?" [cite: 281]
-    \item "Em nên đăng ký những lớp nào của học kỳ này?" [cite: 282]
+    \item \texttt{tfidf\_classifier.py}: phân loại ý định.
+    \item \texttt{chatbot\_service.py}: điều phối nghiệp vụ trả lời.
+    \item \texttt{nl2sql\_service.py}: tạo truy vấn dữ liệu từ ngôn ngữ tự nhiên.
+    \item \texttt{class\_query\_service.py}: truy vấn lớp học theo ràng buộc an toàn.
+    \item \texttt{schedule\_combination\_service.py}: sinh tổ hợp phương án thời khóa biểu.
 \end{itemize}
 
-Chatbot hoạt động \textbf{dựa trên rule-based}, giúp tăng chính xác trong trích xuất ý định, truy vấn thông tin và đạt tốc độ truy vấn cao[cite: 283].
-\subsection{Kiến trúc tổng thể}
-Chatbot hoạt động dựa trên sự phối hợp của nhiều thành phần công nghệ để đảm bảo tính chính xác và hiệu suất cao.
+\section{Kết quả hoạt động}
+Sau khi hoàn thành các phần lõi, hệ thống đạt được một số kết quả chính sau:
+\begin{itemize}
+    \item Người dùng có thể đăng ký, đăng nhập và khôi phục mật khẩu.
+    \item Sinh viên xem được dashboard cá nhân, lịch học, điểm số, chương trình đào tạo và các mục hỗ trợ.
+    \item Quản trị viên thao tác được với sinh viên, học phần, lớp học, thời khóa biểu, FAQ và thông báo.
+    \item Chatbot hỗ trợ hỏi đáp học tập, tra cứu dữ liệu và gợi ý đăng ký học phần/lớp học.
+    \item Lịch sử hội thoại, xuất Excel và các tiện ích phụ trợ hoạt động đồng bộ với backend.
+\end{itemize}
+
+Để thuận tiện trình bày trong báo cáo, có thể mô tả các nhóm màn hình theo bảng sau.
 
 \begin{table}[H]
-\renewcommand{\arraystretch}{1.5}
 \centering
-\begin{tabularx}{\textwidth}{|>{\bfseries}l|>{\raggedright\arraybackslash}p{4cm}|X|}
+\begin{tabularx}{\textwidth}{|l|X|}
 \hline
-\rowcolor[HTML]{EFEFEF} 
-Thành phần & Công nghệ sử dụng & Nhiệm vụ \\ \hline
-Rule-based Engine & JSON rule & Xác định điều kiện học phần, môn tiên quyết, cảnh báo học vụ. \\ \hline
-NL2SQL & Schema DB & Tự động sinh câu lệnh SQL từ ngôn ngữ tự nhiên. \\ \hline
-Database & CSDL đã có (students, subjects, learned\_subjects,...) & Chứa dữ liệu học tập của từng sinh viên và danh sách học phần + lớp học mở từng kỳ. \\ \hline
-Intent classification & TF-IDF, Word2Vec, các hàm lấy keyword và tính điểm từng phần. & Chia câu hỏi thành các token, tính độ matching với intent để phân loại ý định. \\ \hline
+\textbf{Nhóm màn hình} & \textbf{Mô tả ngắn} \\ \hline
+\textbf{Xác thực} & Đăng nhập, đăng ký, quên mật khẩu, đặt lại mật khẩu. \\ \hline
+\textbf{Sinh viên} & Dashboard, lịch học, điểm số, chương trình đào tạo, đăng ký học phần, đăng ký lớp, biểu mẫu, FAQ, phản hồi. \\ \hline
+\textbf{Quản trị} & Quản lý sinh viên, học phần, lớp học, thời khóa biểu, phản hồi, FAQ và thông báo. \\ \hline
+\textbf{Chatbot} & Hỏi đáp học tập, gợi ý học phần, gợi ý lớp học, lưu lịch sử và xuất phương án lịch học. \\ \hline
 \end{tabularx}
-\caption{Kiến trúc tổng thể hệ thống Chatbot}
+\caption{Các nhóm màn hình chính của hệ thống}
 \end{table}
 
-\subsection{Nguyên lý hoạt động}
+\section{Kết luận và hướng phát triển}
+\subsection{Kết luận}
+Đồ án đã xây dựng được một hệ thống quản lý sinh viên có tích hợp chatbot hỗ trợ học tập, cho phép tra cứu dữ liệu học tập, quản lý lớp học và hỗ trợ đăng ký học phần/lớp học theo hướng tự động hơn. Hệ thống có cấu trúc rõ ràng giữa frontend, backend và CSDL, thuận lợi cho việc mở rộng trong các giai đoạn sau.
 
-\begin{enumerate}[leftmargin=*, label=\arabic*.]
-    \item \textbf{Người dùng nhập các câu hỏi cần hỏi cho chatbot} \\
-    Ví dụ: ``Em nên đăng ký lớp học nào cho kỳ tới?''
-    
-    \item \textbf{Phân loại intent}
-    \begin{itemize}
-        \item \textbf{Phân tích intent:} Tạo 1 tập với 14 intents như trong bảng:
-    \end{itemize}
-
-    \begin{table}[H]
-    \centering
-    \begin{tabularx}{0.8\textwidth}{|l|X|}
-    \hline
-    \rowcolor[HTML]{EFEFEF} 
-    \textbf{Intent} & \textbf{Mô tả} \\ \hline
-    grade\_view & Xem điểm CPA/GPA \\ \hline
-    learned\_subjects\_view & Xem danh sách môn đã học \\ \hline
-    schedule\_view & Xem lịch học/TKB \\ \hline
-    student\_info & Thông tin sinh viên \\ \hline
-    class\_info & Thông tin lớp học \\ \hline
-    subject\_info & Thông tin học phần \\ \hline
-    class\_registration\_suggestion & Gợi ý lớp học \\ \hline
-    subject\_registration\_suggestion & Gợi ý môn học \\ \hline
-    registration\_guide & Hướng dẫn đăng ký \\ \hline
-    greeting & Lời chào \\ \hline
-    thanks & Cảm ơn \\ \hline
-    goodbye & Tạm biệt \\ \hline
-    out\_of\_scope & Ngoài phạm vi \\ \hline
-    class\_list & Danh sách lớp học \\ \hline
-    \end{tabularx}
-    \caption{Danh sách các Intent của Chatbot}
-    \end{table}
-
-    \begin{itemize}
-        \item \textbf{Tiền xử lý:} Chuẩn hóa câu hỏi về dạng lowercase, xóa các khoảng trắng dư và tokenize câu hỏi thành các token.
-        \item \textbf{Phân loại:} Dựa theo số điểm cộng từ các cách đánh giá khác nhau:
-        \begin{itemize}
-            \item \textbf{Điểm TF-IDF (40\%):} Vector hóa câu truy vấn rồi tính cosine similarity với mẫu huấn luyện.
-            \item \textbf{Semantic Word2Vec (30\%):} Lấy vector cho từng từ, tạo vector trung bình rồi so với embedding của từng intent.
-            \item \textbf{Keyword (30\%):} Lấy keywords trong câu hỏi, đếm số keywords khớp trong từng intent rồi chuẩn hóa.
-            \item \textbf{Cộng thêm điểm:} Nếu câu hỏi giống mẫu hoàn toàn/một phần/là chuỗi con thì cộng thêm điểm lần lượt là 0,2/ 0,15/ 0,1.
-        \end{itemize}
-    \end{itemize}
-
-    \item \textbf{Sinh câu lệnh NL2SQL (truy vấn database)}
-    \begin{itemize}
-        \item \textbf{Entities extraction:} Dùng regex trích xuất \texttt{subject\_id}, \texttt{class\_id}, \texttt{days}, \texttt{time} từ câu hỏi.
-        \item \textbf{Template matching:} Tìm SQL template phù hợp nhất từ 45 examples theo word overlap.
-        \item \textbf{Parameter replacement:} Thay thế \texttt{\{student\_id\}}, \texttt{\{subject\_id\}} bằng giá trị thực.
-        \item \textbf{SQL customization:} Thêm/sửa WHERE clause dựa trên entities.
-    \end{itemize}
-
-    \item \textbf{Dành riêng cho intent gợi ý học phần}
-    \begin{itemize}
-        \item Xây dựng tập luật: Dựa trên quy định của Đại học về giới hạn tín chỉ đăng ký nên sẽ gợi ý đăng ký theo thứ tự ưu tiên: Học lại các môn điểm F $\rightarrow$ Học các môn đúng kỳ học $\rightarrow$ Học các môn triết/chính trị $\rightarrow$ Học các môn thể chất $\rightarrow$ Học các môn bổ trợ $\rightarrow$ Học nhanh (thêm các môn học của kỳ sau nếu điểm CPA cao) $\rightarrow$ Học cải thiện điểm nếu tổng tín chỉ đã đăng ký $<20$.
-        \item Khi gợi ý đăng ký học phần, hệ thống sẽ kiểm tra các học phần có sẵn, sau đó áp dụng bộ lọc cho từng luật bên trên để lựa chọn các học phần cho đến khi hết giới hạn tín chỉ đăng ký.
-        \item \textbf{Tập luật:}
-        \begin{itemize}
-            \item \textbf{Với học kỳ chính:}
-            \begin{itemize}
-                \item Sinh viên mức bình thường: từ 12 đến 24 tín.
-                \item Cảnh báo mức 1: từ 10 đến 18 tín.
-                \item Cảnh báo mức 2 trở lên hoặc chưa đạt ngoại ngữ: 8 đến 14 tín.
-            \end{itemize}
-            \item Năm cuối: không giới hạn tối thiểu.
-            \item Với học kỳ hè: tối đa 9 TC, không giới hạn tối thiểu.
-        \end{itemize}
-        \item \textbf{Luật ưu tiên gợi ý môn học:}
-        \begin{itemize}
-            \item Ưu tiên 1: Học lại môn điểm F (bắt buộc).
-            \item Ưu tiên 2: Môn đúng lộ trình kỳ học (theo learning\_semester trong bảng subject).
-            \item Ưu tiên 3: Môn chính trị (6 môn SSH/EM bắt buộc).
-            \item Ưu tiên 4: Môn thể chất (chọn đủ 4/42 môn PE).
-            \item Ưu tiên 5: Môn bổ trợ (chọn đủ 3/9 môn bổ trợ).
-            \item Ưu tiên 6: Học nhanh (CPA $>3.4$, đăng ký thêm nếu còn tín chỉ).
-            \item Ưu tiên 7: Cải thiện điểm (Điểm D/D+/C/C+, nếu tổng tín chỉ $<=20$).
-        \end{itemize}
-        \item \textbf{Quy trình xử lý:}
-        \begin{itemize}
-            \item Tính số kỳ, CPA, tình trạng cảnh báo, các môn đã học, giới hạn tín chỉ.
-            \item Lọc và gợi ý các môn theo thứ tự ưu tiên.
-            \item Đảm bảo tổng tín chỉ nằm trong giới hạn.
-        \end{itemize}
-    \end{itemize}
-
-    \item \textbf{Dành riêng cho intent gợi ý lớp học}
-    \begin{itemize}
-        \item Xây dựng bộ preference để từ đó tạo bộ luật qua input của user.
-        \item Lưu trữ trạng thái hội thoại qua in-memory storage.
-        \item \textbf{Lưu thông tin đã có về:}
-        \begin{itemize}
-            \item Id sinh viên (student\_id)
-            \item Id phiên chat (session\_id)
-            \item intent (ý định)
-            \item stage (giai đoạn hiện tại)
-            \item preference: CompletePreference (kiểm tra đã lấy đủ preference của user chưa)
-            \item questions\_asked: list (các câu hỏi đã hỏi)
-            \item question\_remaining: list (các câu hỏi cần hỏi)
-            \item current\_question: PreferenceQuestion (câu đang hỏi)
-            \item pending\_question: Dict (chi tiết câu hỏi đang chờ)
-            \item time\_stamp: datetime (thời gian cập nhật)
-        \end{itemize}
-        \item Nếu còn thông tin chưa đủ, sẽ hỏi các câu hỏi về ngày học, giờ học (sớm, muộn), học liên tục hay ngắt quãng, các lớp học đặc biệt muốn học,...
-        \item Parse câu trả lời và cập nhật preferences.
-        \item Khi đã đủ thì từ tập luật xây từ preferences, tạo các combination – các tổ hợp lớp học từ các học phần đã đăng ký.
-        \item \textbf{Luật đăng ký lớp:}
-        \begin{itemize}
-            \item \textbf{Luật tuyệt đối (luôn luôn tuân thủ):}
-            \begin{itemize}
-                \item Luật 1: Hai lớp bất kỳ trong 1 combination không được trùng lịch học (cùng tuần, cùng ngày, thời gian chồng lấn).
-                \item Luật 2: Mỗi môn chỉ đăng ký nhiều nhất 1 lớp.
-            \end{itemize}
-            \item \textbf{Luật ưu tiên (cố gắng tuân thủ hết mức có thể, xây dựng từ câu trả lời của sinh viên khi trả lời các câu hỏi có sẵn):}
-            \begin{itemize}
-                \item Chọn thứ trong tuần muốn học.
-                \item Tránh học quá sớm hoặc quá muộn.
-                \item Tối ưu lịch: học liên tục, nhiều ngày nghỉ hoặc ngược lại.
-                \item Ưu tiên 1 mã lớp, giáo viên, giờ học cụ thể.
-            \end{itemize}
-        \end{itemize}
-        \item \textbf{Cách tạo combination – tổ hợp thời khóa biểu gồm các lớp theo từng môn:}
-        \begin{itemize}
-            \item Gom tất cả các lớp khả dụng theo từng môn.
-            \item Dùng \texttt{itertools.product} để sinh ra mọi tổ hợp chọn 1 lớp cho mỗi môn.
-            \item Với mỗi tổ hợp, kiểm tra xung đột lịch giữa các lớp, chỉ giữ lại các combination không có xung đột.
-            \item Tính điểm các combination dựa trên tiêu chí đã chọn ở luật ưu tiên bên trên, sắp xếp các combination theo điểm số giảm dần, trả về top 3 tổ hợp tốt nhất.
-        \end{itemize}
-    \end{itemize}
-\end{enumerate}
-
-\subsection{Kết quả hoạt động}
-
-\subsubsection{Giao diện khi đăng ký và đăng nhập}
-Hệ thống cung cấp giao diện đăng nhập và đăng ký tài khoản trực quan, thân thiện với người dùng, đảm bảo tính bảo mật thông qua việc xác thực tài khoản.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_dang_nhap.png}
-    \caption{Giao diện đăng nhập hệ thống}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_dang_ky.png}
-    \caption{Giao diện đăng ký tài khoản mới}
-\end{figure}
-
-% Nếu ảnh chiếm quá nhiều chỗ, dùng clearpage để đẩy các mục sau sang trang mới
-\clearpage 
-
-\subsubsection{Giao diện khi đăng nhập thành công dưới vai trò sinh viên}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_sinh_vien_main.png} % Đã sửa tên file minh họa
-    \caption{Giao diện khi đăng nhập dưới vai trò sinh viên}
-\end{figure}
-
-\subsubsection{Giao diện khi thêm các học phần đã học}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_hoc_tap.png}
-    \caption{Giao diện khi khi vào tính năng học tập}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_them_hoc_phan_thu_cong.png}
-    \caption{Giao diện khi thêm học phần thủ công}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_them_hoc_phan_excel.png}
-    \caption{Giao diện khi thêm học phần bằng file excel}
-\end{figure}
-
-\clearpage
-
-\subsubsection{Giao diện khi hỏi đáp với chatbot}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_chatbot_cpa.png}
-    \caption{Giao diện khi hỏi chatbot về CPA}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_chatbot_dang_ky_lop.png}
-    \caption{Giao diện khi hỏi chatbot về đăng ký lớp}
-\end{figure}
-
-\subsubsection{Giao diện của admin khi quản lý học phần}
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_admin_view_hoc_phan.png}
-    \caption{Giao diện admin xem học phần đã có}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_admin_add_hoc_phan.png}
-    \caption{Giao diện admin thêm học phần mới}
-\end{figure}
-
-\subsubsection{Giao diện của admin khi quản lý lớp}
-% Đã sửa lỗi lồng môi trường figure tại đây
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_quan_ly_tkb.png}
-    \caption{Giao diện admin ở trang quản lý thời khóa biểu}
-\end{figure}
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.8\textwidth]{ảnh latex/giao_dien_admin_them_lop_hoc.png}
-    \caption{Giao diện khi admin thêm danh sách lớp học}
-\end{figure}
-
-
-\chapter{Định hướng cho Đồ án tốt nghiệp}
-
-\begin{enumerate}[label=\arabic*)]
-    \section{Hoàn thiện chatbot}
-    \begin{enumerate}[label=\alph*)]
-        \item \textbf{Bổ sung mô hình LLM}
-        \begin{itemize}
-            \item Áp dụng một mô hình LLM hiện đại, nguồn mở (Ollama, Transformers) để hỗ trợ chatbot nhận diện ngữ cảnh, nhận diện ý định tốt hơn, tăng cường khả năng xử lý các câu hỏi, yêu cầu phức tạp hoặc xử lý đa dạng các cách diễn đạt của sinh viên khi hỏi đáp với chatbot.
-            \item Các mô hình trên đều nhẹ, nguồn mở, cho ra khả năng hoạt động nhanh, ổn định khi có nhiều lượt người truy cập và sử dụng chatbot cùng lúc.
-        \end{itemize}
-        
-        \item \textbf{Tiền xử lý văn bản}
-        \begin{itemize}
-            \item Sử dụng một số thư viện Python để tự động sửa lỗi chính tả, từ vựng trước khi đưa vào LLM, giúp tăng tốc độ và độ chính xác khi xử lý câu hỏi của người dùng. Một số thư viện tốt gồm:
-            \begin{itemize}
-                \item \texttt{Pyspellchecker}: sửa lỗi chính tả tiếng Việt/Anh.
-                \item \texttt{Underthesea}: tách từ, chuẩn hóa tiếng Việt.
-                \item \texttt{Unicode}: chuẩn hóa ký tự đặc biệt.
-            \end{itemize}
-        \end{itemize}
-        
-        \item \textbf{Chuẩn hóa ý định, từ vựng}
-        \begin{itemize}
-            \item Tạo các từ điển synonym (từ đồng nghĩa, cách viết khác) cho các ý định, từ vựng phổ biến (các từ viết tắt thông dụng của giới trẻ, các thứ trong tuần như thứ 2, 3, 4,...).
-            \item Khi nhận input, các cụm từ được viết tắt, từ đồng nghĩa (do thói quen nói chuyện, nhắn tin của đa số bộ phận sinh viên) sẽ được chuẩn hóa cho chatbot.
-        \end{itemize}
-        
-        \item \textbf{So khớp mờ}
-        \begin{itemize}
-            \item Sử dụng thư viện như \texttt{fuzzywuzzy} hoặc \texttt{rapidfuzz} để so khớp ý định, từ khóa, kể cả khi người dùng gõ sai từ (ví dụ gõ ``xuất sắc'' thành ``xuaacs sắc''), giúp chatbot phân loại các trường hợp chọn ý định, truy vấn dữ liệu.
-        \end{itemize}
-        
-        \item \textbf{Cơ chế lưu trữ tin nhắn}
-        \begin{itemize}
-            \item Sử dụng Redis Cache để lưu hội thoại, session, kết quả truy vấn từ trước, giúp tăng tốc độ phản hồi, hỗ trợ người dùng xem lại kết quả chatbot gửi về.
-        \end{itemize}
-    \end{enumerate}
-
-    \section{Hoàn thiện website}
-    \begin{enumerate}[label=\alph*)]
-        \item \textbf{Hoàn thiện các tính năng bổ trợ}
-        \begin{itemize}
-            \item Hoàn thiện các tính năng cho admin như quản lý tài khoản, quản lý học phần và lớp học, giúp thao tác của admin dễ dàng và thuận tiện hơn.
-            \item Hoàn thiện các tính năng cho sinh viên như xây thời khóa biểu (chọn lớp và hiển thị thời khóa biểu theo ngày, giờ) để sinh viên tiện lợi trong việc chọn lớp.
-        \end{itemize}
-        
-        \item \textbf{Hoàn thiện giao diện}
-        \begin{itemize}
-            \item Hoàn thiện giao diện thân thiện, mượt mà, dễ sử dụng cho cả admin và sinh viên.
-        \end{itemize}
-        
-        \item \textbf{Security}
-        \begin{itemize}
-            \item Thực hiện một số biện pháp bảo mật cơ bản, giúp bảo vệ dữ liệu trang web, chống lại các tấn công phổ biến.
-            \begin{itemize}
-                \item Luôn dùng ORM (hiện tại là SQLAlchemy) đảm bảo an toàn dữ liệu SQL, chống tấn công SQL injection.
-                \item Bảo mật session và key: lưu session ở server (Redis, database), thiết lập cookie cho trang web.
-                \item Cấu hình https.
-                \item Giới hạn brute-force: giới hạn số lần đăng nhập sai, có thể sử dụng thêm OTP nếu cần.
-            \end{itemize}
-        \end{itemize}
-        
-        \item \textbf{Deploy}
-        \begin{itemize}
-            \item Build frontend, backend, cấu hình Docker Compose cho cả hai.
-            \item Cấu hình reverse proxy.
-            \item Cài SSL với Certbot.
-            \item Deploy lên VPS/Cloud.
-        \end{itemize}
-    \end{enumerate}
-\end{enumerate}
+\subsection{Hướng phát triển}
+\begin{itemize}
+    \item Nâng cấp chatbot bằng mô hình ngôn ngữ lớn để hiểu tốt hơn các câu hỏi tự nhiên và tình huống phức tạp.
+    \item Hoàn thiện thêm các cơ chế đề xuất thời khóa biểu tối ưu hơn theo nhiều tiêu chí cùng lúc.
+    \item Bổ sung thông báo thời gian thực, hệ thống cảnh báo học tập và đồng bộ lịch học tự động.
+    \item Tăng cường kiểm thử tự động và hoàn thiện bộ dữ liệu mẫu để hỗ trợ triển khai thực tế.
+\end{itemize}
 \end{document}

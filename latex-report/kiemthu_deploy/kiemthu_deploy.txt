@@ -1,0 +1,94 @@
+\section{Kiểm thử}
+Trong quá trình phát triển, nhóm thực hiện kiểm thử theo hai hướng chính là kiểm thử tự động bằng \texttt{pytest} và kiểm thử thực tế trực tiếp trên giao diện người dùng. Mục tiêu của công đoạn kiểm thử là xác nhận các chức năng trọng tâm của hệ thống hoạt động đúng yêu cầu, phát hiện sớm lỗi logic trong backend, lỗi hiển thị ở frontend và các vấn đề phát sinh khi tích hợp giữa các thành phần. Cách làm này giúp nhóm kiểm tra được cả mức độ đúng đắn của thuật toán bên trong lẫn trải nghiệm sử dụng ở mức giao diện.
+
+\subsection{Kiểm thử bằng \texttt{pytest} trong quá trình phát triển}
+Backend của dự án có hệ thống kiểm thử riêng trong thư mục \texttt{backend/tests}. Đây là lớp kiểm thử được nhóm sử dụng thường xuyên nhất trong giai đoạn phát triển vì nó cho phép chạy nhanh các ca kiểm thử nhỏ, kiểm thử tích hợp và kiểm thử hồi quy sau mỗi lần chỉnh sửa mã nguồn. Các bài test này không chỉ kiểm tra một hàm đơn lẻ mà còn kiểm tra cả một luồng nghiệp vụ, từ lúc nhận dữ liệu đầu vào cho đến lúc trả kết quả cuối cùng.
+
+Nhóm chủ yếu dùng \texttt{pytest} để kiểm tra logic nghiệp vụ ở backend, đặc biệt là các thành phần có ảnh hưởng trực tiếp đến chatbot, tra cứu dữ liệu học tập và xếp thời khóa biểu. Sau mỗi lần thay đổi classifier, sửa rule engine, chỉnh SQL template hoặc cập nhật cách xử lý lịch học, nhóm đều chạy lại một phần hoặc toàn bộ bộ test để chắc chắn các thay đổi mới không làm hỏng chức năng cũ.
+
+\subsubsection{ Kiểm thử chatbot và phân loại ý định}
+Chatbot là chức năng được kiểm thử nhiều nhất vì đây là phần có nhiều nhánh xử lý nhất trong hệ thống. Các file như \texttt{test\_chatbot.py}, \texttt{test\_chatbot\_routes.py}, \texttt{test\_chatbot\_integration.py} và \texttt{test\_streaming\_endpoint.py} được dùng để kiểm tra nhiều lớp xử lý khác nhau của chatbot.
+
+\texttt{test\_chatbot.py} kiểm tra bộ phân loại ý định với các câu mẫu như lời chào, câu cảm ơn và một số câu hỏi không thuộc intent rõ ràng. Mục tiêu của test này là xem classifier có nhận đúng intent không, có đưa ra mức confidence hợp lý không và có sinh phản hồi thân thiện đúng theo logic trong route hay không. Đây là kiểu test rất hữu ích để phát hiện lỗi ở phần phân loại văn bản, nhất là khi thay đổi tập mẫu hoặc thay đổi luật gán nhãn.
+
+\texttt{test\_chatbot\_routes.py} đi xa hơn một bước, vì nó kiểm tra classifier ở góc nhìn của route chatbot. Bộ test này xác minh các intent quan trọng như \texttt{greeting}, \texttt{registration\_guide}, \texttt{subject\_registration\_suggestion}, \texttt{class\_registration\_suggestion}, \texttt{grade\_view}, \texttt{schedule\_view} và \texttt{thanks}. Ngoài việc kiểm tra dự đoán intent, test còn kiểm tra danh sách intent mà hệ thống công bố cho frontend, giúp đảm bảo dữ liệu dùng để hiển thị hoặc debug luôn nhất quán.
+
+\texttt{test\_chatbot\_integration.py} là bài test tích hợp đầy đủ hơn. Test này mô phỏng luồng xử lý từ lúc nhận tin nhắn của người dùng cho đến lúc tạo ra câu trả lời cuối cùng. Nó kiểm tra theo thứ tự: phân loại ý định, trích xuất thực thể, sinh câu SQL nếu cần, truy vấn cơ sở dữ liệu và đóng gói dữ liệu trả về. Tập kịch bản trong file này bao phủ nhiều kiểu câu hỏi như xem điểm, xem lịch học, tra cứu thông tin lớp, và gợi ý đăng ký lớp. Đây là test rất quan trọng vì nó phát hiện lỗi ở những chỗ mà test đơn lẻ khó nhìn ra, ví dụ intent đúng nhưng SQL sinh sai, hoặc truy vấn đúng nhưng dữ liệu trả về không khớp format.
+
+\texttt{test\_streaming\_endpoint.py} kiểm tra riêng endpoint \texttt{/api/chatbot/chat-stream}. Test này mô phỏng request thật từ client, gửi kèm token xác thực và đọc phản hồi theo dạng streaming/SSE. Mục tiêu là xác nhận backend có trả dữ liệu theo từng chunk hay không, chunk có đúng cấu trúc không và frontend có thể nhận từng giai đoạn xử lý để hiển thị tiến trình hội thoại. Đây là một bài test đặc biệt quan trọng vì chatbot của hệ thống không chỉ trả lời một lần, mà còn có cơ chế trả về theo luồng để người dùng thấy rõ tiến trình xử lý.
+
+\subsubsection{ Kiểm thử NL2SQL và trích xuất dữ liệu}
+Phần NL2SQL là lõi xử lý các câu hỏi tra cứu dữ liệu như xem điểm, xem lịch học, xem lớp hoặc hỏi về học phần. Các file như \texttt{test\_nl2sql\_service.py} và các test liên quan đến SQL được dùng để kiểm tra hai việc chính: trích xuất thực thể từ câu hỏi tiếng Việt và sinh câu SQL đúng với intent.
+
+\texttt{test\_nl2sql\_service.py} kiểm tra rất cụ thể các trường hợp như nhận diện \texttt{subject\_id}, \texttt{subject\_name}, \texttt{class\_id}, ngày học và khung giờ học. Ví dụ, câu hỏi kiểu “các lớp của môn ...” phải trích ra được mã học phần hoặc tên học phần phù hợp; câu hỏi về lịch học phải nhận diện được ngày trong tuần; câu hỏi về buổi sáng hay buổi chiều phải map đúng vào trường \texttt{time\_period}. Sau đó, test tiếp tục kiểm tra phần sinh SQL để xem câu lệnh tạo ra có chứa các bảng và điều kiện mong đợi hay không.
+
+Điểm quan trọng của nhóm test này là nó giúp phát hiện lỗi rất sớm ở mức ngôn ngữ tự nhiên. Nếu trích xuất thực thể sai, truy vấn phía sau sẽ sai theo. Nếu SQL template sai, dữ liệu trả về cho chatbot cũng sẽ sai. Vì vậy, nhóm test không chỉ dừng lại ở việc “có ra SQL hay không”, mà còn kiểm tra đúng nội dung SQL, đúng điều kiện lọc và đúng cách thay thế tham số.
+
+\subsubsection{ Kiểm thử rule engine và xếp thời khóa biểu}
+Đối với chức năng gợi ý đăng ký lớp và sinh thời khóa biểu, dự án có các test rất quan trọng trong \texttt{test\_rule\_engine.py}, \texttt{test\_schedule\_combinations.py} và \texttt{test\_time\_conflict\_detection.py}. Đây là khu vực dễ sinh lỗi vì phải xử lý nhiều ràng buộc cùng lúc: học phần đã học, học phần chưa đạt, số tín chỉ còn lại, ngày học, giờ học, tuần học và xung đột lịch.
+
+\texttt{test\_rule\_engine.py} kiểm tra toàn bộ luồng đề xuất học phần. Test này xác minh cách hệ thống tính học kỳ hiện tại, đọc dữ liệu sinh viên, tính số học kỳ đã học, lọc danh sách học phần khả dụng và sinh danh sách đề xuất cuối cùng. Bên cạnh đó, file test còn kiểm tra từng rule riêng như lọc môn đã rớt, lọc môn chính trị, lọc môn thể chất, lọc môn bổ sung và giới hạn tín chỉ. Cách test này rất hữu ích vì nếu một rule thay đổi, nhóm sẽ biết chính xác rule nào ảnh hưởng đến kết quả gợi ý.
+
+\texttt{test\_schedule\_combinations.py} tập trung vào việc sinh tổ hợp thời khóa biểu. Test này kiểm tra ba lớp hành vi: phát hiện xung đột thời gian, tính toán chỉ số lịch học và sinh các tổ hợp khả thi từ nhiều lớp của nhiều học phần. Phần phát hiện xung đột không chỉ xét trùng giờ, mà còn xét các trường hợp cùng ngày, khác ngày, chồng lấp một phần, không chồng lấp, hoặc có nhiều ngày trong cùng một lớp.
+
+\texttt{test\_time\_conflict\_detection.py} là bộ kiểm thử chặt hơn cho quy tắc xung đột thời khóa biểu. File này bao phủ các trường hợp không xung đột như khác tuần, khác ngày, giờ liền kề, cũng như các trường hợp xung đột như cùng giờ bắt đầu, chồng lấp đầu giờ, chồng lấp cuối giờ, bao trùm hoàn toàn hoặc xung đột trên nhiều ngày. Đây là nhóm test cực kỳ quan trọng vì chỉ cần sai một điều kiện so sánh giờ học là hệ thống có thể gợi ý nhầm một tổ hợp lớp không thể đăng ký được ngoài thực tế.
+
+\subsubsection{ Kiểm thử cache, xuất file và thành phần phụ trợ}
+Ngoài các luồng chính, backend còn có nhiều test dành cho cache Redis, xuất Excel, trạng thái hội thoại và các công cụ phụ trợ khác. Các file như \texttt{test\_redis\_cache.py} và \texttt{test\_excel\_export.py} được dùng để đảm bảo các phần phụ trợ này vận hành ổn định.
+
+\texttt{test\_redis\_cache.py} kiểm tra kết nối Redis, set/get dữ liệu chuỗi và dict, kiểm tra TTL, xóa key, tăng bộ đếm, lấy key theo pattern, lưu trạng thái hội thoại và lưu preference của sinh viên. Các test này đảm bảo chatbot có thể nhớ ngữ cảnh trong một phiên làm việc và có thể lưu trạng thái tạm thời khi người dùng đang tương tác nhiều bước. Nếu cache lỗi, chatbot có thể mất trạng thái hội thoại hoặc phản hồi không nhất quán.
+
+\texttt{test\_excel\_export.py} kiểm tra khả năng xuất file Excel từ dữ liệu thời khóa biểu mẫu. Đây là chức năng quan trọng vì hệ thống không chỉ hiển thị phương án đăng ký trên giao diện mà còn cho phép người dùng tải xuống file để xem hoặc lưu trữ offline. Test này giúp xác nhận cấu trúc file, dữ liệu lớp học, thông tin thời gian, phòng học và các chỉ số thống kê đi kèm đều được ghi đúng.
+
+\subsubsection{ Cách nhóm sử dụng pytest trong thực tế}
+Trong quá trình phát triển, nhóm không đợi đến cuối dự án mới chạy test, mà dùng \texttt{pytest} như một công cụ kiểm tra liên tục. Mỗi khi sửa phần chatbot, nhóm thường chạy lại các test liên quan đến classifier, streaming và tích hợp API. Mỗi khi sửa phần gợi ý học phần hoặc xếp lịch, nhóm chạy lại các test liên quan đến rule engine, schedule combination và conflict detection. Mỗi khi sửa phần cache hoặc xuất file, nhóm chạy lại các test của Redis và Excel export.
+
+Việc chia nhỏ test theo từng khu vực như vậy giúp nhóm dễ khoanh vùng lỗi hơn. Nếu một test thất bại, nhóm biết ngay vấn đề nằm ở classifier, ở câu SQL, ở rule engine hay ở tầng cache. Nhờ đó, thời gian debug giảm đáng kể so với việc chỉ kiểm tra bằng giao diện.
+
+\subsection{Kiểm thử thực tế trên giao diện}
+Bên cạnh kiểm thử tự động, nhóm còn kiểm thử trực tiếp trên giao diện web để xác nhận trải nghiệm người dùng và tính đúng đắn của dữ liệu hiển thị. Giao diện frontend được chạy ở môi trường phát triển bằng \texttt{Vite}, do đó việc kiểm thử có thể thực hiện nhanh và lặp lại nhiều lần trong quá trình sửa lỗi. Kiểm thử giao diện đóng vai trò là lớp xác nhận cuối cùng, vì có nhiều lỗi chỉ xuất hiện khi dữ liệu đi từ backend sang frontend và được render trên màn hình.
+
+Các kịch bản kiểm thử thực tế tập trung vào những màn hình và chức năng quan trọng nhất:
+\begin{itemize}
+    \item Màn hình chatbot: kiểm tra nhập câu hỏi, nhận phản hồi, xử lý câu hỏi đơn, câu hỏi ghép, kiểm tra phản hồi theo từng bước và kiểm tra nội dung trả lời cuối cùng.
+    \item Màn hình xem điểm: kiểm tra danh sách học phần, điểm số, GPA, CPA và các thông tin học tập có được hiển thị đầy đủ, đúng dữ liệu hay không.
+    \item Màn hình quản lý thời khóa biểu: kiểm tra việc thêm, sửa, lọc lớp, hiển thị buổi học, kiểm tra xung đột lịch và cập nhật dữ liệu trên giao diện quản trị.
+    \item Các chức năng bổ trợ: đăng nhập, đăng ký, quên mật khẩu, tải lên dữ liệu, xuất Excel, xem thông báo và các thao tác quản trị khác.
+\end{itemize}
+
+Khi kiểm thử giao diện, nhóm không chỉ xem “có hiện ra hay không” mà còn kiểm tra nhiều lớp lỗi thực tế. Ví dụ, ở màn hình chatbot, nhóm nhập các câu hỏi ngắn, câu hỏi lịch sự, câu hỏi không rõ nghĩa và câu hỏi ghép để xem hệ thống có hiểu đúng không, có giữ đúng ngữ cảnh không và có chuyển về câu trả lời mặc định khi cần hay không. Ở màn hình xem điểm, nhóm kiểm tra trường hợp sinh viên có nhiều môn đã học, có môn chưa đạt, có GPA học kỳ thay đổi và có dữ liệu thiếu để xem giao diện có hiển thị sai cột hoặc thiếu dòng nào không. Ở màn hình quản lý thời khóa biểu, nhóm thử thêm lớp có khung giờ trùng, sửa thông tin lớp, lọc theo ngày học và kiểm tra xem danh sách cập nhật có đồng bộ ngay với backend không.
+
+Trong khi kiểm thử giao diện, nhóm đặc biệt chú ý đến các trường hợp dữ liệu sai định dạng, thiếu thông tin bắt buộc, trùng lịch học và câu hỏi chatbot không rõ nghĩa. Với các trường hợp này, hệ thống cần thông báo lỗi rõ ràng và không làm gián đoạn các chức năng còn lại. Ngoài ra, nhóm cũng kiểm tra luồng đăng nhập và phân quyền để đảm bảo sinh viên và quản trị viên nhìn thấy đúng các màn hình tương ứng với vai trò của mình.
+
+\subsection{Tổng kết kiểm thử}
+Kết quả kiểm thử cho thấy các chức năng chính của hệ thống hoạt động ổn định sau khi hoàn thiện các vòng sửa lỗi. Các bài test tự động bằng \texttt{pytest} giúp đảm bảo logic backend nhất quán trong suốt quá trình phát triển, còn kiểm thử thực tế trên giao diện giúp xác nhận trải nghiệm người dùng và khả năng hiển thị dữ liệu ở frontend.
+
+Nhìn chung, việc kết hợp kiểm thử tự động và kiểm thử thủ công đã giúp nhóm phát hiện sớm các lỗi về phân loại ý định chatbot, sinh SQL, trích xuất thực thể, xung đột lịch, dữ liệu đầu vào và phản hồi giao diện. Sau khi chỉnh sửa, các chức năng quan trọng đều đạt yêu cầu và sẵn sàng cho giai đoạn triển khai.
+
+\section{Triển khai}
+Hệ thống được triển khai theo mô hình đóng gói bằng Docker và vận hành trên hạ tầng AWS EC2. Nhóm sử dụng một instance EC2 làm máy chủ chính để chạy ứng dụng, đồng thời mua và cấu hình tên miền riêng để người dùng truy cập thuận tiện hơn. Cách triển khai này giúp hệ thống có thể hoạt động ổn định trên môi trường thực tế, dễ mở rộng và dễ bảo trì.
+
+\subsection{Hạ tầng triển khai}
+Phần triển khai được tổ chức thành các thành phần tách biệt gồm frontend, backend, cơ sở dữ liệu và các dịch vụ phụ trợ. Frontend được xây dựng bằng \texttt{React} và \texttt{Vite}, backend sử dụng \texttt{FastAPI}, cơ sở dữ liệu dùng \texttt{MySQL}, còn các thành phần hỗ trợ như cache và trạng thái hội thoại được chạy riêng để đảm bảo hiệu năng.
+
+Toàn bộ hệ thống được đóng gói bằng Docker để đảm bảo môi trường triển khai nhất quán giữa máy phát triển và máy chủ thật. Cách làm này giúp giảm lỗi do khác biệt môi trường, đồng thời thuận tiện cho việc khởi động, dừng và cập nhật từng dịch vụ.
+
+\subsection{Quy trình triển khai}
+Quy trình triển khai thực tế được thực hiện theo các bước sau:
+\begin{itemize}
+    \item Chuẩn bị hạ tầng trên AWS EC2 và cấu hình các thông số mạng, bảo mật, cổng dịch vụ.
+    \item Mua và cấu hình tên miền để trỏ đến hệ thống đã triển khai.
+    \item Đóng gói backend và frontend bằng Docker, sau đó build image riêng cho từng thành phần.
+    \item Thiết lập CI/CD riêng cho backend và frontend để tự động hóa việc build, kiểm tra và triển khai.
+    \item Triển khai từng service lên EC2, kiểm tra trạng thái hoạt động và xác nhận các endpoint chính.
+\end{itemize}
+
+Backend và frontend được triển khai độc lập để có thể cập nhật riêng từng phần mà không ảnh hưởng đến toàn bộ hệ thống. Backend sau khi build được chạy dưới dạng service API, còn frontend được build thành bản tĩnh và phục vụ qua container riêng. Nhờ vậy, việc nâng cấp giao diện hoặc cập nhật logic nghiệp vụ có thể thực hiện tách biệt, giảm rủi ro khi phát hành phiên bản mới.
+
+\subsection{CI/CD và vận hành}
+Trong quá trình triển khai, nhóm xây dựng luồng CI/CD riêng cho backend và frontend để tự động hóa các bước build và publish. Backend được kiểm tra trước khi phát hành để đảm bảo các API, chatbot và nghiệp vụ học tập hoạt động đúng. Frontend được build riêng để tạo ra bản phát hành ổn định cho giao diện người dùng.
+
+Sau khi triển khai lên EC2, hệ thống được kiểm tra thông qua các health endpoint và thao tác thực tế trên trình duyệt. Tên miền đã mua được cấu hình trỏ đến máy chủ triển khai, giúp người dùng truy cập ứng dụng qua địa chỉ dễ nhớ thay vì dùng trực tiếp địa chỉ IP của máy chủ.
+
+\subsection{Kết quả triển khai}
+Sau khi hoàn tất triển khai, hệ thống có thể hoạt động trên môi trường thật với các thành phần chính được tách biệt rõ ràng. Việc sử dụng Docker, AWS EC2, tên miền riêng và CI/CD tách backend/frontend giúp hệ thống dễ mở rộng, dễ bảo trì và thuận tiện cập nhật trong các giai đoạn tiếp theo. Đây cũng là nền tảng phù hợp để tiếp tục phát triển thêm các chức năng mới hoặc nâng cấp hiệu năng khi số lượng người dùng tăng lên.

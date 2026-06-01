@@ -1,0 +1,53 @@
+\subsubsection{Hình ảnh minh họa thiết kế giao diện}
+
+Các hình dưới đây minh họa những màn hình chính của hệ thống theo phong cách wireframe, có bố cục gần với giao diện thực tế của dự án. Khi chèn vào báo cáo LaTeX, hãy đặt các ảnh trong thư mục \texttt{Hinhve/} và dùng đúng đường dẫn như bên dưới.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/giao-dien-dang-nhap.png}
+    \caption{Minh họa giao diện đăng nhập}
+\end{figure}
+
+Giao diện đăng nhập được thiết kế theo bố cục hai cột, nhấn mạnh khu vực nhập thông tin và nút hành động chính. Phần bên trái dùng để giới thiệu ngắn gọn hệ thống, còn phần bên phải tập trung vào biểu mẫu xác thực.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/giao-dien-admin-dashboard.png}
+    \caption{Minh họa giao diện admin dashboard}
+\end{figure}
+
+Giao diện admin dashboard thể hiện các khối thống kê tổng quan, khu vực quản lý sinh viên và vùng cập nhật thời khóa biểu. Cách trình bày này phù hợp với nhu cầu thao tác nhiều dữ liệu và cập nhật hàng loạt của quản trị viên.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/giao-dien-student-dashboard.png}
+    \caption{Minh họa giao diện student dashboard}
+\end{figure}
+
+Giao diện student dashboard ưu tiên hiển thị các chỉ số học tập, thông báo mới và lịch học hôm nay. Ở góc dưới bên phải có nút tròn mở chat để người dùng có thể bật khung chatbot nhanh chóng ngay trên trang tổng quan.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/giao-dien-chatbot.png}
+    \caption{Minh họa giao diện chatbot}
+\end{figure}
+
+Giao diện chatbot chỉ tập trung vào các khung hội thoại, danh sách gợi ý nhanh, vùng nhập tin nhắn và nút gửi. Thiết kế này giúp người dùng tập trung hoàn toàn vào quá trình trao đổi với hệ thống hỗ trợ học tập.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/giao-dien-upload-thoi-bieu-admin.png}
+    \caption{Minh họa giao diện upload thời biểu của admin}
+\end{figure}
+
+Màn hình upload thời biểu dành cho admin được bố trí theo dạng kéo thả file Excel, có khu vực xem trước thời khóa biểu và vùng kiểm tra trạng thái dữ liệu. Cách hiển thị này hỗ trợ thao tác upload nhanh và dễ kiểm soát lỗi.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{Hinhve/giao-dien-upload-bang-diem-sinh-vien.png}
+    \caption{Minh họa giao diện upload bảng điểm của sinh viên}
+\end{figure}
+
+Màn hình upload bảng điểm của sinh viên cho phép tải file điểm lên, xem kết quả cập nhật và theo dõi lịch sử upload. Tương tự các trang sinh viên khác, giao diện cũng có nút tròn bên dưới biểu tượng chat để mở chatbot khi cần hỗ trợ.
+
+Các ảnh minh họa đã được lưu trong thư mục \texttt{latex-report/anh-minhhoagiaodien}. Khi chèn vào tài liệu LaTeX chính thức, chỉ cần sao chép chúng sang thư mục \texttt{Hinhve/} hoặc giữ nguyên tên ảnh để sử dụng trực tiếp với các đường dẫn ở trên.

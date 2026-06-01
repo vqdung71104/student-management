@@ -1,0 +1,202 @@
+\section{Các giải pháp và đóng góp nổi bật}
+Trong các chương trước, đồ án đã trình bày từ yêu cầu bài toán, phân tích nghiệp vụ, thiết kế cơ sở dữ liệu, thiết kế giao diện cho đến quá trình triển khai các chức năng chính của hệ thống. Từ bài toán thực tiễn của sinh viên trong việc tra cứu thông tin học tập, đăng ký học phần, đăng ký lớp, theo dõi điểm số và xử lý các tình huống tư vấn phức tạp, đồ án đã đi từ các giải pháp tổng quát đến những cài đặt cụ thể trên backend, frontend và các dịch vụ hỗ trợ.
+
+Tuy nhiên, giá trị cốt lõi của đồ án không nằm ở việc xây dựng một website quản lý sinh viên thông thường, mà nằm ở chỗ hệ thống đã chuyển bài toán hỗ trợ học tập sang một mức cao hơn: \textit{hiểu câu hỏi, suy luận theo ngữ cảnh, chọn đúng nguồn tri thức và trả về gợi ý có thể giải thích được}. Vì vậy, trong chương này, tác giả không lặp lại nội dung giao diện hay các thao tác CRUD cơ bản, mà tập trung trình bày những đóng góp có giá trị kỹ thuật cao nhất, bao gồm bảo mật, thuật toán xử lý ngôn ngữ, rule engine, cơ chế ổn định vận hành và kiểm thử tối ưu.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{|c|p{4.0cm}|X|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{STT} & \textbf{Đóng góp chính} & \textbf{Vấn đề giải quyết} & \textbf{Giải pháp kỹ thuật và ý nghĩa} \\ \hline
+1 & Bảo mật tài khoản và phân quyền & Dữ liệu sinh viên, tài khoản quản trị và các endpoint nội bộ cần được bảo vệ chặt chẽ & Băm mật khẩu bằng \texttt{bcrypt}, xác thực bằng \texttt{JWT}, tách vai trò \texttt{student}/\texttt{admin}, giới hạn truy cập theo dependency và rate limit nhiều tầng \\ \hline
+2 & Phân loại ý định tiếng Việt & Câu hỏi ngắn, thiếu dấu, viết tắt, pha tiếng Anh rất dễ bị hiểu sai & Kết hợp \texttt{TF-IDF}, \texttt{Word2Vec}, cosine similarity, trọng số thích nghi theo độ dài câu hỏi, cộng điểm khớp chính xác và ngưỡng tin cậy \\ \hline
+3 & Chuẩn hóa và trích xuất thực thể cho NL2SQL & Cần chuyển câu hỏi tự nhiên thành truy vấn dữ liệu chính xác, an toàn & Dùng regex theo ưu tiên, lọc stop word, chuẩn hóa từ khóa, trích xuất nhiều thực thể cùng lúc, sau đó map vào template SQL có kiểm soát \\ \hline
+4 & Rule engine cho gợi ý học phần/lớp học & Gợi ý không thể chỉ là liệt kê dữ liệu mà phải phản ánh quy chế đào tạo và trạng thái học tập & Xây dựng bộ luật theo file cấu hình, xếp hạng ưu tiên theo CPA, tín chỉ, môn trượt, học kỳ, môn đặc thù và điều kiện lớp học \\ \hline
+5 & Ổn định vận hành và hội thoại nhiều lượt & Chatbot phải hoạt động ổn định khi có nhiều yêu cầu và nhiều phiên tư vấn song song & Dùng Redis cache, RabbitMQ, conversation state, TTL, fallback khi Redis lỗi, queue xử lý bất đồng bộ và lưu ngữ cảnh hội thoại \\ \hline
+6 & Kiểm thử và đánh giá hiệu năng & Cần chứng minh giải pháp không chỉ chạy được mà còn chạy ổn & Xây dựng bộ unit test, integration test, test biên, đo độ chính xác, độ trễ, throughput và khả năng xử lý đồng thời \\ \hline
+\end{tabularx}
+\caption{Tổng hợp các đóng góp nổi bật của đồ án}
+\label{table:chapter5_contributions}
+\end{table}
+
+\subsection{Bảo mật dữ liệu, xác thực và phân quyền truy cập}
+\subsubsection{Vấn đề đặt ra}
+Trong một hệ thống quản lý sinh viên, dữ liệu tài khoản và dữ liệu học tập đều là dữ liệu nhạy cảm. Nếu chỉ tập trung vào chức năng mà bỏ qua lớp bảo vệ, hệ thống rất dễ gặp các rủi ro như lộ mật khẩu, giả mạo phiên đăng nhập, truy cập trái phép vào dữ liệu cá nhân, lạm dụng API hoặc khai thác các endpoint nội bộ. Với chatbot hỗ trợ học tập, rủi ro này còn cao hơn vì nhiều câu hỏi cần truy xuất đúng dữ liệu của một sinh viên cụ thể, và nếu xác thực không chặt chẽ thì chatbot có thể vô tình trả về dữ liệu của người khác.
+
+Ngoài ra, hệ thống còn phải đảm bảo tính an toàn ở tầng hiển thị. Nhiều kết quả trả về từ chatbot được format thành bảng HTML hoặc nội dung rich text; nếu không xử lý cẩn thận, dữ liệu đầu ra có thể trở thành điểm chèn mã độc giao diện.
+
+\subsubsection{Giải pháp thực hiện}
+Người thực hiện đã không xem bảo mật là một phần phụ, mà tích hợp ngay vào thiết kế của hệ thống:
+\begin{itemize}
+    \item \textbf{Băm mật khẩu}: Mật khẩu được băm bằng \texttt{bcrypt} thông qua \texttt{passlib.CryptContext}. Hệ thống không lưu mật khẩu dạng plain text.
+    \item \textbf{Tương thích ngược dữ liệu cũ}: Hàm xác thực hỗ trợ nhận biết hash cũ, từ đó có thể kiểm tra dữ liệu lịch sử và dần chuyển sang chuẩn an toàn hơn.
+    \item \textbf{Xác thực JWT}: Khi người dùng đăng nhập, backend sinh \texttt{JWT} có thời hạn và payload chứa \texttt{user\_type}, \texttt{user\_id}. Đây là cơ chế xác thực stateless, phù hợp với REST API.
+    \item \textbf{Phân quyền rõ ràng}: Hệ thống tách hai luồng người dùng chính là \texttt{student} và \texttt{admin}. Các dependency như \texttt{get\_current\_student()} và \texttt{get\_current\_admin()} đảm bảo mỗi endpoint chỉ mở cho đúng vai trò.
+    \item \textbf{Giới hạn tần suất truy cập}: Middleware \texttt{rate\_limit.py} áp dụng giới hạn theo nhiều tầng: theo phút, theo giờ và theo ngày. Nếu Redis không sẵn sàng, hệ thống tự động chuyển sang fallback in-memory để tránh dừng dịch vụ.
+    \item \textbf{An toàn khi hiển thị}: Khi render kết quả chatbot sang HTML, dữ liệu đầu vào được \texttt{escape} để tránh chèn mã HTML hoặc script không mong muốn.
+\end{itemize}
+
+Về mặt kỹ thuật, đây không phải là kiểu bảo mật chỉ có trong mô tả. Nó được thể hiện cụ thể trong các hàm như \texttt{hash\_password()}, \texttt{verify\_token()}, \texttt{get\_current\_user()} và bộ middleware rate limit nhiều tầng. Việc kiểm tra token còn hỗ trợ nhiều kiểu header khác nhau để phù hợp với nhiều client, nhưng vẫn giữ nguyên nguyên tắc: token sai thì không cho truy cập, token thiếu thì trả lỗi 401, và người dùng không đúng vai trò thì trả lỗi 403.
+
+\subsubsection{Kết quả đạt được}
+Nhờ cơ chế trên, hệ thống đảm bảo được ba mục tiêu:
+\begin{itemize}
+    \item Dữ liệu đăng nhập không bị lưu ở dạng thô.
+    \item Người dùng chỉ truy cập được đúng phạm vi dữ liệu của mình.
+    \item Hệ thống giảm đáng kể nguy cơ bị quét hoặc gọi API quá mức nhờ rate limit và kiểm soát phiên.
+\end{itemize}
+
+Đây là một đóng góp quan trọng vì nó cho thấy đồ án không chỉ làm đúng chức năng, mà còn đặt vấn đề an toàn dữ liệu và vận hành lên hàng đầu.
+
+\subsection{Thuật toán phân loại ý định tiếng Việt}
+\subsubsection{Vấn đề đặt ra}
+Các câu hỏi của sinh viên hiếm khi được viết theo một khuôn mẫu cố định. Người dùng có thể hỏi ngắn như ``điểm của tôi'', hỏi thiếu dấu như ``cac lop mon giai tich'', hỏi pha tiếng Anh như ``xem class môn IT4040'' hoặc hỏi dài, có nhiều ràng buộc cùng lúc. Nếu chỉ dùng tìm từ khóa thuần túy, hệ thống rất dễ nhầm giữa các intent gần nghĩa; nếu chỉ dùng mô hình sinh ngôn ngữ, kết quả lại khó kiểm soát và khó giải thích.
+
+Vì vậy, người thực hiện cần một thuật toán vừa đủ linh hoạt để hiểu tiếng Việt, vừa đủ chắc chắn để trả lời ổn định trong môi trường thật.
+
+\subsubsection{Giải pháp thực hiện}
+Giải pháp được xây dựng theo hướng lai giữa thống kê và ngữ nghĩa:
+\begin{itemize}
+    \item \textbf{Chuẩn hóa câu hỏi}: Chuyển về chữ thường, loại bỏ dấu câu không cần thiết và chuẩn hóa theo từ đồng nghĩa. Ví dụ: ``đăng ký'', ``dk'', ``dang ky'' được quy về một tập khái niệm.
+    \item \textbf{TF-IDF}: Dùng \texttt{TfidfVectorizer} với n-gram từ 1 đến 3 để bắt được cả từ đơn lẫn cụm từ ngắn, phù hợp với câu hỏi tiếng Việt ngắn và giàu biến thể.
+    \item \textbf{Word2Vec}: Dùng \texttt{Word2Vec} để học mối quan hệ ngữ nghĩa giữa các từ trong bộ dữ liệu, giúp hệ thống hiểu được các câu hỏi có cùng ý nhưng khác cách viết.
+    \item \textbf{Cosine similarity}: So sánh vector câu hỏi với vector mẫu để đo mức độ tương đồng.
+    \item \textbf{Trọng số lai}: Điểm cuối cùng là tổng có trọng số giữa TF-IDF, semantic score và keyword score:
+    \[
+        Score = 0.5 \cdot Score_{TF-IDF} + 0.3 \cdot Score_{Semantic} + 0.2 \cdot Score_{Keyword}
+    \]
+    \item \textbf{Tối ưu theo độ dài câu hỏi}: Với câu hỏi ngắn, hệ thống tăng trọng số cho keyword; với câu hỏi dài, hệ thống tăng trọng số cho semantic.
+    \item \textbf{Cộng điểm khớp chính xác}: Nếu câu hỏi khớp chính xác với mẫu, intent đó được cộng điểm thưởng để tránh bị các intent gần nghĩa vượt lên.
+    \item \textbf{Ngưỡng tin cậy}: Nếu điểm quá thấp, hệ thống không ép đoán mà trả về intent an toàn hơn.
+\end{itemize}
+
+Về mặt dữ liệu huấn luyện, hệ thống không chỉ dựa vào một vài mẫu đơn lẻ mà đã mở rộng tập câu hỏi theo biến thể ngắn, biến thể không dấu và biến thể rút gọn từ các mẫu dài. Điều này đặc biệt quan trọng với tiếng Việt, vì cùng một ý định có thể được diễn đạt bằng nhiều cách rất khác nhau.
+
+\subsubsection{Kết quả đạt được}
+Theo bộ kiểm thử nội bộ của đồ án, bộ phân loại ý định đạt mức chính xác rất cao trên các intent trọng tâm; đặc biệt các câu hỏi biên như không dấu, pha tiếng Anh, câu ngắn một từ hoặc câu dài nhiều thành phần đều được nhận diện ổn định hơn so với cách làm thuần từ khóa.
+
+Kết quả này cho thấy người thực hiện không chỉ gọi một mô hình có sẵn, mà đã tinh chỉnh chính thuật toán phân loại sao cho phù hợp với bài toán thật của hệ thống.
+
+\subsection{Chuẩn hóa câu hỏi và sinh truy vấn NL2SQL}
+\subsubsection{Vấn đề đặt ra}
+Sau khi phân loại ý định, hệ thống vẫn cần chuyển câu hỏi của người dùng thành truy vấn dữ liệu chính xác. Đây là phần khó vì câu hỏi tiếng Việt thường chứa nhiều thực thể: mã học phần, tên học phần, mã lớp, ngày học, buổi học, tòa nhà, phòng học. Chỉ cần trích sai một thực thể, câu truy vấn sẽ lệch kết quả; nếu nối chuỗi trực tiếp vào SQL, hệ thống còn có nguy cơ bị tấn công chèn lệnh.
+
+\subsubsection{Giải pháp thực hiện}
+Người thực hiện đã xây dựng một pipeline NL2SQL theo kiểu rule-based có kiểm soát:
+\begin{itemize}
+    \item \textbf{Trích xuất thực thể bằng regex}: Hệ thống nhận diện được mã học phần như \texttt{IT4040}, mã lớp như \texttt{161084}, ngày học, buổi học, tòa nhà và phòng học.
+    \item \textbf{Ưu tiên mẫu đặc thù}: Các mẫu như ``các lớp của môn ...'', ``thông tin lớp ...'', ``môn ...'' được xếp theo thứ tự ưu tiên từ cụ thể đến tổng quát để tránh bắt sai.
+    \item \textbf{Lọc stop word}: Những từ quá chung như ``gì'', ``nào'' không được coi là tên học phần.
+    \item \textbf{Hỗ trợ nhiều thực thể cùng lúc}: Một câu hỏi có thể chứa nhiều mã môn hoặc nhiều cụm môn, hệ thống vẫn tách được danh sách thực thể để đưa vào truy vấn \texttt{IN}.
+    \item \textbf{Map sang template SQL}: Sau khi có intent và thực thể, hệ thống đối chiếu với bộ ví dụ truy vấn trong \texttt{nl2sql\_training\_data.json}, sau đó chọn template phù hợp nhất.
+    \item \textbf{An toàn truy vấn}: Các truy vấn được xây dựng theo hướng tham số hóa, hạn chế nối chuỗi trực tiếp, giảm nguy cơ SQL injection.
+\end{itemize}
+
+Điểm mạnh của cách làm này là câu hỏi không bị “ép” vào một truy vấn cứng nhắc. Thay vào đó, hệ thống tìm đúng mẫu, điền đúng thực thể và sau đó mới sinh câu SQL cuối cùng. Nhờ vậy, tính chính xác và tính an toàn đều được nâng lên.
+
+\subsubsection{Kết quả đạt được}
+Nhánh NL2SQL của hệ thống đạt kết quả rất tốt trong kiểm thử:
+\begin{itemize}
+    \item Tách thực thể ổn định trên các mẫu câu hỏi phức tạp.
+    \item Sinh truy vấn đúng ngữ cảnh đối với điểm số, lịch học, lớp học và học phần.
+    \item Tốc độ xử lý nhanh, trung bình chỉ vài mili-giây cho mỗi truy vấn trong bộ test nội bộ.
+\end{itemize}
+
+Đây là phần thể hiện rõ hàm lượng kỹ thuật của đồ án, vì nó kết hợp giữa hiểu ngôn ngữ tự nhiên, ánh xạ thực thể và kiểm soát truy vấn dữ liệu.
+
+\subsection{Bộ luật suy luận cho gợi ý học phần và lớp học}
+\subsubsection{Vấn đề đặt ra}
+Nếu chatbot chỉ trả về danh sách môn đang mở hoặc danh sách lớp đang có, sinh viên vẫn chưa nhận được giá trị tư vấn thực sự. Một gợi ý hữu ích phải trả lời được câu hỏi: nên học môn nào trước, môn nào cần học lại, môn nào phù hợp với CPA hiện tại, môn nào rơi vào nhóm bắt buộc, và lớp nào không làm trùng lịch. Đây là một bài toán suy luận, không phải bài toán tra cứu đơn thuần.
+
+\subsubsection{Giải pháp thực hiện}
+Người thực hiện đã xây dựng một \textbf{rule engine} thay vì để phần tư vấn phụ thuộc hoàn toàn vào mô hình sinh ngôn ngữ. Bộ luật này được cấu hình bằng file JSON nên có thể điều chỉnh mà không phải sửa sâu vào logic lõi. Các nhóm luật chính gồm:
+\begin{itemize}
+    \item \textbf{Luật tín chỉ}: Giới hạn tín chỉ tối thiểu và tối đa cho từng tình trạng học tập, từng mức cảnh báo và từng loại kỳ học.
+    \item \textbf{Luật học lại}: Ưu tiên môn bị điểm F hoặc các môn cần cải thiện.
+    \item \textbf{Luật tiến độ học kỳ}: Gợi ý những môn phù hợp với học kỳ hiện tại của sinh viên.
+    \item \textbf{Luật môn đặc thù}: Tách riêng các nhóm môn chính trị, giáo dục thể chất, môn bổ sung và các môn điều kiện.
+    \item \textbf{Luật CPA}: Sinh viên có CPA cao được mở thêm cơ hội học nhanh, còn sinh viên đang cảnh báo học tập thì bị giới hạn theo mức an toàn hơn.
+    \item \textbf{Luật lớp học}: Với lớp học, hệ thống xét thêm lịch học, giảng viên, phòng học và lớp kèm để tránh trùng lịch.
+\end{itemize}
+
+Trong dữ liệu cấu hình, người thực hiện còn tổ chức rõ các nhóm học phần theo mã môn, từ đó hệ thống có thể nhận diện nhanh nhóm chính trị, thể dục, bổ trợ hoặc nhóm môn không bắt buộc. Điều này giúp rule engine không chỉ dựa vào tên môn, mà dựa vào cả quy tắc đào tạo.
+
+Một điểm quan trọng khác là \textbf{tính giải thích được}. Mỗi gợi ý của hệ thống đều có lý do đi kèm, ví dụ: học lại vì điểm F, ưu tiên vì phù hợp học kỳ, hoặc được phép chọn vì CPA đủ cao. Đây là sự khác biệt rõ rệt so với một danh sách học phần thông thường.
+
+\subsubsection{Kết quả đạt được}
+Nhờ rule engine, chatbot không còn chỉ liệt kê dữ liệu mà đã bắt đầu đưa ra quyết định có lý do. Hai sinh viên hỏi cùng một câu ``nên đăng ký môn gì'' có thể nhận hai danh sách khác nhau vì trạng thái học tập khác nhau. Đây chính là kết quả của việc chuyển kiến thức nghiệp vụ thành luật máy có thể chạy tự động.
+
+\subsection{Cơ chế ổn định vận hành và hội thoại nhiều lượt}
+\subsubsection{Vấn đề đặt ra}
+Hệ thống hỗ trợ học tập chỉ thực sự hữu ích khi chạy ổn định và phản hồi đều. Với chatbot, vấn đề không chỉ là trả lời đúng, mà còn là quản lý trạng thái hội thoại, lưu tạm sở thích của người dùng, xử lý nhiều yêu cầu đồng thời và tránh nghẽn khi lưu lượng tăng. Nếu tất cả đều nằm trong một luồng đồng bộ duy nhất, hệ thống dễ chậm và khó mở rộng.
+
+\subsubsection{Giải pháp thực hiện}
+Người thực hiện đã bổ sung nhiều lớp hỗ trợ vận hành:
+\begin{itemize}
+    \item \textbf{Redis cache}: Dùng Redis để lưu trạng thái hội thoại và sở thích của người dùng, giảm việc tính lại dữ liệu.
+    \item \textbf{Conversation state}: Lưu tiến trình hội thoại cho bài toán gợi ý lớp học nhiều lượt, với TTL rõ ràng để tự dọn trạng thái cũ.
+    \item \textbf{RabbitMQ}: Các tin nhắn chat, thông báo và một số tác vụ nền được đẩy sang hàng đợi để xử lý bất đồng bộ.
+    \item \textbf{Fallback an toàn}: Nếu Redis không sẵn sàng, hệ thống chuyển về bộ nhớ tạm in-memory thay vì dừng toàn bộ dịch vụ.
+    \item \textbf{Rate limit nhiều tầng}: Giới hạn theo phút, theo giờ và theo ngày; nếu Redis lỗi thì middleware vẫn có cơ chế dự phòng.
+    \item \textbf{Điều phối tác vụ}: Lớp orchestrator và registry công cụ giúp hệ thống có thể tách nhỏ yêu cầu, xử lý theo từng bước và ghi nhận metrics.
+\end{itemize}
+
+Đặc biệt, cơ chế hội thoại nhiều lượt rất quan trọng với bài toán gợi ý lớp học. Người dùng không phải lúc nào cũng cung cấp đủ thông tin ngay từ câu hỏi đầu tiên, nên hệ thống cần biết cách hỏi bổ sung, giữ ngữ cảnh và ghép các ràng buộc lại để sinh phương án phù hợp. Đây là phần thể hiện rõ tư duy hệ thống của người thực hiện, vì giải pháp không còn là một API đơn lẻ, mà là một chuỗi xử lý có trạng thái.
+
+\subsubsection{Kết quả đạt được}
+Nhờ cache, queue và rate limit, hệ thống đáp ứng tốt hơn khi có nhiều yêu cầu cùng lúc, đồng thời vẫn giữ được dữ liệu ngữ cảnh cần thiết cho các phiên tư vấn dài. Đây là đóng góp rất quan trọng về mặt vận hành, vì nó biến một ứng dụng chat đơn giản thành một hệ thống có khả năng chạy ổn trong thực tế.
+
+\subsection{Kiểm thử, đánh giá và tối ưu}
+\subsubsection{Vấn đề đặt ra}
+Một đồ án chỉ thực sự thuyết phục khi các giải pháp được kiểm tra bằng số liệu. Nếu chỉ mô tả bằng lời, rất khó chứng minh rằng thuật toán hoạt động ổn định, rule engine không trả lời ngẫu nhiên và các cơ chế bảo mật thực sự có tác dụng. Vì vậy, người thực hiện đã xây dựng một hệ thống kiểm thử khá đầy đủ cho cả các thành phần đơn lẻ và luồng tích hợp.
+
+\subsubsection{Giải pháp thực hiện}
+Các nhóm kiểm thử chính bao gồm:
+\begin{itemize}
+    \item \textbf{Unit test}: Kiểm tra các hàm xử lý mật khẩu, trích xuất thực thể, nhận diện intent, kiểm tra luật và các tiện ích phụ trợ.
+    \item \textbf{Integration test}: Kiểm tra luồng từ câu hỏi người dùng đến intent, entity, SQL, truy vấn dữ liệu và format câu trả lời.
+    \item \textbf{Test biên}: Kiểm thử câu hỏi không dấu, câu hỏi ngắn một từ, câu hỏi pha ngôn ngữ, câu hỏi dài và câu hỏi có nhiều thực thể.
+    \item \textbf{Đo hiệu năng}: Kiểm tra thời gian phản hồi và throughput của các thành phần chính.
+\end{itemize}
+
+Kết quả nội bộ của đồ án cho thấy:
+\begin{itemize}
+    \item Bộ phân loại ý định đạt khoảng \textbf{97,22\%} độ chính xác trên bộ test nội bộ.
+    \item Nhánh NL2SQL đạt \textbf{100\%} độ chính xác trên bộ test thiết kế cho phần trích xuất thực thể và sinh truy vấn.
+    \item Bộ kiểm thử tích hợp đạt khoảng \textbf{87,80\%} tỉ lệ qua, trong đó phần lớn lỗi còn lại đến từ các tình huống chồng lấn ý định hoặc thiếu template.
+    \item Các kiểm thử biên như không dấu, viết tắt, pha tiếng Anh và câu hỏi dài đều được xử lý ổn định.
+\end{itemize}
+
+Những con số này không chỉ là thống kê kỹ thuật, mà còn là bằng chứng cho thấy các đóng góp về thuật toán, luật và vận hành đều đã được kiểm chứng trong môi trường thực tế của đồ án.
+
+\subsection{Đóng góp cá nhân của người thực hiện}
+Nếu tách riêng các phần có giá trị nhất mà người thực hiện đã trực tiếp thiết kế và triển khai, có thể tổng hợp thành các đóng góp cụ thể sau:
+\begin{itemize}
+    \item Phân tích bài toán hỗ trợ học tập thành nhiều nhóm câu hỏi khác nhau thay vì coi tất cả là một luồng xử lý duy nhất.
+    \item Thiết kế kiến trúc chatbot phân tầng, chọn đúng nguồn tri thức theo từng intent.
+    \item Xây dựng thuật toán phân loại ý định tiếng Việt theo hướng lai giữa TF-IDF, Word2Vec và keyword matching.
+    \item Tối ưu phân loại bằng trọng số thích nghi, cộng điểm khớp chính xác và ngưỡng tin cậy.
+    \item Thiết kế pipeline NL2SQL có trích xuất thực thể rõ ràng, hỗ trợ nhiều thực thể trong một câu hỏi và hạn chế SQL injection.
+    \item Xây dựng rule engine tư vấn học phần và lớp học theo quy chế đào tạo, có cấu hình và có khả năng giải thích.
+    \item Thiết kế cơ chế bảo mật gồm bcrypt, JWT, phân quyền và rate limit.
+    \item Bổ sung Redis cache, RabbitMQ, conversation state và fallback để hệ thống chạy ổn định hơn.
+    \item Viết hệ thống kiểm thử và đánh giá hiệu năng để chứng minh chất lượng của các giải pháp đã làm.
+\end{itemize}
+
+Các đóng góp trên cho thấy phần cốt lõi của đồ án nằm ở tư duy hệ thống, tư duy thuật toán và tư duy nghiệp vụ. Đây là những phần vượt ra ngoài phạm vi “làm giao diện” hay “gọi API”, và cũng là phần thể hiện rõ hàm lượng tri thức cá nhân của người thực hiện.
+
+\section{Kết luận và hướng phát triển}
+Từ các giải pháp đã trình bày ở trên, có thể thấy đồ án đã tạo ra một hệ thống hỗ trợ học tập không chỉ có khả năng tra cứu dữ liệu, mà còn có khả năng suy luận theo ngữ cảnh và tư vấn theo luật nghiệp vụ. Điểm đáng chú ý nhất của đồ án là sự kết hợp giữa nhiều lớp giải pháp: bảo mật dữ liệu, phân loại ý định tiếng Việt, sinh truy vấn NL2SQL an toàn, rule engine tư vấn học phần, cơ chế cache và hàng đợi để ổn định vận hành, cùng với bộ kiểm thử để đánh giá chất lượng.
+
+Tuy nhiên, hệ thống vẫn còn nhiều hướng phát triển tiếp theo:
+\begin{itemize}
+    \item Bổ sung hội thoại nhiều lượt thông minh hơn để chatbot nhớ tốt hơn ngữ cảnh dài.
+    \item Mở rộng bộ luật tư vấn để xét thêm tiên quyết, môn song hành và các ràng buộc đào tạo phức tạp hơn.
+    \item Nâng cấp bộ phân loại ý định bằng dữ liệu huấn luyện lớn hơn để giảm hơn nữa các trường hợp chồng lấn.
+    \item Hoàn thiện cơ chế đánh giá, logging và giám sát để theo dõi chất lượng câu trả lời trong môi trường triển khai thật.
+    \item Tối ưu thêm bài toán sinh thời khóa biểu theo nhiều tiêu chí cùng lúc như khoảng trống giữa các buổi, giảng viên và mức độ phân bố trong tuần.
+\end{itemize}
+
+Tóm lại, giá trị lớn nhất của đồ án nằm ở việc kết hợp tri thức nghiệp vụ với kiến trúc xử lý có kiểm soát. Đây là điểm làm cho hệ thống khác với một ứng dụng quản lý sinh viên thông thường, đồng thời cũng là phần thể hiện rõ nhất năng lực phân tích, thiết kế và tổng quát hóa vấn đề của người thực hiện.

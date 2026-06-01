@@ -1,0 +1,81 @@
+\section{Xây dựng ứng dụng}
+\subsection{Thư viện và công cụ sử dụng}
+Ứng dụng được phát triển theo mô hình tách lớp backend/frontend và bổ sung một dịch vụ mô hình AI riêng để hỗ trợ xử lý ngôn ngữ tự nhiên. Các công cụ, ngôn ngữ lập trình, framework và thư viện chính được sử dụng trong quá trình phát triển được tổng hợp trong Bảng~\ref{table:tooling}.
+
+\begin{sidewaystable}[htbp]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{|p{3.2cm}|p{4.7cm}|p{2.5cm}|p{5.2cm}|}
+\hline
+\textbf{Mục đích} & \textbf{Công cụ/Thư viện} & \textbf{Phiên bản} & \textbf{Địa chỉ URL} \\ \hline
+Ngôn ngữ lập trình backend & Python & 3.12.10 & \url{https://www.python.org/} \\ \hline
+Framework phát triển API & FastAPI & 0.110.0 & \url{https://fastapi.tiangolo.com/} \\ \hline
+Máy chủ ASGI chạy ứng dụng & Uvicorn & 0.35.0 & \url{https://www.uvicorn.org/} \\ \hline
+ORM và truy cập cơ sở dữ liệu & SQLAlchemy & 2.0.25 & \url{https://www.sqlalchemy.org/} \\ \hline
+Ngôn ngữ lập trình frontend & TypeScript & 5.8.3 & \url{https://www.typescriptlang.org/} \\ \hline
+Thư viện giao diện người dùng & React & 19.1.0 & \url{https://react.dev/} \\ \hline
+Hệ thống giao diện và component & Ant Design & 5.27.3 & \url{https://ant.design/} \\ \hline
+Công cụ build frontend & Vite & 7.0.4 & \url{https://vitejs.dev/} \\ \hline
+Điều hướng trang & React Router DOM & 7.8.2 & \url{https://reactrouter.com/} \\ \hline
+Vẽ biểu đồ & Chart.js và react-chartjs-2 & 4.5.0 và 5.3.0 & \url{https://www.chartjs.org/}, \url{https://react-chartjs-2.js.org/} \\ \hline
+Biểu tượng & lucide-react và @ant-design/icons & 0.526.0 và 6.0.1 & \url{https://lucide.dev/}, \url{https://ant.design/components/icon/} \\ \hline
+Xuất và xử lý tệp & xlsx, docx, file-saver & 0.18.5, 9.5.1, 2.0.5 & \url{https://sheetjs.com/}, \url{https://www.npmjs.com/package/docx}, \url{https://github.com/eligrey/FileSaver.js/} \\ \hline
+Kiểm thử backend & pytest, pytest-asyncio, pytest-cov & 8.4.1, 1.1.0, 5.0.0 & \url{https://docs.pytest.org/} \\ \hline
+Kiểm tra chất lượng mã nguồn frontend & ESLint & 9.30.1 & \url{https://eslint.org/} \\ \hline
+Quản lý gói JavaScript & npm & 10.9.2 & \url{https://www.npmjs.com/} \\ \hline
+Môi trường chạy JavaScript & Node.js & v22.14.0 & \url{https://nodejs.org/} \\ \hline
+Quản lý mã nguồn & Git & 2.48.1.windows.1 & \url{https://git-scm.com/} \\ \hline
+Đóng gói và triển khai & Docker & 29.4.1 & \url{https://www.docker.com/} \\ \hline
+Hệ quản trị cơ sở dữ liệu & MySQL & 8.0 & \url{https://www.mysql.com/} \\ \hline
+Dịch vụ AI phụ trợ & FastAPI, Uvicorn và llama-cpp-python & 0.115.6, 0.34.0 và 0.3.7 & \url{https://fastapi.tiangolo.com/}, \url{https://www.uvicorn.org/}, \url{https://github.com/abetlen/llama-cpp-python} \\ \hline
+\end{tabular}
+\caption{Danh sách thư viện và công cụ sử dụng}
+\label{table:tooling}
+\end{sidewaystable}
+
+\subsection{Kết quả đạt được}
+Sau quá trình xây dựng và tích hợp, hệ thống hoàn thiện gồm ba sản phẩm chính:
+
+\begin{itemize}
+    \item \textbf{Backend API}: cung cấp các dịch vụ REST API cho quản lý sinh viên, lớp học, học phần, điểm học kỳ, phản hồi, xác thực người dùng, chatbot và các tiện ích hỗ trợ nội bộ. Thành phần này được tổ chức theo các lớp \texttt{routes}, \texttt{services}, \texttt{models}, \texttt{schemas}, \texttt{agents}, \texttt{llm}, \texttt{queue}, \texttt{cache}, \texttt{db}, \texttt{core}, \texttt{middleware}, \texttt{rules} và \texttt{utils}.
+    \item \textbf{Frontend web}: cung cấp giao diện cho sinh viên và quản trị viên, bao gồm đăng nhập, đăng ký, quên mật khẩu, bảng điều khiển, quản lý lớp học, học phần, lịch học, điểm số, biểu mẫu, FAQ, phản hồi và chatbot.
+    \item \textbf{Dịch vụ AI/model-space}: tách riêng phần xử lý mô hình ngôn ngữ và phân loại truy vấn, hỗ trợ các tác vụ như phân tách câu hỏi, phân loại ý định và sinh phản hồi.
+\end{itemize}
+
+Trong quá trình build, sản phẩm giao diện được đóng gói thành thư mục \texttt{frontend/dist} để triển khai tĩnh; backend được chạy như một dịch vụ API; còn model-space được triển khai như một dịch vụ phụ trợ độc lập. Nhờ cách tách này, hệ thống dễ bảo trì, dễ mở rộng và có thể triển khai theo mô hình container thông qua Docker Compose.
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{|p{3.2cm}|p{6.2cm}|p{5.0cm}|p{2.5cm}|}
+\hline
+\textbf{Sản phẩm} & \textbf{Thành phần chính} & \textbf{Ý nghĩa, vai trò} & \textbf{Dung lượng} \\ \hline
+Backend API & \texttt{backend/app}, bao gồm routes, services, models, schemas, agents, llm, queue, cache, db, core, middleware, rules, utils & Cung cấp toàn bộ nghiệp vụ phía máy chủ, xử lý xác thực, truy vấn dữ liệu, chatbot và các API cho hệ thống & \textasciitilde 4.1 MB mã nguồn \\ \hline
+Frontend web & \texttt{frontend/src} và thư mục build \texttt{frontend/dist} & Cung cấp giao diện cho sinh viên và quản trị viên, hiển thị dữ liệu và tương tác người dùng & \textasciitilde 0.83 MB mã nguồn, \textasciitilde 2.1 MB bản build \\ \hline
+Dịch vụ AI/model-space & \texttt{model-space/app.py}, \texttt{requirements.txt}, \texttt{Dockerfile} & Tách riêng chức năng AI/NL2SQL để dễ triển khai, thay thế và tối ưu độc lập & \textasciitilde 11.4 KB mã nguồn \\ \hline
+\end{tabular}
+\caption{Các sản phẩm đóng gói và vai trò của từng thành phần}
+\label{table:deliverables}
+\end{table}
+
+\begin{table}[H]
+\centering
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabular}{|p{5.0cm}|p{5.0cm}|p{4.5cm}|}
+\hline
+\textbf{Chỉ số thống kê} & \textbf{Giá trị} & \textbf{Ghi chú} \\ \hline
+Số tệp nguồn chính & 174 & Tính trên \texttt{backend/app}, \texttt{frontend/src} và \texttt{model-space} \\ \hline
+Tổng số dòng mã nguồn & 50\,245 & Không tính \texttt{node\_modules}, \texttt{venv}, \texttt{dist}, log và dữ liệu sinh tự động \\ \hline
+Số gói Python ở backend & 16 & Đếm theo các thư mục có file \texttt{\_\_init\_\_.py} \\ \hline
+Số thư mục module chính ở frontend & 15 & Đếm theo các thư mục con trong \texttt{frontend/src} \\ \hline
+Số lớp/đối tượng khai báo trong mã nguồn & 201 & Bao gồm các lớp mô hình, schema, service và component dạng class \\ \hline
+Dung lượng toàn bộ mã nguồn cốt lõi & \textasciitilde 4.9 MB & Tổng của \texttt{backend/app}, \texttt{frontend/src} và \texttt{model-space} \\ \hline
+\end{tabular}
+\caption{Thống kê mã nguồn và sản phẩm của ứng dụng}
+\label{table:statistics}
+\end{table}
+
+Các số liệu trên được trích từ mã nguồn thực tế của dự án và được tính toán trên phần mã do nhóm phát triển trực tiếp, không bao gồm các thư viện bên thứ ba, môi trường ảo, thư mục sinh ra khi build hoặc các tệp mô hình lớn chưa được đưa vào repository.

@@ -1,0 +1,21 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#f7f9fc"/>
+  <rect x="120" y="80" width="1360" height="840" rx="30" fill="#fff" stroke="#dbe3f0"/>
+  <rect x="120" y="80" width="480" height="840" rx="30" fill="#1f4fff"/>
+  <text x="190" y="150" fill="#fff" font-family="Arial" font-size="34" font-weight="700">Student Management</text>
+  <text x="190" y="210" fill="#dbeafe" font-family="Arial" font-size="18">Thiết kế đăng nhập / đăng ký / quên mật khẩu</text>
+  <text x="190" y="330" fill="#fff" font-family="Arial" font-size="24">1. Bố cục 2 cột</text>
+  <text x="190" y="400" fill="#fff" font-family="Arial" font-size="24">2. Input bo tròn</text>
+  <text x="190" y="470" fill="#fff" font-family="Arial" font-size="24">3. Nút chính màu xanh</text>
+  <text x="190" y="540" fill="#fff" font-family="Arial" font-size="24">4. Thông báo lỗi ở trên form</text>
+  <rect x="680" y="160" width="700" height="120" rx="22" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="720" y="205" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">Login form</text>
+  <text x="700" y="370" fill="#1f2937" font-family="Arial" font-size="18">Email</text>
+  <rect x="700" y="404" width="660" height="50" rx="14" fill="#fff" stroke="#cbd5e1"/>
+  <text x="700" y="490" fill="#1f2937" font-family="Arial" font-size="18">Mật khẩu</text>
+  <rect x="700" y="524" width="660" height="50" rx="14" fill="#fff" stroke="#cbd5e1"/>
+  <rect x="700" y="620" width="660" height="56" rx="14" fill="#2563eb"/>
+  <text x="960" y="656" fill="#fff" font-family="Arial" font-size="18" font-weight="700">Đăng nhập</text>
+  <rect x="700" y="720" width="660" height="140" rx="18" fill="#f8fafc" stroke="#e5e7eb"/>
+  <text x="730" y="750" fill="#6b7280" font-family="Arial" font-size="18">Vùng hiển thị thông điệp phản hồi / cảnh báo</text>
+</svg>

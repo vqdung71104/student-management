@@ -1,0 +1,18 @@
+\begin{tikzpicture}[
+    >=Latex,
+    font=\small,
+    box/.style={draw, rounded corners, align=left, inner sep=4pt, minimum width=4.2cm, minimum height=1.0cm},
+    rel/.style={-Latex, thick}
+]
+    \node[box] (conv) at (0,0) {\textbf{chat\_conversations}\\student\_pk, title\\created\_at, updated\_at};
+    \node[box] (msg) at (6.0,0) {\textbf{chat\_messages}\\role, content\\intent, confidence, sql};
+    \node[box] (faq) at (12.0,0) {\textbf{faqs}\\question, answer\\is\_active, order\_index};
+
+    \node[box] (feedback) at (3.0,-3.0) {\textbf{feedbacks}\\email, subject\\feedback, suggestions};
+    \node[box] (reset) at (9.0,-3.0) {\textbf{password\_reset\_tokens}\\token, expires\_at\\used, request\_ip};
+
+    \draw[rel] (conv) -- (msg);
+    \draw[rel] (msg) -- (faq);
+    \draw[rel] (feedback) -- (faq);
+    \draw[rel] (conv) -- (reset);
+\end{tikzpicture}

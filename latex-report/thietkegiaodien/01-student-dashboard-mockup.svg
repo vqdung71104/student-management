@@ -1,0 +1,38 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#f7f9fc"/>
+  <rect x="40" y="30" width="1520" height="58" rx="18" fill="#1f4fff"/>
+  <text x="70" y="66" fill="#fff" font-family="Arial" font-size="24" font-weight="700">Student Portal</text>
+  <rect x="40" y="120" width="340" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <rect x="400" y="120" width="340" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <rect x="760" y="120" width="340" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <rect x="1120" y="120" width="340" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <text x="140" y="160" fill="#6b7280" font-family="Arial" font-size="14">Tổng tín chỉ</text>
+  <text x="140" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">120</text>
+  <text x="500" y="160" fill="#6b7280" font-family="Arial" font-size="14">CPA hiện tại</text>
+  <text x="500" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">3.45</text>
+  <text x="860" y="160" fill="#6b7280" font-family="Arial" font-size="14">Học kỳ</text>
+  <text x="860" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">2024.1</text>
+  <text x="1220" y="160" fill="#6b7280" font-family="Arial" font-size="14">Lớp đã đăng ký</text>
+  <text x="1220" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">8</text>
+  <rect x="40" y="260" width="720" height="360" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <text x="70" y="296" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">Thông báo mới</text>
+  <rect x="70" y="340" width="660" height="66" rx="16" fill="#eff6ff"/>
+  <rect x="70" y="428" width="660" height="66" rx="16" fill="#fefce8"/>
+  <rect x="70" y="516" width="660" height="66" rx="16" fill="#f0fdf4"/>
+  <text x="95" y="380" fill="#1f2937" font-family="Arial" font-size="18">Đăng ký học phần 2024.1</text>
+  <text x="95" y="468" fill="#1f2937" font-family="Arial" font-size="18">Lịch thi cuối kỳ</text>
+  <text x="95" y="556" fill="#1f2937" font-family="Arial" font-size="18">Học bổng khuyến khích</text>
+  <rect x="800" y="260" width="760" height="360" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <text x="830" y="296" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">Lịch học hôm nay</text>
+  <rect x="830" y="340" width="700" height="66" rx="16" fill="#f8fafc" stroke="#e5e7eb"/>
+  <rect x="830" y="428" width="700" height="66" rx="16" fill="#f8fafc" stroke="#e5e7eb"/>
+  <rect x="830" y="516" width="700" height="66" rx="16" fill="#f8fafc" stroke="#e5e7eb"/>
+  <text x="855" y="380" fill="#1f2937" font-family="Arial" font-size="18">Cơ sở dữ liệu - A101 - 08:00</text>
+  <text x="855" y="468" fill="#1f2937" font-family="Arial" font-size="18">Lập trình Web - B203 - 14:00</text>
+  <text x="855" y="556" fill="#1f2937" font-family="Arial" font-size="18">Mạng máy tính - C305 - 17:00</text>
+  <rect x="1180" y="790" width="360" height="150" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <circle cx="1490" cy="887" r="30" fill="#7c3aed"/>
+  <text x="1478" y="896" fill="#fff" font-family="Arial" font-size="24" font-weight="700">?</text>
+  <text x="1210" y="835" fill="#1f2937" font-family="Arial" font-size="18" font-weight="700">Chatbot hỗ trợ nổi</text>
+  <text x="1210" y="862" fill="#6b7280" font-family="Arial" font-size="14">Có thể mở rộng kéo cạnh trái</text>
+</svg>

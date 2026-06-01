@@ -1,0 +1,27 @@
+\begin{tikzpicture}[
+    >=Latex,
+    font=\small,
+    box/.style={draw, rounded corners, align=left, inner sep=4pt, minimum width=3.5cm, minimum height=1.0cm},
+    rel/.style={-Latex, thick}
+]
+    \node[box] (subjects) at (0,0) {\textbf{subjects}\\mã học phần, tên học phần\\tín chỉ, điều kiện tiên quyết};
+    \node[box] (classes) at (5.0,0) {\textbf{classes}\\mã lớp, lịch học\\phòng học, giảng viên};
+    \node[box] (learned) at (10.0,0) {\textbf{learned\_subjects}\\kết quả học tập\\điểm chữ, học kỳ};
+
+    \node[box] (courseSubjects) at (2.5,-2.9) {\textbf{course\_subjects}\\học phần - khóa học};
+    \node[box] (classReg) at (7.5,-2.9) {\textbf{class\_registers}\\đăng ký lớp học phần};
+    \node[box] (subjectReg) at (12.5,-2.9) {\textbf{subject\_registers}\\đăng ký học phần};
+
+    \node[box] (semesterGpa) at (5.0,-5.8) {\textbf{semester\_gpa}\\GPA theo học kỳ};
+    \node[box] (relations) at (10.0,-5.8) {\textbf{subject\_condition / linked\_class}\\bảng liên kết};
+
+    \draw[rel] (subjects) -- (classes);
+    \draw[rel] (subjects) -- (learned);
+    \draw[rel] (subjects) -- (courseSubjects);
+    \draw[rel] (classes) -- (classReg);
+    \draw[rel] (subjects) -- (subjectReg);
+    \draw[rel] (learned) -- (semesterGpa);
+    \draw[rel] (courseSubjects) -- (relations);
+    \draw[rel] (classReg) -- (relations);
+    \draw[rel] (subjectReg) -- (relations);
+\end{tikzpicture}

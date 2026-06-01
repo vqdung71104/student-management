@@ -1,0 +1,45 @@
+\subsection{Minh họa các chức năng chính}
+Trong phần này, sinh viên lựa chọn và đưa ra các màn hình đại diện cho những chức năng chính, quan trọng và hữu ích nhất của hệ thống. Mỗi giao diện đều được mô tả ngắn gọn để làm rõ mục đích sử dụng, phạm vi nghiệp vụ và vai trò của nó trong toàn bộ quy trình làm việc của ứng dụng. Ở tài liệu này, các hình minh họa tập trung vào ba nhóm màn hình tiêu biểu gồm: màn hình chatbot hỗ trợ sinh viên, màn hình xem điểm của sinh viên và màn hình quản lý thời khóa biểu của quản trị viên.
+
+\subsubsection{ Màn hình chatbot hỗ trợ sinh viên}
+Màn hình chatbot là một trong những chức năng nổi bật nhất của hệ thống. Sinh viên có thể nhập câu hỏi bằng ngôn ngữ tự nhiên để hỏi về học phần, lớp học, kết quả học tập, điều kiện đăng ký và các gợi ý học tập phù hợp. Trong bộ ảnh minh họa, hai hình đầu tiên được xem là một màn hình hoàn chỉnh vì cùng mô tả luồng hội thoại và cách hệ thống phản hồi cho người dùng.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Hinhve/man_hinh_chatbot_1.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Hinhve/man_hinh_chatbot_2.png}
+    \end{minipage}
+    \caption{Minh họa màn hình chatbot hỗ trợ sinh viên}
+\end{figure}
+
+Giao diện này được thiết kế theo hướng hội thoại liên tục, giúp người dùng có thể đặt nhiều câu hỏi liên tiếp mà vẫn giữ được ngữ cảnh trao đổi. Nhờ đó, chatbot không chỉ trả lời nhanh mà còn có thể hỗ trợ sinh viên trong việc định hướng học tập và tra cứu thông tin cần thiết.
+
+\subsubsection{ Màn hình xem điểm của sinh viên}
+Màn hình xem điểm cho phép sinh viên theo dõi toàn bộ kết quả học tập của mình, bao gồm danh sách học phần đã học, điểm chữ, điểm học kỳ, GPA và các thông tin liên quan khác. Đây là màn hình quan trọng vì cung cấp bức tranh tổng quan về tình trạng học tập của sinh viên trong từng giai đoạn.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.82\textwidth]{Hinhve/man_hinh_xem_diem.png}
+    \caption{Minh họa màn hình xem điểm của sinh viên}
+\end{figure}
+
+Thông qua màn hình này, sinh viên có thể tự đánh giá tiến độ học tập, phát hiện các môn chưa đạt hoặc điểm còn thấp để kịp thời điều chỉnh kế hoạch học tập. Đồng thời, dữ liệu trên màn hình xem điểm cũng là đầu vào để hệ thống đưa ra các gợi ý học phần hoặc lớp học phù hợp hơn.
+
+\subsubsection{ Màn hình quản lý thời khóa biểu của admin}
+Đây là màn hình dành cho quản trị viên, dùng để theo dõi và quản lý thời khóa biểu các lớp mở trong học kỳ. Giao diện hỗ trợ xem danh sách lớp, điều chỉnh thông tin lịch học và kiểm soát các xung đột về thời gian trước khi công bố cho sinh viên.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.82\textwidth]{Hinhve/man_hinh_quan_ly_thoi_khoa_bieu_admin.png}
+    \caption{Minh họa màn hình quản lý thời khóa biểu của quản trị viên}
+\end{figure}
+
+Màn hình này có vai trò quan trọng trong khâu vận hành hệ thống vì giúp quản trị viên đảm bảo tính hợp lý của lịch học, hạn chế trùng giờ và hỗ trợ cập nhật kịp thời khi có thay đổi về phòng học, giảng viên hoặc lịch mở lớp. Đây là một trong các chức năng điều phối trực tiếp đến trải nghiệm đăng ký học tập của sinh viên.
+
+Nhìn chung, ba màn hình trên đã phản ánh được những chức năng cốt lõi nhất của hệ thống, gồm tương tác thông minh qua chatbot, theo dõi kết quả học tập và quản lý thời khóa biểu ở phía quản trị. Đây cũng là các màn hình có tính thực tiễn cao, thường xuyên được sử dụng và thể hiện rõ giá trị của ứng dụng trong quá trình hỗ trợ sinh viên học tập.

@@ -1,0 +1,138 @@
+\subsection{Thiết kế lớp}
+Phần thiết kế lớp của hệ thống tập trung vào các thực thể lõi phản ánh trực tiếp nghiệp vụ đăng ký học tập của sinh viên. Trong phạm vi này, bốn lớp quan trọng nhất là \texttt{Student}, \texttt{Subject}, \texttt{Class} và \texttt{LearnedSubject}. Các lớp này được chọn vì chúng xuất hiện xuyên suốt cả ba luồng nghiệp vụ trọng tâm của hệ thống: xem kết quả học tập và upload bảng điểm, tư vấn học phần nên đăng ký, và tư vấn lớp học nên đăng ký.
+
+Trong cách tổ chức hiện tại, phần lớn lớp miền được hiện thực bằng SQLAlchemy. Vì vậy, thay vì chỉ mô tả thuộc tính dữ liệu, báo cáo cũng làm rõ vai trò nghiệp vụ, các validator quan trọng và các hành vi thường xuyên đi kèm trong service/route. Cách trình bày này giúp thấy rõ lớp nào giữ dữ liệu, lớp nào xử lý quy tắc và lớp nào đóng vai trò điều phối giao tiếp giữa frontend với backend.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.35}
+\begin{tabularx}{\textwidth}{|l|X|X|X|}
+\hline
+\rowcolor[HTML]{D9EAD3}
+\textbf{Lớp} & \textbf{Thuộc tính chính} & \textbf{Phương thức / validator tiêu biểu} & \textbf{Vai trò trong hệ thống} \\ \hline
+\texttt{Student} & \texttt{id}, \texttt{student\_name}, \texttt{email}, \texttt{course\_id}, \texttt{department\_id}, \texttt{cpa}, \texttt{warning\_level}, \texttt{year\_level}, \texttt{total\_learned\_credits}, \texttt{total\_failed\_credits} & Được truy xuất qua các route hồ sơ học tập; dữ liệu CPA, cảnh báo và năm học được cập nhật khi thay đổi \texttt{LearnedSubject} & Đại diện cho sinh viên, làm gốc cho các quan hệ đăng ký học phần, đăng ký lớp và thống kê học tập \\ \hline
+\texttt{Subject} & \texttt{id}, \texttt{subject\_id}, \texttt{subject\_name}, \texttt{credits}, \texttt{duration}, \texttt{department\_id}, \texttt{conditional\_subjects} & Tra cứu theo mã học phần, liên kết với \texttt{CourseSubject}, \texttt{LearnedSubject}, \texttt{Class} và \texttt{SubjectRegister} & Đại diện cho học phần, là đầu vào của cả gợi ý học phần lẫn gợi ý lớp học \\ \hline
+\texttt{Class} & \texttt{id}, \texttt{subject\_id}, \texttt{class\_id}, \texttt{class\_name}, \texttt{linked\_class\_ids}, \texttt{class\_type}, \texttt{classroom}, \texttt{study\_date}, \texttt{study\_time\_start}, \texttt{study\_time\_end}, \texttt{teacher\_name}, \texttt{study\_week} & \texttt{validate\_study\_date()}, \texttt{validate\_time()}, logic ghép các lớp có cùng mã lớp hoặc lớp kèm & Lưu thông tin lớp mở, phục vụ đăng ký lớp và sinh các phương án thời khóa biểu không trùng lịch \\ \hline
+\texttt{LearnedSubject} & \texttt{id}, \texttt{subject\_name}, \texttt{credits}, \texttt{letter\_grade}, \texttt{semester}, \texttt{student\_id}, \texttt{subject\_id} & Được tạo/sửa/xóa qua các API học tập; kéo theo \texttt{update\_semester\_gpa()} và \texttt{update\_student\_stats()} & Lưu kết quả học tập theo học kỳ, là nguồn dữ liệu chính để tính GPA/CPA, cảnh báo học tập và gợi ý học phần cần đăng ký lại \\ \hline
+\end{tabularx}
+\caption{Các lớp chủ đạo trong phần thiết kế lớp}
+\end{table}
+
+\subsubsection{ Lớp \texttt{Student}}
+\texttt{Student} là lớp trung tâm của toàn bộ hệ thống. Một đối tượng sinh viên không chỉ chứa thông tin định danh như họ tên, email hay mã khoa, mà còn lưu các chỉ số học tập tổng hợp như CPA, số tín chỉ đã tích lũy, số tín chỉ trượt, mức cảnh báo và trình độ năm học. Các thuộc tính này xuất hiện trực tiếp trong màn hình dashboard của sinh viên và cũng là đầu vào cho chatbot khi gợi ý học phần hoặc lớp học.
+
+Về quan hệ, \texttt{Student} liên kết một-nhiều với \texttt{LearnedSubject}, \texttt{SemesterGPA}, \texttt{ClassRegister} và \texttt{SubjectRegister}. Nhờ các liên kết này, hệ thống có thể nhanh chóng truy xuất lịch sử học tập, lịch sử đăng ký và các lớp đang theo học của sinh viên. Trong luồng \texttt{/students/\{student\_id\}/academic-details}, backend tổng hợp dữ liệu từ các quan hệ này để trả về một cấu trúc học tập đầy đủ cho frontend.
+
+Ở góc độ nghiệp vụ, các hành vi cập nhật của \texttt{Student} chủ yếu đến từ service thay vì method tự thân của model. Khi sinh viên thêm, sửa hoặc xóa một môn trong \texttt{LearnedSubject}, các hàm như \texttt{update\_student\_stats()} sẽ tự động tính lại CPA, số môn trượt, số tín chỉ tích lũy và mức cảnh báo. Điều này giúp lớp \texttt{Student} đóng vai trò “hồ sơ học tập động” thay vì chỉ là bản ghi tĩnh trong cơ sở dữ liệu.
+
+\subsubsection{ Lớp \texttt{Subject}}
+\texttt{Subject} biểu diễn một học phần trong chương trình đào tạo. Lớp này lưu mã học phần, tên học phần, số tín chỉ, thời lượng, khoa phụ trách và các điều kiện tiên quyết. Đây là lớp được dùng nhiều nhất khi hệ thống cần tra cứu học phần theo mã, đối chiếu với chương trình đào tạo của sinh viên hoặc sinh ra danh sách học phần nên đăng ký.
+
+Trong luồng đăng ký học phần, \texttt{Subject} là điểm nối giữa chương trình đào tạo và dữ liệu học tập thực tế. Bảng \texttt{course\_subjects} dùng để xác định những học phần nào thuộc từng khóa học, còn \texttt{learned\_subjects} cho biết sinh viên đã học hay chưa học môn đó. Khi chatbot tư vấn, service sẽ kết hợp \texttt{Subject} với \texttt{LearnedSubject} để nhận biết môn nào chưa học, môn nào đã học trượt và môn nào là ứng viên phù hợp cho kỳ tới.
+
+\texttt{Subject} cũng liên kết trực tiếp với \texttt{Class}. Điều này cho phép hệ thống đi từ một học phần sang danh sách lớp mở tương ứng, rồi từ đó lọc tiếp theo thời gian, giảng viên và phòng học. Nhờ vậy, lớp \texttt{Subject} giữ vai trò “điểm gốc” cho cả hai nhánh tư vấn: chọn học phần và chọn lớp.
+
+\subsubsection{ Lớp \texttt{Class}}
+\texttt{Class} là lớp mô tả một lớp mở cụ thể của một học phần. Khác với \texttt{Subject} là khái niệm học phần trừu tượng, \texttt{Class} chứa thông tin vận hành thực tế như mã lớp, tên lớp, loại lớp, phòng học, lịch học, giảng viên, tuần học và danh sách lớp kèm. Đây là lớp quyết định trực tiếp trải nghiệm đăng ký lớp của sinh viên vì mọi phương án đăng ký đều phải thỏa mãn ràng buộc thời gian từ lớp này.
+
+Hai validator quan trọng của \texttt{Class} là \texttt{validate\_study\_date()} và \texttt{validate\_time()}. Validator đầu tiên chuẩn hóa và kiểm tra chuỗi ngày học, bảo đảm chỉ nhận các giá trị hợp lệ như Monday, Tuesday, ...; validator thứ hai chuyển thời gian từ chuỗi sang kiểu \texttt{time} và loại bỏ các giá trị không hợp lệ. Cách làm này giúp dữ liệu lịch học luôn nhất quán ngay từ tầng model, tránh lỗi khi sinh thời khóa biểu hoặc so sánh xung đột giờ học.
+
+Về quan hệ, \texttt{Class} liên kết nhiều-nhất với \texttt{ClassRegister} và nhiều-nhất với \texttt{Subject}. Khi sinh viên đăng ký lớp, frontend sẽ hiển thị danh sách lớp từ endpoint \texttt{/api/classes/}, còn backend sẽ ghi nhận bản ghi đăng ký tương ứng trong \texttt{class\_registers}. Trong phần gợi ý lớp học, service còn dùng thêm thuộc tính \texttt{linked\_class\_ids} để nhóm các buổi học cùng một lớp logic, bảo đảm một phương án thời khóa biểu không bị tách rời sai cách.
+
+\subsubsection{ Lớp \texttt{LearnedSubject}}
+\texttt{LearnedSubject} lưu lại một kết quả học tập của sinh viên theo từng học kỳ. Mỗi bản ghi chứa tên học phần, số tín chỉ, điểm chữ, học kỳ, khóa ngoại tới sinh viên và khóa ngoại tới học phần. Đây là lớp có tác động lớn nhất đến các chỉ số học tập tổng hợp, vì nó là đầu vào cho tính GPA học kỳ, CPA toàn khóa và số tín chỉ trượt.
+
+Luồng upload bảng điểm của hệ thống đi qua \texttt{LearnedSubject} trước tiên. Frontend ở trang \texttt{Grades.tsx} và component \texttt{GradeExcelUpload.tsx} đọc file Excel, trích từng dòng hợp lệ rồi gọi API tạo mới môn đã học. Ở backend, route \texttt{create\_new\_learned\_subject()} tìm \texttt{Subject} theo mã học phần, tạo \texttt{LearnedSubject}, sau đó gọi \texttt{update\_semester\_gpa()} và \texttt{update\_student\_stats()} để tính lại toàn bộ chỉ số liên quan. Vì vậy, \texttt{LearnedSubject} vừa là lớp lưu trữ lịch sử học tập, vừa là nguồn kích hoạt cho các phép tính thống kê tự động.
+
+Khi một bản ghi \texttt{LearnedSubject} được thêm, sửa hoặc xóa, backend sẽ đồng thời cập nhật bảng \texttt{semester\_gpa} và các trường tổng hợp của \texttt{Student}. Điều này giúp dữ liệu điểm số và dữ liệu hồ sơ sinh viên luôn đồng bộ, đồng thời làm cơ sở cho chatbot gợi ý học phần nên học lại hoặc nên đăng ký tiếp ở kỳ kế tiếp.
+
+Ngoài bốn lớp lõi trên, hệ thống còn có một số lớp dịch vụ trung tâm đóng vai trò điều phối nghiệp vụ. Trong đó, \texttt{ChatbotService} chịu trách nhiệm phân loại intent, gom dữ liệu từ \texttt{Student}, \texttt{Subject}, \texttt{LearnedSubject}, \texttt{Class} và các rule engine để tạo phản hồi cho frontend; \texttt{ClassQueryService} và \texttt{ScheduleCombinationService} lọc và ghép các lớp theo ràng buộc thời gian; \texttt{ExcelExportService} xuất phương án lịch học ra file Excel để sinh viên tải xuống. Các lớp này không được đưa vào bảng chi tiết vì chúng thiên về xử lý nghiệp vụ hơn là mô hình dữ liệu, nhưng lại xuất hiện trực tiếp trong ba luồng trình tự ở phần sau.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Latex, font=\small]
+    \node[draw, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center] (sv) at (0,0) {Sinh viên};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (ui) at (3.5,0) {GradeExcelUpload\\và trang Xem điểm};
+    \node[draw, rounded corners, minimum width=4.2cm, minimum height=0.8cm, align=center] (api) at (7.8,0) {\texttt{/learned-subjects/create-new-learned-subject}};
+    \node[draw, rounded corners, minimum width=2.8cm, minimum height=0.8cm, align=center] (subject) at (12.2,0) {\texttt{Subject}};
+    \node[draw, rounded corners, minimum width=3.2cm, minimum height=0.8cm, align=center] (ls) at (16.1,0) {\texttt{LearnedSubject}\\và GPA};
+
+    \draw[dashed] (0,-0.6) -- (0,-6.7);
+    \draw[dashed] (3.5,-0.6) -- (3.5,-6.7);
+    \draw[dashed] (7.8,-0.6) -- (7.8,-6.7);
+    \draw[dashed] (12.2,-0.6) -- (12.2,-6.7);
+    \draw[dashed] (16.1,-0.6) -- (16.1,-6.7);
+
+    \draw[->] (0.7,-1.1) -- node[above, align=center]{Chọn file Excel\\và xác nhận upload} (3.1,-1.1);
+    \draw[->] (3.1,-2.0) -- node[above, align=center]{Parse từng dòng hợp lệ\\rồi tạo request} (7.4,-2.0);
+    \draw[->] (7.4,-3.0) -- node[above, align=center]{Tìm học phần theo\\mã học phần} (11.8,-3.0);
+    \draw[->] (11.8,-4.0) -- node[above, align=center]{Tạo bản ghi\\\texttt{LearnedSubject}} (15.8,-4.0);
+    \draw[->] (15.8,-5.0) -- node[above, align=center]{Cập nhật GPA học kỳ\\và thống kê sinh viên} (7.9,-5.0);
+    \draw[->] (7.9,-5.9) -- node[above, align=center]{Trả kết quả thành công\\cho giao diện} (3.6,-5.9);
+\end{tikzpicture}
+}%
+\caption{Luồng truyền thông điệp khi sinh viên upload bảng điểm}
+\end{figure}
+
+Trong luồng này, giao diện của sinh viên làm hai việc chính: đọc file Excel và gọi API tạo từng bản ghi \texttt{LearnedSubject}. Backend sau đó tự động tìm \texttt{Subject}, ghi dữ liệu và tính lại các chỉ số học tập. Cách thiết kế này phù hợp với logic FE hiện có, nơi component upload chỉ đóng vai trò nhập dữ liệu, còn toàn bộ kiểm tra và tính toán nằm ở backend.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Latex, font=\small]
+    \node[draw, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center] (sv) at (0,0) {Sinh viên};
+    \node[draw, rounded corners, minimum width=3.0cm, minimum height=0.8cm, align=center] (chatui) at (3.4,0) {ChatBot UI};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (route) at (7.2,0) {\texttt{/chatbot/chat-stream}};
+    \node[draw, rounded corners, minimum width=3.6cm, minimum height=0.8cm, align=center] (service) at (11.5,0) {\texttt{ChatbotService}\\và rule engine};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (data) at (15.7,0) {Dữ liệu học tập\\\texttt{Student}, \texttt{LearnedSubject}, \texttt{CourseSubject}, \texttt{Subject}};
+
+    \draw[dashed] (0,-0.6) -- (0,-6.5);
+    \draw[dashed] (3.4,-0.6) -- (3.4,-6.5);
+    \draw[dashed] (7.2,-0.6) -- (7.2,-6.5);
+    \draw[dashed] (11.5,-0.6) -- (11.5,-6.5);
+    \draw[dashed] (15.7,-0.6) -- (15.7,-6.5);
+
+    \draw[->] (0.7,-1.1) -- node[above]{Nhập câu hỏi gợi ý học phần} (2.9,-1.1);
+    \draw[->] (2.9,-2.0) -- node[above]{Gửi streaming request} (7.0,-2.0);
+    \draw[->] (7.0,-3.0) -- node[above]{Phân loại intent\\\texttt{subject\_registration\_suggestion}} (11.2,-3.0);
+    \draw[->] (11.2,-4.0) -- node[above]{Đọc CPA, học phần đã học\\và học phần trong chương trình} (15.4,-4.0);
+    \draw[->] (15.4,-5.0) -- node[above]{Sinh danh sách học phần nên đăng ký} (11.7,-5.0);
+    \draw[->] (11.7,-5.9) -- node[above]{Trả data và text cho FE\\để render bảng gợi ý} (3.7,-5.9);
+\end{tikzpicture}
+}%
+\caption{Luồng truyền thông điệp khi sinh viên hỏi nên đăng ký học phần nào}
+\end{figure}
+
+Biểu đồ trên mô tả đúng cách FE hiện tại làm việc với chatbot: người dùng nhập câu hỏi, giao diện đẩy câu hỏi lên API streaming, backend phân loại intent rồi gọi phần tư vấn học phần. Kết quả trả về không chỉ là văn bản mà còn có danh sách học phần để giao diện hiển thị dưới dạng bảng hoặc danh sách gợi ý.
+
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Latex, font=\small]
+    \node[draw, rounded corners, minimum width=2.4cm, minimum height=0.8cm, align=center] (sv) at (0,0) {Sinh viên};
+    \node[draw, rounded corners, minimum width=3.0cm, minimum height=0.8cm, align=center] (chatui) at (3.4,0) {ChatBot UI};
+    \node[draw, rounded corners, minimum width=3.4cm, minimum height=0.8cm, align=center] (route) at (7.2,0) {\texttt{/chatbot/chat-stream}};
+    \node[draw, rounded corners, minimum width=3.7cm, minimum height=0.8cm, align=center] (service) at (11.6,0) {\texttt{ChatbotService}\\điều phối hội thoại};
+    \node[draw, rounded corners, minimum width=3.8cm, minimum height=0.8cm, align=center] (query) at (16.1,0) {\texttt{ClassQueryService}\\và \texttt{ScheduleCombinationService}};
+    \node[draw, rounded corners, minimum width=3.5cm, minimum height=0.8cm, align=center] (db) at (20.6,0) {\texttt{Class}, \texttt{Subject}, \texttt{ClassRegister}};
+
+    \draw[dashed] (0,-0.6) -- (0,-6.9);
+    \draw[dashed] (3.4,-0.6) -- (3.4,-6.9);
+    \draw[dashed] (7.2,-0.6) -- (7.2,-6.9);
+    \draw[dashed] (11.6,-0.6) -- (11.6,-6.9);
+    \draw[dashed] (16.1,-0.6) -- (16.1,-6.9);
+    \draw[dashed] (20.6,-0.6) -- (20.6,-6.9);
+
+    \draw[->] (0.7,-1.1) -- node[above]{Nhập câu hỏi gợi ý lớp học} (2.9,-1.1);
+    \draw[->] (2.9,-2.0) -- node[above]{Gửi streaming request} (7.0,-2.0);
+    \draw[->] (7.0,-3.0) -- node[above]{Phân loại intent\\\texttt{class\_registration\_suggestion}} (11.3,-3.0);
+    \draw[->] (11.3,-4.0) -- node[above]{Hỏi thêm preference nếu chưa đủ\\và lưu trạng thái hội thoại} (15.8,-4.0);
+    \draw[->] (15.8,-5.0) -- node[above]{Lọc lớp theo ngày, giờ, giảng viên\\và tạo phương án lịch học} (20.3,-5.0);
+    \draw[->] (20.3,-6.0) -- node[above]{Trả các phương án cho FE\\và cho phép xuất Excel} (3.8,-6.0);
+\end{tikzpicture}
+}%
+\caption{Luồng truyền thông điệp khi sinh viên hỏi nên đăng ký lớp nào}
+\end{figure}
+
+Điểm đáng chú ý của luồng này là chatbot không trả lời một lần duy nhất mà có thể hỏi thêm thông tin nếu còn thiếu ràng buộc. Sau khi đủ preference, backend mới sinh các phương án lớp học và frontend hiển thị thành bảng lịch học trực quan, kèm tùy chọn xuất file Excel cho phương án phù hợp.

@@ -1,0 +1,31 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#f7f9fc"/>
+  <rect x="40" y="30" width="1520" height="58" rx="18" fill="#0f2f8f"/>
+  <text x="70" y="66" fill="#fff" font-family="Arial" font-size="24" font-weight="700">Admin Portal</text>
+  <rect x="40" y="120" width="340" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <rect x="405" y="120" width="340" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <rect x="770" y="120" width="340" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <rect x="1135" y="120" width="325" height="110" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <text x="140" y="160" fill="#6b7280" font-family="Arial" font-size="14">Tổng sinh viên</text>
+  <text x="140" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">1,234</text>
+  <text x="505" y="160" fill="#6b7280" font-family="Arial" font-size="14">Tổng khóa học</text>
+  <text x="505" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">89</text>
+  <text x="870" y="160" fill="#6b7280" font-family="Arial" font-size="14">Đăng ký hôm nay</text>
+  <text x="870" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">156</text>
+  <text x="1235" y="160" fill="#6b7280" font-family="Arial" font-size="14">Tỷ lệ hoàn thành</text>
+  <text x="1235" y="192" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">87%</text>
+  <rect x="40" y="260" width="720" height="360" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <text x="70" y="296" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">Quản lý sinh viên</text>
+  <rect x="70" y="340" width="660" height="52" rx="14" fill="#eff6ff" stroke="#bfdbfe"/>
+  <text x="95" y="372" fill="#1f2937" font-family="Arial" font-size="14">Bộ lọc: khoa, khóa, lớp, mã SV, tên SV</text>
+  <rect x="70" y="416" width="660" height="140" rx="14" fill="#f8fafc" stroke="#e5e7eb"/>
+  <text x="95" y="446" fill="#6b7280" font-family="Arial" font-size="18">Bảng dữ liệu danh sách sinh viên</text>
+  <rect x="800" y="260" width="760" height="360" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <text x="830" y="296" fill="#1f2937" font-family="Arial" font-size="24" font-weight="700">Cập nhật thời khóa biểu / Upload môn học</text>
+  <rect x="830" y="340" width="700" height="220" rx="18" fill="#f8fafc" stroke="#cbd5e1" stroke-dasharray="10 10"/>
+  <text x="980" y="430" fill="#6b7280" font-family="Arial" font-size="24">Kéo thả file Excel vào đây</text>
+  <text x="1000" y="470" fill="#6b7280" font-family="Arial" font-size="18">Chỉ hỗ trợ .xlsx, .xls</text>
+  <rect x="1180" y="790" width="360" height="150" rx="18" fill="#fff" stroke="#dbe3f0"/>
+  <text x="1210" y="835" fill="#1f2937" font-family="Arial" font-size="18" font-weight="700">Khu vực thông báo phản hồi</text>
+  <text x="1210" y="862" fill="#6b7280" font-family="Arial" font-size="14">Modal và message đặt giữa màn hình</text>
+</svg>
