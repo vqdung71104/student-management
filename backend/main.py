@@ -204,4 +204,4 @@ orchestrator_api_key = os.getenv("ORCHESTRATOR_API_KEY", "").strip()
 if not orchestrator_api_key:
     print("CRITICAL: ORCHESTRATOR_API_KEY NOT FOUND IN ENVIRONMENT")
 else:
-    print(f"ORCHESTRATOR_API_KEY (first 7 chars): {orchestrator_api_key[:7]}")
+    print("ORCHESTRATOR_API_KEY is set successfully.")

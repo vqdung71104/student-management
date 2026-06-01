@@ -25,7 +25,7 @@ const ForgotPassword = () => {
         throw new Error(data.detail || 'Không thể gửi yêu cầu quên mật khẩu')
       }
 
-      setMessage(data.message || 'Nếu email tồn tại, hệ thống đã gửi link đặt lại mật khẩu.')
+      setMessage(data.message || 'Hệ thống đã gửi link đặt lại mật khẩu. Vui lòng kiểm tra email của bạn.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra')
     } finally {

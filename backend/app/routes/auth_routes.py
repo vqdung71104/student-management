@@ -283,7 +283,7 @@ def forgot_password(
 ):
     # Always return neutral response to avoid account enumeration.
     neutral = ForgotPasswordResponse(
-        message="Nếu email tồn tại, hệ thống đã gửi link đặt lại mật khẩu."
+        message="Hệ thống đã gửi link đặt lại mật khẩu. Vui lòng kiểm tra email của bạn."
     )
 
     user_type, user_id = password_reset_service.find_user_by_email(db, payload.email)
