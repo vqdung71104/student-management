@@ -7,7 +7,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.agents.graph_nodes import intent_router_node, query_splitter_node
-from app.routes.chatbot_routes import _process_single_query
+from app.routes.chatbot_routes import _extract_agent_class_suggestion_fields, _process_single_query
+from app.schemas.preference_schema import PREFERENCE_QUESTIONS
 
 
 class _NoDbExecute:
@@ -109,6 +110,43 @@ async def _split_and_route(user_text: str):
         }
     )
     return split_result, route_result
+
+
+def test_first_day_preference_is_exposed_as_multi_choice_from_agent_result():
+    day_question = PREFERENCE_QUESTIONS["day"]
+    metadata = {
+        "ui": {"title": "Gợi ý lớp"},
+        "conversation": {
+            "stage": "collecting",
+            "next_step": "ask_next_question",
+            "current_question": day_question.model_dump(),
+        },
+        "preferences": {"captured": [], "missing": [], "auto_captured_keys": [], "summary": {}},
+    }
+    raw = [{
+        "raw_result": {
+            "status": "success",
+            "data": {
+                "text": day_question.question,
+                "intent": "class_registration_suggestion",
+                "data": None,
+            },
+            "metadata": metadata,
+        }
+    }]
+
+    data, extracted_metadata = _extract_agent_class_suggestion_fields(
+        raw,
+        "class_registration_suggestion",
+    )
+
+    assert data is None
+    current_question = extracted_metadata["conversation"]["current_question"]
+    assert current_question["key"] == "day"
+    assert current_question["type"] == "multi_choice"
+    assert current_question["options"] == [
+        "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"
+    ]
 
 
 @pytest.mark.asyncio

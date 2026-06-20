@@ -922,16 +922,6 @@ const ChatBot: React.FC = () => {
       };
     }
 
-    if (metadata.conversation?.next_step === 'choose_subject_source') {
-      return {
-        key: 'subject_source',
-        label: 'Nguồn học phần',
-        question: 'Bạn muốn mình lấy nguồn học phần nào?',
-        options: ['Học phần đã đăng ký', 'Học phần hệ thống gợi ý'],
-        type: 'single_choice',
-      };
-    }
-
     return null;
   };
 

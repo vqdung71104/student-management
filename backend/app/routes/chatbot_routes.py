@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 import asyncio
 import unicodedata
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
 from app.services.chatbot_service import ChatbotService
@@ -283,6 +283,33 @@ def _sanitize_class_suggestion_metadata(metadata: Optional[Dict[str, Any]]) -> O
         conversation["source_choice"] = str(source_choice)
 
     return metadata
+
+
+def _extract_agent_class_suggestion_fields(
+    raw: Any,
+    intent_label: str,
+) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
+    """Preserve interactive metadata from a single Node-3 class-suggestion result."""
+    if intent_label != "class_registration_suggestion" or not isinstance(raw, list) or len(raw) != 1:
+        return None, None
+
+    raw_result = raw[0].get("raw_result") if isinstance(raw[0], dict) else None
+    if not isinstance(raw_result, dict):
+        return None, None
+
+    payload = raw_result.get("data") if raw_result.get("status") in {"success", "error"} else raw_result
+    if not isinstance(payload, dict):
+        payload = {}
+
+    metadata = payload.get("metadata")
+    if not isinstance(metadata, dict):
+        metadata = raw_result.get("metadata")
+
+    result_data = payload.get("data")
+    if result_data is not None and not isinstance(result_data, list):
+        result_data = [result_data] if isinstance(result_data, dict) else [{"value": result_data}]
+
+    return result_data, _sanitize_class_suggestion_metadata(metadata if isinstance(metadata, dict) else None)
 
 
 def _normalize_subject_source_from_label(value: Optional[str]) -> str:
@@ -1264,13 +1291,14 @@ async def chat(
                     model_used=llm_debug.get("model_used") if isinstance(llm_debug, dict) else None,
                     token_count=llm_debug.get("total_tokens") if isinstance(llm_debug, dict) else None,
                 )
+                agent_data, agent_metadata = _extract_agent_class_suggestion_fields(raw, intent_label)
                 
                 response_payload = ChatResponseWithData(
                     text=resp_text,
                     intent=intent_label,
                     confidence=confidence_label,
-                    data=None,
-                    metadata=None,
+                    data=agent_data,
+                    metadata=agent_metadata,
                     sql=None,
                     sql_error=None,
                     is_compound=(intent_label == 'compound'),
@@ -1748,13 +1776,14 @@ async def chat_stream(
                                 model_used=llm_debug.get("model_used") if isinstance(llm_debug, dict) else None,
                                 token_count=llm_debug.get("total_tokens") if isinstance(llm_debug, dict) else None,
                             )
+                            agent_data, agent_metadata = _extract_agent_class_suggestion_fields(raw, intent_label)
                             
                             response_payload = ChatResponseWithData(
                                 text=resp_text,
                                 intent=intent_label,
                                 confidence=confidence_label,
-                                data=None,
-                                metadata=None,
+                                data=agent_data,
+                                metadata=agent_metadata,
                                 sql=None,
                                 sql_error=None,
                                 is_compound=(intent_label == 'compound'),
