@@ -16,9 +16,6 @@ class _NoDbExecute:
 
 
 class _FakeChatbotService:
-    def _parse_subject_source_choice(self, text: str):
-        return None
-
     async def process_grade_view(self, student_id):
         return {
             "text": "CPA hiện tại là 3.20",

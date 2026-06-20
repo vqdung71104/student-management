@@ -527,12 +527,6 @@ async def _process_single_query(
         intent = intent_result["intent"]
         confidence = intent_result["confidence"]
 
-    # Guardrail: source-choice answers ("đã đăng ký" / "hệ thống gợi ý") must stay in
-    # class_registration_suggestion flow even if classifier drifts.
-    if intent == "subject_registration_suggestion" and chatbot_service._parse_subject_source_choice(normalized_text):
-        intent = "class_registration_suggestion"
-        confidence = "high"
-
     # ── INTENT GUARD: Return default greeting for non-Node3 intents ─────────
     # Only process intents that belong to Node 3a (NL2SQL), 3b, 3c, 3d.
     # All other intents return the greeting immediately without LLM processing.

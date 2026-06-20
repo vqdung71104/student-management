@@ -1199,30 +1199,11 @@ class ChatbotService:
     def _class_data_notice_text(self) -> str:
         return "⚠️ Hiện tại chưa có thông tin lớp học trong hệ thống."
 
-    def _source_selection_question_text(self) -> str:
-        return "Bạn muốn đăng ký theo học phần bạn đã đăng ký hay học phần hệ thống gợi ý?"
-
     def _normalize_subject_source_choice(self, value: Optional[str]) -> str:
         """Return canonical subject source and never None for response metadata."""
         if value in {"registered", "suggested"}:
             return value
         return "suggested"
-
-    def _parse_subject_source_choice(self, answer: str) -> Optional[str]:
-        txt = (answer or "").lower().strip()
-
-        registered_patterns = [
-            "đã đăng ký", "da dang ky", "hoc phan da dang ky", "1", "đăng ký rồi", "dang ky roi"
-        ]
-        suggested_patterns = [
-            "gợi ý", "goi y", "hệ thống", "he thong", "2", "đề xuất", "de xuat"
-        ]
-
-        if any(p in txt for p in registered_patterns):
-            return "registered"
-        if any(p in txt for p in suggested_patterns):
-            return "suggested"
-        return None
 
     def _append_supplemental_keys(self, state, keys: List[str]):
         if not keys:
@@ -1430,15 +1411,6 @@ class ChatbotService:
                 'options': current_question.options,
                 'type': current_question.type,
             }
-        elif next_step == 'choose_subject_source':
-            metadata['conversation']['current_question'] = {
-                'key': 'subject_source',
-                'label': 'Nguồn học phần',
-                'question': self._source_selection_question_text(),
-                'options': ['Học phần đã đăng ký', 'Học phần hệ thống gợi ý'],
-                'type': 'single_choice',
-            }
-
         if message:
             metadata['ui']['message'] = message
 
@@ -2724,6 +2696,11 @@ class ChatbotService:
                 }
 
             state = conv_manager.get_state(conversation_id)
+            if state:
+                # Class suggestions always use the system-suggested subjects.
+                # Reset legacy/stale source-selection state after deployments.
+                state.subject_source_choice = 'suggested'
+                state.subject_ids_seed = []
             if state and extracted_constraints:
                 merged = dict(getattr(state, 'nlq_constraints', None) or {})
                 merged.update(extracted_constraints)
@@ -2737,61 +2714,19 @@ class ChatbotService:
                 )
             
             if state and state.stage == 'choose_subject_source':
-                selected_source = self._parse_subject_source_choice(question)
-                if not selected_source:
-                    text = self._source_selection_question_text()
-                    if class_data_notice:
-                        text = f"{class_data_notice}\n\n{text}"
-                    return {
-                        "text": text,
-                        "intent": "class_registration_suggestion",
-                        "confidence": "high",
-                        "data": None,
-                        "is_preference_collecting": True,  # Node-4: text-only question, don't block
-                        "conversation_state": "collecting",
-                        "question_type": "single_choice",
-                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"],
-                        "metadata": self._build_class_suggestion_metadata(
-                            preferences=state.preferences,
-                            conversation_stage=state.stage,
-                            current_question=None,
-                            subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
-                            subject_ids_seed=getattr(state, 'subject_ids_seed', []),
-                            nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
-                            state=state,
-                            next_step='choose_subject_source',
-                            message='Mình cần bạn chọn nguồn học phần trước khi gợi ý lớp học.',
-                        )
-                    }
-
-                state.subject_source_choice = selected_source
-                if selected_source == 'registered':
-                    selected_subject_ids = self._get_registered_subject_ids(student_id)
-                    state.subject_ids_seed = selected_subject_ids
-                    if not selected_subject_ids:
-                        state.subject_source_choice = 'suggested'
-                        warning_text = "⚠️ Bạn chưa đăng ký học phần, vui lòng đăng ký học phần trước."
-                    else:
-                        warning_text = ""
-                else:
-                    state.subject_ids_seed = []
-                    warning_text = ""
-
+                # Backward compatibility for conversations saved before source
+                # selection was removed: continue directly with preferences.
                 state.stage = 'collecting'
                 next_question = pref_service.get_next_question(state.preferences)
                 state.current_question = next_question
                 conv_manager.save_state(state)
 
-                prefix_parts = []
-                if class_data_notice:
-                    prefix_parts.append(class_data_notice)
-                if warning_text:
-                    prefix_parts.append(warning_text)
-                prefix_text = "\n\n".join(prefix_parts)
                 next_text = next_question.question if next_question else "Bạn còn yêu cầu gì cụ thể cho lớp học không?"
+                if class_data_notice:
+                    next_text = f"{class_data_notice}\n\n{next_text}"
 
                 return {
-                    "text": (f"{prefix_text}\n\n{next_text}" if prefix_text else next_text),
+                    "text": next_text,
                     "intent": "class_registration_suggestion",
                     "confidence": "high",
                     "data": None,
@@ -2808,7 +2743,7 @@ class ChatbotService:
                         nlq_constraints_dict=getattr(state, 'nlq_constraints', None),
                         state=state,
                         next_step='ask_next_question',
-                        message='Mình đã ghi nhận phần trả lời của bạn và sẽ hỏi nốt phần còn thiếu.',
+                        message='Hệ thống mặc định dùng danh sách học phần được gợi ý và tiếp tục thu thập tiêu chí lớp học.',
                     )
                 }
 
@@ -2938,10 +2873,6 @@ class ChatbotService:
                 state.subject_ids_seed = []
                 state.supplemental_preference_keys = []
 
-                # If user directly answers source choice without prior state,
-                # continue class-suggestion flow instead of forcing re-ask.
-                direct_source_choice = self._parse_subject_source_choice(question)
-
                 # Extract hard constraints (time/day) from initial message
                 try:
                     merged_constraints = dict(extracted_constraints or {})
@@ -2983,58 +2914,13 @@ class ChatbotService:
                         conversation_state=state,
                     )
                 else:
-                    if direct_source_choice:
-                        state.subject_source_choice = direct_source_choice
-                        if direct_source_choice == 'registered':
-                            selected_subject_ids = self._get_registered_subject_ids(student_id)
-                            state.subject_ids_seed = selected_subject_ids
-                            if not selected_subject_ids:
-                                state.subject_source_choice = 'suggested'
-                                warning_text = "⚠️ Bạn chưa đăng ký học phần, vui lòng đăng ký học phần trước."
-                            else:
-                                warning_text = ""
-                        else:
-                            state.subject_ids_seed = []
-                            warning_text = ""
-
-                        state.stage = 'collecting'
-                        next_question = pref_service.get_next_question(state.preferences)
-                        state.current_question = next_question
-                        conv_manager.save_state(state)
-
-                        next_text = next_question.question if next_question else "Bạn còn yêu cầu gì cụ thể cho lớp học không?"
-                        if warning_text:
-                            next_text = f"{warning_text}\n\n{next_text}"
-                        if class_data_notice:
-                            next_text = f"{class_data_notice}\n\n{next_text}"
-
-                        return {
-                            "text": next_text,
-                            "intent": "class_registration_suggestion",
-                            "confidence": "high",
-                            "data": None,
-                            "conversation_state": "collecting",
-                            "question_type": next_question.type if next_question else "free_text",
-                            "question_options": next_question.options if next_question else None,
-                            "metadata": self._build_class_suggestion_metadata(
-                                preferences=state.preferences,
-                                conversation_stage=state.stage,
-                                current_question=next_question,
-                                subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
-                                subject_ids_seed=getattr(state, 'subject_ids_seed', []),
-                                nlq_constraints_dict=state.nlq_constraints,
-                                state=state,
-                                next_step='ask_next_question',
-                                message='Mình đã nhận được thêm thông tin từ câu của bạn.',
-                            ),
-                        }
-
-                    # Start with source selection question before preference questions
-                    state.stage = 'choose_subject_source'
-                    state.current_question = None
+                    # Skip source selection and ask the first missing preference.
+                    state.stage = 'collecting'
+                    next_question = pref_service.get_next_question(state.preferences)
+                    state.current_question = next_question
                     conv_manager.save_state(state)
 
-                    question_text = self._source_selection_question_text()
+                    question_text = next_question.question if next_question else "Bạn còn yêu cầu gì cụ thể cho lớp học không?"
                     if class_data_notice:
                         question_text = f"{class_data_notice}\n\n{question_text}"
 
@@ -3045,18 +2931,18 @@ class ChatbotService:
                         "data": None,
                         "is_preference_collecting": True,
                         "conversation_state": "collecting",
-                        "question_type": "single_choice",
-                        "question_options": ["Học phần đã đăng ký", "Học phần hệ thống gợi ý"],
+                        "question_type": next_question.type if next_question else "free_text",
+                        "question_options": next_question.options if next_question else None,
                         "metadata": self._build_class_suggestion_metadata(
                             preferences=state.preferences,
                             conversation_stage=state.stage,
-                            current_question=None,
+                            current_question=next_question,
                             subject_source=self._normalize_subject_source_choice(getattr(state, 'subject_source_choice', None)),
                             subject_ids_seed=getattr(state, 'subject_ids_seed', []),
                             nlq_constraints_dict=state.nlq_constraints,
                             state=state,
-                            next_step='choose_subject_source',
-                            message='Mình cần xác nhận nguồn học phần trước khi đi tiếp.',
+                            next_step='ask_next_question',
+                            message='Hệ thống mặc định dùng danh sách học phần được gợi ý.',
                         ),
                     }
 
