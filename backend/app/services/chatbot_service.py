@@ -2019,6 +2019,253 @@ class ChatbotService:
                 total += self._to_credit_value(subj.get("credits"))
         return total
 
+    def _build_combination_reasoning(
+        self,
+        formatted_classes: List[Dict[str, Any]],
+        combo_metrics: Dict[str, Any],
+        preferences: Dict[str, Any],
+        subject_result: Dict[str, Any],
+        suggested_subjects: List[Dict[str, Any]],
+        classes_by_subject: Dict[str, List[Dict[str, Any]]],
+    ) -> List[str]:
+        """Build deterministic, evidence-based explanations for one combination."""
+        reasons: List[str] = []
+        total_classes = len(formatted_classes)
+
+        study_days = combo_metrics.get("study_days")
+        free_days = combo_metrics.get("free_days")
+        if study_days is not None and free_days is not None:
+            reasons.append(
+                f"Lịch học gói gọn trong {study_days} ngày/tuần và còn {free_days} ngày nghỉ."
+            )
+
+        earliest_start = combo_metrics.get("earliest_start")
+        latest_end = combo_metrics.get("latest_end")
+        if earliest_start and latest_end:
+            reasons.append(
+                f"Các lớp bắt đầu sớm nhất lúc {earliest_start} và kết thúc muộn nhất lúc {latest_end}."
+            )
+
+        continuous_days = combo_metrics.get("continuous_study_days", 0) or 0
+        if preferences.get("prefer_continuous") and continuous_days:
+            reasons.append(
+                f"Có {continuous_days} ngày học liền mạch, đúng với mong muốn học tập trung của bạn."
+            )
+
+        period_labels = {"morning": "buổi sáng", "afternoon": "buổi chiều", "evening": "buổi tối"}
+        preferred_period = preferences.get("time_period")
+        if preferred_period and total_classes:
+            matching = sum(
+                1
+                for cls in formatted_classes
+                if self._class_reasoning_time_period(cls.get("study_time_start")) == preferred_period
+            )
+            reasons.append(
+                f"Có {matching}/{total_classes} lớp học vào {period_labels.get(preferred_period, preferred_period)}, "
+                "phù hợp khung buổi bạn ưu tiên."
+            )
+
+        avoid_periods = set(preferences.get("avoid_time_periods", []) or [])
+        if avoid_periods and total_classes:
+            non_violating = sum(
+                1
+                for cls in formatted_classes
+                if self._class_reasoning_time_period(cls.get("study_time_start")) not in avoid_periods
+            )
+            avoided = ", ".join(period_labels.get(period, period) for period in sorted(avoid_periods))
+            reasons.append(
+                f"Có {non_violating}/{total_classes} lớp tránh được {avoided} theo yêu cầu của bạn."
+            )
+
+        weekday_labels = {
+            "Monday": "thứ 2", "Tuesday": "thứ 3", "Wednesday": "thứ 4",
+            "Thursday": "thứ 5", "Friday": "thứ 6", "Saturday": "thứ 7", "Sunday": "chủ nhật",
+        }
+        preferred_days = set(preferences.get("prefer_days", []) or [])
+        if preferred_days and total_classes:
+            matching = sum(
+                1
+                for cls in formatted_classes
+                if self._class_reasoning_days(cls.get("study_date")) & preferred_days
+            )
+            labels = ", ".join(weekday_labels.get(day, day) for day in sorted(preferred_days))
+            reasons.append(
+                f"Có {matching}/{total_classes} lớp rơi vào các ngày bạn ưu tiên ({labels})."
+            )
+
+        avoid_days = set(preferences.get("avoid_days", []) or [])
+        if avoid_days and total_classes:
+            non_violating = sum(
+                1
+                for cls in formatted_classes
+                if not (self._class_reasoning_days(cls.get("study_date")) & avoid_days)
+            )
+            labels = ", ".join(weekday_labels.get(day, day) for day in sorted(avoid_days))
+            reasons.append(
+                f"Có {non_violating}/{total_classes} lớp tránh được các ngày bạn không muốn học ({labels})."
+            )
+
+        selected_codes = {
+            str(cls.get("subject_id") or "").strip().upper()
+            for cls in formatted_classes
+            if cls.get("subject_id")
+        }
+        suggested_by_code = {
+            str(subject.get("subject_id") or "").strip().upper(): subject
+            for subject in suggested_subjects
+            if subject.get("subject_id")
+        }
+        candidates_by_code = {
+            str(code or "").strip().upper(): candidates
+            for code, candidates in (classes_by_subject or {}).items()
+        }
+
+        summary = subject_result.get("summary", {}) or {}
+        seen_codes: Set[str] = set()
+        ordered_categories = sorted(
+            (category for category in summary if category in self._SUBJECT_PRIORITY_MAP),
+            key=lambda category: self._SUBJECT_PRIORITY_MAP[category],
+        )
+        ordered_categories.extend(
+            category for category in summary if category not in self._SUBJECT_PRIORITY_MAP
+        )
+        for category in ordered_categories:
+            for subject in summary.get(category, []) or []:
+                code = str(subject.get("subject_id") or "").strip().upper()
+                if not code or code in seen_codes:
+                    continue
+                seen_codes.add(code)
+                reasons.append(
+                    self._explain_subject_in_combination(
+                        subject=subject,
+                        category=category,
+                        is_selected=code in selected_codes,
+                        is_suggested=code in suggested_by_code,
+                        has_class_candidates=bool(candidates_by_code.get(code)),
+                        subject_result=subject_result,
+                    )
+                )
+
+        # User-requested subjects can be merged after the rule summary is built.
+        for code, subject in suggested_by_code.items():
+            if code in seen_codes:
+                continue
+            seen_codes.add(code)
+            name = subject.get("subject_name") or "Chưa có tên học phần"
+            if code in selected_codes:
+                reasons.append(
+                    f"{code} - {name}: được chọn vì đây là học phần bạn yêu cầu cụ thể."
+                )
+            elif not candidates_by_code.get(code):
+                reasons.append(
+                    f"{code} - {name}: chưa xuất hiện trong phương án vì hiện không có lớp khả dụng trong dữ liệu lớp."
+                )
+            else:
+                reasons.append(
+                    f"{code} - {name}: có lớp ứng viên nhưng không xuất hiện trong tổ hợp cuối cùng này."
+                )
+
+        if not reasons:
+            reasons.append("Phương án này sử dụng trực tiếp kết quả xếp hạng và các tiêu chí bạn đã cung cấp.")
+        return reasons
+
+    def _class_reasoning_time_period(self, value: Any) -> Optional[str]:
+        match = re.match(r"^\s*(\d{1,2})", str(value or ""))
+        if not match:
+            return None
+        hour = int(match.group(1))
+        if hour < 12:
+            return "morning"
+        if hour < 18:
+            return "afternoon"
+        return "evening"
+
+    def _class_reasoning_days(self, value: Any) -> Set[str]:
+        return {day.strip() for day in str(value or "").split(",") if day.strip()}
+
+    def _explain_subject_in_combination(
+        self,
+        subject: Dict[str, Any],
+        category: str,
+        is_selected: bool,
+        is_suggested: bool,
+        has_class_candidates: bool,
+        subject_result: Dict[str, Any],
+    ) -> str:
+        code = str(subject.get("subject_id") or "?").strip().upper()
+        name = subject.get("subject_name") or "Chưa có tên học phần"
+        prefix = f"{code} - {name}"
+
+        if not is_selected:
+            if subject.get("option_only"):
+                credits = self._to_credit_value(subject.get("credits"))
+                max_credits = self._to_credit_value(subject_result.get("max_credits_allowed"))
+                credit_text = f" ({credits:g} TC)" if credits else ""
+                max_text = f" {max_credits:g} TC" if max_credits else " cho phép"
+                return (
+                    f"{prefix}: là lựa chọn tham khảo{credit_text}, chưa được đưa vào kế hoạch vì khi xét môn này "
+                    f"tổng tín chỉ sẽ vượt mức tối đa{max_text}."
+                )
+            if is_suggested and not has_class_candidates:
+                return (
+                    f"{prefix}: thuộc nhóm {self._format_subject_reason(category).lower()} nhưng chưa xuất hiện "
+                    "trong phương án vì hiện không có lớp khả dụng trong dữ liệu lớp."
+                )
+            if not is_suggested:
+                return (
+                    f"{prefix}: được hệ thống nhận diện ở nhóm {self._format_subject_reason(category).lower()} nhưng "
+                    "không nằm trong kế hoạch tín chỉ cuối cùng theo thứ tự ưu tiên và giới hạn tín chỉ."
+                )
+            return f"{prefix}: có lớp ứng viên nhưng không xuất hiện trong tổ hợp cuối cùng này."
+
+        if category == "failed_retake":
+            return f"{prefix}: được chọn vì bạn đã trượt học phần này (điểm F); đây là nhóm ưu tiên cao nhất cần học lại."
+        if category == "previous_semester_unlearned":
+            semester = subject.get("learning_semester")
+            semester_text = f" kỳ {semester}" if semester is not None else " kỳ trước"
+            return f"{prefix}: được chọn vì đây là học phần của{semester_text} bạn chưa hoàn thành, nên cần ưu tiên để bù tiến độ."
+        if category == "semester_match":
+            semester = subject.get("learning_semester") or subject_result.get("student_semester_number")
+            return f"{prefix}: được chọn vì đúng lộ trình kỳ {semester}, giúp bạn theo sát kế hoạch đào tạo."
+        if category == "political":
+            progress = self._subject_completion_progress(subject)
+            progress_text = f" (hiện đã hoàn thành {progress[0]}/{progress[1]} môn)" if progress else ""
+            return f"{prefix}: được chọn vì thuộc nhóm học phần chính trị bắt buộc{progress_text} và bạn chưa hoàn thành yêu cầu của nhóm này."
+        if category == "physical_education":
+            progress = self._subject_completion_progress(subject)
+            progress_text = f"; hiện bạn đã hoàn thành {progress[0]}/{progress[1]} môn" if progress else ""
+            return f"{prefix}: được chọn vì thuộc nhóm giáo dục thể chất{progress_text}, chưa đủ số học phần thể chất bắt buộc."
+        if category == "supplementary":
+            progress = self._subject_completion_progress(subject)
+            progress_text = f"; hiện bạn đã hoàn thành {progress[0]}/{progress[1]} môn" if progress else ""
+            return f"{prefix}: được chọn vì thuộc nhóm bổ trợ kiến thức{progress_text}, chưa đủ số học phần bổ trợ yêu cầu."
+        if category == "fast_track":
+            cpa = subject_result.get("student_cpa")
+            cpa_text = f" ({self._to_credit_value(cpa):.2f})" if cpa is not None else ""
+            return f"{prefix}: được chọn theo diện học nhanh vì CPA hiện tại{cpa_text} đáp ứng điều kiện học vượt tiến độ."
+        if category == "grade_improvement":
+            grade = subject.get("original_grade")
+            grade_text = f" từ điểm {grade}" if grade else ""
+            return f"{prefix}: được chọn để bạn có cơ hội cải thiện kết quả{grade_text}."
+        priority_reason = str(subject.get("priority_reason") or "")
+        retake_grade = re.search(r"current grade\s+([^\)]+)", priority_reason, re.IGNORECASE)
+        if retake_grade:
+            return (
+                f"{prefix}: được chọn để bù số tín chỉ còn thiếu và tạo cơ hội cải thiện điểm "
+                f"{retake_grade.group(1).strip()}."
+            )
+        return f"{prefix}: được chọn để hoàn thiện các học phần còn lại trong chương trình đào tạo."
+
+    def _subject_completion_progress(self, subject: Dict[str, Any]) -> Optional[Tuple[int, int]]:
+        match = re.search(
+            r"\((\d+)\s*/\s*(\d+)\s+completed\)",
+            str(subject.get("priority_reason") or ""),
+            re.IGNORECASE,
+        )
+        if not match:
+            return None
+        return int(match.group(1)), int(match.group(2))
+
     def _build_subject_text(self, result: Dict) -> str:
         """
         Build a clean, numbered Markdown list with reasons pre-formatted by Node 3b.
@@ -3072,29 +3319,14 @@ class ChatbotService:
                     })
 
                 combo_metrics = combo.get('metrics', {}) or {}
-                combo_reasons: List[str] = []
-                if combo_metrics.get('study_days') is not None and combo_metrics.get('free_days') is not None:
-                    combo_reasons.append(
-                        f"Lịch học gói gọn {combo_metrics.get('study_days')} ngày/tuần, nghỉ {combo_metrics.get('free_days')} ngày."
-                    )
-                if combo_metrics.get('earliest_start') and combo_metrics.get('latest_end'):
-                    combo_reasons.append(
-                        f"Khung giờ ổn định: {combo_metrics.get('earliest_start')} - {combo_metrics.get('latest_end')}."
-                    )
-                if combo_metrics.get('continuous_study_days', 0) > 0:
-                    combo_reasons.append(
-                        f"Có {combo_metrics.get('continuous_study_days')} ngày đáp ứng tiêu chí học liên tục."
-                    )
-
-                semester_match_reasons = []
-                for cls in formatted_classes:
-                    reason = (cls.get('priority_reason') or '').strip()
-                    if reason and reason not in semester_match_reasons:
-                        semester_match_reasons.append(reason)
-                combo_reasons.extend(semester_match_reasons[:2])
-
-                if not combo_reasons:
-                    combo_reasons.append("Phương án này cân bằng tốt giữa số ngày học, tín chỉ và khung giờ.")
+                combo_reasons = self._build_combination_reasoning(
+                    formatted_classes=formatted_classes,
+                    combo_metrics=combo_metrics,
+                    preferences=preferences_dict,
+                    subject_result=subject_result,
+                    suggested_subjects=suggested_subjects,
+                    classes_by_subject=classes_by_subject,
+                )
                 
                 formatted_combinations.append({
                     "combination_id": idx,
