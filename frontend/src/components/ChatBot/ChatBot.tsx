@@ -993,12 +993,6 @@ const ChatBot: React.FC = () => {
               {progress?.completed ?? 0}/{progress?.total ?? 0} nhóm preference đã có
             </span>
           </div>
-          {interactiveQuestion && metadata.conversation?.next_step !== 'done' && (
-            <div className="metadata-next-step">
-              <span className="metadata-next-label">Câu hỏi tiếp theo</span>
-              <div className="metadata-next-question">{interactiveQuestion.question}</div>
-            </div>
-          )}
         </div>
 
         {canInteract && interactiveQuestion && (

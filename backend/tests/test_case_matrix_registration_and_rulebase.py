@@ -6,8 +6,9 @@ import pytest
 # Add backend dir to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.agents.graph_nodes import intent_router_node, query_splitter_node
+from app.agents.graph_nodes import _metadata_to_dict, intent_router_node, query_splitter_node
 from app.routes.chatbot_routes import _extract_agent_class_suggestion_fields, _process_single_query
+from app.schemas.chatbot_schema import ClassSuggestionMetadata
 from app.schemas.preference_schema import PREFERENCE_QUESTIONS
 
 
@@ -176,6 +177,29 @@ def test_first_day_preference_is_extracted_from_langgraph_raw_dict():
     assert current_question["key"] == "day"
     assert current_question["type"] == "multi_choice"
     assert current_question["options"] == day_question.options
+
+
+def test_langgraph_bridge_preserves_pydantic_question_metadata():
+    day_question = PREFERENCE_QUESTIONS["day"]
+    validated_metadata = ClassSuggestionMetadata(
+        conversation={
+            "stage": "collecting",
+            "next_step": "ask_next_question",
+            "current_question": day_question.model_dump(),
+        },
+        preferences={
+            "captured": [],
+            "missing": [{"key": "day", "label": "Ngày học", "hint": "Chọn ngày"}],
+            "auto_captured_keys": [],
+            "summary": {},
+        },
+    )
+
+    normalized = _metadata_to_dict(validated_metadata)
+
+    assert normalized["conversation"]["current_question"]["type"] == "multi_choice"
+    assert normalized["conversation"]["current_question"]["options"] == day_question.options
+    assert normalized["preferences"]["missing"][0]["key"] == "day"
 
 
 @pytest.mark.asyncio

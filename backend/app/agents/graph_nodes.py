@@ -566,6 +566,16 @@ def _normalize_tool_payload(query: str, student_id: Optional[int], conversation_
     }
 
 
+def _metadata_to_dict(metadata: Any) -> Dict[str, Any]:
+    """Normalize route metadata without dropping validated Pydantic models."""
+    if isinstance(metadata, dict):
+        return metadata
+    if hasattr(metadata, "model_dump"):
+        dumped = metadata.model_dump(exclude_none=True)
+        return dumped if isinstance(dumped, dict) else {}
+    return {}
+
+
 async def _call_rule_based_backend(
     intent: str,
     query: str,
@@ -594,9 +604,13 @@ async def _call_rule_based_backend(
         data_count = len(result_data) if isinstance(result_data, list) else (1 if result_data else 0)
         tool_extra: Dict[str, Any] = {}
         preformatted_text: Optional[str] = None
-        if isinstance(result.metadata, dict):
-            tool_extra = {k: v for k, v in result.metadata.items() if k not in ("node", "duration_ms", "intent")}
-            preformatted_text = result.metadata.get("preformatted_text")
+        # ChatResponseWithData validates class-suggestion metadata into a
+        # Pydantic model. Preserve it when crossing the LangGraph bridge.
+        result_metadata = _metadata_to_dict(result.metadata)
+
+        if result_metadata:
+            tool_extra = {k: v for k, v in result_metadata.items() if k not in ("node", "duration_ms", "intent")}
+            preformatted_text = result_metadata.get("preformatted_text")
 
         response_data: Dict[str, Any] = {
             "text": result.text or "",
@@ -615,8 +629,8 @@ async def _call_rule_based_backend(
             "xlsx_url",
             "export_url",
         ):
-            if isinstance(result.metadata, dict) and key in result.metadata:
-                response_data[key] = result.metadata.get(key)
+            if key in result_metadata:
+                response_data[key] = result_metadata.get(key)
 
         if intent == "class_registration_suggestion":
             for key in (
@@ -625,8 +639,8 @@ async def _call_rule_based_backend(
                 "conversation_state",
                 "is_preference_collecting",
             ):
-                if isinstance(result.metadata, dict) and key in result.metadata:
-                    response_data[key] = result.metadata.get(key)
+                if key in result_metadata:
+                    response_data[key] = result_metadata.get(key)
 
         if intent == "subject_registration_suggestion" and constraints:
             constrained_payload = chatbot_service.apply_subject_suggestion_constraints(response_data, constraints)
