@@ -289,14 +289,21 @@ def _extract_agent_class_suggestion_fields(
     raw: Any,
     intent_label: str,
 ) -> Tuple[Optional[List[Dict[str, Any]]], Optional[Dict[str, Any]]]:
-    """Preserve interactive metadata from a single Node-3 class-suggestion result."""
-    if intent_label != "class_registration_suggestion" or not isinstance(raw, list) or len(raw) != 1:
+    """Preserve interactive metadata from linear and LangGraph Node-3 results."""
+    if intent_label != "class_registration_suggestion":
         return None, None
 
-    raw_result = raw[0].get("raw_result") if isinstance(raw[0], dict) else None
+    raw_result = raw
+    if isinstance(raw, list):
+        if len(raw) != 1 or not isinstance(raw[0], dict):
+            return None, None
+        raw_result = raw[0].get("raw_result", raw[0].get("raw", raw[0]))
+
     if not isinstance(raw_result, dict):
         return None, None
 
+    # Tool executors wrap service results as {status, data}; graph mode may
+    # return the service result itself. Support both response shapes.
     payload = raw_result.get("data") if raw_result.get("status") in {"success", "error"} else raw_result
     if not isinstance(payload, dict):
         payload = {}
@@ -310,6 +317,36 @@ def _extract_agent_class_suggestion_fields(
         result_data = [result_data] if isinstance(result_data, dict) else [{"value": result_data}]
 
     return result_data, _sanitize_class_suggestion_metadata(metadata if isinstance(metadata, dict) else None)
+
+
+def _recover_class_suggestion_metadata(
+    chatbot_service: ChatbotService,
+    conversation_id: int,
+) -> Optional[Dict[str, Any]]:
+    """Rebuild interactive UI metadata from state saved by the service."""
+    try:
+        state = get_conversation_state_manager().get_state(conversation_id)
+        if not state or state.stage not in ("collecting", "collecting_preferences"):
+            return None
+        if state.current_question is None:
+            return None
+
+        return _sanitize_class_suggestion_metadata(
+            chatbot_service._build_class_suggestion_metadata(
+                preferences=state.preferences,
+                conversation_stage=state.stage,
+                current_question=state.current_question,
+                subject_source=getattr(state, "subject_source_choice", None) or "suggested",
+                subject_ids_seed=getattr(state, "subject_ids_seed", []) or [],
+                nlq_constraints_dict=getattr(state, "nlq_constraints", None),
+                state=state,
+                next_step="ask_next_question",
+                message="Hệ thống đang thu thập tiêu chí để gợi ý lớp học phù hợp.",
+            )
+        )
+    except Exception as exc:
+        print(f"[CHAT][AGENT] metadata state recovery failed: {exc}")
+        return None
 
 
 def _normalize_subject_source_from_label(value: Optional[str]) -> str:
@@ -1267,7 +1304,7 @@ async def chat(
                 raw = orchestration_result.get('raw')
                 # derive intent/parts
                 parts = []
-                intent_label = 'unknown'
+                intent_label = orchestration_result.get('intent') or 'unknown'
                 confidence_label = 'medium'
                 if isinstance(raw, list) and len(raw) > 0:
                     if len(raw) == 1:
@@ -1292,6 +1329,11 @@ async def chat(
                     token_count=llm_debug.get("total_tokens") if isinstance(llm_debug, dict) else None,
                 )
                 agent_data, agent_metadata = _extract_agent_class_suggestion_fields(raw, intent_label)
+                if intent_label == 'class_registration_suggestion' and agent_metadata is None:
+                    agent_metadata = _recover_class_suggestion_metadata(
+                        chatbot_service,
+                        effective_conversation_id,
+                    )
                 
                 response_payload = ChatResponseWithData(
                     text=resp_text,
@@ -1752,7 +1794,7 @@ async def chat_stream(
                             resp_text = orchestration_result.get('response') or ''
                             raw = orchestration_result.get('raw')
                             parts = []
-                            intent_label = 'unknown'
+                            intent_label = orchestration_result.get('intent') or 'unknown'
                             confidence_label = 'medium'
                             if isinstance(raw, list) and len(raw) > 0:
                                 if len(raw) == 1:
@@ -1777,6 +1819,11 @@ async def chat_stream(
                                 token_count=llm_debug.get("total_tokens") if isinstance(llm_debug, dict) else None,
                             )
                             agent_data, agent_metadata = _extract_agent_class_suggestion_fields(raw, intent_label)
+                            if intent_label == 'class_registration_suggestion' and agent_metadata is None:
+                                agent_metadata = _recover_class_suggestion_metadata(
+                                    chatbot_service,
+                                    effective_conversation_id,
+                                )
                             
                             response_payload = ChatResponseWithData(
                                 text=resp_text,

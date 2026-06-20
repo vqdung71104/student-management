@@ -149,6 +149,35 @@ def test_first_day_preference_is_exposed_as_multi_choice_from_agent_result():
     ]
 
 
+def test_first_day_preference_is_extracted_from_langgraph_raw_dict():
+    day_question = PREFERENCE_QUESTIONS["day"]
+    metadata = {
+        "conversation": {
+            "stage": "collecting",
+            "current_question": day_question.model_dump(),
+        }
+    }
+    graph_raw = {
+        "status": "success",
+        "data": {
+            "text": day_question.question,
+            "data": None,
+            "metadata": metadata,
+        },
+    }
+
+    data, extracted_metadata = _extract_agent_class_suggestion_fields(
+        graph_raw,
+        "class_registration_suggestion",
+    )
+
+    assert data is None
+    current_question = extracted_metadata["conversation"]["current_question"]
+    assert current_question["key"] == "day"
+    assert current_question["type"] == "multi_choice"
+    assert current_question["options"] == day_question.options
+
+
 @pytest.mark.asyncio
 async def test_case_1_cpa_rulebase_fast_no_agent():
     split_result, route_result = await _split_and_route("cpa")
