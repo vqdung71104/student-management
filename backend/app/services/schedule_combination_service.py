@@ -69,7 +69,6 @@ class ScheduleCombinationGenerator:
         # Step 2: Generate and filter combinations efficiently
         print(f"🔢 [COMBINATIONS] Generating combinations with conflict checking...")
         valid_combinations = []
-        conflict_combinations = []
         
         # Use itertools.product generator (lazy evaluation)
         all_combinations = itertools.product(*subject_classes)
@@ -89,17 +88,12 @@ class ScheduleCombinationGenerator:
                     # Skip this combination - missing required class
                     continue
             
-            # Check time conflicts
-            if not self.has_time_conflicts(combo_list):
+            # ABSOLUTE RULES: never allow duplicate subjects or time conflicts.
+            if not self.has_duplicate_subjects(combo_list) and not self.has_time_conflicts(combo_list):
                 valid_combinations.append(combo_list)
                 # Stop if we have enough valid combinations
                 if len(valid_combinations) >= max_combinations:
                     break
-            else:
-                # Keep first 10 conflicted combinations as backup
-                if len(conflict_combinations) < 10:
-                    conflict_combinations.append(combo_list)
-            
             # Safety limit to avoid infinite loop
             if checked_count >= max_to_check:
                 print(f"  ⚠️ Checked {checked_count} combinations, stopping search")
@@ -108,14 +102,14 @@ class ScheduleCombinationGenerator:
         print(f"  ✅ Checked {checked_count} combinations")
         print(f"  ✅ Valid combinations (no conflicts): {len(valid_combinations)}")
         
-        # If no valid combinations found
+        # Never fall back to combinations that violate either absolute rule.
         if not valid_combinations:
             if specific_class_ids:
                 print(f"  ❌ No valid combinations with required classes {specific_class_ids}")
                 print(f"  💡 Suggestion: Required classes may have time conflicts with other subjects")
             else:
-                print(f"  ⚠️ No valid combinations found, returning combinations with conflicts marked")
-            valid_combinations = conflict_combinations[:10]
+                print(f"  ⚠️ No valid combinations found without duplicate subjects or time conflicts")
+            return []
         
         # Step 4: Score and rank
         print(f"⭐ [COMBINATIONS] Scoring combinations...")
@@ -125,16 +119,14 @@ class ScheduleCombinationGenerator:
             score = self.calculate_combination_score(combo, preferences)
             metrics = self.calculate_schedule_metrics(combo)
             
-            # Check if this combination has conflicts
-            has_conflicts = self.has_time_conflicts(combo)
-            metrics['time_conflicts'] = has_conflicts
+            metrics['time_conflicts'] = False
             
             scored_combinations.append({
                 'classes': combo,
                 'score': score,
                 'metrics': metrics,
                 'subject_ids': [cls['subject_id'] for cls in combo],
-                'has_violations': has_conflicts  # Flag for frontend
+                'has_violations': False
             })
         
         # Step 5: Sort by score (highest first)
@@ -148,6 +140,15 @@ class ScheduleCombinationGenerator:
         print(f"  📊 Score range: {scored_combinations[-1]['score']:.1f} - {scored_combinations[0]['score']:.1f}")
         
         return scored_combinations
+
+    def has_duplicate_subjects(self, classes: List[Dict]) -> bool:
+        """ABSOLUTE RULE: one combination may contain at most one class per subject."""
+        subject_ids = [
+            str(cls.get('subject_id')).strip().upper()
+            for cls in classes
+            if cls.get('subject_id') is not None
+        ]
+        return len(subject_ids) != len(set(subject_ids))
     
     def has_time_conflicts(self, classes: List[Dict]) -> bool:
         """
@@ -167,10 +168,11 @@ class ScheduleCombinationGenerator:
                 # Step 1: Check study_week overlap
                 weeks1 = set(class1.get('study_week', []) or [])
                 weeks2 = set(class2.get('study_week', []) or [])
-                
-                # If no common weeks, no conflict
+
+                # Missing week data is treated conservatively as potentially
+                # overlapping. Only explicit, disjoint week sets prove safety.
                 common_weeks = weeks1 & weeks2
-                if not common_weeks:
+                if weeks1 and weeks2 and not common_weeks:
                     continue
                 
                 # Step 2: Check study_date overlap

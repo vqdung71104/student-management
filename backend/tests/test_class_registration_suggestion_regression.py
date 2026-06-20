@@ -1,4 +1,5 @@
 from copy import deepcopy
+from datetime import time
 
 from app.schemas.preference_schema import CompletePreference
 from app.services.preference_service import PreferenceCollectionService
@@ -330,17 +331,32 @@ def test_combination_reasoning_quantifies_preference_matches():
     service = ChatbotService.__new__(ChatbotService)
     subject = _reasoning_subject("IT2000", "Cấu trúc dữ liệu", learning_semester=3)
     formatted_classes = [
-        {"subject_id": "IT2000", "study_date": "Monday", "study_time_start": "08:00"},
-        {"subject_id": "MI2000", "study_date": "Saturday", "study_time_start": "13:00"},
+        {
+            "subject_id": "IT2000", "study_date": "Monday",
+            "study_time_start": "08:00", "study_time_end": "10:00",
+        },
+        {
+            "subject_id": "MI2000", "study_date": "Saturday",
+            "study_time_start": "13:00", "study_time_end": "17:00",
+        },
     ]
 
     reasons = service._build_combination_reasoning(
         formatted_classes=formatted_classes,
-        combo_metrics={},
+        combo_metrics={
+            "study_days": 2,
+            "free_days": 5,
+            "earliest_start": "08:00",
+            "latest_end": "17:00",
+            "continuous_study_days": 1,
+        },
         preferences={
             "time_period": "morning",
             "prefer_days": ["Monday"],
             "avoid_days": ["Saturday"],
+            "prefer_free_days": True,
+            "prefer_continuous": True,
+            "avoid_late_end": True,
         },
         subject_result={"student_semester_number": 3, "summary": {"semester_match": [subject]}},
         suggested_subjects=[subject],
@@ -350,3 +366,89 @@ def test_combination_reasoning_quantifies_preference_matches():
     assert any("1/2 lớp học vào buổi sáng" in reason for reason in reasons)
     assert any("1/2 lớp rơi vào các ngày bạn ưu tiên" in reason for reason in reasons)
     assert any("1/2 lớp tránh được các ngày bạn không muốn học" in reason for reason in reasons)
+    assert any("đáp ứng mong muốn có nhiều ngày trống" in reason for reason in reasons)
+    assert any("thứ 2: 1 môn" in reason and "thứ 7: 1 môn" in reason for reason in reasons)
+    assert any("đúng với mong muốn học tập trung" in reason for reason in reasons)
+    assert any("2/2 lớp kết thúc không muộn hơn 18:00" in reason for reason in reasons)
+
+
+def test_schedule_generator_never_returns_time_conflict_as_fallback():
+    generator = ScheduleCombinationGenerator()
+    classes_by_subject = {
+        "IT1000": [{
+            "id": 1, "class_id": "IT-A", "subject_id": "IT1000",
+            "study_week": [1, 2], "study_date": "Monday",
+            "study_time_start": time(8, 0), "study_time_end": time(10, 0), "credits": 3,
+        }],
+        "MI1000": [{
+            "id": 2, "class_id": "MI-A", "subject_id": "MI1000",
+            "study_week": [1, 2], "study_date": "Monday",
+            "study_time_start": time(9, 0), "study_time_end": time(11, 0), "credits": 3,
+        }],
+    }
+
+    result = generator.generate_combinations(classes_by_subject, preferences={}, max_combinations=10)
+
+    assert result == []
+
+
+def test_schedule_generator_rejects_duplicate_subject_even_with_different_source_keys():
+    generator = ScheduleCombinationGenerator()
+    classes_by_subject = {
+        "GROUP_A": [{
+            "id": 1, "class_id": "IT-A", "subject_id": "IT1000",
+            "study_week": [1], "study_date": "Monday",
+            "study_time_start": time(8, 0), "study_time_end": time(9, 0), "credits": 3,
+        }],
+        "GROUP_B": [{
+            "id": 2, "class_id": "IT-B", "subject_id": "IT1000",
+            "study_week": [1], "study_date": "Tuesday",
+            "study_time_start": time(8, 0), "study_time_end": time(9, 0), "credits": 3,
+        }],
+    }
+
+    result = generator.generate_combinations(classes_by_subject, preferences={}, max_combinations=10)
+
+    assert result == []
+
+
+def test_schedule_generator_treats_missing_week_as_potential_overlap():
+    generator = ScheduleCombinationGenerator()
+    classes = [
+        {
+            "class_id": "IT-A", "subject_id": "IT1000", "study_week": [],
+            "study_date": "Monday", "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+        },
+        {
+            "class_id": "MI-A", "subject_id": "MI1000", "study_week": [1, 2],
+            "study_date": "Monday", "study_time_start": time(9, 0), "study_time_end": time(11, 0),
+        },
+    ]
+
+    assert generator.has_time_conflicts(classes) is True
+
+
+def test_combination_comparison_explains_class_and_schedule_differences():
+    service = ChatbotService.__new__(ChatbotService)
+    combinations = [
+        {
+            "score": 130,
+            "classes": [{
+                "subject_id": "IT1000", "class_id": "IT-A", "study_date": "Monday",
+            }],
+            "metrics": {"study_days": 1, "earliest_start": "08:00", "latest_end": "10:00"},
+        },
+        {
+            "score": 120,
+            "classes": [{
+                "subject_id": "IT1000", "class_id": "IT-B", "study_date": "Tuesday",
+            }],
+            "metrics": {"study_days": 1, "earliest_start": "13:00", "latest_end": "15:00"},
+        },
+    ]
+
+    comparison = service._build_combinations_comparison(combinations)
+
+    assert "điểm xếp hạng cao nhất" in comparison[0]
+    assert "IT1000: lớp IT-B thay lớp IT-A" in comparison[1]
+    assert "thứ 3" in comparison[1]

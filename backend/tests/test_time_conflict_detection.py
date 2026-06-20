@@ -240,8 +240,8 @@ class TestTimeConflictDetection:
     
     # ==================== EDGE CASES ====================
     
-    def test_no_conflict_empty_study_week(self):
-        """Test: Handle empty study_week gracefully"""
+    def test_conflict_empty_study_week_is_treated_conservatively(self):
+        """Missing week data cannot be used to prove that two classes are safe."""
         class1 = {
             'class_id': '101',
             'study_week': [],
@@ -258,10 +258,10 @@ class TestTimeConflictDetection:
         }
         
         result = self.generator.has_time_conflicts([class1, class2])
-        assert result == False, "Empty study_week should result in no conflict"
+        assert result == True, "Empty study_week must be treated as potentially overlapping"
     
-    def test_no_conflict_none_study_week(self):
-        """Test: Handle None study_week gracefully"""
+    def test_conflict_none_study_week_is_treated_conservatively(self):
+        """None week data cannot bypass the absolute no-conflict rule."""
         class1 = {
             'class_id': '101',
             'study_week': None,
@@ -278,7 +278,7 @@ class TestTimeConflictDetection:
         }
         
         result = self.generator.has_time_conflicts([class1, class2])
-        assert result == False, "None study_week should result in no conflict"
+        assert result == True, "None study_week must be treated as potentially overlapping"
     
     def test_multiple_classes_no_conflict(self):
         """Test: Multiple classes with no conflicts"""

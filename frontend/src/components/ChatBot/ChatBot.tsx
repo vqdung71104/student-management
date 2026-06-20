@@ -569,6 +569,20 @@ const ChatBot: React.FC = () => {
       .replace(/^• (.+)$/gm, '<div class="bullet-item">• $1</div>');
   };
 
+  const renderReasoningText = (reason: string) => {
+    const subjectCodeMatch = reason.match(/^([A-Za-z]{2,10}\d{2,6})(\s+-\s+.*)$/);
+    if (!subjectCodeMatch) {
+      return reason;
+    }
+
+    return (
+      <>
+        <strong>{subjectCodeMatch[1]}</strong>
+        {subjectCodeMatch[2]}
+      </>
+    );
+  };
+
   // Handle Excel download
   const handleDownloadExcel = async (combination: any, index: number) => {
     try {
@@ -793,7 +807,9 @@ const ChatBot: React.FC = () => {
                 <div className="combination-reasoning-title">Vì sao phương án này tốt</div>
                 <ul>
                   {combination.reasoning.map((reason: string, reasonIdx: number) => (
-                    <li key={`${combination.combination_id || idx + 1}-reason-${reasonIdx}`}>{reason}</li>
+                    <li key={`${combination.combination_id || idx + 1}-reason-${reasonIdx}`}>
+                      {renderReasoningText(reason)}
+                    </li>
                   ))}
                 </ul>
               </div>

@@ -2032,18 +2032,89 @@ class ChatbotService:
         reasons: List[str] = []
         total_classes = len(formatted_classes)
 
+        weekday_labels = {
+            "Monday": "thứ 2", "Tuesday": "thứ 3", "Wednesday": "thứ 4",
+            "Thursday": "thứ 5", "Friday": "thứ 6", "Saturday": "thứ 7", "Sunday": "chủ nhật",
+        }
+        weekday_order = {day: index for index, day in enumerate(weekday_labels)}
+        classes_per_day: Dict[str, int] = defaultdict(int)
+        for cls in formatted_classes:
+            for day in self._class_reasoning_days(cls.get("study_date")):
+                classes_per_day[day] += 1
+
         study_days = combo_metrics.get("study_days")
         free_days = combo_metrics.get("free_days")
         if study_days is not None and free_days is not None:
-            reasons.append(
-                f"Lịch học gói gọn trong {study_days} ngày/tuần và còn {free_days} ngày nghỉ."
-            )
+            if preferences.get("prefer_free_days"):
+                reasons.append(
+                    f"Lịch học gói gọn trong {study_days} ngày/tuần và còn {free_days} ngày nghỉ, "
+                    "đáp ứng mong muốn có nhiều ngày trống của bạn."
+                )
+            elif preferences.get("free_days_is_not_important"):
+                reasons.append(
+                    f"Lịch học trong {study_days} ngày/tuần và còn {free_days} ngày nghỉ; tiêu chí số ngày nghỉ "
+                    "không ảnh hưởng xếp hạng vì bạn đã chọn không quan trọng."
+                )
+            else:
+                reasons.append(
+                    f"Lịch học được phân bố trong {study_days} ngày/tuần và còn {free_days} ngày nghỉ."
+                )
+
+        if classes_per_day:
+            day_parts = [
+                f"{weekday_labels.get(day, day)}: {count} môn"
+                for day, count in sorted(
+                    classes_per_day.items(),
+                    key=lambda item: weekday_order.get(item[0], 99),
+                )
+            ]
+            distribution = ", ".join(day_parts)
+            if preferences.get("prefer_continuous") or preferences.get("prefer_free_days"):
+                reasons.append(
+                    f"Các môn được dồn theo ngày ({distribution}), phù hợp mong muốn học tập trung và giảm số ngày phải đến lớp."
+                )
+            else:
+                reasons.append(f"Số môn theo từng ngày: {distribution}.")
 
         earliest_start = combo_metrics.get("earliest_start")
         latest_end = combo_metrics.get("latest_end")
         if earliest_start and latest_end:
+            if preferences.get("prefer_early_start"):
+                reasons.append(
+                    f"Lớp bắt đầu sớm nhất lúc {earliest_start} và kết thúc muộn nhất lúc {latest_end}, "
+                    "phù hợp mong muốn bắt đầu học sớm của bạn."
+                )
+            elif preferences.get("prefer_late_start"):
+                reasons.append(
+                    f"Khung giờ của phương án là {earliest_start} - {latest_end}; đây là kết quả được xếp hạng "
+                    "theo mong muốn bắt đầu học muộn của bạn."
+                )
+            elif preferences.get("time_is_not_important"):
+                reasons.append(
+                    f"Lớp bắt đầu sớm nhất lúc {earliest_start} và kết thúc muộn nhất lúc {latest_end}; "
+                    "khung giờ không ảnh hưởng xếp hạng vì bạn đã chọn không quan trọng."
+                )
+            else:
+                reasons.append(
+                    f"Lớp bắt đầu sớm nhất lúc {earliest_start} và kết thúc muộn nhất lúc {latest_end}."
+                )
+
+        if preferences.get("avoid_early_start") and total_classes:
+            acceptable = sum(
+                1 for cls in formatted_classes
+                if self._class_reasoning_time_minutes(cls.get("study_time_start")) >= 9 * 60
+            )
             reasons.append(
-                f"Các lớp bắt đầu sớm nhất lúc {earliest_start} và kết thúc muộn nhất lúc {latest_end}."
+                f"Có {acceptable}/{total_classes} lớp bắt đầu từ 09:00 trở đi, đáp ứng yêu cầu tránh học quá sớm."
+            )
+
+        if preferences.get("avoid_late_end") and total_classes:
+            acceptable = sum(
+                1 for cls in formatted_classes
+                if 0 <= self._class_reasoning_time_minutes(cls.get("study_time_end")) <= 18 * 60
+            )
+            reasons.append(
+                f"Có {acceptable}/{total_classes} lớp kết thúc không muộn hơn 18:00, đáp ứng yêu cầu tránh học quá muộn."
             )
 
         continuous_days = combo_metrics.get("continuous_study_days", 0) or 0
@@ -2077,10 +2148,6 @@ class ChatbotService:
                 f"Có {non_violating}/{total_classes} lớp tránh được {avoided} theo yêu cầu của bạn."
             )
 
-        weekday_labels = {
-            "Monday": "thứ 2", "Tuesday": "thứ 3", "Wednesday": "thứ 4",
-            "Thursday": "thứ 5", "Friday": "thứ 6", "Saturday": "thứ 7", "Sunday": "chủ nhật",
-        }
         preferred_days = set(preferences.get("prefer_days", []) or [])
         if preferred_days and total_classes:
             matching = sum(
@@ -2088,7 +2155,10 @@ class ChatbotService:
                 for cls in formatted_classes
                 if self._class_reasoning_days(cls.get("study_date")) & preferred_days
             )
-            labels = ", ".join(weekday_labels.get(day, day) for day in sorted(preferred_days))
+            labels = ", ".join(
+                weekday_labels.get(day, day)
+                for day in sorted(preferred_days, key=lambda day: weekday_order.get(day, 99))
+            )
             reasons.append(
                 f"Có {matching}/{total_classes} lớp rơi vào các ngày bạn ưu tiên ({labels})."
             )
@@ -2100,7 +2170,10 @@ class ChatbotService:
                 for cls in formatted_classes
                 if not (self._class_reasoning_days(cls.get("study_date")) & avoid_days)
             )
-            labels = ", ".join(weekday_labels.get(day, day) for day in sorted(avoid_days))
+            labels = ", ".join(
+                weekday_labels.get(day, day)
+                for day in sorted(avoid_days, key=lambda day: weekday_order.get(day, 99))
+            )
             reasons.append(
                 f"Có {non_violating}/{total_classes} lớp tránh được các ngày bạn không muốn học ({labels})."
             )
@@ -2170,15 +2243,20 @@ class ChatbotService:
         return reasons
 
     def _class_reasoning_time_period(self, value: Any) -> Optional[str]:
-        match = re.match(r"^\s*(\d{1,2})", str(value or ""))
-        if not match:
+        minutes = self._class_reasoning_time_minutes(value)
+        if minutes < 0:
             return None
-        hour = int(match.group(1))
-        if hour < 12:
+        if minutes < 12 * 60:
             return "morning"
-        if hour < 18:
+        if minutes < 18 * 60:
             return "afternoon"
         return "evening"
+
+    def _class_reasoning_time_minutes(self, value: Any) -> int:
+        match = re.match(r"^\s*(\d{1,2})(?::(\d{1,2}))?", str(value or ""))
+        if not match:
+            return -1
+        return int(match.group(1)) * 60 + int(match.group(2) or 0)
 
     def _class_reasoning_days(self, value: Any) -> Set[str]:
         return {day.strip() for day in str(value or "").split(",") if day.strip()}
@@ -3247,6 +3325,37 @@ class ChatbotService:
                 max_combinations=40
             )
 
+            # Preferences are soft constraints. If they leave fewer than three
+            # valid options, retry with the unpruned candidates. The two absolute
+            # rules remain enforced inside ScheduleCombinationGenerator.
+            if len(combinations) < 3:
+                print("🔄 [COMBINATIONS] Relaxing soft preferences to find more valid schedules...")
+                relaxed_classes_by_subject = {}
+                for subj in suggested_subjects:
+                    relaxed_result = self.class_rule_engine.suggest_classes(
+                        student_id=student_id,
+                        subject_ids=[subj['id']],
+                        preferences={},
+                        registered_classes=[],
+                        min_suggestions=5,
+                    )
+                    relaxed_classes_by_subject[subj['subject_id']] = relaxed_result['suggested_classes'][:10]
+
+                relaxed_preferences = dict(preferences_dict)
+                relaxed_preferences.pop('specific_class_ids', None)
+                if (
+                    relaxed_classes_by_subject != classes_by_subject
+                    or relaxed_preferences != preferences_dict
+                ):
+                    relaxed_combinations = combo_generator.generate_combinations(
+                        classes_by_subject=relaxed_classes_by_subject,
+                        preferences=relaxed_preferences,
+                        max_combinations=40,
+                    )
+                    if len(relaxed_combinations) > len(combinations):
+                        combinations = relaxed_combinations
+                        classes_by_subject = relaxed_classes_by_subject
+
             if not combinations:
                 from app.services.conversation_state import get_conversation_state_manager, safe_delete_state
                 safe_delete_state(get_conversation_state_manager(), conversation_state.conversation_id or conversation_id)
@@ -3711,6 +3820,71 @@ class ChatbotService:
         
         return "\n".join(response)
     
+    def _build_combinations_comparison(self, combinations: List[Dict[str, Any]]) -> List[str]:
+        """Explain how the returned schedule alternatives differ before rendering cards."""
+        if not combinations:
+            return []
+
+        weekday_labels = {
+            "Monday": "thứ 2", "Tuesday": "thứ 3", "Wednesday": "thứ 4",
+            "Thursday": "thứ 5", "Friday": "thứ 6", "Saturday": "thứ 7", "Sunday": "chủ nhật",
+        }
+        weekday_order = {day: index for index, day in enumerate(weekday_labels)}
+        baseline = {
+            str(cls.get("subject_id") or "").upper(): str(cls.get("class_id") or "")
+            for cls in combinations[0].get("classes", [])
+        }
+        comparison: List[str] = []
+
+        for index, combination in enumerate(combinations, 1):
+            classes = combination.get("classes", []) or []
+            metrics = combination.get("metrics", {}) or {}
+            days = sorted(
+                {
+                    day
+                    for cls in classes
+                    for day in self._class_reasoning_days(cls.get("study_date"))
+                },
+                key=lambda day: weekday_order.get(day, 99),
+            )
+            day_text = ", ".join(weekday_labels.get(day, day) for day in days) or "chưa xác định"
+            time_text = (
+                f"{metrics.get('earliest_start')} - {metrics.get('latest_end')}"
+                if metrics.get("earliest_start") and metrics.get("latest_end")
+                else "chưa xác định"
+            )
+            detail = (
+                f"học {metrics.get('study_days', len(days))} ngày ({day_text}), khung giờ {time_text}, "
+                f"điểm phù hợp {combination.get('score', 0)}"
+            )
+
+            if index == 1:
+                comparison.append(f"Phương án 1: phương án có điểm xếp hạng cao nhất; {detail}.")
+                continue
+
+            current = {
+                str(cls.get("subject_id") or "").upper(): str(cls.get("class_id") or "")
+                for cls in classes
+            }
+            changes = []
+            for subject_code in sorted(set(baseline) | set(current)):
+                if baseline.get(subject_code) == current.get(subject_code):
+                    continue
+                if baseline.get(subject_code) and current.get(subject_code):
+                    changes.append(
+                        f"{subject_code}: lớp {current[subject_code]} thay lớp {baseline[subject_code]}"
+                    )
+                elif current.get(subject_code):
+                    changes.append(f"{subject_code}: thêm lớp {current[subject_code]}")
+                else:
+                    changes.append(f"{subject_code}: không có lớp tương ứng")
+            difference_text = "; ".join(changes) if changes else "khác ở cách phân bố lịch học"
+            comparison.append(
+                f"Phương án {index}: khác phương án 1 ở {difference_text}; {detail}."
+            )
+
+        return comparison
+
     def _format_schedule_combinations(
         self,
         combinations: List[Dict],
@@ -3739,6 +3913,15 @@ class ChatbotService:
         lines.append("")
         lines.append(f"📊 Kỳ học {subject_result['current_semester']} • CPA {subject_result['student_cpa']:.2f}")
         lines.append(f"🔢 Tổng số phương án: {len(combinations)}")
+        lines.append("")
+        lines.append("📋 Sự khác nhau giữa các phương án:")
+        lines.append(
+            "Cả ba phương án đều tuân thủ hai luật tuyệt đối: mỗi học phần chỉ có một lớp và các lớp không trùng thời gian."
+            if len(combinations) == 3
+            else "Tất cả phương án đều tuân thủ hai luật tuyệt đối: mỗi học phần chỉ có một lớp và các lớp không trùng thời gian."
+        )
+        for comparison in self._build_combinations_comparison(combinations):
+            lines.append(f"• {comparison}")
 
         return "\n".join(lines)
     
