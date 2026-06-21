@@ -51,8 +51,8 @@ def lookup_context():
     engine.dispose()
 
 
-def test_in_course_fuzzy_candidate_beats_outside_exact_candidate(lookup_context):
-    service, _, course, inside, _ = lookup_context
+def test_exact_subject_code_is_authoritative_over_in_course_fuzzy_candidate(lookup_context):
+    service, _, course, _, outside = lookup_context
 
     matched = service._resolve_subject_match(
         "thông tin môn CS9999 cấu trúc dữ liệu",
@@ -60,7 +60,7 @@ def test_in_course_fuzzy_candidate_beats_outside_exact_candidate(lookup_context)
     )
 
     assert matched is not None
-    assert matched["subject_db_id"] == inside.id
+    assert matched["subject_db_id"] == outside.id
 
 
 def test_fuzzy_subject_id_uses_course_aware_cache_shape(lookup_context):
@@ -97,6 +97,21 @@ def test_roman_and_arabic_suffixes_match_and_prefer_course(lookup_context):
     assert service._fuzzy_matcher._normalize("Giải tích I") == "giai tich 1"
     assert arabic_match["subject_db_id"] == in_course.id
     assert roman_match["subject_db_id"] == in_course.id
+
+
+def test_unrelated_in_course_match_does_not_hide_best_global_name(lookup_context):
+    service, _, course, _, outside = lookup_context
+    outside.subject_name = "Văn hóa kinh doanh và tinh thần khởi nghiệp"
+    service.db.commit()
+    service._fuzzy_matcher.refresh_cache(service.db)
+
+    matched = service._resolve_subject_match(
+        "thông tin môn văn hóa kinh doạn và tinh thần khời nghiệp",
+        course.id,
+    )
+
+    assert matched is not None
+    assert matched["subject_db_id"] == outside.id
 
 
 def test_outside_subject_status_is_not_taken_out_of_program(lookup_context):

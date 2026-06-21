@@ -22,6 +22,7 @@ AUTO_MAP_THRESHOLD = 80   # score >= 80 → tự động map
 SUGGEST_THRESHOLD = 50    # score >= 50 → đưa vào candidates để hỏi lại
 TOP_K = 3                 # số candidates trả về khi dưới ngưỡng
 CACHE_TTL_MINUTES = 30    # thời gian cache danh sách môn/lớp
+COURSE_PREFERENCE_MAX_SCORE_GAP = 5.0
 
 
 @dataclass
@@ -277,9 +278,14 @@ class FuzzyMatcher:
                 idx for idx in all_indices
                 if preferred_course_id is not None and preferred_course_id in self._subjects[idx][2]
             ]
-            candidates = extract_for_indices(course_indices) if course_indices else []
-            if not candidates:
-                candidates = extract_for_indices(all_indices)
+            course_candidates = extract_for_indices(course_indices) if course_indices else []
+            global_candidates = extract_for_indices(all_indices)
+            candidates = global_candidates
+            if course_candidates:
+                best_course_score = max(item[1] for item in course_candidates)
+                best_global_score = max(item[1] for item in global_candidates) if global_candidates else -1
+                if best_course_score >= best_global_score - COURSE_PREFERENCE_MAX_SCORE_GAP:
+                    candidates = course_candidates
             if not candidates:
                 return None
 
@@ -420,15 +426,18 @@ class FuzzyMatcher:
             if not results:
                 return None
 
+            in_course_results = []
             if preferred_course_id is not None:
-                in_course_results = []
-                for matched_id, score, idx in results:
-                    course_ids = self._subjects[idx][2]
-                    if preferred_course_id in course_ids:
-                        in_course_results.append((matched_id, score, idx))
-                candidates = in_course_results if in_course_results else results
-            else:
-                candidates = results
+                in_course_results = [
+                    item for item in results
+                    if preferred_course_id in self._subjects[item[2]][2]
+                ]
+            candidates = results
+            if in_course_results:
+                best_course_score = max(item[1] for item in in_course_results)
+                best_global_score = max(item[1] for item in results)
+                if best_course_score >= best_global_score - COURSE_PREFERENCE_MAX_SCORE_GAP:
+                    candidates = in_course_results
 
             matched_id, score, idx = max(candidates, key=lambda x: x[1])
             original_name = self._subjects[idx][1]
@@ -492,9 +501,14 @@ class FuzzyMatcher:
                 if preferred_course_id is not None
                 and preferred_course_id in self._classes_norm[idx][1].get("course_ids", set())
             ]
-            results = extract_for_indices(course_indices) if course_indices else []
-            if not results:
-                results = extract_for_indices(all_indices)
+            course_results = extract_for_indices(course_indices) if course_indices else []
+            global_results = extract_for_indices(all_indices)
+            results = global_results
+            if course_results:
+                best_course_score = max(item[1] for item in course_results)
+                best_global_score = max(item[1] for item in global_results) if global_results else -1
+                if best_course_score >= best_global_score - COURSE_PREFERENCE_MAX_SCORE_GAP:
+                    results = course_results
             if not results:
                 return None
 

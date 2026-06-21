@@ -564,6 +564,17 @@ class ChatbotService:
                 )
                 seen_subjects.add(subject.id)
 
+        # Mã học phần exact là định danh có thẩm quyền. Fuzzy chỉ được dùng
+        # khi không tìm thấy subject code exact trong database.
+        if candidates:
+            in_course_exact = [
+                item for item in candidates
+                if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+            ]
+            exact_pool = in_course_exact if in_course_exact else candidates
+            exact_pool.sort(key=lambda item: item["score"], reverse=True)
+            return exact_pool[0]
+
         for class_code in self._extract_class_codes(raw_query):
             class_rows = (
                 self.db.query(Class, Subject)
