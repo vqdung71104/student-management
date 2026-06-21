@@ -777,7 +777,7 @@ async def _process_single_query(
     if intent == "class_info" and confidence in ("high", "medium"):
         try:
             result = await chatbot_service.process_class_info(student_id, normalized_text)
-            if result and result.get("data"):
+            if result:
                 return ChatResponseWithData(
                     text=result.get("text") or "",
                     intent="class_info",

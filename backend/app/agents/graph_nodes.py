@@ -1071,7 +1071,31 @@ def _regex_split_segments(text: str) -> Tuple[List[str], bool, bool]:
         uncertain = True
     if any(_CONSTRAINT_REGEX.match(part) for part in parts[1:]):
         uncertain = True
+    if len(parts) >= 2 and not all(_segment_has_independent_request(part) for part in parts):
+        uncertain = True
     return parts or [text], True, uncertain
+
+
+def _segment_has_independent_request(text: str) -> bool:
+    """A conjunction is a split boundary only when both sides can stand as requests."""
+    normalized = _normalize_text(text)
+    if not normalized:
+        return False
+    if _detect_social_intent(text) or _pick_rule_based_intent(text):
+        return True
+    if _should_force_class_info(text) or _should_force_subject_info(text):
+        return True
+    return any(
+        marker in normalized
+        for marker in (
+            "xem ", "cho toi", "goi y", "dang ky", "kiem tra", "tra cuu",
+            "thong tin", "danh sach", "bao nhieu", "cpa", "gpa", "tot nghiep",
+        )
+    )
+
+
+def _is_valid_multi_intent_split(segments: List[str]) -> bool:
+    return len(segments) > 1 and all(_segment_has_independent_request(part) for part in segments)
 
 
 def _strip_constraints(text: str) -> tuple[str, List[str]]:
@@ -1192,6 +1216,8 @@ def _looks_like_registration_request_with_preferences(text: str) -> bool:
 
 def _should_force_class_info(clean_query: str) -> bool:
     lowered = _normalize_text(clean_query)
+    if re.search(r"\b(?:co )?mo (?:trong )?(?:hoc )?ky nay\b", lowered) and _contains_subject_reference(clean_query):
+        return True
     return "lop" in lowered and not any(keyword in lowered for keyword in _CLASS_REGISTRATION_BIAS_KEYWORDS | _SUBJECT_REGISTRATION_BIAS_KEYWORDS)
 
 
@@ -1294,7 +1320,7 @@ async def query_splitter_node(state: AgentState) -> Dict[str, Any]:
         try:
             semantic_parts = get_query_splitter().split(text)
             semantic_segments = [part.text for part in semantic_parts if getattr(part, "text", "").strip()]
-            if len(semantic_segments) > 1:
+            if _is_valid_multi_intent_split(semantic_segments):
                 print(f"[NODE1] semantic_split={len(semantic_segments)}")
                 return {
                     "segments": _sanitize_segments(semantic_segments),
@@ -1308,7 +1334,7 @@ async def query_splitter_node(state: AgentState) -> Dict[str, Any]:
         print(f"[NODE1] fast_regex_split={len(regex_segments)}")
         return {"segments": _sanitize_segments(regex_segments), "node_trace": ["query_splitter_node"]}
 
-    if has_connector and not uncertain:
+    if has_connector and not uncertain and _is_valid_multi_intent_split(regex_segments):
         fallback_segments = regex_segments
     else:
         fallback_segments = [text]
@@ -1322,7 +1348,8 @@ async def query_splitter_node(state: AgentState) -> Dict[str, Any]:
             max_tokens=NODE1_SPLIT_MAX_TOKENS,
             temperature=0.0,
         )
-        segments = _sanitize_segments(res.get("segments", []) or fallback_segments)
+        proposed_segments = _sanitize_segments(res.get("segments", []) or fallback_segments)
+        segments = proposed_segments if _is_valid_multi_intent_split(proposed_segments) else _sanitize_segments(fallback_segments)
         print(f"[NODE1] openai_split={len(segments)}")
         return {"segments": segments, "node_trace": ["query_splitter_node"]}
     except Exception as exc:

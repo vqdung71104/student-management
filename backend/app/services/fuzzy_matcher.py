@@ -198,6 +198,19 @@ class FuzzyMatcher:
         # Bước 6: Rút gọn whitespace
         text = re.sub(r'\s+', ' ', text).strip()
 
+        # Tên học phần thường dùng số La Mã ở cuối (I, II, III, IV...).
+        # Quy về số Ả Rập để "Giải tích I" và "Giải tích 1" có cùng khóa fuzzy.
+        roman_suffixes = {
+            'i': '1', 'ii': '2', 'iii': '3', 'iv': '4', 'v': '5',
+            'vi': '6', 'vii': '7', 'viii': '8', 'ix': '9', 'x': '10',
+            'xi': '11', 'xii': '12', 'xiii': '13', 'xiv': '14', 'xv': '15',
+            'xvi': '16', 'xvii': '17', 'xviii': '18', 'xix': '19', 'xx': '20',
+        }
+        tokens = text.split()
+        if tokens and tokens[-1] in roman_suffixes:
+            tokens[-1] = roman_suffixes[tokens[-1]]
+            text = ' '.join(tokens)
+
         return text
 
     # ----------------------------------------------------------
@@ -245,31 +258,30 @@ class FuzzyMatcher:
             name_list = [name for _, name in self._subjects_norm]
             id_list = [sid for sid, _ in self._subjects_norm]
 
-            # Dùng extract (lấy nhiều kết quả) để có thể boost score
-            results = process.extract(
-                normalized_query,
-                name_list,
-                scorer=fuzz.WRatio,
-                limit=10,
-                score_cutoff=SUGGEST_THRESHOLD
-            )
+            def extract_for_indices(indices: List[int]):
+                scoped_names = [name_list[idx] for idx in indices]
+                scoped_results = process.extract(
+                    normalized_query,
+                    scoped_names,
+                    scorer=fuzz.WRatio,
+                    limit=10,
+                    score_cutoff=SUGGEST_THRESHOLD,
+                )
+                return [
+                    (matched_name, score, indices[local_idx])
+                    for matched_name, score, local_idx in scoped_results
+                ]
 
-            if not results:
+            all_indices = list(range(len(name_list)))
+            course_indices = [
+                idx for idx in all_indices
+                if preferred_course_id is not None and preferred_course_id in self._subjects[idx][2]
+            ]
+            candidates = extract_for_indices(course_indices) if course_indices else []
+            if not candidates:
+                candidates = extract_for_indices(all_indices)
+            if not candidates:
                 return None
-
-            # Course-first strategy:
-            # 1) Nếu có preferred_course_id và tồn tại ứng viên trong course đó,
-            #    chỉ chọn trong tập ứng viên này.
-            # 2) Nếu không có ứng viên trong course, fallback về toàn bộ kết quả như cũ.
-            if preferred_course_id is not None:
-                in_course_results = []
-                for matched_name, score, idx in results:
-                    course_ids = self._subjects[idx][2]
-                    if preferred_course_id in course_ids:
-                        in_course_results.append((matched_name, score, idx))
-                candidates = in_course_results if in_course_results else results
-            else:
-                candidates = results
 
             best_match = None
             best_score = -1
@@ -395,7 +407,7 @@ class FuzzyMatcher:
             from rapidfuzz import process, fuzz
 
             query_norm = subject_id_query.upper().strip()
-            id_list = [sid for sid, _ in self._subjects]
+            id_list = [sid for sid, _, _ in self._subjects]
 
             results = process.extract(
                 query_norm,
@@ -460,14 +472,29 @@ class FuzzyMatcher:
             normalized_query = self._normalize(query)
             name_list = [name for name, _ in self._classes_norm]
 
-            results = process.extract(
-                normalized_query,
-                name_list,
-                scorer=fuzz.WRatio,
-                limit=10,
-                score_cutoff=SUGGEST_THRESHOLD
-            )
+            def extract_for_indices(indices: List[int]):
+                scoped_names = [name_list[idx] for idx in indices]
+                scoped_results = process.extract(
+                    normalized_query,
+                    scoped_names,
+                    scorer=fuzz.WRatio,
+                    limit=10,
+                    score_cutoff=SUGGEST_THRESHOLD,
+                )
+                return [
+                    (matched_name, score, indices[local_idx])
+                    for matched_name, score, local_idx in scoped_results
+                ]
 
+            all_indices = list(range(len(name_list)))
+            course_indices = [
+                idx for idx in all_indices
+                if preferred_course_id is not None
+                and preferred_course_id in self._classes_norm[idx][1].get("course_ids", set())
+            ]
+            results = extract_for_indices(course_indices) if course_indices else []
+            if not results:
+                results = extract_for_indices(all_indices)
             if not results:
                 return None
 

@@ -758,6 +758,30 @@ def test_service_formatter_renders_subject_info_learning_status():
     assert "Chua hoc" in html
 
 
+def test_service_formatter_renders_conditional_subjects_and_empty_value():
+    with_conditions = service_format_rule_based_response(
+        {"status": "success", "data": {"data": [{"subject_id": "BF2703", "subject_name": "Thi nghiem", "conditional_subjects": "CH3318,BF2702="}]}},
+        "subject_info",
+    )
+    without_conditions = service_format_rule_based_response(
+        {"status": "success", "data": {"data": [{"subject_id": "ET3166", "subject_name": "Cau truc du lieu", "conditional_subjects": None}]}},
+        "subject_info",
+    )
+
+    assert "Môn điều kiện" in with_conditions
+    assert "CH3318,BF2702=" in with_conditions
+    assert "Không có môn điều kiện" in without_conditions
+
+
+def test_service_formatter_keeps_specific_empty_class_message():
+    text = service_format_rule_based_response(
+        {"status": "success", "data": {"text": "Không có lớp của môn ABC đang mở kỳ này.", "data": []}},
+        "class_info",
+    )
+
+    assert text == "Không có lớp của môn ABC đang mở kỳ này."
+
+
 def test_service_formatter_renders_learned_subject_view_details():
     html = service_format_rule_based_response(
         {
@@ -889,6 +913,54 @@ async def test_query_splitter_splits_true_multi_intent():
     )
 
     assert len(result["segments"]) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "thông tin môn Cấu trúc dữ liệu và giải thuật",
+        "thông tin môn Cấu trúc dữ liệu & giải thuật",
+    ],
+)
+async def test_query_splitter_keeps_compound_subject_name(query):
+    result = await query_splitter_node({"user_text": query, "node_trace": []})
+
+    assert result["segments"] == [query]
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_splitter_rejects_llm_split_inside_subject_name():
+    class IncorrectSplittingLLM(FakeLLM):
+        async def split(self, text: str, **kwargs):
+            return {"segments": ["thông tin môn Cấu trúc dữ liệu", "giải thuật"]}
+
+    query = "thông tin môn Cấu trúc dữ liệu và giải thuật"
+    orchestrator = AgentOrchestrator(
+        llm_client=IncorrectSplittingLLM(),
+        tools=None,
+        cache=ResponseCache(),
+    )
+
+    segments = await orchestrator.node1_query_splitter(query)
+
+    assert segments == [query]
+
+
+@pytest.mark.asyncio
+async def test_intent_router_treats_open_this_semester_as_class_info():
+    query = "môn BF2703 có mở kỳ này không"
+    result = await intent_router_node({"segments": [query], "current_segment_index": 0})
+
+    assert result["intent"] == "class_info"
+
+
+@pytest.mark.asyncio
+async def test_intent_router_treats_conditional_subject_question_as_subject_info():
+    query = "các môn điều kiện của học phần Cấu trúc dữ liệu"
+    result = await intent_router_node({"segments": [query], "current_segment_index": 0})
+
+    assert result["intent"] == "subject_info"
 
 
 def test_agent_filter_excludes_subject_by_multiple_fields():

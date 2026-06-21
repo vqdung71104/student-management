@@ -324,9 +324,20 @@ class ConstraintExtractor:
                 # Remove trailing punctuation / connectors after cut.
                 tail = re.sub(r'[\s,;:\-]+$', '', tail).strip()
                 tail = re.sub(r'\s+(?:học|xem|tìm)$', '', tail).strip()
+                explicitly_multiple_subjects = bool(
+                    re.search(
+                        r'(?:điểm\s+các\s+môn|xem\s+điểm\s+các\s+môn|các\s+lớp\s+của\s+các\s+môn)',
+                        text_lower,
+                    )
+                )
+                entity_separator = (
+                    r'[;,]|\s+và\s+|\s+hoặc\s+'
+                    if explicitly_multiple_subjects
+                    else r'[;,]'
+                )
                 candidates = [
                     re.sub(r'^(?:môn|học\s+phần|lớp|các\s+môn|các\s+lớp|của)\s+', '', p.strip())
-                    for p in re.split(r'[;,]|\s+và\s+|\s+hoặc\s+', tail)
+                    for p in re.split(entity_separator, tail)
                     if p.strip()
                 ]
                 if candidates:

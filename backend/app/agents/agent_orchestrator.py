@@ -11,7 +11,11 @@ from typing import Any, Dict, FrozenSet, List, Optional
 from app.llm.llm_client import LLMClient
 from app.llm.llm_client import LLMCircuitOpenError, LLMAPIError, LLMTimeoutError
 from app.llm.response_cache import ResponseCache
-from .graph_nodes import format_rule_based_response, join_rule_based_segments
+from .graph_nodes import (
+    _is_valid_multi_intent_split,
+    format_rule_based_response,
+    join_rule_based_segments,
+)
 from .orchestration_metrics import get_orchestration_metrics
 from .tools_registry import ToolsRegistry
 
@@ -1139,7 +1143,8 @@ Ví dụ 3:
                 part.lower().startswith(("không muốn", "tránh", "ngoại trừ", "không học", "thay vì"))
                 for part in parts[1:]
             )
-            fallback_segments = parts or [text]
+            uncertain = uncertain or not _is_valid_multi_intent_split(parts)
+            fallback_segments = parts if not uncertain else [text]
             if len(parts) >= 2 and not uncertain:
                 self.metrics.increment("node1.multi_intent_split")
                 duration = time.perf_counter() - started_at
@@ -1154,7 +1159,15 @@ Ví dụ 3:
                 max_tokens=NODE1_SPLIT_MAX_TOKENS,
                 temperature=0.0,
             )
-            segments = res.get("segments") or fallback_segments
+            proposed_segments = [
+                segment.strip() for segment in (res.get("segments") or fallback_segments)
+                if isinstance(segment, str) and segment.strip()
+            ]
+            segments = (
+                proposed_segments
+                if _is_valid_multi_intent_split(proposed_segments)
+                else fallback_segments
+            )
             self.metrics.increment("node1.llm_success")
             duration = time.perf_counter() - started_at
             self.metrics.observe_latency("node1.latency", duration)

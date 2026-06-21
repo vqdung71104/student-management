@@ -175,8 +175,15 @@ def _service_render_subject_info_html(rows: List[Dict[str, Any]]) -> str:
     if not rows:
         return "<p>Không tìm thấy học phần phù hợp.</p>"
 
+    show_conditional_subjects = any("conditional_subjects" in row for row in rows)
     body_rows: List[str] = []
     for idx, row in enumerate(rows, start=1):
+        conditional_subjects = row.get("conditional_subjects")
+        conditional_display = (
+            str(conditional_subjects).strip()
+            if conditional_subjects is not None and str(conditional_subjects).strip()
+            else "Không có môn điều kiện"
+        )
         body_rows.append(
             "<tr>"
             f"<td>{idx}</td>"
@@ -186,7 +193,8 @@ def _service_render_subject_info_html(rows: List[Dict[str, Any]]) -> str:
             f"<td>{escape(str(row.get('learning_semester') or 'N/A'))}</td>"
             f"<td>{escape(str(row.get('letter_grade') or 'Chưa học'))}</td>"
             f"<td>{escape(str(row.get('learning_status') or 'Chưa học'))}</td>"
-            "</tr>"
+            + (f"<td>{escape(conditional_display)}</td>" if show_conditional_subjects else "")
+            + "</tr>"
         )
 
     return (
@@ -195,7 +203,8 @@ def _service_render_subject_info_html(rows: List[Dict[str, Any]]) -> str:
         "<thead>"
         "<tr>"
         "<th>STT</th><th>Mã môn</th><th>Tên môn</th><th>Tín chỉ</th><th>Kỳ học</th><th>Điểm chữ</th><th>Trạng thái</th>"
-        "</tr>"
+        + ("<th>Môn điều kiện</th>" if show_conditional_subjects else "")
+        + "</tr>"
         "</thead>"
         f"<tbody>{''.join(body_rows)}</tbody>"
         "</table>"
@@ -306,6 +315,10 @@ def format_rule_based_response(raw_result: Any, intent: Optional[str], segment: 
             rows = payload.get("data") or []
         elif isinstance(payload, list):
             rows = payload
+        if rows:
+            return _service_render_class_info_html(rows)
+        if isinstance(payload, dict) and payload.get("text"):
+            return str(payload.get("text"))
         return _service_render_class_info_html(rows)
 
     if intent in ("subject_info", "learned_subjects_view"):
@@ -536,8 +549,10 @@ class ChatbotService:
         seen_subjects: Set[int] = set()
 
         for code in self._extract_subject_codes(raw_query):
-            subject = self.db.query(Subject).filter(func.upper(Subject.subject_id) == code).first()
-            if subject and subject.id not in seen_subjects:
+            subjects = self.db.query(Subject).filter(func.upper(Subject.subject_id) == code).all()
+            for subject in subjects:
+                if subject.id in seen_subjects:
+                    continue
                 candidates.append(
                     {
                         "subject_db_id": subject.id,
@@ -582,8 +597,10 @@ class ChatbotService:
                 preferred_course_id=preferred_course_id,
             ))
             if subject_id_match:
-                subject = self.db.query(Subject).filter(Subject.subject_id == subject_id_match.subject_id).first()
-                if subject and subject.id not in seen_subjects:
+                subjects = self.db.query(Subject).filter(Subject.subject_id == subject_id_match.subject_id).all()
+                for subject in subjects:
+                    if subject.id in seen_subjects:
+                        continue
                     candidates.append(
                         {
                             "subject_db_id": subject.id,
@@ -601,8 +618,10 @@ class ChatbotService:
                 preferred_course_id=preferred_course_id,
             ))
             if subject_match:
-                subject = self.db.query(Subject).filter(Subject.subject_id == subject_match.subject_id).first()
-                if subject and subject.id not in seen_subjects:
+                subjects = self.db.query(Subject).filter(Subject.subject_id == subject_match.subject_id).all()
+                for subject in subjects:
+                    if subject.id in seen_subjects:
+                        continue
                     candidates.append(
                         {
                             "subject_db_id": subject.id,
@@ -620,8 +639,10 @@ class ChatbotService:
                 preferred_course_id=preferred_course_id,
             ))
             if class_match:
-                subject = self.db.query(Subject).filter(Subject.subject_id == class_match.subject_id).first()
-                if subject and subject.id not in seen_subjects:
+                subjects = self.db.query(Subject).filter(Subject.subject_id == class_match.subject_id).all()
+                for subject in subjects:
+                    if subject.id in seen_subjects:
+                        continue
                     candidates.append(
                         {
                             "subject_db_id": subject.id,
@@ -636,14 +657,19 @@ class ChatbotService:
         if not candidates:
             return None
 
-        candidates.sort(
+        in_course_candidates = [
+            item for item in candidates
+            if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+        ]
+        eligible_candidates = in_course_candidates if in_course_candidates else candidates
+        eligible_candidates.sort(
             key=lambda item: (
                 item["score"],
                 1 if self._subject_in_course(item["subject_db_id"], preferred_course_id) else 0,
             ),
             reverse=True,
         )
-        return candidates[0]
+        return eligible_candidates[0]
 
     def _resolve_class_match(self, question: str, preferred_course_id: Optional[int]) -> Optional[Dict[str, Any]]:
         from app.models.subject_model import Subject
@@ -665,7 +691,7 @@ class ChatbotService:
                 cls, subject = self._safe_unpack_entity_row(raw_row, expected=2)
                 if cls is None or subject is None:
                     continue
-                key = ("class", cls.class_id)
+                key = ("class", f"{cls.class_id}:{subject.id}")
                 if key in seen_keys:
                     continue
                 candidates.append(
@@ -689,10 +715,10 @@ class ChatbotService:
                 preferred_course_id=preferred_course_id,
             ))
             if class_match:
-                key = ("class", class_match.class_id)
-                if key not in seen_keys:
-                    subject = self.db.query(Subject).filter(Subject.subject_id == class_match.subject_id).first()
-                    if subject:
+                subjects = self.db.query(Subject).filter(Subject.subject_id == class_match.subject_id).all()
+                for subject in subjects:
+                    key = ("class", f"{class_match.class_id}:{subject.id}")
+                    if key not in seen_keys:
                         candidates.append(
                             {
                                 "class_id": class_match.class_id,
@@ -723,7 +749,12 @@ class ChatbotService:
         if not candidates:
             return None
 
-        candidates.sort(
+        in_course_candidates = [
+            item for item in candidates
+            if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+        ]
+        eligible_candidates = in_course_candidates if in_course_candidates else candidates
+        eligible_candidates.sort(
             key=lambda item: (
                 item["score"],
                 1 if self._subject_in_course(item["subject_db_id"], preferred_course_id) else 0,
@@ -731,7 +762,7 @@ class ChatbotService:
             ),
             reverse=True,
         )
-        return candidates[0]
+        return eligible_candidates[0]
 
     def _build_subject_info_rows(self, subject_db_id: int, student_id: Optional[int], student_course_id: Optional[int]) -> List[Dict[str, Any]]:
         from app.models.subject_model import Subject
@@ -745,6 +776,8 @@ class ChatbotService:
         learned_info = learned_map.get(subject_db_id)
         learning_status, letter_grade = self._build_learning_status(learned_info)
         course_match = subject_db_id in course_semester_map if student_course_id else False
+        if student_course_id and not course_match:
+            learning_status = "Không thuộc chương trình học"
 
         return [
             {
@@ -800,6 +833,8 @@ class ChatbotService:
             learned_info = learned_map.get(subject.id)
             learning_status, letter_grade = self._build_learning_status(learned_info)
             course_match = subject.id in course_semester_map if student_course_id else False
+            if student_course_id and not course_match:
+                learning_status = "Không thuộc chương trình học"
             result_rows.append(
                 {
                     "class_id": cls.class_id,
@@ -876,7 +911,23 @@ class ChatbotService:
             student_course_id=student_course_id,
         )
         if not rows:
-            return None
+            return {
+                "text": (
+                    f"Không có lớp của môn {matched.get('subject_name')} "
+                    f"({matched.get('subject_id')}) đang mở kỳ này."
+                ),
+                "intent": "class_info",
+                "confidence": "high",
+                "data": [],
+                "metadata": {
+                    "matched_by": matched.get("source"),
+                    "matched_subject_id": matched.get("subject_id"),
+                    "matched_subject_name": matched.get("subject_name"),
+                    "matched_class_id": matched.get("class_id"),
+                    "in_program_count": 0,
+                    "out_program_count": 0,
+                },
+            }
 
         in_program = [row for row in rows if row.get("course_match")]
         out_program = [row for row in rows if not row.get("course_match")]

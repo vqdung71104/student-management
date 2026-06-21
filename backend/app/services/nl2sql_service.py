@@ -228,10 +228,21 @@ class NL2SQLService:
             flags=re.IGNORECASE,
         )[0].strip()
 
-        if not re.search(r'[;,]|\s+và\s+|\s+hoặc\s+', tail, flags=re.IGNORECASE):
+        explicitly_multiple_subjects = bool(
+            re.search(
+                r'(?:điểm\s+các\s+môn|xem\s+điểm\s+các\s+môn|các\s+lớp\s+của\s+các\s+môn)',
+                lower,
+            )
+        )
+        separator = (
+            r'[;,]|\s+và\s+|\s+hoặc\s+'
+            if explicitly_multiple_subjects
+            else r'[;,]'
+        )
+        if not re.search(separator, tail, flags=re.IGNORECASE):
             return []
 
-        raw_parts = re.split(r'[;,]|\s+và\s+|\s+hoặc\s+', tail, flags=re.IGNORECASE)
+        raw_parts = re.split(separator, tail, flags=re.IGNORECASE)
         names: List[str] = []
         for part in raw_parts:
             p = part.strip(' .')
