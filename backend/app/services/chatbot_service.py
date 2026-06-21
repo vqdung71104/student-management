@@ -548,7 +548,8 @@ class ChatbotService:
         candidates: List[Dict[str, Any]] = []
         seen_subjects: Set[int] = set()
 
-        for code in self._extract_subject_codes(raw_query):
+        subject_codes = self._extract_subject_codes(raw_query)
+        for code in subject_codes:
             subjects = self.db.query(Subject).filter(func.upper(Subject.subject_id) == code).all()
             for subject in subjects:
                 if subject.id in seen_subjects:
@@ -599,29 +600,52 @@ class ChatbotService:
                 )
                 seen_subjects.add(subject.id)
 
+        # Exact class code follows the same precedence as exact subject code:
+        # in-program first, then out-of-program, before every fuzzy candidate.
+        if candidates:
+            in_course_exact = [
+                item for item in candidates
+                if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+            ]
+            exact_pool = in_course_exact if in_course_exact else candidates
+            exact_pool.sort(key=lambda item: item["score"], reverse=True)
+            return exact_pool[0]
+
         if self._fuzzy_matcher is not None:
             self._fuzzy_matcher.ensure_fresh(self.db)
 
-            subject_id_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_subject_by_id(
-                raw_query,
-                db=self.db,
-                preferred_course_id=preferred_course_id,
-            ))
-            if subject_id_match:
-                subjects = self.db.query(Subject).filter(Subject.subject_id == subject_id_match.subject_id).all()
-                for subject in subjects:
-                    if subject.id in seen_subjects:
-                        continue
-                    candidates.append(
-                        {
-                            "subject_db_id": subject.id,
-                            "subject_id": subject.subject_id,
-                            "subject_name": subject.subject_name,
-                            "score": subject_id_match.score + 20,
-                            "source": "subject_id_fuzzy",
-                        }
-                    )
-                    seen_subjects.add(subject.id)
+            for subject_code in subject_codes:
+                subject_id_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_subject_by_id(
+                    subject_code,
+                    db=self.db,
+                    preferred_course_id=preferred_course_id,
+                ))
+                if subject_id_match:
+                    subjects = self.db.query(Subject).filter(Subject.subject_id == subject_id_match.subject_id).all()
+                    for subject in subjects:
+                        if subject.id in seen_subjects:
+                            continue
+                        candidates.append(
+                            {
+                                "subject_db_id": subject.id,
+                                "subject_id": subject.subject_id,
+                                "subject_name": subject.subject_name,
+                                "score": subject_id_match.score + 20,
+                                "source": "subject_id_fuzzy",
+                            }
+                        )
+                        seen_subjects.add(subject.id)
+
+            # Với truy vấn mã, fuzzy subject-id trong/ngoài chương trình phải
+            # được quyết định trước khi thử fuzzy theo tên hoặc tên lớp.
+            if candidates:
+                in_course_id_matches = [
+                    item for item in candidates
+                    if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+                ]
+                id_pool = in_course_id_matches if in_course_id_matches else candidates
+                id_pool.sort(key=lambda item: item["score"], reverse=True)
+                return id_pool[0]
 
             subject_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_subject(
                 cleaned_query,
@@ -643,6 +667,17 @@ class ChatbotService:
                         }
                     )
                     seen_subjects.add(subject.id)
+
+            # Fuzzy class chỉ là fallback khi không có subject-name match.
+            # Không cho một tên lớp trong course ghi đè tên học phần đúng.
+            if candidates:
+                in_course_name_matches = [
+                    item for item in candidates
+                    if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+                ]
+                name_pool = in_course_name_matches if in_course_name_matches else candidates
+                name_pool.sort(key=lambda item: item["score"], reverse=True)
+                return name_pool[0]
 
             class_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_class(
                 cleaned_query,
@@ -718,6 +753,15 @@ class ChatbotService:
                 )
                 seen_keys.add(key)
 
+        if candidates:
+            in_course_exact = [
+                item for item in candidates
+                if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+            ]
+            exact_pool = in_course_exact if in_course_exact else candidates
+            exact_pool.sort(key=lambda item: item["score"], reverse=True)
+            return exact_pool[0]
+
         if self._fuzzy_matcher is not None:
             self._fuzzy_matcher.ensure_fresh(self.db)
             class_match = self._coerce_fuzzy_match(self._fuzzy_matcher.match_class(
@@ -759,6 +803,19 @@ class ChatbotService:
 
         if not candidates:
             return None
+
+        exact_candidates = [
+            item for item in candidates
+            if "exact" in str(item.get("source") or "")
+        ]
+        if exact_candidates:
+            in_course_exact = [
+                item for item in exact_candidates
+                if self._subject_in_course(item["subject_db_id"], preferred_course_id)
+            ]
+            exact_pool = in_course_exact if in_course_exact else exact_candidates
+            exact_pool.sort(key=lambda item: item["score"], reverse=True)
+            return exact_pool[0]
 
         in_course_candidates = [
             item for item in candidates

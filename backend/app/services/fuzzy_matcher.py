@@ -415,29 +415,30 @@ class FuzzyMatcher:
             query_norm = subject_id_query.upper().strip()
             id_list = [sid for sid, _, _ in self._subjects]
 
-            results = process.extract(
-                query_norm,
-                id_list,
-                scorer=fuzz.WRatio,
-                limit=10,
-                score_cutoff=SUGGEST_THRESHOLD
-            )
-
-            if not results:
-                return None
-
-            in_course_results = []
-            if preferred_course_id is not None:
-                in_course_results = [
-                    item for item in results
-                    if preferred_course_id in self._subjects[item[2]][2]
+            def extract_for_indices(indices: List[int]):
+                scoped_ids = [id_list[idx] for idx in indices]
+                scoped_results = process.extract(
+                    query_norm,
+                    scoped_ids,
+                    scorer=fuzz.WRatio,
+                    limit=10,
+                    score_cutoff=SUGGEST_THRESHOLD,
+                )
+                return [
+                    (matched_id, score, indices[local_idx])
+                    for matched_id, score, local_idx in scoped_results
                 ]
-            candidates = results
-            if in_course_results:
-                best_course_score = max(item[1] for item in in_course_results)
-                best_global_score = max(item[1] for item in results)
-                if best_course_score >= best_global_score - COURSE_PREFERENCE_MAX_SCORE_GAP:
-                    candidates = in_course_results
+
+            all_indices = list(range(len(id_list)))
+            course_indices = [
+                idx for idx in all_indices
+                if preferred_course_id is not None and preferred_course_id in self._subjects[idx][2]
+            ]
+            candidates = extract_for_indices(course_indices) if course_indices else []
+            if not candidates:
+                candidates = extract_for_indices(all_indices)
+            if not candidates:
+                return None
 
             matched_id, score, idx = max(candidates, key=lambda x: x[1])
             original_name = self._subjects[idx][1]
@@ -501,14 +502,9 @@ class FuzzyMatcher:
                 if preferred_course_id is not None
                 and preferred_course_id in self._classes_norm[idx][1].get("course_ids", set())
             ]
-            course_results = extract_for_indices(course_indices) if course_indices else []
-            global_results = extract_for_indices(all_indices)
-            results = global_results
-            if course_results:
-                best_course_score = max(item[1] for item in course_results)
-                best_global_score = max(item[1] for item in global_results) if global_results else -1
-                if best_course_score >= best_global_score - COURSE_PREFERENCE_MAX_SCORE_GAP:
-                    results = course_results
+            results = extract_for_indices(course_indices) if course_indices else []
+            if not results:
+                results = extract_for_indices(all_indices)
             if not results:
                 return None
 

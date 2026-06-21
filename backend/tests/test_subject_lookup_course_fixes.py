@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 from app.db.database import Base
 from app.models.course_model import Course
 from app.models.course_subject_model import CourseSubject
+from app.models.class_model import Class
 from app.models.department_model import Department
 from app.models.student_model import Student
 from app.models.subject_model import Subject
@@ -100,8 +101,11 @@ def test_roman_and_arabic_suffixes_match_and_prefer_course(lookup_context):
 
 
 def test_unrelated_in_course_match_does_not_hide_best_global_name(lookup_context):
-    service, _, course, _, outside = lookup_context
+    service, _, course, inside, outside = lookup_context
     outside.subject_name = "Văn hóa kinh doanh và tinh thần khởi nghiệp"
+    service.db.add(
+        Class(subject_id=inside.id, class_id="167853", class_name="Mạng máy tính")
+    )
     service.db.commit()
     service._fuzzy_matcher.refresh_cache(service.db)
 
@@ -112,6 +116,37 @@ def test_unrelated_in_course_match_does_not_hide_best_global_name(lookup_context
 
     assert matched is not None
     assert matched["subject_db_id"] == outside.id
+
+
+def test_exact_class_code_prefers_in_course_duplicate(lookup_context):
+    service, _, course, inside, outside = lookup_context
+    service.db.add_all([
+        Class(subject_id=outside.id, class_id="123456", class_name="Outside class"),
+        Class(subject_id=inside.id, class_id="123456", class_name="In-course class"),
+    ])
+    service.db.commit()
+
+    matched = service._resolve_class_match("thông tin lớp 123456", course.id)
+
+    assert matched is not None
+    assert matched["subject_db_id"] == inside.id
+    assert matched["source"] == "class_id_exact"
+
+
+def test_exact_outside_class_code_beats_in_course_fuzzy_class(lookup_context):
+    service, _, course, inside, outside = lookup_context
+    service.db.add_all([
+        Class(subject_id=outside.id, class_id="654321", class_name="Outside exact"),
+        Class(subject_id=inside.id, class_id="654320", class_name="In-course fuzzy"),
+    ])
+    service.db.commit()
+    service._fuzzy_matcher.refresh_cache(service.db)
+
+    matched = service._resolve_class_match("thông tin lớp 654321", course.id)
+
+    assert matched is not None
+    assert matched["subject_db_id"] == outside.id
+    assert matched["source"] == "class_id_exact"
 
 
 def test_outside_subject_status_is_not_taken_out_of_program(lookup_context):
