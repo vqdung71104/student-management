@@ -261,6 +261,24 @@ def test_mixed_specific_answer_does_not_create_avoid_day_from_subject_code():
     assert "specific" in captured
 
 
+def test_class_suggestion_question_does_not_autofill_specific_subject():
+    extractor = get_constraint_extractor()
+    pref_service = PreferenceCollectionService()
+    chatbot_service = ChatbotService.__new__(ChatbotService)
+
+    question = "t\u00f4i n\u00ean h\u1ecdc l\u1edbp n\u00e0o k\u1ef3 sau"
+    constraints = extractor.extract(question, query_type="class_registration_suggestion").model_dump()
+    prefs = pref_service.extract_initial_preferences(question)
+
+    captured = chatbot_service._merge_constraints_into_preferences(prefs, constraints)
+
+    assert constraints["include_subjects"] == []
+    assert constraints["include_subject_codes"] == []
+    assert prefs.specific.specific_subjects == []
+    assert prefs.specific.has_answer is False
+    assert "specific" not in captured
+
+
 def test_constraint_extractor_handles_class_schedule_building_and_teacher_polarity():
     extractor = get_constraint_extractor()
 

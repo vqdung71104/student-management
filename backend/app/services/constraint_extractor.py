@@ -359,6 +359,19 @@ class ConstraintExtractor:
             positive = [text.strip()]
         return positive, negative
 
+    def _is_valid_subject_name_candidate(self, candidate: str) -> bool:
+        normalized = self._normalize_text(candidate)
+        if not normalized:
+            return False
+        # Generic question/navigation phrases are not subject requests.
+        if re.search(r"\b(nao|gi|nhung gi|mon nao|hoc phan nao|lop nao)\b", normalized):
+            return False
+        if normalized in {"ky sau", "hoc ky sau", "ki sau", "hoc ki sau", "dang ky", "dang ky lop"}:
+            return False
+        if re.fullmatch(r"(ky|ki|hoc ky|hoc ki)\s+\d+", normalized):
+            return False
+        return True
+
     def _extract_subject_entities(self, text: str) -> Tuple[List[str], List[str]]:
         codes = self._unique(self._RE_SUBJECT_CODE.findall(text.upper()), upper=True)
         names: List[str] = []
@@ -370,7 +383,11 @@ class ConstraintExtractor:
                 candidate,
                 flags=re.IGNORECASE,
             ).strip()
-            if candidate and not self._RE_SUBJECT_CODE.fullmatch(candidate.upper()):
+            if (
+                candidate
+                and not self._RE_SUBJECT_CODE.fullmatch(candidate.upper())
+                and self._is_valid_subject_name_candidate(candidate)
+            ):
                 names.append(candidate)
         normalized = self._normalize_text(text)
         for match in re.finditer(
@@ -383,6 +400,7 @@ class ConstraintExtractor:
             if (
                 candidate
                 and not self._RE_SUBJECT_CODE.fullmatch(candidate.upper())
+                and self._is_valid_subject_name_candidate(candidate)
                 and not re.fullmatch(r"(sang|chieu|toi|som|muon|lien tuc|o|tai|toa|nha|lop).*", candidate)
             ):
                 names.append(candidate)
