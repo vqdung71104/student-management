@@ -14,6 +14,9 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const CHATBOT_MIN_WIDTH = 460
   const CHATBOT_DEFAULT_WIDTH = 560
   const CHATBOT_MAX_WIDTH = 1520
+  const CHATBOT_MIN_HEIGHT = 420
+  const CHATBOT_DEFAULT_HEIGHT = 600
+  const CHATBOT_MAX_HEIGHT = 920
   const CHATBOT_RIGHT_OFFSET = 16 // 16px from right edge
   const CHATBOT_BUTTON_SIZE = 64 // p-4 + icon size ~64px
   const CHATBOT_BUTTON_BOTTOM = 16 // bottom-4 = 1rem = 16px
@@ -31,8 +34,17 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<any>(null)
   const [chatbotWidth, setChatbotWidth] = useState(CHATBOT_DEFAULT_WIDTH)
+  const [chatbotHeight, setChatbotHeight] = useState(CHATBOT_DEFAULT_HEIGHT)
+  const [chatbotZoom, setChatbotZoom] = useState(1)
+  const [chatbotFullscreen, setChatbotFullscreen] = useState(false)
   const [isResizingChatbot, setIsResizingChatbot] = useState(false)
-  const chatbotResizeStartRef = useRef<{ x: number; width: number } | null>(null)
+  const chatbotResizeStartRef = useRef<{
+    x: number
+    y: number
+    width: number
+    height: number
+    mode: 'width' | 'both'
+  } | null>(null)
 
   const handleLogoutClick = () => {
     setShowLogoutConfirm(true)
@@ -55,7 +67,12 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   }
 
   const toggleChatbot = () => {
-    setChatbotOpen(!chatbotOpen)
+    setChatbotOpen((prev) => {
+      if (prev) {
+        setChatbotFullscreen(false)
+      }
+      return !prev
+    })
   }
 
   const isActive = (path: string) => {
@@ -73,14 +90,50 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     )
   }
 
-  const handleChatbotResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
+  const getViewportMaxChatbotHeight = () => {
+    if (typeof window === 'undefined') {
+      return CHATBOT_MAX_HEIGHT
+    }
+    return Math.max(
+      CHATBOT_MIN_HEIGHT,
+      Math.min(CHATBOT_MAX_HEIGHT, window.innerHeight - CHATBOT_BUTTON_BOTTOM - CHATBOT_BUTTON_SIZE - 16)
+    )
+  }
+
+  const handleChatbotResizeStart = (
+    event: React.MouseEvent<HTMLDivElement>,
+    mode: 'width' | 'both' = 'width'
+  ) => {
+    if (chatbotFullscreen) {
+      return
+    }
     event.preventDefault()
     event.stopPropagation()
     chatbotResizeStartRef.current = {
       x: event.clientX,
+      y: event.clientY,
       width: chatbotWidth,
+      height: chatbotHeight,
+      mode,
     }
     setIsResizingChatbot(true)
+  }
+
+  const handleChatbotFullscreenToggle = () => {
+    setChatbotFullscreen((prev) => !prev)
+  }
+
+  const handleChatbotWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (!event.ctrlKey) {
+      return
+    }
+
+    event.preventDefault()
+    const direction = event.deltaY < 0 ? 1 : -1
+    setChatbotZoom((prev) => {
+      const next = prev + direction * 0.05
+      return Math.max(0.85, Math.min(1.25, Number(next.toFixed(2))))
+    })
   }
 
   useEffect(() => {
@@ -94,13 +147,24 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       }
 
       const { x, width } = chatbotResizeStartRef.current
+      const { y, height, mode } = chatbotResizeStartRef.current
       const deltaX = event.clientX - x
+      const deltaY = event.clientY - y
       const dynamicMaxWidth = getViewportMaxChatbotWidth()
       const nextWidth = Math.max(
         CHATBOT_MIN_WIDTH,
         Math.min(dynamicMaxWidth, width - deltaX)
       )
       setChatbotWidth(nextWidth)
+
+      if (mode === 'both') {
+        const dynamicMaxHeight = getViewportMaxChatbotHeight()
+        const nextHeight = Math.max(
+          CHATBOT_MIN_HEIGHT,
+          Math.min(dynamicMaxHeight, height - deltaY)
+        )
+        setChatbotHeight(nextHeight)
+      }
     }
 
     const handleMouseUp = () => {
@@ -124,7 +188,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       return
     }
 
-    document.body.style.cursor = 'ew-resize'
+    document.body.style.cursor = chatbotResizeStartRef.current?.mode === 'both' ? 'nwse-resize' : 'ew-resize'
     document.body.style.userSelect = 'none'
 
     return () => {
@@ -137,6 +201,8 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     const syncWidthToViewport = () => {
       const dynamicMaxWidth = getViewportMaxChatbotWidth()
       setChatbotWidth((prev) => Math.min(prev, dynamicMaxWidth))
+      const dynamicMaxHeight = getViewportMaxChatbotHeight()
+      setChatbotHeight((prev) => Math.min(prev, dynamicMaxHeight))
     }
 
     syncWidthToViewport()
@@ -561,28 +627,67 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       {/* Chatbot */}
       {chatbotOpen && (
         <div
-          className="chatbot-resizable fixed right-6 h-[600px] bg-white rounded-lg shadow-2xl border border-gray-200 z-50 overflow-hidden"
+          className={[
+            'student-chatbot-shell chatbot-resizable fixed bg-white shadow-2xl border border-gray-200 z-50 overflow-hidden transition-all duration-200',
+            chatbotFullscreen
+              ? 'inset-0 w-screen h-screen rounded-none'
+              : 'right-6 rounded-lg',
+          ].join(' ')}
           style={{
-            width: `${chatbotWidth}px`,
-            bottom: `${CHATBOT_BUTTON_BOTTOM + CHATBOT_BUTTON_SIZE}px`,
+            ...(chatbotFullscreen
+              ? {}
+              : {
+                  width: `${chatbotWidth}px`,
+                  height: `${chatbotHeight}px`,
+                  bottom: `${CHATBOT_BUTTON_BOTTOM + CHATBOT_BUTTON_SIZE}px`,
+                }),
           }}
+          onWheel={handleChatbotWheel}
         >
-          <ChatBot />
           <div
-            className="absolute top-0 left-0 h-full w-3 cursor-ew-resize z-20 group"
-            onMouseDown={handleChatbotResizeStart}
-            title="Kéo cạnh trái để thay đổi chiều rộng"
+            className="chatbot-zoom-surface"
+            style={{
+              width: `${100 / chatbotZoom}%`,
+              height: `${100 / chatbotZoom}%`,
+              transform: `scale(${chatbotZoom})`,
+              transformOrigin: 'top left',
+            }}
           >
-            <div className="absolute left-0 top-0 h-full w-[2px] bg-slate-300 group-hover:bg-blue-500 transition-colors duration-150" />
+            <ChatBot />
           </div>
+          {!chatbotFullscreen && (
+            <>
+              <div
+                className="absolute top-0 left-0 h-full w-3 cursor-ew-resize z-20 group"
+                onMouseDown={(event) => handleChatbotResizeStart(event)}
+                title="Kéo cạnh trái để thay đổi chiều rộng"
+              >
+                <div className="absolute left-0 top-0 h-full w-[2px] bg-slate-300 group-hover:bg-blue-500 transition-colors duration-150" />
+              </div>
+              <div
+                className="absolute top-0 left-0 h-7 w-7 cursor-nwse-resize z-30 group"
+                onMouseDown={(event) => handleChatbotResizeStart(event, 'both')}
+                title="Kéo góc để thay đổi kích cỡ ô chat"
+              >
+                <div className="absolute left-1 top-1 h-3 w-3 border-l-2 border-t-2 border-white/75 group-hover:border-white transition-colors duration-150" />
+              </div>
+            </>
+          )}
           <button
-            onClick={toggleChatbot}
-            className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-700 hover:text-gray-900 rounded-full p-1.5 shadow-lg hover:shadow-xl transition-all duration-200 z-10"
-            aria-label="Close chatbot"
+            onClick={handleChatbotFullscreenToggle}
+            className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-700 hover:text-blue-700 rounded-full p-2 shadow-lg hover:shadow-xl transition-all duration-200 z-30"
+            aria-label={chatbotFullscreen ? 'Thu nhỏ chatbot' : 'Phóng to chatbot'}
+            title={chatbotFullscreen ? 'Thu nhỏ chatbot' : 'Phóng to chatbot'}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            {chatbotFullscreen ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+              </svg>
+            )}
           </button>
         </div>
       )}
@@ -590,7 +695,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       {/* Floating Chatbot Button */}
       <button
         onClick={toggleChatbot}
-        className="fixed bottom-4 right-6 bg-gradient-to-br from-purple-600 to-purple-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200 z-40"
+        className={`fixed bottom-4 right-6 bg-gradient-to-br from-purple-600 to-purple-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-200 z-40 ${chatbotFullscreen ? 'hidden' : ''}`}
         aria-label="Open chatbot"
       >
         {chatbotOpen ? (

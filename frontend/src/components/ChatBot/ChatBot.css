@@ -5,8 +5,8 @@
 .chatbot-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 100px);
-  min-height: 600px;
+  height: 100%;
+  min-height: 0;
   width: 100%;
   background: #ffffff;
   border-radius: 12px;
@@ -17,6 +17,40 @@
   min-width: 24rem;
   max-width: 82rem;
   resize: none;
+}
+
+.chatbot-resizable.inset-0 {
+  max-width: none;
+}
+
+.chatbot-zoom-surface {
+  height: 100%;
+  width: 100%;
+}
+
+.student-chatbot-shell .chatbot-zoom-surface {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.student-chatbot-shell .chatbot-container {
+  display: flex !important;
+  flex: 1 1 auto;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.student-chatbot-shell .chatbot-messages {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+.student-chatbot-shell .chatbot-input {
+  flex: 0 0 auto !important;
 }
 
 /* Header */
@@ -250,8 +284,7 @@
   padding: 20px 16px;
   background: #f8f9fa;
   scroll-behavior: smooth;
-  min-height: 400px;
-  max-height: calc(100vh - 200px);
+  min-height: 0;
 }
 
 .message-wrapper {

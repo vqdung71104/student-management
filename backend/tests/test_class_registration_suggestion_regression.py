@@ -298,6 +298,37 @@ def test_combination_reasoning_explains_each_subject_in_priority_order_without_d
     assert (formatted_classes, subject_result, suggested, classes_by_subject) == original_inputs
 
 
+def test_combination_reasoning_groups_subjects_with_same_explanation_in_vietnamese_list():
+    service = ChatbotService.__new__(ChatbotService)
+    first = _reasoning_subject("IT3382", "Kỹ năng ITSS học bằng tiếng Nhật 2", learning_semester=8)
+    second = _reasoning_subject("IT4542", "Quản trị phát triển phần mềm", learning_semester=8)
+    third = _reasoning_subject("IT4930", "Nhập môn Khoa học dữ liệu", learning_semester=8)
+
+    reasons = service._build_combination_reasoning(
+        formatted_classes=[
+            {"subject_id": subject["subject_id"], "study_date": "Monday"}
+            for subject in [first, second, third]
+        ],
+        combo_metrics={},
+        preferences={},
+        subject_result={
+            "student_semester_number": 8,
+            "summary": {"semester_match": [first, second, third]},
+        },
+        suggested_subjects=[first, second, third],
+        classes_by_subject={subject["subject_id"]: [{"id": subject["id"]}] for subject in [first, second, third]},
+    )
+
+    grouped_reason = next(reason for reason in reasons if "đúng lộ trình kỳ 8" in reason)
+    assert grouped_reason == (
+        "IT3382 - Kỹ năng ITSS học bằng tiếng Nhật 2, "
+        "IT4542 - Quản trị phát triển phần mềm và "
+        "IT4930 - Nhập môn Khoa học dữ liệu "
+        "được chọn vì đúng lộ trình kỳ 8, giúp bạn theo sát kế hoạch đào tạo."
+    )
+    assert sum("đúng lộ trình kỳ 8" in reason for reason in reasons) == 1
+
+
 def test_combination_reasoning_distinguishes_credit_option_from_subject_without_classes():
     service = ChatbotService.__new__(ChatbotService)
     option = _reasoning_subject("PE1001", "Giáo dục thể chất", credits=2, option_only=True)

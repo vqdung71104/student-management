@@ -2110,6 +2110,48 @@ class ChatbotService:
                 total += self._to_credit_value(subj.get("credits"))
         return total
 
+    def _format_vietnamese_join(self, items: List[str]) -> str:
+        cleaned = [str(item).strip() for item in items if str(item or "").strip()]
+        if not cleaned:
+            return ""
+        if len(cleaned) == 1:
+            return cleaned[0]
+        if len(cleaned) == 2:
+            return " và ".join(cleaned)
+        return ", ".join(cleaned[:-1]) + " và " + cleaned[-1]
+
+    def _compact_repeated_subject_reasoning(self, reasons: List[str]) -> List[str]:
+        """Group subject/class suggestion explanations that share the same reason text."""
+        subject_reason_groups: Dict[str, List[str]] = defaultdict(list)
+        ordered_reason_keys: List[Tuple[str, str]] = []
+
+        for reason in reasons:
+            prefix, separator, explanation = str(reason or "").partition(": ")
+            if not separator or not re.match(r"^[A-Z0-9][A-Z0-9/.-]*\s+-\s+\S", prefix):
+                ordered_reason_keys.append(("raw", reason))
+                continue
+
+            if explanation not in subject_reason_groups:
+                ordered_reason_keys.append(("subject", explanation))
+            subject_reason_groups[explanation].append(prefix)
+
+        compacted: List[str] = []
+        emitted_subject_reasons: Set[str] = set()
+        for kind, value in ordered_reason_keys:
+            if kind == "raw":
+                compacted.append(value)
+                continue
+            if value in emitted_subject_reasons:
+                continue
+            emitted_subject_reasons.add(value)
+            prefixes = subject_reason_groups.get(value, [])
+            if len(prefixes) <= 1:
+                compacted.append(f"{prefixes[0]}: {value}")
+            else:
+                compacted.append(f"{self._format_vietnamese_join(prefixes)} {value}")
+
+        return compacted
+
     def _build_combination_reasoning(
         self,
         formatted_classes: List[Dict[str, Any]],
@@ -2331,7 +2373,7 @@ class ChatbotService:
 
         if not reasons:
             reasons.append("Phương án này sử dụng trực tiếp kết quả xếp hạng và các tiêu chí bạn đã cung cấp.")
-        return reasons
+        return self._compact_repeated_subject_reasoning(reasons)
 
     def _class_reasoning_time_period(self, value: Any) -> Optional[str]:
         minutes = self._class_reasoning_time_minutes(value)
