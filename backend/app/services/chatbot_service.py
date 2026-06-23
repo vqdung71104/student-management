@@ -2261,6 +2261,39 @@ class ChatbotService:
         ).all()
         learned_ge_b_subjects = {sid for sid, grade in learned_rows if sid is not None and self._grade_ge_b(grade)}
 
+        subject_result = self.subject_rule_engine.suggest_subjects(student_id)
+        subject_summary = subject_result.get("summary", {}) or {}
+        subject_reason_by_db_id: Dict[int, str] = {}
+        suggested_subject_ids_ordered: List[int] = []
+        seen_suggested_subjects: Set[int] = set()
+
+        for rule_cat in self._ordered_subject_rule_categories(subject_summary):
+            group = subject_summary.get(rule_cat, []) or []
+            reason = self._format_subject_reason(rule_cat)
+            for subject in group:
+                subject_db_id = subject.get("id")
+                if subject_db_id is None:
+                    continue
+                if subject_db_id not in seen_suggested_subjects:
+                    suggested_subject_ids_ordered.append(subject_db_id)
+                    seen_suggested_subjects.add(subject_db_id)
+                detail_reason = reason
+                if subject.get("elective_module_name"):
+                    detail_reason = f"{detail_reason}; thuộc {subject.get('elective_module_name')} đang được ưu tiên"
+                subject_reason_by_db_id[subject_db_id] = detail_reason
+
+        suggested_subject_ids = set(suggested_subject_ids_ordered)
+        elective_subject_ids = {
+            str(subject_id or "").strip().upper()
+            for module in subject_result.get("elective_modules", []) or []
+            for subject_id in module.get("subject_ids", []) or []
+        }
+        target_elective_subject_ids = {
+            str(subject_id or "").strip().upper()
+            for subject_id in (subject_result.get("elective_module") or {}).get("subject_ids", []) or []
+        }
+        target_module_name = (subject_result.get("elective_module") or {}).get("module_name")
+
         drop_reasons: Dict[int, List[str]] = defaultdict(list)
 
         for cls in registered_classes:
@@ -2268,6 +2301,24 @@ class ChatbotService:
                 drop_reasons[cls["class_db_id"]].append("Học phần không thuộc chương trình đào tạo")
             if cls["subject_db_id"] in learned_ge_b_subjects:
                 drop_reasons[cls["class_db_id"]].append("Bạn đã học học phần này với điểm từ B trở lên")
+
+        for cls in registered_classes:
+            subject_code = str(cls.get("subject_code") or "").strip().upper()
+            if subject_code in elective_subject_ids and subject_code not in target_elective_subject_ids:
+                if target_module_name:
+                    drop_reasons[cls["class_db_id"]].append(
+                        f"Thuộc module khác, không thuộc {target_module_name} đang được ưu tiên"
+                    )
+                else:
+                    drop_reasons[cls["class_db_id"]].append("Thuộc module khác với định hướng hiện tại")
+            if (
+                cls["subject_db_id"] in course_subject_ids
+                and cls["subject_db_id"] not in suggested_subject_ids
+                and cls["subject_db_id"] not in learned_ge_b_subjects
+            ):
+                drop_reasons[cls["class_db_id"]].append(
+                    "Không nằm trong danh sách học phần được gợi ý cho kỳ sau"
+                )
 
         # Duplicate subject should be detected only when student has different class_id groups
         # for the same subject, not multiple rows of the same class_id.
@@ -2326,7 +2377,7 @@ class ChatbotService:
         target_credits = 28
 
         needed_subject_ids = [
-            sid for sid in course_subject_ids
+            sid for sid in suggested_subject_ids_ordered
             if sid not in learned_ge_b_subjects and sid not in registered_subject_ids
         ]
 
@@ -2358,7 +2409,9 @@ class ChatbotService:
         occupied = list(registered_classes)
 
         if current_credits < target_credits:
-            for subject_id in sorted(candidates_by_subject.keys()):
+            for subject_id in needed_subject_ids:
+                if subject_id not in candidates_by_subject:
+                    continue
                 options = sorted(candidates_by_subject[subject_id], key=lambda x: str(x.get("class_id", "")))
                 chosen = None
                 for option in options:
@@ -2380,7 +2433,11 @@ class ChatbotService:
             if code in seen_add_class_codes:
                 continue
             seen_add_class_codes.add(code)
-            add_lines.append(f"- {self._format_class_brief(cls)}: {cls.get('subject_name', '')}")
+            reason = subject_reason_by_db_id.get(cls.get("subject_db_id"), "Phù hợp danh sách học phần được gợi ý")
+            add_lines.append(
+                f"- {self._format_class_brief(cls)}: {cls.get('subject_name', '')}. "
+                f"Lý do: {reason}; không xung đột với lịch hiện tại và các lớp đề xuất khác"
+            )
 
         sections = []
         if drop_lines:

@@ -4,6 +4,7 @@ import './Schedule.css'
 
 interface ClassSchedule {
   id: string
+  class_id: string
   class_name: string
   subject_name: string
   subject_id: string
@@ -103,6 +104,7 @@ const Schedule = () => {
 
                     scheduleEntries.push({
                       id: `${register.id}-${dayName}`,
+                      class_id: String(classData.class_id || 'N/A'),
                       class_name: classData.class_name,
                       subject_name: subjectData.subject_name,
                       subject_id: subjectData.subject_id,
@@ -128,6 +130,7 @@ const Schedule = () => {
 
                   scheduleEntries.push({
                     id: register.id,
+                    class_id: String(classData.class_id || 'N/A'),
                     class_name: classData.class_name,
                     subject_name: subjectData.subject_name,
                     subject_id: subjectData.subject_id,
@@ -429,7 +432,7 @@ const Schedule = () => {
                               left: `calc(${leftPercent}% + 4px)`,
                               width: `calc(${widthPercent}% - 8px)`
                             }}
-                            title={`${classItem.subject_name}\n${classItem.classroom}\n${classItem.teacher_name}`}
+                            title={`${classItem.class_id} - ${classItem.subject_id} - ${classItem.subject_name}\n${classItem.classroom}\n${classItem.teacher_name}`}
                             onClick={() => setSelectedGroupId(classItem.conflict_group_id)}
                           >
                             {isConflict && (
@@ -444,7 +447,7 @@ const Schedule = () => {
                               </span>
                             </div>
                             <div className="class-name">
-                              {classItem.subject_id} - {classItem.subject_name}
+                              {classItem.class_id} - {classItem.subject_name}
                             </div>
                             <div className="class-week">
                               Tuần {classItem.study_week}
@@ -498,7 +501,7 @@ const Schedule = () => {
                       backgroundColor: subjectColor.softColor
                     }}
                   >
-                    <div className="font-semibold text-gray-900">{cls.subject_id} - {cls.subject_name}</div>
+                    <div className="font-semibold text-gray-900">{cls.class_id} - {cls.subject_id} - {cls.subject_name}</div>
                     <div className="text-sm text-gray-600 mt-1">Lớp: {cls.class_name}</div>
                     <div className="text-sm text-gray-600">Giờ học: {formatTime(cls.study_time_start)} - {formatTime(cls.study_time_end)}</div>
                     <div className="text-sm text-gray-600">Phòng: {cls.classroom}</div>
@@ -529,7 +532,7 @@ const Schedule = () => {
               <div className="w-4 h-4 rounded" style={{ backgroundColor: subjectColor.solidColor }}></div>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-gray-900 truncate">
-                  {classItem.subject_id} - {classItem.subject_name}
+                  {classItem.class_id} - {classItem.subject_name}
                 </div>
                 <div className="text-sm text-gray-600">
                   {daysOfWeekFull[classItem.day_of_week]} • {formatTime(classItem.study_time_start)}-{formatTime(classItem.study_time_end)} • {classItem.classroom}
