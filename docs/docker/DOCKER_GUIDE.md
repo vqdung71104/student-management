@@ -501,7 +501,7 @@ Refer to platform-specific documentation for deploying Docker Compose applicatio
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| VITE_API_URL | Backend API URL | http://localhost:8000 |
+| VITE_API_URL | Backend API URL | /api |
 | NODE_ENV | Node environment | development |
 
 ## 🤝 Contributing

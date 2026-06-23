@@ -45,6 +45,44 @@ def _is_agent_enabled() -> bool:
     return os.getenv("AGENT_ENABLED", "false").strip().lower() == "true"
 
 
+def _is_production() -> bool:
+    return os.getenv("APP_ENV", os.getenv("NODE_ENV", "")).strip().lower() in {"prod", "production"}
+
+
+def _validate_production_env_or_raise() -> None:
+    if not _is_production():
+        return
+
+    required = [
+        "MYSQL_USER",
+        "MYSQL_PASSWORD",
+        "MYSQL_DB",
+        "SECRET_KEY",
+        "GOOGLE_API_KEY",
+        "ORCHESTRATOR_API_KEY",
+    ]
+    missing = [name for name in required if not os.getenv(name, "").strip()]
+    if missing:
+        raise RuntimeError(f"Missing required production env vars: {', '.join(missing)}")
+
+    placeholders = {
+        "MYSQL_USER": {"your_production_user"},
+        "MYSQL_PASSWORD": {"your_strong_password_here_change_this"},
+        "SECRET_KEY": {"generate_new_secret_key_using_openssl_rand_hex_32", "secret"},
+        "GOOGLE_API_KEY": {"your_google_api_key_here", "your_api_key"},
+    }
+    invalid = [
+        name
+        for name, values in placeholders.items()
+        if os.getenv(name, "").strip() in values
+    ]
+    if invalid:
+        raise RuntimeError(
+            "Production env vars still contain placeholder/default values: "
+            + ", ".join(invalid)
+        )
+
+
 def _validate_agent_env_or_raise() -> None:
     if not _is_agent_enabled():
         return
@@ -67,6 +105,7 @@ def _validate_agent_env_or_raise() -> None:
 
 @app.on_event("startup")
 def _startup_validation() -> None:
+    _validate_production_env_or_raise()
     _validate_agent_env_or_raise()
 
 

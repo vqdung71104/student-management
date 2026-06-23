@@ -31,7 +31,7 @@ function Test-DockerRunning {
 # ---- Development ----
 function Start-DevEnvironment {
     Write-MsgInfo "Starting development environment..."
-    docker-compose --env-file .env.docker up -d
+    docker compose --env-file .env.docker up -d
     Write-MsgSuccess "Development environment started"
     Write-MsgInfo "Frontend  : http://localhost:5173"
     Write-MsgInfo "Backend   : http://localhost:8000"
@@ -42,49 +42,49 @@ function Start-DevEnvironment {
 
 function Stop-DevEnvironment {
     Write-MsgInfo "Stopping development environment..."
-    docker-compose down
+    docker compose --env-file .env.docker down
     Write-MsgSuccess "Development environment stopped"
 }
 
 function Restart-DevEnvironment {
     Write-MsgInfo "Restarting development environment..."
-    docker-compose restart
+    docker compose --env-file .env.docker restart
     Write-MsgSuccess "Development environment restarted"
 }
 
 function Show-DevLogs {
     param([string]$Service)
     if ($Service) {
-        docker-compose logs -f $Service
+        docker compose --env-file .env.docker logs -f $Service
     }
     else {
-        docker-compose logs -f
+        docker compose --env-file .env.docker logs -f
     }
 }
 
 function Invoke-DevBuild {
     Write-MsgInfo "Building development images (no cache)..."
-    docker-compose build --no-cache
+    docker compose --env-file .env.docker build --no-cache
     Write-MsgSuccess "Development images built"
 }
 
 # ---- Production ----
 function Start-ProdEnvironment {
     Write-MsgInfo "Starting production environment..."
-    docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
+    docker compose --env-file .env.production -f docker-compose.prod.yml up -d
     Write-MsgSuccess "Production environment started"
     Write-MsgInfo "Application: http://localhost:80"
 }
 
 function Stop-ProdEnvironment {
     Write-MsgInfo "Stopping production environment..."
-    docker-compose -f docker-compose.prod.yml down
+    docker compose --env-file .env.production -f docker-compose.prod.yml down
     Write-MsgSuccess "Production environment stopped"
 }
 
 function Invoke-ProdBuild {
     Write-MsgInfo "Building production images (no cache)..."
-    docker-compose -f docker-compose.prod.yml build --no-cache
+    docker compose --env-file .env.production -f docker-compose.prod.yml build --no-cache
     Write-MsgSuccess "Production images built"
 }
 
@@ -119,7 +119,7 @@ function Open-DbShell {
 # ---- Health ----
 function Test-ServiceHealth {
     Write-MsgInfo "Checking service health..."
-    docker-compose ps
+    docker compose --env-file .env.docker ps
     Write-Host ""
 
     Write-MsgInfo "Backend health:"
@@ -148,7 +148,7 @@ function Remove-AllContainers {
     $confirm = Read-Host "Are you sure? Type 'yes' to confirm"
     if ($confirm -eq "yes") {
         Write-MsgInfo "Cleaning up..."
-        docker-compose down -v
+        docker compose --env-file .env.docker down -v
         docker system prune -af --volumes
         Write-MsgSuccess "Cleanup completed"
     }

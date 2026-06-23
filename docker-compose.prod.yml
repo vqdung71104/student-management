@@ -21,8 +21,8 @@ services:
     container_name: student-management-mysql-prod
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DB}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env.production}
+      MYSQL_DATABASE: ${MYSQL_DB:?Set MYSQL_DB in .env.production}
       TZ: Asia/Ho_Chi_Minh
     volumes:
       - mysql-data:/var/lib/mysql
@@ -59,24 +59,25 @@ services:
       redis:
         condition: service_healthy
     environment:
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      APP_ENV: production
+      MYSQL_USER: ${MYSQL_USER:?Set MYSQL_USER in .env.production}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env.production}
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
-      MYSQL_DB: ${MYSQL_DB}
+      MYSQL_DB: ${MYSQL_DB:?Set MYSQL_DB in .env.production}
       PORT: 8000
       HOST: 0.0.0.0
-      SECRET_KEY: ${SECRET_KEY}
-      ALGORITHM: ${ALGORITHM}
-      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-      USE_PHOBERT: ${USE_PHOBERT}
-      USE_GEMINI: ${USE_GEMINI}
-      ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY}
-      CHATBOT_STRATEGY: ${CHATBOT_STRATEGY}
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env.production}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:?Set GOOGLE_API_KEY in .env.production}
+      USE_PHOBERT: ${USE_PHOBERT:-true}
+      USE_GEMINI: ${USE_GEMINI:-true}
+      ORCHESTRATOR_API_KEY: ${ORCHESTRATOR_API_KEY:?Set ORCHESTRATOR_API_KEY in .env.production}
+      CHATBOT_STRATEGY: ${CHATBOT_STRATEGY:-hybrid}
       AGENT_ENABLED: ${AGENT_ENABLED:-false}
-      AGENT_TOOLS_BASE_URL: ${AGENT_TOOLS_BASE_URL:-http://127.0.0.1:8000/api/agent-tools}
-      AGENT_INTERNAL_TOOL_KEY: ${AGENT_INTERNAL_TOOL_KEY}
+      AGENT_TOOLS_BASE_URL: ${AGENT_TOOLS_BASE_URL:-http://backend:8000/api/agent-tools}
+      AGENT_INTERNAL_TOOL_KEY: ${AGENT_INTERNAL_TOOL_KEY:-}
       AGENT_TOOLS_CONFIG_JSON: ${AGENT_TOOLS_CONFIG_JSON:-}
       METRICS_INTERNAL_KEY: ${METRICS_INTERNAL_KEY:-}
       LLM_SPACE_URL: ${LLM_SPACE_URL:-}

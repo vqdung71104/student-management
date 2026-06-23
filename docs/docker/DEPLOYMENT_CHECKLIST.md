@@ -51,7 +51,7 @@
 - [ ] Configure firewall rules
 
 ### Configuration
-- [ ] Update `VITE_API_URL` with production domain
+- [ ] Set `VITE_API_URL=/api` so the public frontend uses the Nginx `/api` proxy
 - [ ] Configure domain/DNS settings
 - [ ] Set up SSL/TLS certificates
 - [ ] Configure reverse proxy (if needed)
