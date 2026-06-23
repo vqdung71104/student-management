@@ -281,6 +281,7 @@ ALERT_CIRCUIT_OPEN_MIN=3
 Production note:
 - Production Compose must be run with `--env-file .env.production` or an equivalent server `.env` file. If the env file is missing, backend variables such as database credentials and API keys will be empty and only the frontend may appear to work.
 - The production frontend must call the backend through relative `/api` URLs. Do not build the public frontend with `http://localhost:8000` or `http://127.0.0.1:8000`, because that points each visitor's browser at their own machine.
+- `GOOGLE_API_KEY` is required only when `USE_GEMINI=true`; set `USE_GEMINI=false` to run without Gemini.
 - If AGENT_ENABLED=true, backend startup will fail fast when LLM_SPACE_URL is missing.
 - AGENT_INTERNAL_TOOL_KEY must be non-default and at least 24 characters.
 - Internal metrics endpoint /internal/metrics/orchestration is protected by X-Internal-Metrics-Key.
