@@ -27,6 +27,8 @@ import os
 import re
 import unicodedata
 
+from app.services.elective_service import ElectiveModuleService
+
 
 class SubjectSuggestionRuleEngine:
     """Rule-Based System for Subject Registration Suggestions"""
@@ -40,6 +42,7 @@ class SubjectSuggestionRuleEngine:
             config_path: Path to rules_config.json (optional)
         """
         self.db = db
+        self.elective_service = ElectiveModuleService()
         
         # Load configuration from JSON file
         if config_path is None:
@@ -1038,6 +1041,14 @@ class SubjectSuggestionRuleEngine:
         available_subjects = self.get_available_subjects(
             student_id, current_semester
         )
+        course_id = self.elective_service.get_student_course_code(self.db, student_id)
+        available_subjects, elective_progress = (
+            self.elective_service.filter_subjects_for_target_module(
+                course_id=course_id,
+                subjects=available_subjects,
+                completed_subjects=student_data['completed_subjects'],
+            )
+        )
         
         # Apply rules in priority order
         suggested = []
@@ -1268,6 +1279,10 @@ class SubjectSuggestionRuleEngine:
             'meets_minimum': meets_minimum,
             'student_cpa': student_data['cpa'],
             'warning_level': student_data['warning_level'],
+            'elective_module': elective_progress.get('target_module'),
+            'elective_completed_module': elective_progress.get('completed_module'),
+            'elective_alternatives': elective_progress.get('alternatives', []),
+            'elective_modules': elective_progress.get('modules', []),
             'summary': summary
         }
     
@@ -1365,6 +1380,44 @@ class SubjectSuggestionRuleEngine:
             response.append("Các môn còn lại trong chương trình học:")
             for i, subj in enumerate(summary['remaining_course'], 1):
                 response.append(f"{i}. **{subj['subject_id']}** - {subj['subject_name']} ({subj['credits']} tín chỉ)")
+
+        elective_subject_ids = {
+            str(subject_id or '').strip().upper()
+            for module in suggestion_result.get('elective_modules', []) or []
+            for subject_id in module.get('subject_ids', []) or []
+        }
+        displayed_subject_ids = {
+            str(subject.get('subject_id') or '').strip().upper()
+            for group in summary.values()
+            if isinstance(group, list)
+            for subject in group
+            if isinstance(subject, dict)
+        }
+        elective_module = suggestion_result.get('elective_module') or {}
+        if elective_module and elective_subject_ids.intersection(displayed_subject_ids):
+            response.append("\n**MODULE TỰ CHỌN**")
+            response.append(
+                f"Đang ưu tiên: {elective_module.get('module_name')} "
+                f"({elective_module.get('passed_count', 0)}/{elective_module.get('total_count', 0)} môn đã đạt)"
+            )
+            missing = elective_module.get('missing_subject_ids') or []
+            if missing:
+                response.append(f"Môn còn thiếu: {', '.join(missing)}")
+            alternatives = suggestion_result.get('elective_alternatives') or []
+            if alternatives:
+                response.append("Phương án đổi module:")
+                for alternative in alternatives:
+                    swap_in = alternative.get('swap_in_subject_ids') or alternative.get('missing_subject_ids') or []
+                    swap_out = alternative.get('swap_out_subject_ids') or []
+                    details = []
+                    if swap_out:
+                        details.append(f"thay {', '.join(swap_out)}")
+                    if swap_in:
+                        details.append(f"bằng {', '.join(swap_in)}")
+                    response.append(
+                        f"- {alternative.get('module_name')}: "
+                        f"{'; '.join(details) if details else 'không cần đổi môn riêng'}"
+                    )
 
         # Total summary
         response.append("\n**📊 TỔNG KẾT**")

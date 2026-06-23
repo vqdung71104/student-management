@@ -1,0 +1,19 @@
+{
+  "courses": [
+    {
+      "course_id": "IT-E6",
+      "modules": [
+        {
+          "module_id": "module_1",
+          "module_name": "Module 1 (AI and Big Data)",
+          "subject_ids": ["IT4409", "IT4785", "IT4542", "IT4930", "IT3190", "IT4441"]
+        },
+        {
+          "module_id": "module_2",
+          "module_name": "Module 2 (AI and IoT)",
+          "subject_ids": ["IT4409", "IT4785", "IT4542", "IT4210", "IT4735", "IT4651"]
+        }
+      ]
+    }
+  ]
+}

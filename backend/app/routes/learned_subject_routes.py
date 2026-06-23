@@ -13,6 +13,7 @@ from app.schemas.learned_subject_schema import (
     LearnedSubjectResponse,
     LearnedSubjectSimpleCreate,
 )
+from app.services.elective_service import ElectiveModuleService
 
 router = APIRouter(prefix="/learned-subjects", tags=["Learned Subjects"])
 
@@ -97,19 +98,40 @@ def update_student_stats(student_id: int, db: Session):
     # Lấy tất cả learned subjects của student
     learned_subjects = db.query(LearnedSubject).filter(LearnedSubject.student_id == student_id).all()
     
+    elective_service = ElectiveModuleService()
+    recognized_subject_ids = elective_service.recognized_subject_ids_for_cpa(
+        course_id=elective_service.get_student_course_code(db, student_id),
+        learned_subjects=learned_subjects,
+    )
+
     # Reset counters
     failed_subjects_number = 0
     study_subjects_number = 0
     total_failed_credits = 0
     total_learned_credits = 0
+    recognized_total_grade_points = 0.0
     
     for ls in learned_subjects:
         if ls.letter_grade == "F":
             failed_subjects_number += 1
             total_failed_credits += ls.credits
         else:
-            study_subjects_number += 1
-            total_learned_credits += ls.credits
+            subject_code = (
+                str(ls.subject.subject_id).strip().upper()
+                if getattr(ls, "subject", None) and ls.subject.subject_id
+                else None
+            )
+            if recognized_subject_ids is None or subject_code in recognized_subject_ids:
+                study_subjects_number += 1
+                total_learned_credits += ls.credits
+
+        subject_code = (
+            str(ls.subject.subject_id).strip().upper()
+            if getattr(ls, "subject", None) and ls.subject.subject_id
+            else None
+        )
+        if recognized_subject_ids is not None and subject_code in recognized_subject_ids:
+            recognized_total_grade_points += ls.credits * letter_grade_to_score(ls.letter_grade)
     
     # Update student fields
     student.failed_subjects_number = failed_subjects_number
@@ -122,8 +144,10 @@ def update_student_stats(student_id: int, db: Session):
     total_credits = sum(sgpa.total_credits for sgpa in semester_gpas)
     total_grade_points = sum(sgpa.gpa * sgpa.total_credits for sgpa in semester_gpas)
     print("total_credits:", total_credits, "total_grade_points:", total_grade_points)
-    if(total_learned_credits==0):
-        student.cpa=0.0
+    if total_learned_credits == 0:
+        student.cpa = 0.0
+    elif recognized_subject_ids is not None:
+        student.cpa = recognized_total_grade_points / total_learned_credits
     else:
         student.cpa = total_grade_points / total_learned_credits if total_credits > 0 else 0.0
     

@@ -2931,6 +2931,65 @@ class ChatbotService:
             return None
         return int(match.group(1)), int(match.group(2))
 
+    def _has_displayed_elective_subject(self, result: Dict[str, Any]) -> bool:
+        elective_subject_ids = {
+            str(subject_id or "").strip().upper()
+            for module in result.get("elective_modules", []) or []
+            for subject_id in module.get("subject_ids", []) or []
+        }
+        if not elective_subject_ids:
+            return False
+
+        summary = result.get("summary") or {}
+        if not isinstance(summary, dict):
+            return False
+
+        for group in summary.values():
+            if not isinstance(group, list):
+                continue
+            for subject in group:
+                if not isinstance(subject, dict):
+                    continue
+                subject_id = str(subject.get("subject_id") or "").strip().upper()
+                if subject_id in elective_subject_ids:
+                    return True
+        return False
+
+    def _build_elective_module_note(self, result: Dict[str, Any]) -> str:
+        module = result.get("elective_module") or {}
+        if not module or not self._has_displayed_elective_subject(result):
+            return ""
+
+        module_name = module.get("module_name") or module.get("module_id") or "module tu chon"
+        passed_count = module.get("passed_count", 0)
+        total_count = module.get("total_count", 0)
+        missing = module.get("missing_subject_ids") or []
+
+        lines = [
+            "",
+            "**Định hướng module tự chọn**",
+            f"- Đang ưu tiên: {module_name} ({passed_count}/{total_count} môn đã đạt).",
+        ]
+        if missing:
+            lines.append(f"- Môn còn thiếu của module này: {', '.join(missing)}.")
+
+        alternatives = result.get("elective_alternatives") or []
+        if alternatives:
+            lines.append("- Phương án đổi module nếu bạn muốn:")
+            for alternative in alternatives:
+                alt_name = alternative.get("module_name") or alternative.get("module_id")
+                swap_in = alternative.get("swap_in_subject_ids") or alternative.get("missing_subject_ids") or []
+                swap_out = alternative.get("swap_out_subject_ids") or []
+                detail_parts = []
+                if swap_out:
+                    detail_parts.append(f"thay {', '.join(swap_out)}")
+                if swap_in:
+                    detail_parts.append(f"bằng {', '.join(swap_in)}")
+                detail = "; ".join(detail_parts) if detail_parts else "không cần đổi môn riêng"
+                lines.append(f"  - {alt_name}: {detail}.")
+
+        return "\n".join(lines)
+
     def _build_subject_text(self, result: Dict) -> str:
         """
         Build a clean, numbered Markdown list with reasons pre-formatted by Node 3b.
@@ -2963,15 +3022,22 @@ class ChatbotService:
 
             for subj in group:
                 global_idx += 1
+                module_suffix = ""
+                if subj.get("elective_module_name"):
+                    module_suffix = f" - Module: {subj.get('elective_module_name')}"
                 lines.append(
                     f"{global_idx}. **{subj.get('subject_id', '?')}** - "
                     f"{subj.get('subject_name', '?')} "
                     f"({subj.get('credits', 0)} TC) - "
-                    f"Lý do: {reason}"
+                    f"Lý do: {reason}{module_suffix}"
                 )
 
         if not lines:
             return "Không có môn học nào được gợi ý cho bạn trong kỳ này."
+
+        module_note = self._build_elective_module_note(result)
+        if module_note:
+            lines.append(module_note)
 
         return "\n".join(lines)
 
@@ -3069,6 +3135,9 @@ class ChatbotService:
                     "student_cpa": raw_result["student_cpa"],
                     "warning_level": raw_result["warning_level"],
                     "total_subjects": len(sorted_subjects),
+                    "elective_module": raw_result.get("elective_module"),
+                    "elective_completed_module": raw_result.get("elective_completed_module"),
+                    "elective_alternatives": raw_result.get("elective_alternatives", []),
                 },
                 "rule_engine_used": True,
             }
