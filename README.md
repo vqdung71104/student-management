@@ -295,21 +295,9 @@ REDIS_HOST=redis
 VITE_API_URL=http://localhost:8000
 ```
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
 ## 👥 Authors
 
-- Your Name - Initial work
+- Vũ Quang Dũng
 
 ## 🙏 Acknowledgments
 
@@ -318,12 +306,6 @@ This project is licensed under the MIT License.
 - Ant Design for beautiful components
 - Google for Gemini AI
 - VinAI for PhoBERT model
-
-## 📞 Support
-
-For issues and questions:
-- Create an issue in the repository
-- Check [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for troubleshooting
 
 ---
 
