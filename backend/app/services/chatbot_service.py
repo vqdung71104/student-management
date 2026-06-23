@@ -1448,6 +1448,58 @@ class ChatbotService:
 
         return snapshot
 
+    def _build_constraint_snapshot(self, constraints: Optional[Dict]) -> List[Dict]:
+        if not isinstance(constraints, dict):
+            return []
+
+        def _join(values: List[Any]) -> str:
+            return ", ".join(str(value) for value in values if str(value).strip())
+
+        wanted_parts: List[str] = []
+        blocked_parts: List[str] = []
+
+        include_subjects = (constraints.get('include_subject_codes') or []) + (constraints.get('include_subjects') or [])
+        exclude_subjects = (constraints.get('exclude_subject_codes') or []) + (constraints.get('exclude_subjects') or [])
+        include_classes = (constraints.get('include_class_ids') or []) + (constraints.get('include_class_names') or [])
+        exclude_classes = (constraints.get('exclude_class_ids') or []) + (constraints.get('exclude_class_names') or [])
+        include_locations = (constraints.get('include_buildings') or []) + (constraints.get('include_classrooms') or [])
+        exclude_locations = (constraints.get('exclude_buildings') or []) + (constraints.get('exclude_classrooms') or [])
+
+        if include_subjects:
+            wanted_parts.append(f"Học phần: {_join(include_subjects)}")
+        if include_classes:
+            wanted_parts.append(f"Lớp: {_join(include_classes)}")
+        if include_locations:
+            wanted_parts.append(f"Tòa/phòng: {_join(include_locations)}")
+        if constraints.get('include_teachers'):
+            wanted_parts.append(f"Giảng viên: {_join(constraints.get('include_teachers') or [])}")
+
+        if exclude_subjects:
+            blocked_parts.append(f"Học phần: {_join(exclude_subjects)}")
+        if exclude_classes:
+            blocked_parts.append(f"Lớp: {_join(exclude_classes)}")
+        if exclude_locations:
+            blocked_parts.append(f"Tòa/phòng: {_join(exclude_locations)}")
+        if constraints.get('exclude_teachers'):
+            blocked_parts.append(f"Giảng viên: {_join(constraints.get('exclude_teachers') or [])}")
+
+        snapshot: List[Dict] = []
+        if wanted_parts:
+            snapshot.append({
+                'key': 'constraint_include',
+                'label': 'Muốn học/chọn',
+                'value': '; '.join(wanted_parts),
+                'status': 'đã có thông tin',
+            })
+        if blocked_parts:
+            snapshot.append({
+                'key': 'constraint_exclude',
+                'label': 'Không muốn học/chọn',
+                'value': '; '.join(blocked_parts),
+                'status': 'đã có thông tin',
+            })
+        return snapshot
+
     def _build_class_suggestion_metadata(
         self,
         preferences,
@@ -1474,6 +1526,7 @@ class ChatbotService:
             for key in missing_keys
         ]
         captured_items = self._build_preference_snapshot(preferences)
+        captured_items.extend(self._build_constraint_snapshot(nlq_constraints_dict))
 
         auto_captured_keys = []
         if state is not None:
@@ -1520,6 +1573,20 @@ class ChatbotService:
                 'session': nlq_constraints_dict.get('session'),
                 'time_from': nlq_constraints_dict.get('time_from'),
                 'subject_codes': nlq_constraints_dict.get('subject_codes', []),
+                'include_subjects': nlq_constraints_dict.get('include_subjects', []),
+                'include_subject_codes': nlq_constraints_dict.get('include_subject_codes', []),
+                'exclude_subjects': nlq_constraints_dict.get('exclude_subjects', []),
+                'exclude_subject_codes': nlq_constraints_dict.get('exclude_subject_codes', []),
+                'include_class_ids': nlq_constraints_dict.get('include_class_ids', []),
+                'exclude_class_ids': nlq_constraints_dict.get('exclude_class_ids', []),
+                'include_buildings': nlq_constraints_dict.get('include_buildings', []),
+                'exclude_buildings': nlq_constraints_dict.get('exclude_buildings', []),
+                'include_classrooms': nlq_constraints_dict.get('include_classrooms', []),
+                'exclude_classrooms': nlq_constraints_dict.get('exclude_classrooms', []),
+                'include_teachers': nlq_constraints_dict.get('include_teachers', []),
+                'exclude_teachers': nlq_constraints_dict.get('exclude_teachers', []),
+                'include_day_session_constraints': nlq_constraints_dict.get('include_day_session_constraints', []),
+                'exclude_day_session_constraints': nlq_constraints_dict.get('exclude_day_session_constraints', []),
             }
 
         if current_question:
@@ -1645,7 +1712,11 @@ class ChatbotService:
             if 'time' not in captured:
                 captured.append('time')
 
-        preferred_subjects = constraints_dict.get('preferred_subjects') or []
+        preferred_subjects = (
+            (constraints_dict.get('preferred_subjects') or [])
+            + (constraints_dict.get('include_subjects') or [])
+            + (constraints_dict.get('include_subject_codes') or [])
+        )
         if isinstance(preferred_subjects, list):
             specific_changed = False
             for subject in preferred_subjects:
@@ -1658,7 +1729,279 @@ class ChatbotService:
                 if 'specific' not in captured:
                     captured.append('specific')
 
+        include_class_ids = constraints_dict.get('include_class_ids') or []
+        if isinstance(include_class_ids, list):
+            class_changed = False
+            for class_id in include_class_ids:
+                cleaned = str(class_id).strip().upper()
+                if cleaned and cleaned not in preferences.specific.specific_class_ids:
+                    preferences.specific.specific_class_ids.append(cleaned)
+                    class_changed = True
+            if class_changed:
+                preferences.specific.has_answer = True
+                if 'specific' not in captured:
+                    captured.append('specific')
+
+        include_teachers = constraints_dict.get('include_teachers') or []
+        if isinstance(include_teachers, list):
+            teacher_changed = False
+            for teacher in include_teachers:
+                cleaned = str(teacher).strip()
+                if cleaned and cleaned not in preferences.specific.preferred_teachers:
+                    preferences.specific.preferred_teachers.append(cleaned)
+                    teacher_changed = True
+            if teacher_changed:
+                preferences.specific.has_answer = True
+                if 'specific' not in captured:
+                    captured.append('specific')
+
+        negative_specific_keys = (
+            'exclude_subjects', 'exclude_subject_codes',
+            'exclude_class_ids', 'exclude_class_names',
+            'exclude_buildings', 'exclude_classrooms', 'exclude_teachers',
+            'exclude_class_filters', 'exclude_subject_filters',
+        )
+        if any(constraints_dict.get(key) for key in negative_specific_keys):
+            excluded_subjects = self._constraint_text_values(
+                constraints_dict, 'exclude_subjects', 'exclude_subject_codes'
+            )
+            if excluded_subjects:
+                preferences.specific.specific_subjects = [
+                    item for item in preferences.specific.specific_subjects
+                    if not any(self._row_matches_subject_term({'subject_id': item, 'subject_name': item}, excluded) for excluded in excluded_subjects)
+                ]
+            excluded_class_ids = {item.upper() for item in self._constraint_text_values(constraints_dict, 'exclude_class_ids')}
+            if excluded_class_ids:
+                preferences.specific.specific_class_ids = [
+                    item for item in preferences.specific.specific_class_ids
+                    if str(item).strip().upper() not in excluded_class_ids
+                ]
+            preferences.specific.has_answer = True
+            if 'specific' not in captured:
+                captured.append('specific')
+
         return captured
+
+    def _merge_nlq_constraints(self, base: Optional[Dict], incoming: Optional[Dict]) -> Optional[Dict]:
+        if not base and not incoming:
+            return None
+        merged: Dict[str, Any] = dict(base or {})
+        for key, value in (incoming or {}).items():
+            if value in (None, "", [], {}):
+                continue
+            if isinstance(value, list):
+                existing = merged.get(key)
+                if not isinstance(existing, list):
+                    existing = []
+                combined = list(existing)
+                seen = {repr(item).lower() for item in combined}
+                for item in value:
+                    marker = repr(item).lower()
+                    if marker not in seen:
+                        combined.append(item)
+                        seen.add(marker)
+                merged[key] = combined
+            elif isinstance(value, dict):
+                existing = merged.get(key)
+                nested = dict(existing) if isinstance(existing, dict) else {}
+                nested.update(value)
+                merged[key] = nested
+            else:
+                merged[key] = value
+        return merged
+
+    def _extract_class_registration_constraints(self, text: str, extracted_constraints: Optional[Dict] = None) -> Optional[Dict]:
+        merged = dict(extracted_constraints or {})
+        try:
+            from app.services.constraint_extractor import get_constraint_extractor
+            extractor = get_constraint_extractor()
+            extracted = extractor.extract(text, query_type="class_registration_suggestion")
+            extracted_dict = extracted.model_dump() if hasattr(extracted, "model_dump") else extracted.dict()
+            merged = self._merge_nlq_constraints(merged, extracted_dict) or {}
+        except Exception as exc:
+            print(f"⚠️ [CONSTRAINTS] Extract failed: {exc}")
+        return merged or None
+
+    def _constraint_values(self, constraints: Optional[Dict], *keys: str) -> List[Any]:
+        values: List[Any] = []
+        if not isinstance(constraints, dict):
+            return values
+        for key in keys:
+            raw = constraints.get(key)
+            if isinstance(raw, list):
+                values.extend(item for item in raw if item not in (None, "", [], {}))
+            elif raw not in (None, "", [], {}):
+                values.append(raw)
+        return values
+
+    def _constraint_text_values(self, constraints: Optional[Dict], *keys: str) -> List[str]:
+        return [str(item).strip() for item in self._constraint_values(constraints, *keys) if str(item).strip()]
+
+    def _filter_subjects_by_nlq_constraints(self, subjects: List[Dict[str, Any]], constraints: Optional[Dict]) -> List[Dict[str, Any]]:
+        if not isinstance(constraints, dict) or not subjects:
+            return subjects
+
+        exclude_terms = self._constraint_text_values(
+            constraints, 'exclude_subject_codes', 'exclude_subjects'
+        )
+        exclude_filters = self._constraint_values(constraints, 'exclude_subject_filters')
+        if not exclude_terms and not exclude_filters:
+            return subjects
+
+        filtered: List[Dict[str, Any]] = []
+        for subject in subjects:
+            if any(self._row_matches_subject_term(subject, term) for term in exclude_terms):
+                continue
+            if any(self._row_matches_filter(subject, flt) for flt in exclude_filters if isinstance(flt, dict)):
+                continue
+            filtered.append(subject)
+        return filtered
+
+    def _row_matches_filter(self, row: Dict[str, Any], flt: Dict[str, Any]) -> bool:
+        field = str(flt.get('field') or '').strip()
+        if not field:
+            return False
+        value = row.get(field)
+        expected = flt.get('value')
+        op = str(flt.get('op') or 'eq').strip().lower()
+        if value is None:
+            return False
+
+        if op == 'contains':
+            return self._normalize_lookup_text(str(expected)) in self._normalize_lookup_text(str(value))
+
+        try:
+            value_num = float(value)
+            expected_num = float(expected)
+            if op == 'lt':
+                return value_num < expected_num
+            if op == 'gt':
+                return value_num > expected_num
+            return value_num == expected_num
+        except Exception:
+            return self._normalize_lookup_text(str(value)) == self._normalize_lookup_text(str(expected))
+
+    def _building_matches(self, classroom: str, building: str) -> bool:
+        classroom_norm = str(classroom or "").upper().strip()
+        building_norm = str(building or "").upper().strip()
+        if not classroom_norm or not building_norm:
+            return False
+        return (
+            classroom_norm == building_norm
+            or classroom_norm.startswith(f"{building_norm}-")
+            or classroom_norm.startswith(building_norm)
+        )
+
+    def _class_matches_day_session_constraint(self, cls: Dict[str, Any], constraint: Any) -> bool:
+        if not constraint:
+            return False
+        if hasattr(constraint, 'model_dump'):
+            constraint = constraint.model_dump()
+        if not isinstance(constraint, dict):
+            return False
+        days = set(constraint.get('days') or [])
+        session = constraint.get('session')
+        cls_days = self._class_reasoning_days(cls.get('study_date'))
+        day_ok = not days or bool(cls_days & days)
+        if not day_ok:
+            return False
+        if not session:
+            return True
+        return self._class_reasoning_time_period(cls.get('study_time_start')) == session
+
+    def _class_matches_nlq_constraints(
+        self,
+        cls: Dict[str, Any],
+        constraints: Optional[Dict],
+        include_positive: bool = True,
+    ) -> bool:
+        if not isinstance(constraints, dict):
+            return True
+
+        subject_terms = self._constraint_text_values(constraints, 'exclude_subject_codes', 'exclude_subjects')
+        if any(self._row_matches_subject_term(cls, term) for term in subject_terms):
+            return False
+
+        class_id = str(cls.get('class_id') or '').strip().upper()
+        class_name_norm = self._normalize_lookup_text(str(cls.get('class_name') or ''))
+        if class_id and class_id in {item.upper() for item in self._constraint_text_values(constraints, 'exclude_class_ids')}:
+            return False
+        if any(self._normalize_lookup_text(item) in class_name_norm for item in self._constraint_text_values(constraints, 'exclude_class_names')):
+            return False
+
+        classroom = str(cls.get('classroom') or '')
+        if any(self._building_matches(classroom, item) for item in self._constraint_text_values(constraints, 'exclude_buildings')):
+            return False
+        if str(classroom).upper().strip() in {item.upper() for item in self._constraint_text_values(constraints, 'exclude_classrooms')}:
+            return False
+
+        teacher_norm = self._normalize_lookup_text(str(cls.get('teacher_name') or ''))
+        if any(self._normalize_lookup_text(item) in teacher_norm for item in self._constraint_text_values(constraints, 'exclude_teachers')):
+            return False
+
+        if any(
+            self._class_matches_day_session_constraint(cls, item)
+            for item in self._constraint_values(constraints, 'exclude_day_session_constraints')
+        ):
+            return False
+
+        if any(
+            self._row_matches_filter(cls, flt)
+            for flt in self._constraint_values(constraints, 'exclude_class_filters')
+            if isinstance(flt, dict)
+        ):
+            return False
+
+        if not include_positive:
+            return True
+
+        include_class_ids = {item.upper() for item in self._constraint_text_values(constraints, 'include_class_ids')}
+        if include_class_ids and class_id not in include_class_ids:
+            return False
+        include_class_names = self._constraint_text_values(constraints, 'include_class_names')
+        if include_class_names and not any(self._normalize_lookup_text(item) in class_name_norm for item in include_class_names):
+            return False
+        include_buildings = self._constraint_text_values(constraints, 'include_buildings')
+        if include_buildings and not any(self._building_matches(classroom, item) for item in include_buildings):
+            return False
+        include_classrooms = {item.upper() for item in self._constraint_text_values(constraints, 'include_classrooms')}
+        if include_classrooms and str(classroom).upper().strip() not in include_classrooms:
+            return False
+        include_teachers = self._constraint_text_values(constraints, 'include_teachers')
+        if include_teachers and not any(self._normalize_lookup_text(item) in teacher_norm for item in include_teachers):
+            return False
+        include_dsc = self._constraint_values(constraints, 'include_day_session_constraints')
+        if include_dsc and not any(self._class_matches_day_session_constraint(cls, item) for item in include_dsc):
+            return False
+        if any(
+            not self._row_matches_filter(cls, flt)
+            for flt in self._constraint_values(constraints, 'include_class_filters')
+            if isinstance(flt, dict)
+        ):
+            return False
+        return True
+
+    def _apply_class_nlq_constraints(
+        self,
+        classes: List[Dict[str, Any]],
+        constraints: Optional[Dict],
+        include_positive: bool = True,
+    ) -> List[Dict[str, Any]]:
+        if not isinstance(constraints, dict) or not classes:
+            return classes
+        negative_only = [
+            cls for cls in classes
+            if self._class_matches_nlq_constraints(cls, constraints, include_positive=False)
+        ]
+        if not include_positive:
+            return negative_only
+        positive_filtered = [
+            cls for cls in negative_only
+            if self._class_matches_nlq_constraints(cls, constraints, include_positive=True)
+        ]
+        # Positive constraints are strict only when feasible. Negative constraints
+        # remain hard and are never relaxed.
+        return positive_filtered or negative_only
 
     def _is_valid_preference_answer(self, question_key: str, before: Dict, after: Dict, answer: str) -> bool:
         """Check whether a user answer actually updates expected preference fields."""
@@ -1726,6 +2069,7 @@ class ChatbotService:
                 or after_specific.get('specific_subjects')
                 or after_specific.get('specific_class_ids')
                 or after_specific.get('specific_times')
+                or (after_specific.get('has_answer') and any(marker in normalized_answer for marker in ['không học', 'khong hoc', 'tránh', 'tranh', 'không muốn', 'khong muon', 'ngoại trừ', 'ngoai tru']))
                 or (after_specific.get('has_answer') and any(marker in normalized_answer for marker in no_specific_markers))
             )
 
@@ -2160,6 +2504,7 @@ class ChatbotService:
         subject_result: Dict[str, Any],
         suggested_subjects: List[Dict[str, Any]],
         classes_by_subject: Dict[str, List[Dict[str, Any]]],
+        nlq_constraints_dict: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         """Build deterministic, evidence-based explanations for one combination."""
         reasons: List[str] = []
@@ -2311,6 +2656,8 @@ class ChatbotService:
                 f"Có {non_violating}/{total_classes} lớp tránh được các ngày bạn không muốn học ({labels})."
             )
 
+        reasons.extend(self._build_nlq_constraint_reasoning(formatted_classes, nlq_constraints_dict))
+
         selected_codes = {
             str(cls.get("subject_id") or "").strip().upper()
             for cls in formatted_classes
@@ -2374,6 +2721,113 @@ class ChatbotService:
         if not reasons:
             reasons.append("Phương án này sử dụng trực tiếp kết quả xếp hạng và các tiêu chí bạn đã cung cấp.")
         return self._compact_repeated_subject_reasoning(reasons)
+
+    def _format_day_session_constraint(self, item: Any) -> str:
+        if hasattr(item, 'model_dump'):
+            item = item.model_dump()
+        if not isinstance(item, dict):
+            return str(item)
+        weekday_labels = {
+            "Monday": "Thứ 2", "Tuesday": "Thứ 3", "Wednesday": "Thứ 4",
+            "Thursday": "Thứ 5", "Friday": "Thứ 6", "Saturday": "Thứ 7", "Sunday": "Chủ nhật",
+        }
+        session_label = {"morning": "sáng", "afternoon": "chiều"}.get(item.get("session"), "cả ngày")
+        days = item.get("days") or []
+        if not days:
+            return session_label
+        return f"{session_label} {', '.join(weekday_labels.get(day, day) for day in days)}"
+
+    def _build_nlq_constraint_reasoning(
+        self,
+        formatted_classes: List[Dict[str, Any]],
+        constraints: Optional[Dict[str, Any]],
+    ) -> List[str]:
+        if not isinstance(constraints, dict):
+            return []
+        reasons: List[str] = []
+        total = len(formatted_classes)
+        selected_class_ids = {
+            str(cls.get("class_id") or "").strip().upper()
+            for cls in formatted_classes
+            if cls.get("class_id")
+        }
+
+        for subject in self._constraint_text_values(constraints, 'exclude_subject_codes', 'exclude_subjects'):
+            if not any(self._row_matches_subject_term(cls, subject) for cls in formatted_classes):
+                reasons.append(f"Đáp ứng yêu cầu không học **{subject}**: phương án không có lớp thuộc học phần này.")
+
+        for subject in self._constraint_text_values(constraints, 'include_subject_codes', 'include_subjects', 'preferred_subjects'):
+            matched = any(self._row_matches_subject_term(cls, subject) for cls in formatted_classes)
+            if matched:
+                reasons.append(f"Đáp ứng yêu cầu học/chọn **{subject}**: phương án có học phần này.")
+            else:
+                reasons.append(f"Chưa đáp ứng yêu cầu học/chọn **{subject}** vì không có lớp khả dụng phù hợp trong tổ hợp cuối cùng.")
+
+        for class_id in self._constraint_text_values(constraints, 'exclude_class_ids', 'exclude_class_names'):
+            if class_id.upper() not in selected_class_ids:
+                reasons.append(f"Đáp ứng yêu cầu không học lớp **{class_id}**: phương án không chứa lớp này.")
+
+        for class_id in self._constraint_text_values(constraints, 'include_class_ids', 'include_class_names'):
+            if class_id.upper() in selected_class_ids:
+                reasons.append(f"Đáp ứng yêu cầu chọn lớp **{class_id}**: lớp này có trong phương án.")
+            else:
+                reasons.append(f"Chưa đáp ứng yêu cầu chọn lớp **{class_id}**; lớp này không có trong tổ hợp hợp lệ cuối cùng.")
+
+        for location in self._constraint_text_values(constraints, 'exclude_buildings', 'exclude_classrooms'):
+            if not any(
+                self._building_matches(cls.get('classroom'), location)
+                or str(cls.get('classroom') or '').upper().strip() == location.upper()
+                for cls in formatted_classes
+            ):
+                reasons.append(f"Đáp ứng yêu cầu không học ở **{location}**: không lớp nào trong phương án thuộc tòa/phòng này.")
+
+        for location in self._constraint_text_values(constraints, 'include_buildings', 'include_classrooms'):
+            matching = sum(
+                1 for cls in formatted_classes
+                if self._building_matches(cls.get('classroom'), location)
+                or str(cls.get('classroom') or '').upper().strip() == location.upper()
+            )
+            if matching:
+                reasons.append(f"Có {matching}/{total} lớp đáp ứng yêu cầu học ở **{location}**.")
+            else:
+                reasons.append(f"Không đáp ứng được yêu cầu học ở **{location}** vì không có lớp khả dụng phù hợp; hệ thống vẫn giữ các ràng buộc cấm và luật không trùng lịch.")
+
+        for teacher in self._constraint_text_values(constraints, 'exclude_teachers'):
+            if not any(self._normalize_lookup_text(teacher) in self._normalize_lookup_text(cls.get('teacher_name') or '') for cls in formatted_classes):
+                reasons.append(f"Đáp ứng yêu cầu không học giảng viên **{teacher}**.")
+
+        for teacher in self._constraint_text_values(constraints, 'include_teachers'):
+            matching = sum(
+                1 for cls in formatted_classes
+                if self._normalize_lookup_text(teacher) in self._normalize_lookup_text(cls.get('teacher_name') or '')
+            )
+            if matching:
+                reasons.append(f"Có {matching}/{total} lớp đáp ứng yêu cầu học với giảng viên **{teacher}**.")
+            else:
+                reasons.append(f"Chưa đáp ứng yêu cầu học với giảng viên **{teacher}** vì không có lớp phù hợp trong tổ hợp hợp lệ.")
+
+        include_dsc = self._constraint_values(constraints, 'include_day_session_constraints')
+        if include_dsc and total:
+            matching = sum(
+                1 for cls in formatted_classes
+                if any(self._class_matches_day_session_constraint(cls, item) for item in include_dsc)
+            )
+            labels = ", ".join(self._format_day_session_constraint(item) for item in include_dsc)
+            if matching:
+                reasons.append(f"Có {matching}/{total} lớp đáp ứng yêu cầu học **{labels}**.")
+            else:
+                reasons.append(f"Không đáp ứng được yêu cầu học **{labels}** vì không có lớp khả dụng phù hợp trong tổ hợp hợp lệ.")
+
+        exclude_dsc = self._constraint_values(constraints, 'exclude_day_session_constraints')
+        if exclude_dsc and total:
+            non_matching = sum(
+                1 for cls in formatted_classes
+                if not any(self._class_matches_day_session_constraint(cls, item) for item in exclude_dsc)
+            )
+            labels = ", ".join(self._format_day_session_constraint(item) for item in exclude_dsc)
+            reasons.append(f"Có {non_matching}/{total} lớp tránh được yêu cầu không học **{labels}**.")
+
+        return reasons
 
     def _class_reasoning_time_period(self, value: Any) -> Optional[str]:
         minutes = self._class_reasoning_time_minutes(value)
@@ -2863,9 +3317,10 @@ class ChatbotService:
                 state.subject_source_choice = 'suggested'
                 state.subject_ids_seed = []
             if state and extracted_constraints:
-                merged = dict(getattr(state, 'nlq_constraints', None) or {})
-                merged.update(extracted_constraints)
-                state.nlq_constraints = merged
+                state.nlq_constraints = self._merge_nlq_constraints(
+                    getattr(state, 'nlq_constraints', None),
+                    extracted_constraints,
+                )
                 self._append_supplemental_keys(
                     state,
                     self._merge_constraints_into_preferences(
@@ -2912,6 +3367,20 @@ class ChatbotService:
                 # User is answering a preference question
                 print(f"🔄 [CONVERSATION] Continuing conversation for student {student_id}")
                 print(f"📋 [CONVERSATION] Current question: {state.current_question.key if state.current_question else None}")
+
+                answer_constraints = self._extract_class_registration_constraints(question)
+                if answer_constraints:
+                    state.nlq_constraints = self._merge_nlq_constraints(
+                        getattr(state, 'nlq_constraints', None),
+                        answer_constraints,
+                    )
+                    self._append_supplemental_keys(
+                        state,
+                        self._merge_constraints_into_preferences(
+                            preferences=state.preferences,
+                            constraints_dict=state.nlq_constraints,
+                        ),
+                    )
                 
                 # Parse user response
                 if state.current_question:
@@ -3036,22 +3505,21 @@ class ChatbotService:
 
                 # Extract hard constraints (time/day) from initial message
                 try:
-                    merged_constraints = dict(extracted_constraints or {})
-                    from app.services.constraint_extractor import get_constraint_extractor
-                    _extractor = get_constraint_extractor()
-                    _constraints = _extractor.extract(question, query_type="class_registration_suggestion")
-                    merged_constraints.update(_constraints.dict())
-                    state.nlq_constraints = merged_constraints
+                    state.nlq_constraints = self._extract_class_registration_constraints(
+                        question,
+                        extracted_constraints=extracted_constraints,
+                    )
                     constraint_keys = self._merge_constraints_into_preferences(
                         preferences=state.preferences,
                         constraints_dict=state.nlq_constraints,
                     )
                     self._append_supplemental_keys(state, constraint_keys)
+                    _log_constraints = state.nlq_constraints or {}
                     print(
-                        f"🔒 [CONSTRAINTS] Extracted: days={state.nlq_constraints.get('days')} "
-                        f"session={state.nlq_constraints.get('session')} "
-                        f"forbidden_slots={state.nlq_constraints.get('forbidden_time_slots')} "
-                        f"avoid_start={state.nlq_constraints.get('avoid_start_times')}"
+                        f"🔒 [CONSTRAINTS] Extracted: days={_log_constraints.get('days')} "
+                        f"session={_log_constraints.get('session')} "
+                        f"forbidden_slots={_log_constraints.get('forbidden_time_slots')} "
+                        f"avoid_start={_log_constraints.get('avoid_start_times')}"
                     )
                 except Exception as _ce:
                     print(f"⚠️ [CONSTRAINTS] Extract failed: {_ce}")
@@ -3204,8 +3672,31 @@ class ChatbotService:
             else:
                 suggested_subjects = subject_result['suggested_subjects']
 
+            suggested_subjects = self._filter_subjects_by_nlq_constraints(
+                suggested_subjects,
+                nlq_constraints_dict,
+            )
+
             # Merge user-requested specific subjects into candidate list.
-            specific_subject_inputs = list(getattr(preferences.specific, 'specific_subjects', []) or [])
+            specific_subject_inputs = (
+                list(getattr(preferences.specific, 'specific_subjects', []) or [])
+                + self._constraint_text_values(nlq_constraints_dict, 'include_subject_codes', 'include_subjects')
+                + self._constraint_text_values(nlq_constraints_dict, 'preferred_subjects')
+            )
+            excluded_subject_inputs = self._constraint_text_values(
+                nlq_constraints_dict,
+                'exclude_subject_codes',
+                'exclude_subjects',
+            )
+            if excluded_subject_inputs:
+                specific_subject_inputs = [
+                    item for item in specific_subject_inputs
+                    if not any(
+                        self._normalize_lookup_text(item) == self._normalize_lookup_text(excluded)
+                        or self._normalize_lookup_text(excluded) in self._normalize_lookup_text(item)
+                        for excluded in excluded_subject_inputs
+                    )
+                ]
             if specific_subject_inputs:
                 additional_subjects = []
                 for raw_value in specific_subject_inputs:
@@ -3266,6 +3757,10 @@ class ChatbotService:
                     suggested_subjects = sorted(
                         merged_subjects.values(),
                         key=lambda item: 0 if item.get('id') in specific_subject_ids else 1,
+                    )
+                    suggested_subjects = self._filter_subjects_by_nlq_constraints(
+                        suggested_subjects,
+                        nlq_constraints_dict,
                     )
             print(f"📊 [SUBJECT_SUGGESTION] Total subjects from rule engine: {len(suggested_subjects)}")
             print(f"📊 [SUBJECT_SUGGESTION] Total credits: {subject_result.get('total_credits', 0)}")
@@ -3349,6 +3844,14 @@ class ChatbotService:
                     except Exception as _he:
                         print(f"  ⚠️ Hard constraint filter error: {_he}")
 
+                    before_nlq_count = len(filtered_classes)
+                    filtered_classes = self._apply_class_nlq_constraints(
+                        filtered_classes,
+                        nlq_constraints_dict,
+                        include_positive=True,
+                    )
+                    print(f"  🔒 After include/exclude NLQ constraints: {len(filtered_classes)} classes (from {before_nlq_count})")
+
                 # Keep top candidates per subject to limit combination explosion
                 subject_suggested = filtered_classes[:4]
                 print(f"  ✅ After preference filter: {len(subject_suggested)} classes")
@@ -3386,7 +3889,13 @@ class ChatbotService:
                         registered_classes=[],
                         min_suggestions=5,
                     )
-                    relaxed_classes_by_subject[subj['subject_id']] = relaxed_result['suggested_classes'][:10]
+                    relaxed_candidates = relaxed_result['suggested_classes'][:10]
+                    relaxed_candidates = self._apply_class_nlq_constraints(
+                        relaxed_candidates,
+                        nlq_constraints_dict,
+                        include_positive=True,
+                    )
+                    relaxed_classes_by_subject[subj['subject_id']] = relaxed_candidates
 
                 relaxed_preferences = dict(preferences_dict)
                 relaxed_preferences.pop('specific_class_ids', None)
@@ -3482,6 +3991,7 @@ class ChatbotService:
                     subject_result=subject_result,
                     suggested_subjects=suggested_subjects,
                     classes_by_subject=classes_by_subject,
+                    nlq_constraints_dict=nlq_constraints_dict,
                 )
                 
                 formatted_combinations.append({

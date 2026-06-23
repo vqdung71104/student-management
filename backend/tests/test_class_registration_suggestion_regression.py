@@ -5,6 +5,7 @@ from app.schemas.preference_schema import CompletePreference
 from app.services.preference_service import PreferenceCollectionService
 from app.services.schedule_combination_service import ScheduleCombinationGenerator
 from app.services.chatbot_service import ChatbotService
+from app.services.constraint_extractor import get_constraint_extractor
 
 
 def test_day_parser_accepts_typo_and_compact_numbers():
@@ -206,6 +207,100 @@ def test_specific_parser_extracts_specific_subjects():
     assert "IT3170" in updated.specific.specific_subjects
     assert any("cấu trúc dữ liệu" in subject.lower() for subject in updated.specific.specific_subjects)
     assert "specific" not in updated.get_missing_preferences()
+
+
+def test_specific_parser_does_not_turn_negative_subject_into_positive():
+    service = PreferenceCollectionService()
+    prefs = CompletePreference()
+
+    updated = service.parse_user_response(
+        response="kh\u00f4ng h\u1ecdc IT4735",
+        question_key="specific",
+        current_preferences=prefs,
+    )
+
+    assert updated.specific.has_answer is True
+    assert updated.specific.specific_subjects == []
+    assert updated.specific.specific_class_ids == []
+
+
+def test_constraint_extractor_splits_positive_and_negative_subjects():
+    extractor = get_constraint_extractor()
+
+    negative = extractor.extract("kh\u00f4ng h\u1ecdc IT4735", query_type="class_registration_suggestion")
+    positive = extractor.extract("mu\u1ed1n h\u1ecdc IT4735", query_type="class_registration_suggestion")
+    both = extractor.extract(
+        "mu\u1ed1n h\u1ecdc IT4735 nh\u01b0ng kh\u00f4ng h\u1ecdc IT4735",
+        query_type="class_registration_suggestion",
+    )
+
+    assert negative.exclude_subject_codes == ["IT4735"]
+    assert negative.include_subject_codes == []
+    assert positive.include_subject_codes == ["IT4735"]
+    assert positive.exclude_subject_codes == []
+    assert both.exclude_subject_codes == ["IT4735"]
+    assert both.include_subject_codes == []
+
+
+def test_constraint_extractor_handles_class_schedule_building_and_teacher_polarity():
+    extractor = get_constraint_extractor()
+
+    class_negative = extractor.extract("kh\u00f4ng h\u1ecdc l\u1edbp 123456", query_type="class_registration_suggestion")
+    class_positive = extractor.extract("mu\u1ed1n l\u1edbp 123456", query_type="class_registration_suggestion")
+    schedule_positive = extractor.extract(
+        "chi\u1ec1u th\u1ee9 2, chi\u1ec1u th\u1ee9 3, c\u1ea3 ng\u00e0y th\u1ee9 4",
+        query_type="class_registration_suggestion",
+    )
+    schedule_negative = extractor.extract("kh\u00f4ng h\u1ecdc chi\u1ec1u th\u1ee9 2", query_type="class_registration_suggestion")
+    building_negative = extractor.extract("kh\u00f4ng h\u1ecdc \u1edf t\u00f2a D9", query_type="class_registration_suggestion")
+    building_positive = extractor.extract("h\u1ecdc \u1edf t\u00f2a D3-5", query_type="class_registration_suggestion")
+    teacher_negative = extractor.extract("kh\u00f4ng h\u1ecdc th\u1ea7y A", query_type="class_registration_suggestion")
+
+    assert class_negative.exclude_class_ids == ["123456"]
+    assert class_positive.include_class_ids == ["123456"]
+    assert [item.model_dump() for item in schedule_positive.include_day_session_constraints] == [
+        {"days": ["Monday"], "session": "afternoon"},
+        {"days": ["Tuesday"], "session": "afternoon"},
+        {"days": ["Wednesday"], "session": None},
+    ]
+    assert [item.model_dump() for item in schedule_negative.exclude_day_session_constraints] == [
+        {"days": ["Monday"], "session": "afternoon"},
+    ]
+    assert building_negative.exclude_buildings == ["D9"]
+    assert building_positive.include_buildings == ["D3-5"]
+    assert teacher_negative.exclude_teachers == ["A"]
+
+
+def test_class_nlq_constraints_filter_negative_hard_and_positive_soft_fallback():
+    service = ChatbotService.__new__(ChatbotService)
+    classes = [
+        {
+            "class_id": "111111",
+            "class_name": "A",
+            "subject_id": "IT4735",
+            "subject_name": "IoT",
+            "classroom": "D9-401",
+            "teacher_name": "Thay A",
+            "study_date": "Monday",
+            "study_time_start": time(12, 30),
+        },
+        {
+            "class_id": "222222",
+            "class_name": "B",
+            "subject_id": "IT1111",
+            "subject_name": "Other",
+            "classroom": "D3-501",
+            "teacher_name": "Thay B",
+            "study_date": "Tuesday",
+            "study_time_start": time(12, 30),
+        },
+    ]
+
+    negative = {"exclude_subject_codes": ["IT4735"], "exclude_buildings": ["D9"]}
+    positive_unavailable = {"include_buildings": ["C1"]}
+
+    assert [cls["class_id"] for cls in service._apply_class_nlq_constraints(classes, negative)] == ["222222"]
+    assert service._apply_class_nlq_constraints(classes, positive_unavailable) == classes
 
 
 def test_specific_parser_rejects_unparseable_response():

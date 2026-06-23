@@ -1283,8 +1283,10 @@ def _build_subject_registration_constraints(
     }
 
 
-def _build_class_registration_constraints(original_text: str) -> Dict[str, Any]:
+def _build_class_registration_constraints(original_text: str, constraint_phrases: List[str]) -> Dict[str, Any]:
     return {
+        "exclude_subjects": _extract_excluded_subjects(constraint_phrases) if constraint_phrases else [],
+        "preferred_subjects": _extract_preferred_subjects(original_text),
         "forbidden_time_slots": _extract_forbidden_time_slots(original_text),
         "days": _extract_day_constraints(original_text),
         "semester": _extract_semester_constraint(original_text),
@@ -1299,7 +1301,7 @@ def _build_constraints_for_intent(
     if intent == "subject_registration_suggestion":
         return _build_subject_registration_constraints(original_text, constraint_phrases)
     if intent == "class_registration_suggestion":
-        return _build_class_registration_constraints(original_text)
+        return _build_class_registration_constraints(original_text, constraint_phrases)
     return _empty_constraints()
 
 

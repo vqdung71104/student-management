@@ -102,6 +102,30 @@ class PreferenceCollectionService:
             ]
         )
 
+    def _strip_negative_specific_phrases(self, text: str) -> str:
+        """Remove negative entity clauses so they are not saved as positive specifics."""
+        ascii_text = unicodedata.normalize("NFD", text or "")
+        ascii_text = "".join(ch for ch in ascii_text if unicodedata.category(ch) != "Mn")
+        ascii_text = ascii_text.replace("đ", "d").replace("Đ", "D").lower()
+        pattern = re.compile(
+            r"(?:khong\s+muon|khong\s+hoc|khong\s+dang\s*ky|khong\s+chon|"
+            r"khong\s+o|tranh|ngoai\s+tru|loai\s+bo|bo|exclude|without)"
+            r"[^,.;]*",
+            re.IGNORECASE,
+        )
+        spans = [(m.start(), m.end()) for m in pattern.finditer(ascii_text)]
+        if not spans:
+            return text
+        pieces: List[str] = []
+        cursor = 0
+        for start, end in spans:
+            if cursor < start:
+                pieces.append(text[cursor:start])
+            cursor = end
+        if cursor < len(text):
+            pieces.append(text[cursor:])
+        return re.sub(r"\s+", " ", " ".join(pieces)).strip(" ,.;")
+
     def _merge_unique_list(self, target: List[str], source: List[str]) -> bool:
         changed = False
         for item in source:
@@ -633,7 +657,13 @@ class PreferenceCollectionService:
             if self._is_no_specific_requirement(response_lower):
                 current_preferences.specific.has_answer = True
             else:
-                specific = self._extract_specific_requirements(response_lower)
+                positive_specific_text = self._strip_negative_specific_phrases(response_lower)
+                if not positive_specific_text:
+                    current_preferences.specific.has_answer = True
+                    self._mark_derived_answers(current_preferences)
+                    return current_preferences
+
+                specific = self._extract_specific_requirements(positive_specific_text)
                 if specific.preferred_teachers:
                     current_preferences.specific.preferred_teachers.extend(specific.preferred_teachers)
                 if specific.specific_class_ids:

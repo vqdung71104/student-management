@@ -15,7 +15,8 @@ Ví dụ:
 """
 from __future__ import annotations
 import re
-from typing import Dict, List, Optional, Tuple
+import unicodedata
+from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
 
@@ -151,6 +152,33 @@ class ClassQueryConstraints(BaseModel):
     # "class_registration_suggestion" → full optimization
     query_type: str = "class_info"
 
+    # ── Polarized constraints for schedule generation ───────────────────
+    include_subjects: List[str] = Field(default_factory=list)
+    include_subject_codes: List[str] = Field(default_factory=list)
+    exclude_subjects: List[str] = Field(default_factory=list)
+    exclude_subject_codes: List[str] = Field(default_factory=list)
+
+    include_class_ids: List[str] = Field(default_factory=list)
+    include_class_names: List[str] = Field(default_factory=list)
+    exclude_class_ids: List[str] = Field(default_factory=list)
+    exclude_class_names: List[str] = Field(default_factory=list)
+
+    include_day_session_constraints: List[DaySessionConstraint] = Field(default_factory=list)
+    exclude_day_session_constraints: List[DaySessionConstraint] = Field(default_factory=list)
+
+    include_buildings: List[str] = Field(default_factory=list)
+    include_classrooms: List[str] = Field(default_factory=list)
+    exclude_buildings: List[str] = Field(default_factory=list)
+    exclude_classrooms: List[str] = Field(default_factory=list)
+
+    include_teachers: List[str] = Field(default_factory=list)
+    exclude_teachers: List[str] = Field(default_factory=list)
+
+    include_class_filters: List[Dict[str, Any]] = Field(default_factory=list)
+    exclude_class_filters: List[Dict[str, Any]] = Field(default_factory=list)
+    include_subject_filters: List[Dict[str, Any]] = Field(default_factory=list)
+    exclude_subject_filters: List[Dict[str, Any]] = Field(default_factory=list)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Parser
@@ -262,9 +290,231 @@ class ConstraintExtractor:
         c.prefer_free_days = bool(re.search(r'ngày nghỉ|ngày tự do|tối đa.*nghỉ', text_lower))
         c.prefer_continuous = bool(re.search(r'học liên tục|liên tục|học dồn', text_lower))
 
+        polarized = self._extract_polarized_constraints(text)
+        for key, value in polarized.items():
+            setattr(c, key, value)
+
+        excluded_subject_codes = {item.upper() for item in c.exclude_subject_codes}
+        excluded_subjects = {self._normalize_text(item) for item in c.exclude_subjects}
+        excluded_class_ids = {item.upper() for item in c.exclude_class_ids}
+        c.include_subject_codes = [
+            code for code in c.include_subject_codes if code.upper() not in excluded_subject_codes
+        ]
+        c.include_subjects = [
+            item for item in c.include_subjects if self._normalize_text(item) not in excluded_subjects
+        ]
+        c.include_class_ids = [
+            item for item in c.include_class_ids if item.upper() not in excluded_class_ids
+        ]
+        if query_type == "class_registration_suggestion" and excluded_subject_codes:
+            c.subject_codes = [code for code in c.subject_codes if code.upper() not in excluded_subject_codes]
+
         return c
 
     # ── Private helpers ─────────────────────────────────────────────────────
+
+    def _normalize_text(self, value: str) -> str:
+        value = unicodedata.normalize("NFD", value or "")
+        value = "".join(ch for ch in value if unicodedata.category(ch) != "Mn")
+        value = value.replace("đ", "d").replace("Đ", "D")
+        return re.sub(r"\s+", " ", value.lower()).strip()
+
+    def _unique(self, values: List[str], upper: bool = False) -> List[str]:
+        result: List[str] = []
+        seen = set()
+        for value in values:
+            cleaned = str(value or "").strip()
+            if not cleaned:
+                continue
+            marker = cleaned.upper() if upper else self._normalize_text(cleaned)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            result.append(cleaned.upper() if upper else cleaned)
+        return result
+
+    def _negative_clause_spans(self, text: str) -> List[Tuple[int, int]]:
+        normalized = self._normalize_text(text)
+        pattern = re.compile(
+            r"(?:khong\s+muon|khong\s+hoc|khong\s+dang\s*ky|khong\s+chon|"
+            r"khong\s+o|tranh|ngoai\s+tru|loai\s+bo|bo|exclude|without)"
+            r"[^,.;]*",
+            re.IGNORECASE,
+        )
+        return [(m.start(), m.end()) for m in pattern.finditer(normalized)]
+
+    def _split_polarity_clauses(self, text: str) -> Tuple[List[str], List[str]]:
+        spans = self._negative_clause_spans(text)
+        negative = [text[start:end].strip(" ,.;") for start, end in spans if text[start:end].strip(" ,.;")]
+        positive_parts: List[str] = []
+        cursor = 0
+        for start, end in spans:
+            if cursor < start:
+                positive_parts.append(text[cursor:start])
+            cursor = end
+        if cursor < len(text):
+            positive_parts.append(text[cursor:])
+        positive = [part.strip(" ,.;") for part in positive_parts if part.strip(" ,.;")]
+        if not positive and not negative and text.strip():
+            positive = [text.strip()]
+        return positive, negative
+
+    def _extract_subject_entities(self, text: str) -> Tuple[List[str], List[str]]:
+        codes = self._unique(self._RE_SUBJECT_CODE.findall(text.upper()), upper=True)
+        names: List[str] = []
+        for match in re.finditer(r"(?:môn|mon|học\s*phần|hoc\s*phan)\s+([^,.;]+)", text, flags=re.IGNORECASE):
+            candidate = re.sub(r"\s+", " ", match.group(1)).strip(" ,.;:-")
+            candidate = re.sub(
+                r"^(?:học|hoc|đăng\s*ký|dang\s*ky|chọn|chon)\s+",
+                "",
+                candidate,
+                flags=re.IGNORECASE,
+            ).strip()
+            if candidate and not self._RE_SUBJECT_CODE.fullmatch(candidate.upper()):
+                names.append(candidate)
+        return self._unique(names), codes
+
+    def _extract_class_entities(self, text: str) -> Tuple[List[str], List[str]]:
+        class_ids, class_names, _ = self._extract_class_table_filters(text, text.lower())
+        return self._unique(class_ids, upper=True), self._unique(class_names)
+
+    def _extract_location_entities(self, text: str) -> Tuple[List[str], List[str]]:
+        normalized = self._normalize_text(text)
+        buildings: List[str] = []
+        classrooms: List[str] = []
+        for match in re.finditer(r"\b([a-z]\d{0,2})\s*-\s*(\d{2,4})\b", normalized, flags=re.IGNORECASE):
+            classrooms.append(f"{match.group(1).upper()}-{match.group(2)}")
+        for match in re.finditer(r"(?:toa|nha|building)\s+([a-z]\d{0,2}(?:-\d)?)\b", normalized, flags=re.IGNORECASE):
+            buildings.append(match.group(1).upper())
+        for match in re.finditer(r"\bo\s+([a-z]\d{0,2}(?:-\d)?)\b", normalized, flags=re.IGNORECASE):
+            buildings.append(match.group(1).upper())
+        return self._unique(buildings, upper=True), self._unique(classrooms, upper=True)
+
+    def _extract_teacher_entities(self, text: str) -> List[str]:
+        teachers: List[str] = []
+        for match in re.finditer(
+            r"(?:thầy|thay|cô|co|giáo\s*viên|giao\s*vien|giảng\s*viên|giang\s*vien|gv)\s+([^,.;]+)",
+            text,
+            flags=re.IGNORECASE,
+        ):
+            value = re.sub(r"\s+", " ", match.group(1)).strip(" ,.;:-")
+            if value:
+                teachers.append(value)
+        return self._unique(teachers)
+
+    def _extract_day_session_entities(self, text: str) -> List[DaySessionConstraint]:
+        normalized = self._normalize_text(text)
+        day_map = {
+            "2": "Monday", "3": "Tuesday", "4": "Wednesday",
+            "5": "Thursday", "6": "Friday", "7": "Saturday", "8": "Sunday",
+        }
+        groups: List[DaySessionConstraint] = []
+        seen = set()
+
+        pattern = re.compile(
+            r"(?<![a-z0-9])(?:(sang|chieu|ca\s+ngay)\s+)?(?:thu\s*|t)([2-8])"
+            r"|(?<![a-z0-9])(?:thu\s*|t)([2-8])\s*(sang|chieu|ca\s+ngay)?",
+            re.IGNORECASE,
+        )
+        for match in pattern.finditer(normalized):
+            session_raw = match.group(1) or match.group(4) or ""
+            digit = match.group(2) or match.group(3)
+            day = day_map.get(digit)
+            if not day:
+                continue
+            session = None
+            if "sang" in session_raw:
+                session = "morning"
+            elif "chieu" in session_raw:
+                session = "afternoon"
+            marker = (day, session)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            groups.append(DaySessionConstraint(days=[day], session=session))
+
+        if not groups:
+            session = None
+            if re.search(r"\bsang\b", normalized):
+                session = "morning"
+            elif re.search(r"\bchieu\b", normalized):
+                session = "afternoon"
+            if session:
+                groups.append(DaySessionConstraint(days=[], session=session))
+
+        return groups
+
+    def _extract_generic_filters(self, text: str, polarity: str) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        normalized = self._normalize_text(text)
+        class_filters: List[Dict[str, Any]] = []
+        subject_filters: List[Dict[str, Any]] = []
+        for match in re.finditer(r"(?:loai\s+lop|class_type)\s*[:#-]?\s*([a-z0-9_\-\s]+)", normalized):
+            value = match.group(1).strip(" ,.;:-")
+            if value:
+                class_filters.append({"field": "class_type", "op": "contains", "value": value, "polarity": polarity})
+        for match in re.finditer(r"(?:department_id|ma\s+khoa|khoa|vien)\s*[:#-]?\s*([a-z0-9_\-]+)", normalized):
+            value = match.group(1).strip(" ,.;:-")
+            if value:
+                subject_filters.append({"field": "department_id", "op": "contains", "value": value, "polarity": polarity})
+        for match in re.finditer(r"(\d+)\s*(?:tin\s*chi|tc)\b", normalized):
+            subject_filters.append({"field": "credits", "op": "eq", "value": int(match.group(1)), "polarity": polarity})
+        tuition_match = re.search(r"(?:hoc\s*phi|tuition_fee)\s*(duoi|tren|bang|=|<|>)?\s*(\d[\d\.]*)", normalized)
+        if tuition_match:
+            op_raw = tuition_match.group(1) or "eq"
+            op = {"duoi": "lt", "<": "lt", "tren": "gt", ">": "gt", "bang": "eq", "=": "eq"}.get(op_raw, "eq")
+            value = int(re.sub(r"\D", "", tuition_match.group(2)))
+            subject_filters.append({"field": "tuition_fee", "op": op, "value": value, "polarity": polarity})
+        return class_filters, subject_filters
+
+    def _extract_polarized_constraints(self, text: str) -> Dict[str, Any]:
+        positive_clauses, negative_clauses = self._split_polarity_clauses(text)
+        result: Dict[str, Any] = {
+            "include_subjects": [], "include_subject_codes": [],
+            "exclude_subjects": [], "exclude_subject_codes": [],
+            "include_class_ids": [], "include_class_names": [],
+            "exclude_class_ids": [], "exclude_class_names": [],
+            "include_day_session_constraints": [], "exclude_day_session_constraints": [],
+            "include_buildings": [], "include_classrooms": [],
+            "exclude_buildings": [], "exclude_classrooms": [],
+            "include_teachers": [], "exclude_teachers": [],
+            "include_class_filters": [], "exclude_class_filters": [],
+            "include_subject_filters": [], "exclude_subject_filters": [],
+        }
+
+        def consume(clause: str, prefix: str, polarity: str) -> None:
+            subject_names, subject_codes = self._extract_subject_entities(clause)
+            class_ids, class_names = self._extract_class_entities(clause)
+            buildings, classrooms = self._extract_location_entities(clause)
+            teachers = self._extract_teacher_entities(clause)
+            dsc = self._extract_day_session_entities(clause)
+            class_filters, subject_filters = self._extract_generic_filters(clause, polarity)
+            result[f"{prefix}_subject_codes"].extend(subject_codes)
+            result[f"{prefix}_subjects"].extend(subject_names)
+            result[f"{prefix}_class_ids"].extend(class_ids)
+            result[f"{prefix}_class_names"].extend(class_names)
+            result[f"{prefix}_buildings"].extend(buildings)
+            result[f"{prefix}_classrooms"].extend(classrooms)
+            result[f"{prefix}_teachers"].extend(teachers)
+            result[f"{prefix}_day_session_constraints"].extend(dsc)
+            result[f"{prefix}_class_filters"].extend(class_filters)
+            result[f"{prefix}_subject_filters"].extend(subject_filters)
+
+        for clause in positive_clauses:
+            consume(clause, "include", "include")
+        for clause in negative_clauses:
+            consume(clause, "exclude", "exclude")
+
+        for key in (
+            "include_subjects", "include_subject_codes", "exclude_subjects", "exclude_subject_codes",
+            "include_class_ids", "include_class_names", "exclude_class_ids", "exclude_class_names",
+            "include_buildings", "include_classrooms", "exclude_buildings", "exclude_classrooms",
+            "include_teachers", "exclude_teachers",
+        ):
+            result[key] = self._unique(
+                result[key],
+                upper=key.endswith("_codes") or key.endswith("_ids") or "building" in key or "classroom" in key,
+            )
+        return result
 
     def _extract_subject_codes(self, text: str) -> List[str]:
         """Extract subject codes like IT3080, MI1114."""
