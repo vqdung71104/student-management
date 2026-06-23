@@ -570,17 +570,28 @@ const ChatBot: React.FC = () => {
   };
 
   const renderReasoningText = (reason: string) => {
-    const subjectCodeMatch = reason.match(/^([A-Za-z]{2,10}\d{2,6})(\s+-\s+.*)$/);
-    if (!subjectCodeMatch) {
+    const parts: React.ReactNode[] = [];
+    const pattern = /\b([A-Za-z]{2,10}\d{2,6}[A-Za-z]?)(?=\s+-)/g;
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = pattern.exec(reason)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(reason.slice(lastIndex, match.index));
+      }
+      parts.push(<strong key={`${match[1]}-${match.index}`}>{match[1]}</strong>);
+      lastIndex = match.index + match[1].length;
+    }
+
+    if (lastIndex < reason.length) {
+      parts.push(reason.slice(lastIndex));
+    }
+
+    if (parts.length === 0) {
       return reason;
     }
 
-    return (
-      <>
-        <strong>{subjectCodeMatch[1]}</strong>
-        {subjectCodeMatch[2]}
-      </>
-    );
+    return <>{parts}</>;
   };
 
   // Handle Excel download
@@ -633,6 +644,34 @@ const ChatBot: React.FC = () => {
     return Number(h || 0) * 60 + Number(m || 0);
   };
 
+  const isEmptyScheduleValue = (value: unknown): boolean => {
+    const raw = String(value ?? '').trim().toLowerCase();
+    return !raw || raw === 'n/a' || raw === 'na' || raw === 'none' || raw === 'null' || raw === '-' || raw === 'tbd';
+  };
+
+  const isZeroTimeValue = (value: unknown): boolean => {
+    const raw = String(value ?? '').trim();
+    return !raw || raw === '00:00' || raw === '00:00:00' || raw === '0:00' || raw === '0:00:00';
+  };
+
+  const isUnscheduledClass = (cls: any): boolean => {
+    const start = cls?.study_time_start;
+    const end = cls?.study_time_end;
+    const missingDay = isEmptyScheduleValue(cls?.study_date);
+    const missingStart = isEmptyScheduleValue(start) || isZeroTimeValue(start);
+    const missingEnd = isEmptyScheduleValue(end) || isZeroTimeValue(end);
+
+    return missingDay || (missingStart && missingEnd) || String(start ?? '').trim() === String(end ?? '').trim();
+  };
+
+  const getClassSubjectTitle = (cls: any): string => {
+    return cls?.subject_name || cls?.class_name || 'Chưa có tên học phần';
+  };
+
+  const buildComboClassKey = (cls: any, combinationKey: string, index: number, suffix: string): string => {
+    return `${combinationKey}-${suffix}-${cls?.class_id || 'cls'}-${cls?.subject_id || ''}-${index}`;
+  };
+
   const getComboDayLabel = (studyDate: string | undefined): string => {
     const index = dayToIndex(studyDate);
     return COMBO_DAYS[index] || 'T2';
@@ -659,6 +698,9 @@ const ChatBot: React.FC = () => {
     if (!Array.isArray(classes) || classes.length === 0) {
       return null;
     }
+
+    const scheduledClasses = classes.filter((cls) => !isUnscheduledClass(cls));
+    const unscheduledClasses = classes.filter((cls) => isUnscheduledClass(cls));
 
     const selectedInCurrentCombination =
       selectedComboClass && selectedComboClass.combinationKey === combinationKey
@@ -687,14 +729,14 @@ const ChatBot: React.FC = () => {
                 <div key={`${day}-${slot}`} className="combo-grid-cell" />
               ))}
 
-              {classes
+              {scheduledClasses
                 .filter((cls) => dayToIndex(cls.study_date) === COMBO_DAYS.indexOf(day))
                 .map((cls, index) => {
                   const start = toMinutes(cls.study_time_start);
                   const end = toMinutes(cls.study_time_end);
                   const top = ((start - 360) / 60) * 42;
                   const height = Math.max((((end - start) / 60) * 42), 36);
-                  const classKey = `${cls.class_id || 'cls'}-${day}-${cls.study_time_start || ''}-${index}`;
+                  const classKey = buildComboClassKey(cls, combinationKey, index, `${day}-${cls.study_time_start || ''}`);
                   const isSelected = selectedInCurrentCombination?.classKey === classKey;
 
                   return (
@@ -702,14 +744,14 @@ const ChatBot: React.FC = () => {
                       key={classKey}
                       className={`combo-class-block ${isSelected ? 'is-selected' : ''}`}
                       style={{ top: `${top}px`, height: `${height}px` }}
-                      title={`${cls.class_id || '-'} - ${cls.subject_name || cls.class_name || '-'}\n${cls.study_time_start || '--:--'} - ${cls.study_time_end || '--:--'}\nPhòng: ${cls.classroom || '-'}${cls.teacher_name ? `\nGV: ${cls.teacher_name}` : ''}`}
+                      title={`${cls.class_id || '-'} - ${getClassSubjectTitle(cls)}\n${cls.study_time_start || '--:--'} - ${cls.study_time_end || '--:--'}\nPhòng: ${cls.classroom || '-'}${cls.teacher_name ? `\nGV: ${cls.teacher_name}` : ''}`}
                       onClick={() => setSelectedComboClass({
                         combinationKey,
                         classKey,
                         classInfo: cls,
                       })}
                     >
-                      <div className="combo-class-name">{cls.class_id || '-'} - {cls.subject_name || cls.class_name || '-'}</div>
+                      <div className="combo-class-name">{cls.class_id || '-'} - {getClassSubjectTitle(cls)}</div>
                       <div className="combo-class-time">{cls.study_time_start || '--:--'} - {cls.study_time_end || '--:--'}</div>
                       <div className="combo-class-room">{cls.classroom || '-'}</div>
                     </div>
@@ -718,6 +760,36 @@ const ChatBot: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {unscheduledClasses.length > 0 && (
+          <div className="combo-unscheduled-section">
+            <div className="combo-unscheduled-title">Lớp không có lịch cố định</div>
+            <div className="combo-unscheduled-list">
+              {unscheduledClasses.map((cls, index) => {
+                const classKey = buildComboClassKey(cls, combinationKey, index, 'unscheduled');
+                const isSelected = selectedInCurrentCombination?.classKey === classKey;
+
+                return (
+                  <button
+                    key={classKey}
+                    type="button"
+                    className={`combo-unscheduled-card ${isSelected ? 'is-selected' : ''}`}
+                    title={`${cls.class_id || '-'} - ${getClassSubjectTitle(cls)}\nKhông có lịch học cố định`}
+                    onClick={() => setSelectedComboClass({
+                      combinationKey,
+                      classKey,
+                      classInfo: cls,
+                    })}
+                  >
+                    <span className="combo-unscheduled-class">{cls.class_id || '-'}</span>
+                    <span className="combo-unscheduled-name">{getClassSubjectTitle(cls)}</span>
+                    <span className="combo-unscheduled-note">N/A</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {selectedInCurrentCombination && (
           <div className="combo-class-detail" role="status" aria-live="polite">
@@ -733,11 +805,20 @@ const ChatBot: React.FC = () => {
             </div>
 
             <div className="combo-class-detail-body">
-              <div><strong>Môn:</strong> {selectedInCurrentCombination.classInfo.subject_id || '-'} - {selectedInCurrentCombination.classInfo.subject_name || selectedInCurrentCombination.classInfo.class_name || '-'}</div>
+              <div><strong>Môn:</strong> {selectedInCurrentCombination.classInfo.subject_id || '-'} - {getClassSubjectTitle(selectedInCurrentCombination.classInfo)}</div>
               <div><strong>Lớp:</strong> {selectedInCurrentCombination.classInfo.class_name || '-'}</div>
               <div><strong>Mã lớp:</strong> {selectedInCurrentCombination.classInfo.class_id || '-'}</div>
-              <div><strong>Thời gian:</strong> {selectedInCurrentCombination.classInfo.study_time_start || '--:--'} - {selectedInCurrentCombination.classInfo.study_time_end || '--:--'}</div>
-              <div><strong>Thứ:</strong> {getComboDayLabel(selectedInCurrentCombination.classInfo.study_date)}{selectedInCurrentCombination.classInfo.study_date ? ` (${selectedInCurrentCombination.classInfo.study_date})` : ''}</div>
+              {isUnscheduledClass(selectedInCurrentCombination.classInfo) ? (
+                <>
+                  <div><strong>Thời gian:</strong> Không có lịch học cố định</div>
+                  <div><strong>Ghi chú:</strong> Học phần dạng đồ án/thực tập hoặc cần chủ động liên hệ giảng viên/doanh nghiệp.</div>
+                </>
+              ) : (
+                <>
+                  <div><strong>Thời gian:</strong> {selectedInCurrentCombination.classInfo.study_time_start || '--:--'} - {selectedInCurrentCombination.classInfo.study_time_end || '--:--'}</div>
+                  <div><strong>Thứ:</strong> {getComboDayLabel(selectedInCurrentCombination.classInfo.study_date)}{selectedInCurrentCombination.classInfo.study_date ? ` (${selectedInCurrentCombination.classInfo.study_date})` : ''}</div>
+                </>
+              )}
               <div><strong>Phòng:</strong> {selectedInCurrentCombination.classInfo.classroom || '-'}</div>
               {selectedInCurrentCombination.classInfo.teacher_name && (
                 <div><strong>Giảng viên:</strong> {selectedInCurrentCombination.classInfo.teacher_name}</div>
