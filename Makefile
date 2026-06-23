@@ -15,8 +15,8 @@ RED := \033[0;31m
 NC := \033[0m # No Color
 
 # Variables
-COMPOSE_DEV := docker compose --env-file .env.docker
-COMPOSE_PROD := docker compose --env-file .env.production -f docker-compose.prod.yml
+COMPOSE_DEV := docker-compose --env-file .env.docker
+COMPOSE_PROD := docker-compose -f docker-compose.prod.yml --env-file .env.production
 BACKUP_DIR := backups
 TIMESTAMP := $(shell date +%Y%m%d_%H%M%S)
 

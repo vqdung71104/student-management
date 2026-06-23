@@ -10,13 +10,9 @@ from app.models.student_model import Student
 from app.models.admin_model import Admin
 
 # JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
-ALGORITHM = os.getenv("JWT_ALGORITHM") or os.getenv("ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MINUTES = int(
-    os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES")
-    or os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
-    or str(30 * 24 * 60)
-)
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", str(30 * 24 * 60)))
 
 security = HTTPBearer(auto_error=False)
 

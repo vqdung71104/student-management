@@ -171,7 +171,7 @@ make dev-start
 
 4. **Cấu hình domain:**
    ```
-   VITE_API_URL=/api
+   VITE_API_URL=https://your-domain.com
    ```
 
 5. **Đảm bảo .env.production KHÔNG commit lên Git**

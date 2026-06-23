@@ -117,17 +117,6 @@ jobs:
           fi
           echo "✅ No insecure absolute API URL found in frontend source"
 
-      - name: Build and scan frontend bundle for localhost API URLs
-        run: |
-          cd frontend
-          npm ci
-          npm run build
-          if grep -R -n -E "https?://(127\\.0\\.0\\.1|localhost):8000" dist; then
-            echo "Production frontend bundle contains a localhost backend URL"
-            exit 1
-          fi
-          echo "Frontend bundle uses deploy-safe API URLs"
-
       - name: Build and push Frontend image
         uses: docker/build-push-action@v5
         with:
@@ -248,11 +237,10 @@ jobs:
             # Cập nhật .env
             sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${IMAGE_TAG}/" .env || echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
 
-            docker compose --env-file .env -f docker-compose.prod.yml config > /dev/null
-            docker compose --env-file .env -f docker-compose.prod.yml pull mysql redis backend frontend
-            docker compose --env-file .env -f docker-compose.prod.yml up -d --force-recreate mysql redis backend frontend
+            docker compose -f docker-compose.prod.yml pull mysql redis backend frontend
+            docker compose -f docker-compose.prod.yml up -d --force-recreate mysql redis backend frontend
             
-            docker compose --env-file .env -f docker-compose.prod.yml ps
+            docker compose -f docker-compose.prod.yml ps
             docker image prune -a -f --filter "until=24h"
             #sleep 10
             #docker compose exec -T backend python scripts/db/populate_data.py

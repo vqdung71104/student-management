@@ -161,7 +161,7 @@ Sau khi chạy `dev:start`, đợi khoảng 30-60 giây để services khởi đ
 MYSQL_PASSWORD=mat_khau_manh_cua_ban
 SECRET_KEY=secret_key_moi_sinh_ra
 GOOGLE_API_KEY=api_key_cua_ban
-VITE_API_URL=/api
+VITE_API_URL=https://domain-cua-ban.com
 ```
 
 2. **Tạo SECRET_KEY mới:**

@@ -42,7 +42,7 @@ check_docker() {
 # Development commands
 dev_start() {
     print_info "Starting development environment..."
-    docker compose --env-file .env.docker up -d
+    docker-compose --env-file .env.docker up -d
     print_success "Development environment started"
     print_info "Frontend: http://localhost:5173"
     print_info "Backend: http://localhost:8000"
@@ -51,43 +51,43 @@ dev_start() {
 
 dev_stop() {
     print_info "Stopping development environment..."
-    docker compose --env-file .env.docker down
+    docker-compose down
     print_success "Development environment stopped"
 }
 
 dev_restart() {
     print_info "Restarting development environment..."
-    docker compose --env-file .env.docker restart
+    docker-compose restart
     print_success "Development environment restarted"
 }
 
 dev_logs() {
-    docker compose --env-file .env.docker logs -f "${@}"
+    docker-compose logs -f "${@}"
 }
 
 dev_build() {
     print_info "Building development images..."
-    docker compose --env-file .env.docker build --no-cache
+    docker-compose build --no-cache
     print_success "Development images built"
 }
 
 # Production commands
 prod_start() {
     print_info "Starting production environment..."
-    docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+    docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
     print_success "Production environment started"
     print_info "Application: http://localhost:80"
 }
 
 prod_stop() {
     print_info "Stopping production environment..."
-    docker compose --env-file .env.production -f docker-compose.prod.yml down
+    docker-compose -f docker-compose.prod.yml down
     print_success "Production environment stopped"
 }
 
 prod_build() {
     print_info "Building production images..."
-    docker compose --env-file .env.production -f docker-compose.prod.yml build --no-cache
+    docker-compose -f docker-compose.prod.yml build --no-cache
     print_success "Production images built"
 }
 
@@ -120,7 +120,7 @@ cleanup() {
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         print_info "Cleaning up..."
-        docker compose --env-file .env.docker down -v
+        docker-compose down -v
         docker system prune -af --volumes
         print_success "Cleanup completed"
     else
@@ -131,7 +131,7 @@ cleanup() {
 # Health check
 health_check() {
     print_info "Checking service health..."
-    docker compose --env-file .env.docker ps
+    docker-compose ps
     echo ""
     print_info "Backend health:"
     curl -f http://localhost:8000/ || print_error "Backend is not healthy"
