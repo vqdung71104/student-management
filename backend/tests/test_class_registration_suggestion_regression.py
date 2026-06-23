@@ -242,6 +242,25 @@ def test_constraint_extractor_splits_positive_and_negative_subjects():
     assert both.include_subject_codes == []
 
 
+def test_mixed_specific_answer_does_not_create_avoid_day_from_subject_code():
+    extractor = get_constraint_extractor()
+    pref_service = PreferenceCollectionService()
+    chatbot_service = ChatbotService.__new__(ChatbotService)
+
+    question = "kh\u00f4ng h\u1ecdc IT4735, h\u1ecdc gi\u1ea3i t\u00edch 1"
+    constraints = extractor.extract(question, query_type="class_registration_suggestion").model_dump()
+    prefs = pref_service.extract_initial_preferences(question)
+
+    captured = chatbot_service._merge_constraints_into_preferences(prefs, constraints)
+
+    assert prefs.day.avoid_days == []
+    assert constraints["exclude_subject_codes"] == ["IT4735"]
+    assert constraints["include_subjects"] == ["giai tich 1"]
+    assert "IT4735" not in prefs.specific.specific_subjects
+    assert "giai tich 1" in prefs.specific.specific_subjects
+    assert "specific" in captured
+
+
 def test_constraint_extractor_handles_class_schedule_building_and_teacher_polarity():
     extractor = get_constraint_extractor()
 

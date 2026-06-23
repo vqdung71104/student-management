@@ -372,6 +372,20 @@ class ConstraintExtractor:
             ).strip()
             if candidate and not self._RE_SUBJECT_CODE.fullmatch(candidate.upper()):
                 names.append(candidate)
+        normalized = self._normalize_text(text)
+        for match in re.finditer(
+            r"(?:muon\s+hoc|uu\s+tien\s+hoc|hoc)\s+([^,.;]+)",
+            normalized,
+            flags=re.IGNORECASE,
+        ):
+            candidate = re.sub(r"\s+", " ", match.group(1)).strip(" ,.;:-")
+            candidate = re.sub(r"^(?:mon|hoc\s*phan|lop)\s+", "", candidate, flags=re.IGNORECASE).strip()
+            if (
+                candidate
+                and not self._RE_SUBJECT_CODE.fullmatch(candidate.upper())
+                and not re.fullmatch(r"(sang|chieu|toi|som|muon|lien tuc|o|tai|toa|nha|lop).*", candidate)
+            ):
+                names.append(candidate)
         return self._unique(names), codes
 
     def _extract_class_entities(self, text: str) -> Tuple[List[str], List[str]]:

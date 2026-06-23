@@ -395,9 +395,13 @@ class PreferenceCollectionService:
             negation_words = ['không', 'tránh', 'chẳng', 'không muốn', 'ko']
             return any(neg in preceding_text for neg in negation_words)
         
+        def day_token_matches(text: str, token: str) -> bool:
+            escaped = re.escape(token)
+            return re.search(rf'(?<![a-z0-9]){escaped}(?![a-z0-9])', text) is not None
+
         # Extract days
         for vn_day, en_day in self.DAY_MAPPING.items():
-            if vn_day in question:
+            if day_token_matches(question, vn_day):
                 if has_negation_before(question, vn_day):
                     if en_day not in day_pref.avoid_days:
                         day_pref.avoid_days.append(en_day)
