@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 import asyncio
 import re
 import unicodedata
+from html import escape
 from typing import Any, Dict, List, Optional, Tuple
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.services.nl2sql_service import NL2SQLService
-from app.services.chatbot_service import ChatbotService
+from app.services.chatbot_service import ChatbotService, format_rule_based_response
 from app.services.text_preprocessor import get_text_preprocessor
 from app.services.query_splitter import get_query_splitter, SubQuery
 from app.services.chat_history_service import ChatHistoryService
@@ -202,6 +203,68 @@ _REGISTRATION_REMINDER_HTML = (
     "đồng thời kiểm tra đăng ký các học phần liên quan đến đồ án đúng tiến độ nhà trường và nhu cầu của mình."
     "</div>"
 )
+
+
+def _join_compound_html_parts(parts: List[str]) -> str:
+    cleaned = [part.strip() for part in parts if isinstance(part, str) and part.strip()]
+    return "<hr/>".join(cleaned)
+
+
+def _format_compound_segment_answer(segment: str, answer_html: str, index: int) -> str:
+    heading = (
+        "<div class='compound-segment-question' style='font-weight:600;margin:0 0 8px 0;'>"
+        f"{escape(f'Câu hỏi {index}: {segment}')}"
+        "</div>"
+    )
+    return f"{heading}{answer_html or ''}"
+
+
+async def _build_learned_subject_grade_compound_response(
+    *,
+    chatbot_service: ChatbotService,
+    student_id: Optional[int],
+    grades: List[str],
+) -> ChatResponseWithData:
+    html_parts: List[str] = []
+    response_parts: List[Dict[str, Any]] = []
+
+    for index, grade in enumerate(grades, start=1):
+        segment = f"Các học phần được {grade}"
+        result = await chatbot_service.process_learned_subjects_view(
+            student_id,
+            segment,
+            grade_filter_override=grade,
+        )
+        result = result or {
+            "text": f"Không tìm thấy học phần đã học có điểm {grade}.",
+            "data": [],
+            "confidence": "high",
+            "metadata": {"letter_grade_filter": grade},
+        }
+        answer_html = format_rule_based_response(result, "learned_subjects_view", segment)
+        html_parts.append(_format_compound_segment_answer(segment, answer_html, index))
+        response_parts.append(
+            {
+                "intent": "learned_subjects_view",
+                "confidence": result.get("confidence") or "high",
+                "text": None,
+                "query": segment,
+                "data": result.get("data") or [],
+                "metadata": result.get("metadata"),
+            }
+        )
+
+    return ChatResponseWithData(
+        text=_join_compound_html_parts(html_parts),
+        intent="compound",
+        confidence="high",
+        data=None,
+        metadata=None,
+        sql=None,
+        sql_error=None,
+        is_compound=True,
+        parts=response_parts,
+    )
 
 
 def _section_header(intent: str) -> str:
@@ -737,18 +800,11 @@ async def _process_single_query(
         try:
             result = await chatbot_service.process_subject_info(student_id, normalized_text)
             if result:
-                result_data = result.get("data")
-                if result_data is not None and not isinstance(result_data, list):
-                    if isinstance(result_data, dict):
-                        result_data = [result_data]
-                    else:
-                        result_data = [{"value": result_data}]
-
                 return ChatResponseWithData(
-                    text=result.get("text") or "",
+                    text=format_rule_based_response(result, "subject_info", normalized_text),
                     intent="subject_info",
                     confidence=result.get("confidence") or "high",
-                    data=result_data,
+                    data=None,
                     metadata=result.get("metadata"),
                     sql=None,
                     sql_error=result.get("error"),
@@ -776,13 +832,21 @@ async def _process_single_query(
 
     if intent == "learned_subjects_view" and confidence in ("high", "medium"):
         try:
+            grade_filters = chatbot_service._extract_learned_subject_grade_filters(normalized_text)
+            if len(grade_filters) > 1:
+                return await _build_learned_subject_grade_compound_response(
+                    chatbot_service=chatbot_service,
+                    student_id=student_id,
+                    grades=grade_filters,
+                )
+
             result = await chatbot_service.process_learned_subjects_view(student_id, normalized_text)
             if result is not None:
                 return ChatResponseWithData(
-                    text=result.get("text") or "",
+                    text=format_rule_based_response(result, "learned_subjects_view", normalized_text),
                     intent="learned_subjects_view",
                     confidence=result.get("confidence") or "high",
-                    data=result.get("data"),
+                    data=None,
                     metadata=result.get("metadata"),
                     sql=None,
                     sql_error=result.get("error"),
@@ -1345,10 +1409,11 @@ async def chat(
                         intent_label = raw[0].get('intent', {}).get('intent') if isinstance(raw[0].get('intent'), dict) else raw[0].get('intent') or 'unknown'
                     else:
                         intent_label = 'compound'
+                    is_compound_agent_response = len(raw) > 1
                     for item in raw:
                         parts.append({
                             'intent': item.get('intent'),
-                            'text': item.get('segment'),
+                            'text': None if is_compound_agent_response else item.get('segment'),
                             'data': item.get('raw_result')
                         })
 
@@ -1835,10 +1900,11 @@ async def chat_stream(
                                     intent_label = raw[0].get('intent', {}).get('intent') if isinstance(raw[0].get('intent'), dict) else raw[0].get('intent') or 'unknown'
                                 else:
                                     intent_label = 'compound'
+                                is_compound_agent_response = len(raw) > 1
                                 for item in raw:
                                     parts.append({
                                         'intent': item.get('intent'),
-                                        'text': item.get('segment'),
+                                        'text': None if is_compound_agent_response else item.get('segment'),
                                         'data': item.get('raw_result')
                                     })
 

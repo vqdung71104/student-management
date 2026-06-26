@@ -909,6 +909,9 @@ const ChatBot: React.FC = () => {
   // Render each part of a compound multi-intent response
   const renderCompoundParts = (parts: Message['parts']) => {
     if (!parts || parts.length === 0) return null;
+    if (!parts.some((part) => part.text && String(part.text).trim())) {
+      return null;
+    }
     return (
       <div className="compound-parts">
         {parts.map((part, idx) => (
@@ -945,11 +948,63 @@ const ChatBot: React.FC = () => {
   const renderDataTable = (data: any[]) => {
     if (!data || data.length === 0) return null;
 
-    const columns = Object.keys(data[0]);
+    const hiddenColumns = new Set([
+      'subject_db_id',
+      'course_match',
+      '_student_latest_grade',
+      '_student_latest_semester',
+      '_student_hint',
+      '_intent_type',
+      '_id',
+      '_rank',
+      '_score',
+    ]);
+
+    const columnLabels: Record<string, string> = {
+      action: 'Hành động',
+      class_id: 'Mã lớp',
+      class_name: 'Tên lớp',
+      class_type: 'Loại lớp',
+      classroom: 'Phòng học',
+      conditional_subjects: 'Môn điều kiện',
+      credits: 'Số tín chỉ',
+      department_id: 'Mã khoa/viện',
+      english_subject_name: 'Tên tiếng Anh',
+      learning_semester: 'Kỳ theo chương trình',
+      learned_semester: 'Kỳ đã học',
+      learning_status: 'Trạng thái học',
+      letter_grade: 'Điểm chữ',
+      score: 'Điểm số',
+      section: 'Nhóm',
+      semester: 'Kỳ học',
+      status: 'Trạng thái',
+      study_date: 'Ngày học',
+      study_time_end: 'Giờ kết thúc',
+      study_time_start: 'Giờ bắt đầu',
+      study_week: 'Tuần học',
+      subject_code: 'Mã học phần',
+      subject_id: 'Mã học phần',
+      subject_name: 'Tên học phần',
+      teacher_name: 'Giảng viên',
+      tuition_fee: 'Học phí',
+      duration: 'Thời lượng',
+      weight: 'Trọng số',
+      cpa: 'CPA',
+      gpa: 'GPA',
+      total_learned_credits: 'Tín chỉ tích lũy',
+      student_id: 'Mã sinh viên',
+      student_name: 'Tên sinh viên',
+      class_student: 'Lớp sinh viên',
+      email: 'Email',
+      phone: 'Số điện thoại',
+    };
+
+    const columns = Object.keys(data[0]).filter((col) => !hiddenColumns.has(col));
 
     // Helper function to safely render cell content
     const renderCellContent = (value: any): string => {
       if (value === null || value === undefined) return '-';
+      if (typeof value === 'boolean') return value ? 'Có' : 'Không';
       if (typeof value === 'object') {
         // If it's an array, join with commas
         if (Array.isArray(value)) {
@@ -968,8 +1023,8 @@ const ChatBot: React.FC = () => {
         <table className="data-table">
           <thead>
             <tr>
-              {columns.map((col) => (
-                <th key={col}>{col}</th>
+              {columns.map((col, index) => (
+                <th key={col}>{columnLabels[col] || `Thông tin ${index + 1}`}</th>
               ))}
             </tr>
           </thead>

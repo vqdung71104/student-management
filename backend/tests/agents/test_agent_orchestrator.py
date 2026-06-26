@@ -12,7 +12,9 @@ from app.agents.agent_graph import run_graph, run_graph_for_orchestrator
 from app.agents.graph_nodes import (
     _clean_subject_token,
     agent_filter_node,
+    format_segment_answer,
     intent_router_node,
+    join_rule_based_segments,
     query_splitter_node,
     response_formatter_node,
     synthesize_formatter_node,
@@ -551,6 +553,17 @@ async def test_intent_router_routes_learned_subject_view_for_specific_subject_sc
     assert result["needs_agent"] is False
 
 
+def test_compound_segment_answers_keep_question_before_each_answer():
+    first = format_segment_answer("các học phần được A", "<table><tbody><tr><td>A</td></tr></tbody></table>", 1)
+    second = format_segment_answer("các học phần được A+", "<table><tbody><tr><td>A+</td></tr></tbody></table>", 2)
+
+    combined = join_rule_based_segments([first, second])
+
+    assert combined.index("Câu hỏi 1: các học phần được A") < combined.index("<td>A</td>")
+    assert combined.index("Câu hỏi 2: các học phần được A+") < combined.index("<td>A+</td>")
+    assert combined.index("<td>A</td>") < combined.index("Câu hỏi 2: các học phần được A+")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "query",
@@ -622,7 +635,13 @@ def test_synthesize_formatter_joins_all_segment_outputs_with_hr():
         }
     )
 
-    assert result["final_response"] == "CPA hien tai la 3.2<hr/>Ban con thieu 12 tin chi."
+    final_response = result["final_response"]
+    assert "Câu hỏi 1: xem cpa" in final_response
+    assert "Câu hỏi 2: xem tien do tot nghiep" in final_response
+    assert final_response.index("Câu hỏi 1: xem cpa") < final_response.index("CPA hien tai la 3.2")
+    assert final_response.index("CPA hien tai la 3.2") < final_response.index("Câu hỏi 2: xem tien do tot nghiep")
+    assert final_response.index("Câu hỏi 2: xem tien do tot nghiep") < final_response.index("Ban con thieu 12 tin chi.")
+    assert "<hr/>" in final_response
 
 
 @pytest.mark.asyncio

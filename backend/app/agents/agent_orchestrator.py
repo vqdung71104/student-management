@@ -13,6 +13,7 @@ from app.llm.llm_client import LLMCircuitOpenError, LLMAPIError, LLMTimeoutError
 from app.llm.response_cache import ResponseCache
 from .graph_nodes import (
     _is_valid_multi_intent_split,
+    format_segment_answer,
     format_rule_based_response,
     join_rule_based_segments,
 )
@@ -1096,7 +1097,7 @@ Ví dụ 3:
             {
                 "intent": item.get("intent"),
                 "node3_subtype": item.get("node3_subtype"),
-                "text": item.get("segment"),
+                "text": None if is_compound else item.get("segment"),
                 "data": item.get("raw_result"),
             }
             for item in results
@@ -1219,7 +1220,18 @@ Ví dụ 3:
         original_query: str,
         started_at: float,
     ) -> Dict[str, Any]:
-        text = join_rule_based_segments([item.get("formatted_text", "") for item in segment_results])
+        formatted_parts: List[str] = []
+        for idx, item in enumerate(segment_results, start=1):
+            intent_info = item.get("intent")
+            intent = intent_info.get("intent") if isinstance(intent_info, dict) else intent_info
+            answer = item.get("formatted_text") or format_rule_based_response(
+                item.get("raw_result"),
+                intent,
+                item.get("segment"),
+            )
+            formatted_parts.append(format_segment_answer(item.get("segment"), answer, idx))
+
+        text = join_rule_based_segments(formatted_parts)
         total_ms = (time.perf_counter() - started_at) * 1000
         self.metrics.observe_latency("node4_synthesize.latency", total_ms / 1000)
         self.metrics.increment("node4_synthesize.rule_based_success")
@@ -1422,7 +1434,7 @@ Ví dụ 3:
                 {
                     "intent": item.get("intent"),
                     "node3_subtype": item.get("node3_subtype"),
-                    "text": item.get("segment"),
+                    "text": None if is_compound else item.get("segment"),
                     "data": item.get("raw_result"),
                 }
                 for item in results

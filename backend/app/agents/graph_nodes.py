@@ -1760,7 +1760,22 @@ def synthesize_formatter_node(state: AgentState) -> Dict[str, Any]:
 
 def join_rule_based_segments(segment_texts: List[str]) -> str:
     cleaned = [text.strip() for text in segment_texts if isinstance(text, str) and text.strip()]
-    return "<hr/>".join(cleaned) if cleaned else "Xin loi, minh khong tim thay du lieu."
+    return "<hr/>".join(cleaned) if cleaned else "Xin lỗi, mình không tìm thấy dữ liệu."
+
+
+def format_segment_answer(segment: Optional[str], answer: Optional[str], index: Optional[int] = None) -> str:
+    answer_text = str(answer or "").strip()
+    segment_text = str(segment or "").strip()
+    if not segment_text:
+        return answer_text
+
+    label = f"Câu hỏi {index}: " if index is not None else "Câu hỏi: "
+    heading = (
+        "<div class='compound-segment-question' style='font-weight:600;margin:0 0 8px 0;'>"
+        f"{escape(label + segment_text)}"
+        "</div>"
+    )
+    return f"{heading}{answer_text}" if answer_text else heading
 
 
 def _segment_result_text(result: Dict[str, Any]) -> str:
@@ -1781,9 +1796,12 @@ def _segment_result_text(result: Dict[str, Any]) -> str:
 def synthesize_formatter_node(state: AgentState) -> Dict[str, Any]:
     results = state.get("segment_results", [])
     if not results:
-        return {"final_response": "Xin loi, minh khong tim thay du lieu."}
+        return {"final_response": "Xin lỗi, mình không tìm thấy dữ liệu."}
 
-    combined_parts = [_segment_result_text(result) for result in results]
+    combined_parts = [
+        format_segment_answer(result.get("segment"), _segment_result_text(result), idx)
+        for idx, result in enumerate(results, start=1)
+    ]
     final_output = join_rule_based_segments(combined_parts)
     return {
         "synthesized_response": final_output,

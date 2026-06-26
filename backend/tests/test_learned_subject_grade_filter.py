@@ -46,6 +46,12 @@ def test_chatbot_service_does_not_treat_specific_score_query_as_broad_list():
     assert service._is_broad_learned_subject_list_query("điểm môn tiếng nhật 6") is False
 
 
+def test_chatbot_service_extracts_multiple_grade_filters_in_order():
+    service = ChatbotService.__new__(ChatbotService)
+
+    assert service._extract_learned_subject_grade_filters("các học phần được A hoặc A+") == ["A", "A+"]
+
+
 def test_nl2sql_extracts_grade_without_fake_subject_name():
     service = NL2SQLService()
 

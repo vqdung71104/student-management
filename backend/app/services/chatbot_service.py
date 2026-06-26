@@ -518,6 +518,10 @@ class ChatbotService:
         return mapping.get(str(letter_grade).strip().upper())
 
     def _extract_learned_subject_grade_filter(self, question: str) -> Optional[str]:
+        grades = self._extract_learned_subject_grade_filters(question)
+        return grades[0] if grades else None
+
+    def _extract_learned_subject_grade_filters(self, question: str) -> List[str]:
         raw = str(question or "")
         raw = raw.replace("đ", "d").replace("Đ", "D")
         raw = unicodedata.normalize("NFD", raw)
@@ -525,27 +529,37 @@ class ChatbotService:
         normalized = re.sub(r"[^a-zA-Z0-9\+\s]", " ", raw).lower()
         normalized = re.sub(r"\s+", " ", normalized).strip()
         if not normalized:
-            return None
+            return []
+
+        explicit_grades: List[str] = []
+        upper_normalized = normalized.upper()
+        for match in re.finditer(r"(?<![A-Z0-9\+])(A\+|B\+|C\+|D\+|A|B|C|D|F)(?![A-Z0-9\+])", upper_normalized):
+            grade = match.group(1)
+            if grade not in explicit_grades:
+                explicit_grades.append(grade)
+
+        if explicit_grades:
+            return explicit_grades
 
         if any(token in normalized for token in ("truot", "rot", "chua qua", "hoc lai", "mon no", "can hoc lai")):
-            return "F"
+            return ["F"]
 
         # Prefer explicit + grades before single-letter grades.
         for grade in ("A+", "B+", "C+", "D+"):
             grade_norm = re.escape(grade.lower())
             if re.search(rf"\b(?:bi|diem|dat|duoc)\s+{grade_norm}(?![a-z0-9])", normalized):
-                return grade
+                return [grade]
 
         for grade in ("A", "B", "C", "D", "F"):
             if re.search(rf"\b(?:bi|diem|dat|duoc)\s+{grade.lower()}\b", normalized):
-                return grade
+                return [grade]
             if re.search(rf"\b{grade.lower()}\b", normalized) and any(
                 marker in normalized
                 for marker in ("hoc phan bi", "mon bi", "cac mon bi", "cac hoc phan bi")
             ):
-                return grade
+                return [grade]
 
-        return None
+        return []
 
     def _is_learned_subject_status_query(self, question: str) -> bool:
         normalized = self._normalize_lookup_text(question or "")
@@ -1074,7 +1088,12 @@ class ChatbotService:
             },
         }
 
-    async def process_learned_subjects_view(self, student_id: Optional[int], question: str) -> Optional[Dict[str, Any]]:
+    async def process_learned_subjects_view(
+        self,
+        student_id: Optional[int],
+        question: str,
+        grade_filter_override: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         if not student_id:
             return None
 
@@ -1082,7 +1101,7 @@ class ChatbotService:
         from app.models.learned_subject_model import LearnedSubject
 
         student_course_id = self._get_student_course_id(student_id)
-        grade_filter = self._extract_learned_subject_grade_filter(question)
+        grade_filter = grade_filter_override or self._extract_learned_subject_grade_filter(question)
         broad_list_query = self._is_broad_learned_subject_list_query(question)
         matched = None
         if question and not grade_filter and not broad_list_query:
