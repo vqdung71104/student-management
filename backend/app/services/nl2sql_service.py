@@ -5,6 +5,7 @@ import json
 import os
 from typing import Dict, List, Optional, Tuple
 import re
+import unicodedata
 
 # FuzzyMatcher — import lazy để tránh circular imports
 def _get_fuzzy_matcher():
@@ -56,10 +57,60 @@ class NL2SQLService:
             intent_map[intent].append(example)
         
         return intent_map
+
+    def _normalize_lookup_text(self, text: str) -> str:
+        normalized = str(text or "").replace("đ", "d").replace("Đ", "D")
+        normalized = unicodedata.normalize("NFD", normalized)
+        normalized = "".join(ch for ch in normalized if unicodedata.category(ch) != "Mn")
+        normalized = re.sub(r"[^a-zA-Z0-9\+\s]", " ", normalized).lower()
+        return re.sub(r"\s+", " ", normalized).strip()
+
+    def _extract_letter_grade_filter(self, question: str) -> Optional[str]:
+        normalized = self._normalize_lookup_text(question)
+        if not normalized:
+            return None
+        if any(token in normalized for token in ("truot", "rot", "chua qua", "hoc lai", "mon no", "can hoc lai")):
+            return "F"
+        for grade in ("A+", "B+", "C+", "D+"):
+            if re.search(rf"\b(?:bi|diem|dat|duoc)\s+{re.escape(grade.lower())}(?![a-z0-9])", normalized):
+                return grade
+        for grade in ("A", "B", "C", "D", "F"):
+            if re.search(rf"\b(?:bi|diem|dat|duoc)\s+{grade.lower()}\b", normalized):
+                return grade
+            if re.search(rf"\b{grade.lower()}\b", normalized) and any(
+                marker in normalized
+                for marker in ("hoc phan bi", "mon bi", "cac mon bi", "cac hoc phan bi")
+            ):
+                return grade
+        return None
+
+    def _is_grade_status_fragment(self, value: str) -> bool:
+        normalized = self._normalize_lookup_text(value)
+        if not normalized:
+            return False
+        if normalized in {
+            "truot",
+            "rot",
+            "chua qua",
+            "hoc lai",
+            "mon no",
+            "can hoc lai",
+            "bi truot",
+            "bi rot",
+            "bi chua qua",
+        }:
+            return True
+        if re.fullmatch(r"(?:bi|diem|dat|duoc)?\s*(?:a\+?|b\+?|c\+?|d\+?|f)", normalized):
+            return True
+        return False
     
     def _extract_entities(self, question: str) -> Dict[str, str]:
         """Extract entities from question (subject names, class IDs, etc.)"""
         entities = {}
+
+        letter_grade = self._extract_letter_grade_filter(question)
+        if letter_grade:
+            entities["letter_grade"] = letter_grade
         
         # Extract class IDs (e.g., 161084, 123456)
         class_id_match = re.search(r'\blớp\s+(\d{6})\b', question, re.IGNORECASE)
@@ -136,6 +187,9 @@ class NL2SQLService:
             entities['subject_names'] = list_names
             if 'subject_name' not in entities:
                 entities['subject_name'] = list_names[0]
+
+        if letter_grade and self._is_grade_status_fragment(str(entities.get("subject_name", ""))):
+            entities.pop("subject_name", None)
         
         # Extract day of week
         day_mapping = {
@@ -611,6 +665,9 @@ class NL2SQLService:
             elif entities.get("subject_name"):
                 subject_name = str(entities["subject_name"]).replace("'", "''")
                 sql_template += f" AND s.subject_name LIKE '%{subject_name}%'"
+            if entities.get("letter_grade"):
+                letter_grade = str(entities["letter_grade"]).replace("'", "''").upper()
+                sql_template += f" AND UPPER(ls.letter_grade) = '{letter_grade}'"
             sql_template += " ORDER BY ls.semester DESC"
             return {
                 "sql": sql_template,

@@ -4,6 +4,7 @@ Chatbot Routes - API endpoints cho chatbot with NL2SQL and Rule Engine
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 import asyncio
+import re
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 from app.chatbot.tfidf_classifier import TfidfIntentClassifier
@@ -94,6 +95,9 @@ def _fast_fallback_intent(text: str) -> str:
     )):
         return "subject_registration_suggestion"
 
+    if _looks_like_learned_subject_status_query(normalized):
+        return "learned_subjects_view"
+
     if any(token in normalized for token in (
         "diem mon",
         "diem hoc phan",
@@ -120,6 +124,36 @@ def _fast_fallback_intent(text: str) -> str:
         return "subject_info"
 
     return "unknown"
+
+
+def _looks_like_learned_subject_status_query(normalized: str) -> bool:
+    if any(token in normalized for token in (
+        "diem mon",
+        "diem hoc phan",
+        "ket qua mon",
+        "ket qua hoc phan",
+        "mon da hoc",
+        "hoc phan da hoc",
+        "mon truot",
+        "mon rot",
+        "hoc phan truot",
+        "hoc phan rot",
+        "hoc phan bi truot",
+        "hoc phan bi rot",
+        "mon bi truot",
+        "mon bi rot",
+        "mon no",
+        "chua qua",
+        "hoc lai",
+    )):
+        return True
+    if re.search(r"\b(?:mon|hoc phan|cac mon|cac hoc phan)\s+bi\s+(?:a\+?|b\+?|c\+?|d\+?|f)\b", normalized):
+        return True
+    if re.search(r"\b(?:diem|dat|duoc)\s+(?:a\+?|b\+?|c\+?|d\+?|f)\b", normalized) and any(
+        token in normalized for token in ("mon", "hoc phan", "da hoc")
+    ):
+        return True
+    return False
 
 
 async def _run_fast_rule_fallback(
@@ -743,7 +777,7 @@ async def _process_single_query(
     if intent == "learned_subjects_view" and confidence in ("high", "medium"):
         try:
             result = await chatbot_service.process_learned_subjects_view(student_id, normalized_text)
-            if result and result.get("data"):
+            if result is not None:
                 return ChatResponseWithData(
                     text=result.get("text") or "",
                     intent="learned_subjects_view",

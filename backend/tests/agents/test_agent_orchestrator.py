@@ -552,6 +552,42 @@ async def test_intent_router_routes_learned_subject_view_for_specific_subject_sc
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "cac hoc phan bi F",
+        "cac hoc phan bi C",
+        "cac hoc phan bi truot",
+        "hoc phan da hoc diem C",
+        "cac mon can hoc lai",
+    ],
+)
+async def test_intent_router_routes_learned_subject_grade_status_queries(query):
+    result = await intent_router_node(
+        {
+            "segments": [query],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "learned_subjects_view"
+    assert result["needs_agent"] is False
+
+
+@pytest.mark.asyncio
+async def test_intent_router_keeps_plain_subject_info_query():
+    result = await intent_router_node(
+        {
+            "segments": ["thong tin hoc phan IT4785"],
+            "current_segment_index": 0,
+        }
+    )
+
+    assert result["intent"] == "subject_info"
+    assert result["needs_agent"] is False
+
+
+@pytest.mark.asyncio
 async def test_intent_router_routes_student_info_for_personal_keywords():
     result = await intent_router_node(
         {

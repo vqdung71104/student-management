@@ -517,6 +517,59 @@ class ChatbotService:
         }
         return mapping.get(str(letter_grade).strip().upper())
 
+    def _extract_learned_subject_grade_filter(self, question: str) -> Optional[str]:
+        raw = str(question or "")
+        raw = raw.replace("đ", "d").replace("Đ", "D")
+        raw = unicodedata.normalize("NFD", raw)
+        raw = "".join(ch for ch in raw if unicodedata.category(ch) != "Mn")
+        normalized = re.sub(r"[^a-zA-Z0-9\+\s]", " ", raw).lower()
+        normalized = re.sub(r"\s+", " ", normalized).strip()
+        if not normalized:
+            return None
+
+        if any(token in normalized for token in ("truot", "rot", "chua qua", "hoc lai", "mon no", "can hoc lai")):
+            return "F"
+
+        # Prefer explicit + grades before single-letter grades.
+        for grade in ("A+", "B+", "C+", "D+"):
+            grade_norm = re.escape(grade.lower())
+            if re.search(rf"\b(?:bi|diem|dat|duoc)\s+{grade_norm}(?![a-z0-9])", normalized):
+                return grade
+
+        for grade in ("A", "B", "C", "D", "F"):
+            if re.search(rf"\b(?:bi|diem|dat|duoc)\s+{grade.lower()}\b", normalized):
+                return grade
+            if re.search(rf"\b{grade.lower()}\b", normalized) and any(
+                marker in normalized
+                for marker in ("hoc phan bi", "mon bi", "cac mon bi", "cac hoc phan bi")
+            ):
+                return grade
+
+        return None
+
+    def _is_learned_subject_status_query(self, question: str) -> bool:
+        normalized = self._normalize_lookup_text(question or "")
+        if not normalized:
+            return False
+        return bool(
+            self._extract_learned_subject_grade_filter(question)
+            or any(token in normalized for token in ("da hoc", "diem mon", "diem hoc phan", "ket qua mon", "ket qua hoc phan"))
+        )
+
+    def _is_broad_learned_subject_list_query(self, question: str) -> bool:
+        normalized = self._normalize_lookup_text(question or "")
+        if not normalized:
+            return False
+        broad_markers = (
+            "cac mon",
+            "cac hoc phan",
+            "mon da hoc",
+            "hoc phan da hoc",
+            "diem tung mon",
+            "diem chi tiet",
+        )
+        return any(marker in normalized for marker in broad_markers)
+
     def _safe_unpack_entity_row(self, row: Any, expected: int = 2) -> List[Any]:
         if isinstance(row, tuple):
             values = list(row)
@@ -1029,7 +1082,11 @@ class ChatbotService:
         from app.models.learned_subject_model import LearnedSubject
 
         student_course_id = self._get_student_course_id(student_id)
-        matched = self._resolve_subject_match(question, student_course_id) if question else None
+        grade_filter = self._extract_learned_subject_grade_filter(question)
+        broad_list_query = self._is_broad_learned_subject_list_query(question)
+        matched = None
+        if question and not grade_filter and not broad_list_query:
+            matched = self._resolve_subject_match(question, student_course_id)
 
         query = (
             self.db.query(LearnedSubject, Subject)
@@ -1039,6 +1096,8 @@ class ChatbotService:
 
         if matched:
             query = query.filter(Subject.id == matched["subject_db_id"])
+        if grade_filter:
+            query = query.filter(func.upper(LearnedSubject.letter_grade) == grade_filter)
 
         learned_rows = query.order_by(LearnedSubject.id.desc()).all()
         result_rows: List[Dict[str, Any]] = []
@@ -1089,6 +1148,21 @@ class ChatbotService:
                 ]
 
         if not result_rows:
+            if grade_filter:
+                return {
+                    "text": f"Không tìm thấy học phần đã học có điểm {grade_filter}.",
+                    "intent": "learned_subjects_view",
+                    "confidence": "high",
+                    "data": [],
+                    "metadata": {
+                        "student_id": student_id,
+                        "letter_grade_filter": grade_filter,
+                        "matched_subject_id": None,
+                        "matched_subject_name": None,
+                        "in_program_count": 0,
+                        "out_program_count": 0,
+                    },
+                }
             return None
 
         in_program = [row for row in result_rows if row.get("course_match")]
@@ -1102,6 +1176,7 @@ class ChatbotService:
             "data": ordered_rows,
             "metadata": {
                 "student_id": student_id,
+                "letter_grade_filter": grade_filter,
                 "matched_subject_id": matched.get("subject_id") if matched else None,
                 "matched_subject_name": matched.get("subject_name") if matched else None,
                 "in_program_count": len(in_program),

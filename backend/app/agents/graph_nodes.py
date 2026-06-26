@@ -158,10 +158,24 @@ _LEARNED_SUBJECT_KEYWORDS = frozenset(
         "ket qua mon",
         "ket qua hoc phan",
         "mon da hoc",
+        "hoc phan da hoc",
         "mon bi d",
         "mon bi f",
+        "hoc phan bi d",
+        "mon tach",
+        "hoc phan tach",
+        "hoc phan bi f",
         "mon truot",
         "mon rot",
+        "hoc phan truot",
+        "hoc phan rot",
+        "hoc phan bi truot",
+        "hoc phan bi rot",
+        "mon bi truot",
+        "mon bi rot",
+        "mon no",
+        "chua qua",
+        "hoc lai",
     }
 )
 _GRADE_SUMMARY_KEYWORDS = frozenset({"cpa", "gpa", "diem tong ket"})
@@ -196,7 +210,7 @@ _FAST_SPLIT_CONNECTOR_REGEX = re.compile(
     re.IGNORECASE,
 )
 _CONSTRAINT_REGEX = re.compile(
-    r"(?:tôi\s+)?(?:không\s+muốn|tránh|ngoại\s+trừ|không\s+học|thay\s+vì)[^,;\.]*",
+    r"(?:tôi\s+)?(?:không\s+muốn|tránh|ngoại\s+trừ|không\s+học|thay\s+vì)(?=\s|$|[,;\.])[^,;\.]*",
     re.IGNORECASE,
 )
 
@@ -206,7 +220,7 @@ _PREFERRED_SUBJECT_REGEX = re.compile(
 )
 
 _CONSTRAINT_REGEX = re.compile(
-    r"(?:(?:tôi|toi)\s+)?(?:không\s+muốn|khong\s+muon|không\s+được\s+có|khong\s+duoc\s+co|không\s+có|khong\s+co|đừng\s+có|dung\s+co|tránh|tranh|ngoại\s+trừ|ngoai\s+tru|trừ|tru|loại\s+bỏ|loai\s+bo|bỏ|bo|không\s+học|khong\s+hoc|không\s+bao\s+gồm|khong\s+bao\s+gom|without|exclude|thay\s+vì|thay\s+vi)[^,;\.]*",
+    r"(?:(?:tôi|toi)\s+)?(?:không\s+muốn|khong\s+muon|không\s+được\s+có|khong\s+duoc\s+co|không\s+có|khong\s+co|đừng\s+có|dung\s+co|tránh|tranh|ngoại\s+trừ|ngoai\s+tru|trừ|tru|loại\s+bỏ|loai\s+bo|bỏ|bo|không\s+học|khong\s+hoc|không\s+bao\s+gồm|khong\s+bao\s+gom|without|exclude|thay\s+vì|thay\s+vi)(?=\s|$|[,;\.])[^,;\.]*",
     re.IGNORECASE,
 )
 
@@ -1223,11 +1237,26 @@ def _should_force_class_info(clean_query: str) -> bool:
 
 def _should_force_subject_info(clean_query: str) -> bool:
     lowered = _normalize_text(clean_query)
+    if _looks_like_learned_subject_status_query(clean_query):
+        return False
     if "lop" in lowered:
         return False
     if any(keyword in lowered for keyword in _CLASS_REGISTRATION_BIAS_KEYWORDS | _SUBJECT_REGISTRATION_BIAS_KEYWORDS):
         return False
     return any(token in lowered for token in ("hoc phan", "mon ")) or bool(re.search(r"\b[a-z]{2,4}\d{3,4}[a-z]?\b", lowered))
+
+
+def _looks_like_learned_subject_status_query(clean_query: str) -> bool:
+    lowered = _normalize_text(clean_query)
+    if any(keyword in lowered for keyword in _LEARNED_SUBJECT_KEYWORDS):
+        return True
+    if re.search(r"\b(?:mon|hoc phan|cac mon|cac hoc phan)\s+bi\s+(?:a\+?|b\+?|c\+?|d\+?|f)\b", lowered):
+        return True
+    if re.search(r"\b(?:diem|dat|duoc)\s+(?:a\+?|b\+?|c\+?|d\+?|f)\b", lowered) and any(
+        token in lowered for token in ("mon", "hoc phan", "da hoc")
+    ):
+        return True
+    return False
 
 
 def _contains_subject_reference(clean_query: str) -> bool:
@@ -1249,6 +1278,9 @@ def _pick_personal_info_intent(clean_query: str) -> Optional[Tuple[str, float, s
         return "student_info", 0.97, "keyword_bias"
 
     if any(keyword in normalized for keyword in _LEARNED_SUBJECT_KEYWORDS):
+        return "learned_subjects_view", 0.98, "keyword_bias"
+
+    if _looks_like_learned_subject_status_query(clean_query):
         return "learned_subjects_view", 0.98, "keyword_bias"
 
     if "diem" in normalized and _contains_subject_reference(clean_query) and not any(keyword in normalized for keyword in _GRADE_SUMMARY_KEYWORDS):
