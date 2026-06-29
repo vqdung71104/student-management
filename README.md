@@ -299,14 +299,6 @@ VITE_API_URL=http://localhost:8000
 
 - Vũ Quang Dũng
 
-## 🙏 Acknowledgments
 
-- FastAPI for the excellent web framework
-- React team for the UI library
-- Ant Design for beautiful components
-- Google for Gemini AI
-- VinAI for PhoBERT model
-
----
 
 **Happy Coding! 🚀**
