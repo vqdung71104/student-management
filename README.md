@@ -1,304 +1,113 @@
-# 🎓 Student Management System
+# Student Management System
 
-A comprehensive student management system built with FastAPI (Python) backend and React (TypeScript) frontend, featuring AI-powered chatbot assistance.
+A web application for suggesting class and subject registration for HUST students.
 
-## 🚀 Features
+## Features
 
-- **Student Management**: Complete CRUD operations for student records
-- **Course Management**: Manage courses, subjects, and class schedules
-- **Grade Tracking**: Semester GPA calculation and tracking
-- **AI Chatbot**: Natural language query support with PhoBERT and Google Gemini
-- **Authentication**: Secure JWT-based authentication
-- **Feedback System**: Student feedback and forms management
-- **Excel Export**: Export data to Excel format
+- Authentication with JWT-based access control
+- Student, department, class, course, and subject management
+- Course registration and class registration
+- Learned subject tracking and semester GPA tracking
+- Feedback and student form handling
+- Chatbot support for academic questions, combining rule-based logic, intent classification, NL2SQL, and optional agent tools
+- Excel export and reporting utilities
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Backend
-- **Framework**: FastAPI (Python 3.11)
-- **Database**: MySQL 8.0
-- **ORM**: SQLAlchemy
-- **Authentication**: JWT
-- **AI/ML**: PhoBERT, Google Gemini, Underthesea
+
+- FastAPI
+- SQLAlchemy
+- MySQL
+- Redis
+- JWT authentication
+- Passlib / bcrypt
+- Python-based chatbot services and rule engine
 
 ### Frontend
-- **Framework**: React 19 + TypeScript
-- **Build Tool**: Vite
-- **UI Library**: Ant Design
-- **Routing**: React Router v7
-- **Charts**: Chart.js
-- **Styling**: Tailwind CSS
 
-## 📦 Docker Deployment
+- React 19
+- TypeScript
+- Vite
+- Ant Design
+- React Router
+- Chart.js
+- Tailwind CSS
 
-This project is fully containerized with Docker for easy deployment.
+## Project Structure
 
-### Quick Start with Docker
+- `backend/`: FastAPI application, routes, services, chatbot logic, cache/queue helpers, and tests
+- `frontend/`: React client for student and admin workflows
+- `docker-compose.yml`: Local container setup
+- `.env.example`: Environment variable template
 
-#### Development Mode
-
-**Windows:**
-```powershell
-# Start all services
-.\docker-manager.ps1 dev:start
-
-# View logs
-.\docker-manager.ps1 dev:logs
-
-# Stop services
-.\docker-manager.ps1 dev:stop
-```
-
-**Linux/Mac:**
-```bash
-# Start all services
-make dev-start
-
-# View logs
-make dev-logs
-
-# Stop services
-make dev-stop
-```
-
-#### Production Mode
-
-**Windows:**
-```powershell
-# 1. Update .env.production with your credentials
-# 2. Build and start
-.\docker-manager.ps1 prod:build
-.\docker-manager.ps1 prod:start
-```
-
-**Linux/Mac:**
-```bash
-# 1. Update .env.production with your credentials
-# 2. Build and start
-make prod-build
-make prod-start
-```
-
-### Access Services
-
-| Service | Development | Production |
-|---------|-------------|------------|
-| Frontend | http://localhost:5173 | http://localhost:80 |
-| Backend API | http://localhost:8000 | Internal only |
-| API Docs | http://localhost:8000/docs | - |
-| phpMyAdmin | http://localhost:8080 | - |
-
-### Docker Documentation
-
-- **[DOCKER_GUIDE.md](DOCKER_GUIDE.md)** - Complete deployment guide with troubleshooting
-- **[QUICK_START.md](QUICK_START.md)** - Quick reference for common commands
-- **[DOCKER_FILES_SUMMARY.md](DOCKER_FILES_SUMMARY.md)** - Overview of all Docker files
-
-## 🔧 Manual Installation (Without Docker)
+## Local Setup
 
 ### Prerequisites
 
 - Python 3.11+
 - Node.js 20+
-- MySQL 8.0+
+- MySQL 8+
+- Redis
 
-### Backend Setup
+### Backend
 
 ```bash
 cd backend
-
-# Create virtual environment
 python -m venv venv
-
-# Activate virtual environment
-# Windows
 venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
-
-# Install dependencies
 pip install -r requirements.txt
-
-# Configure .env file
-cp .env.example .env
-# Edit .env with your database credentials
-
-# Run migrations (tables will be created automatically)
-# Start the server
+copy ..\.env.example .env
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Frontend Setup
+### Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm run dev
-
-# Build for production
-npm run build
 ```
 
-## 📊 Database Schema
+Open the app at `http://localhost:5173`.
 
-The system includes the following main entities:
+## Environment Variables
 
-- Students
-- Departments
-- Classes
-- Courses
-- Subjects
-- Learned Subjects
-- Semester GPA
-- Feedback
-- Student Forms
+Use `.env.example` as the starting point. The most important values are:
 
-Tables are automatically created by SQLAlchemy on first run.
+- `MYSQL_USER`
+- `MYSQL_PASSWORD`
+- `MYSQL_HOST`
+- `MYSQL_PORT`
+- `MYSQL_DB`
+- `REDIS_HOST`
+- `REDIS_PORT`
+- `SECRET_KEY`
+- `VITE_API_URL`
 
-## 🤖 AI Chatbot
+If you enable the chatbot agent mode, also configure the LLM-related variables in `.env.example`, especially:
 
-The system includes an intelligent chatbot that can:
+- `AGENT_ENABLED`
+- `LLM_SPACE_URL`
+- `LLM_API_TOKEN`
+- `AGENT_INTERNAL_TOOL_KEY`
+- `METRICS_INTERNAL_KEY`
 
-- Answer questions in Vietnamese using natural language
-- Query student information, grades, and schedules
-- Support both PhoBERT and Google Gemini models
-- Hybrid strategy for optimal responses
-
-Configure in `.env`:
-```
-USE_PHOBERT=true
-USE_GEMINI=true
-CHATBOT_STRATEGY=hybrid
-GOOGLE_API_KEY=your_api_key
-```
-
-## 🔐 Security
-
-- JWT-based authentication
-- Password hashing with Argon2
-- CORS configuration
-- Environment variable management
-- SQL injection protection via ORM
-
-## 📝 API Documentation
-
-Once the backend is running, visit:
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-## 🧪 Testing
+## Tests and Checks
 
 ```bash
-# Backend tests
 cd backend
 pytest
 
-# Frontend tests
-cd frontend
-npm test
+cd ../frontend
+npm run lint
+npm run build
 ```
 
-## 🚢 Deployment
+## Docker
 
-### Docker (Recommended)
+The repository includes Docker support through `docker-compose.yml` and related files.
 
-See [DOCKER_GUIDE.md](DOCKER_GUIDE.md) for detailed deployment instructions.
-
-### Manual Deployment
-
-1. **Backend**: Use Gunicorn or Uvicorn with multiple workers
-2. **Frontend**: Build and serve with Nginx
-3. **Database**: Use managed MySQL service or self-hosted
-4. **SSL**: Configure reverse proxy (Nginx/Traefik) with Let's Encrypt
-
-## 📋 Environment Variables
-
-### Backend (.env)
-
-```env
-# Database
-MYSQL_USER=root
-MYSQL_PASSWORD=your_password
-MYSQL_HOST=localhost
-MYSQL_PORT=3306
-MYSQL_DB=student_management
-
-# Redis (local run)
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=
-
-# JWT
-SECRET_KEY=your_secret_key
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-
-# AI
-GOOGLE_API_KEY=your_api_key
-USE_PHOBERT=true
-USE_GEMINI=true
-CHATBOT_STRATEGY=hybrid
-AGENT_ENABLED=false
-AGENT_TOOLS_BASE_URL=http://127.0.0.1:8000/api/agent-tools
-AGENT_INTERNAL_TOOL_KEY=replace-with-strong-secret-at-least-24-chars
-AGENT_TOOLS_CONFIG_JSON=
-METRICS_INTERNAL_KEY=
-
-# External HF Space LLM
-LLM_SPACE_URL=https://your-space.hf.space
-LLM_API_TOKEN=
-LLM_CONNECT_TIMEOUT=5
-LLM_SPLIT_TIMEOUT=2
-LLM_CLASSIFY_TIMEOUT=2
-LLM_GENERATE_TIMEOUT=12
-LLM_SPLIT_MAX_TOKENS=48
-LLM_CLASSIFY_MAX_TOKENS=12
-LLM_GENERATE_MAX_TOKENS=160
-LLM_GENERATE_TEMPERATURE=0.2
-LLM_TOP_P=0.9
-LLM_REPEAT_PENALTY=1.08
-INTENT_CONF_THRESHOLD=0.6
-LLM_MAX_RETRIES=1
-LLM_RETRY_BASE_DELAY=0.2
-LLM_BREAKER_FAIL_THRESHOLD=5
-LLM_BREAKER_COOLDOWN_SECONDS=30
-ALERT_LLM_TIMEOUT_MIN=5
-ALERT_NODE4_FALLBACK_MIN=5
-ALERT_TOOLS_FAILURE_MIN=5
-ALERT_CIRCUIT_OPEN_MIN=3
+```bash
+docker compose up --build
 ```
-
-Production note:
-- If AGENT_ENABLED=true, backend startup will fail fast when LLM_SPACE_URL is missing.
-- AGENT_INTERNAL_TOOL_KEY must be non-default and at least 24 characters.
-- Internal metrics endpoint /internal/metrics/orchestration is protected by X-Internal-Metrics-Key.
-
-Operational endpoints:
-- Liveness: /health/live
-- Readiness: /health/ready
-- Internal alerts: /internal/alerts/orchestration (requires X-Internal-Metrics-Key)
-
-When running with Docker Compose, backend must use service hostnames in the container network:
-
-```env
-MYSQL_HOST=mysql
-REDIS_HOST=redis
-```
-
-### Frontend (.env)
-
-```env
-VITE_API_URL=http://localhost:8000
-```
-
-## 👥 Authors
-
-- Vũ Quang Dũng
-
-
-
-**Happy Coding! 🚀**
