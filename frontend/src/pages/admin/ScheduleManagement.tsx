@@ -230,12 +230,26 @@ const ScheduleManagement = () => {
   const [loading, setLoading] = useState(true)
   const [showExcelUpload, setShowExcelUpload] = useState(false)
   const [showTeacherUpdate, setShowTeacherUpdate] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [createLoading, setCreateLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [editingClass, setEditingClass] = useState<any>(null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [schedPage, setSchedPage] = useState(1)
   const [schedPageSize, setSchedPageSize] = useState(10)
+  const [manualClass, setManualClass] = useState({
+    class_code: '',
+    class_code_attached: '',
+    subject_code: '',
+    subject_name: '',
+    class_type: 'Lý thuyết',
+    room: '',
+    day_of_week_converted: 'Monday',
+    study_time_start: '09:00',
+    study_time_end: '10:50',
+    teacher_name: '',
+    study_weeks: '1,2,3,4,5',
+  })
   
   // Refs for scroll synchronization
   const topScrollRef = useRef<HTMLDivElement>(null)
@@ -339,6 +353,105 @@ const ScheduleManagement = () => {
   const handleEditClass = (classItem: any) => {
     setEditingClass(classItem)
     setShowEditModal(true)
+  }
+
+  const resetManualClass = () => {
+    setManualClass({
+      class_code: '',
+      class_code_attached: '',
+      subject_code: '',
+      subject_name: '',
+      class_type: 'Lý thuyết',
+      room: '',
+      day_of_week_converted: 'Monday',
+      study_time_start: '09:00',
+      study_time_end: '10:50',
+      teacher_name: '',
+      study_weeks: '1,2,3,4,5',
+    })
+  }
+
+  const parseStudyWeeks = (value: string): number[] => {
+    return value
+      .split(',')
+      .map((item) => Number(item.trim()))
+      .filter((item) => Number.isInteger(item) && item > 0)
+  }
+
+  const getSubjectsMap = async (): Promise<{ [key: string]: number }> => {
+    const subjectsResponse = await fetch('/api/subjects/')
+    if (!subjectsResponse.ok) {
+      throw new Error('Không tải được danh sách học phần')
+    }
+
+    const subjects = await subjectsResponse.json()
+    return subjects.reduce((map: any, subject: any) => {
+      map[subject.subject_id] = subject.id
+      return map
+    }, {})
+  }
+
+  const handleCreateManualClass = async () => {
+    const classCode = manualClass.class_code.trim()
+    const subjectCode = manualClass.subject_code.trim()
+    const subjectName = manualClass.subject_name.trim()
+    const studyWeeks = parseStudyWeeks(manualClass.study_weeks)
+
+    if (!classCode || !subjectCode || !subjectName) {
+      alert('Vui lòng nhập đủ Mã lớp, Mã học phần và Tên học phần')
+      return
+    }
+
+    if (studyWeeks.length === 0) {
+      alert('Tuần học cần là danh sách số, ví dụ: 1,2,3,4,5')
+      return
+    }
+
+    setCreateLoading(true)
+    try {
+      const subjectsMap = await getSubjectsMap()
+      let subjectId = subjectsMap[subjectCode]
+      if (!subjectId) {
+        subjectId = await createSubjectIfNotExists(subjectCode, subjectName)
+      }
+
+      const classData = {
+        class_id: classCode,
+        class_name: subjectName,
+        subject_id: subjectId,
+        linked_class_ids: manualClass.class_code_attached.trim() ? [manualClass.class_code_attached.trim()] : [],
+        class_type: manualClass.class_type.trim() || undefined,
+        classroom: manualClass.room.trim() || undefined,
+        study_date: manualClass.day_of_week_converted || undefined,
+        study_time_start: manualClass.study_time_start || '00:00',
+        study_time_end: manualClass.study_time_end || '00:00',
+        teacher_name: manualClass.teacher_name.trim() || undefined,
+        study_week: studyWeeks,
+      }
+
+      const response = await fetch('/api/classes/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(classData),
+      })
+
+      if (response.ok) {
+        alert('Tạo lớp học thành công!')
+        setShowCreateModal(false)
+        resetManualClass()
+        await fetchClasses()
+      } else {
+        const errorText = await response.text()
+        alert(`Có lỗi khi tạo lớp học: ${errorText}`)
+      }
+    } catch (error) {
+      console.error('Error creating manual class:', error)
+      alert(`Có lỗi khi tạo lớp học: ${error instanceof Error ? error.message : 'Không rõ nguyên nhân'}`)
+    } finally {
+      setCreateLoading(false)
+    }
   }
 
   const handleUpdateClass = async (updatedClass: any) => {
@@ -454,7 +567,7 @@ const ScheduleManagement = () => {
         tuition_fee: 1000000,
         english_subject_name: subjectName,
         weight: 1.0,
-        department_id: "string" // Use first department ID
+        department_id: "SOICT"
       }
 
       const response = await fetch('/api/subjects/', {
@@ -665,7 +778,11 @@ const ScheduleManagement = () => {
             <span>Cập nhật giáo viên</span>
           </button>
           
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+            disabled={createLoading}
+          >
                Thêm lớp thủ công
           </button>
         </div>
@@ -924,6 +1041,164 @@ const ScheduleManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Manual Create Class Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Thêm lớp học thủ công</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mã lớp</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 158751"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.class_code}
+                  onChange={(e) => setManualClass({...manualClass, class_code: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mã lớp kèm</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 158752 hoặc để trống"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.class_code_attached}
+                  onChange={(e) => setManualClass({...manualClass, class_code_attached: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mã học phần</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: IT1110"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.subject_code}
+                  onChange={(e) => setManualClass({...manualClass, subject_code: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tên học phần / tên lớp</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Tin học đại cương"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.subject_name}
+                  onChange={(e) => setManualClass({...manualClass, subject_name: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Loại lớp</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.class_type}
+                  onChange={(e) => setManualClass({...manualClass, class_type: e.target.value})}
+                >
+                  <option value="Lý thuyết">Lý thuyết</option>
+                  <option value="Bài tập">Bài tập</option>
+                  <option value="Thực hành">Thực hành</option>
+                  <option value="Thí nghiệm">Thí nghiệm</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phòng học</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: D9-401"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.room}
+                  onChange={(e) => setManualClass({...manualClass, room: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Thứ học</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.day_of_week_converted}
+                  onChange={(e) => setManualClass({...manualClass, day_of_week_converted: e.target.value})}
+                >
+                  <option value="Monday">Thứ 2</option>
+                  <option value="Tuesday">Thứ 3</option>
+                  <option value="Wednesday">Thứ 4</option>
+                  <option value="Thursday">Thứ 5</option>
+                  <option value="Friday">Thứ 6</option>
+                  <option value="Saturday">Thứ 7</option>
+                  <option value="Sunday">Chủ nhật</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tuần học</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: 1,2,3,4,5 hoặc 1,3,5,7"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.study_weeks}
+                  onChange={(e) => setManualClass({...manualClass, study_weeks: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Giờ bắt đầu</label>
+                <input
+                  type="time"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.study_time_start}
+                  onChange={(e) => setManualClass({...manualClass, study_time_start: e.target.value})}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Giờ kết thúc</label>
+                <input
+                  type="time"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.study_time_end}
+                  onChange={(e) => setManualClass({...manualClass, study_time_end: e.target.value})}
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Giảng viên</label>
+                <input
+                  type="text"
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={manualClass.teacher_name}
+                  onChange={(e) => setManualClass({...manualClass, teacher_name: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-4 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false)
+                  resetManualClass()
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition"
+                disabled={createLoading}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleCreateManualClass}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                disabled={createLoading}
+              >
+                {createLoading ? 'Đang tạo...' : 'Tạo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Excel Upload Modal */}
       {showExcelUpload && (

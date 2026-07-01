@@ -419,9 +419,6 @@ const StudentsManagement = () => {
                   Khoá
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  CPA
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Thao tác
                 </th>
               </tr>
@@ -615,12 +612,6 @@ const StudentsManagement = () => {
               <div><strong>Email:</strong> {selectedStudent.email}</div>
               <div><strong>Trường/Viện ID:</strong> {selectedStudent.department_id}</div>
               <div><strong>Khóa học ID:</strong> {selectedStudent.course_id}</div>
-              <div><strong>CPA:</strong> {selectedStudent.cpa ? selectedStudent.cpa.toFixed(2) : 'Chưa có'}</div>
-              <div><strong>Tín chỉ tích lũy:</strong> {selectedStudent.credits_accumulated || 0}</div>
-              <div><strong>Tín chỉ đã đăng ký:</strong> {selectedStudent.credits_registered || 0}</div>
-              <div><strong>Tín chỉ đã qua:</strong> {selectedStudent.credits_passed || 0}</div>
-              <div><strong>Năm học:</strong> {selectedStudent.year_level || 'Chưa xác định'}</div>
-              <div><strong>Mức cảnh báo:</strong> {selectedStudent.warning_level || 'Không'}</div>
             </div>
             <div className="flex justify-end mt-6">
               <button

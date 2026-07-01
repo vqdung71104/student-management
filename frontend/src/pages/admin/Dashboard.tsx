@@ -127,7 +127,7 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Hoạt động gần đây</h2>
           <div className="space-y-4">
@@ -167,7 +167,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Thông báo hệ thống</h2>
           <div className="space-y-4">
             <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
@@ -183,8 +183,8 @@ const Dashboard = () => {
               <p className="text-xs text-yellow-700 mt-1">Vui lòng kiểm tra dữ liệu trước khi lưu</p>
             </div>
           </div>
-        </div>
-      </div>
+        </div> 
+      </div> */}
     </div>
   )
 }
