@@ -573,7 +573,6 @@ function AppStudent({ onLogout, studentInfo }: AppStudentProps) {
                 </div>
               </div>
             </div>
-          </div>
         </div>
 
         {/* User Guide Page */}
