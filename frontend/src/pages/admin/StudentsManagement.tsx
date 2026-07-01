@@ -6,7 +6,7 @@ interface Student {
   student_name: string
   email: string
   course_id: number
-  department_id: number
+  department_id: string | null
   // Auto-calculated fields
   cpa?: number
   credits_accumulated?: number
@@ -25,12 +25,51 @@ interface StudentFormData {
   student_name: string
   email: string
   password: string
-  course_id: number
-  department_id: number
+  course_code: string
+  department_id: string
 }
+
+interface Course {
+  id: number
+  course_id: string
+  course_name: string
+}
+
+interface Department {
+  id: string
+  name: string
+}
+
+interface StudentPayload {
+  student_name: string
+  email: string
+  password: string
+  course_id: number
+  department_id: string
+}
+
+interface StudentMetadata {
+  courses: Course[]
+  departments: Department[]
+}
+
+const normalizeText = (value: unknown) =>
+  String(value ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase()
+
+const normalizeCode = (value: unknown) => String(value ?? '').trim().toUpperCase()
+const courseLookupKey = (value: unknown) => normalizeCode(value).replace(/-/g, '')
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 
 const StudentsManagement = () => {
   const [students, setStudents] = useState<Student[]>([])
+  const [courses, setCourses] = useState<Course[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -42,12 +81,13 @@ const StudentsManagement = () => {
     student_name: '',
     email: '',
     password: '',
-    course_id: 1,
-    department_id: 1,
+    course_code: 'ITE6',
+    department_id: 'SOICT',
   })
 
   useEffect(() => {
     fetchStudents()
+    fetchMetadata()
   }, [])
 
   const fetchStudents = async () => {
@@ -68,14 +108,132 @@ const StudentsManagement = () => {
     setLoading(false)
   }
 
+  const fetchJsonArray = async <T,>(urls: string[]): Promise<T[]> => {
+    for (const url of urls) {
+      const response = await fetch(url, { credentials: 'include' })
+      if (response.ok) {
+        const data = await response.json()
+        if (Array.isArray(data)) {
+          return data
+        }
+      }
+    }
+
+    return []
+  }
+
+  const fetchMetadataData = async (): Promise<StudentMetadata> => {
+    const [nextCourses, nextDepartments] = await Promise.all([
+      fetchJsonArray<Course>(['/api/courses/', '/api/courses']),
+      fetchJsonArray<Department>(['/api/departments/', '/api/departments']),
+    ])
+
+    setCourses(nextCourses)
+    setDepartments(nextDepartments)
+
+    return {
+      courses: nextCourses,
+      departments: nextDepartments,
+    }
+  }
+
+  const fetchMetadata = async () => {
+    try {
+      await fetchMetadataData()
+    } catch (error) {
+      console.error('Error fetching student form metadata:', error)
+    }
+  }
+
+  const ensureMetadataLoaded = async (): Promise<StudentMetadata | null> => {
+    if (courses.length > 0 && departments.length > 0) {
+      return { courses, departments }
+    }
+
+    try {
+      const metadata = await fetchMetadataData()
+      if (metadata.courses.length > 0 && metadata.departments.length > 0) {
+        return metadata
+      }
+    } catch (error) {
+      console.error('Error loading student metadata:', error)
+    }
+
+    alert('Chưa tải được danh sách mã ngành học hoặc mã viện/trường. Vui lòng kiểm tra kết nối backend rồi thử lại.')
+    return null
+  }
+
+  const findCourseByCode = (courseCode: string, courseList = courses) => {
+    const key = courseLookupKey(courseCode)
+    return courseList.find(course => courseLookupKey(course.course_id) === key)
+  }
+
+  const findDepartmentByCode = (departmentCode: string, departmentList = departments) => {
+    const code = normalizeCode(departmentCode)
+    return departmentList.find(department => normalizeCode(department.id) === code)
+  }
+
+  const getCourseCodeById = (courseId: number) => {
+    return courses.find(course => course.id === courseId)?.course_id ?? String(courseId)
+  }
+
+  const getStudentPayload = (requirePassword: boolean, metadata: StudentMetadata): StudentPayload | null => {
+    const studentName = formData.student_name.trim()
+    const email = formData.email.trim()
+    const password = formData.password.trim()
+    const courseCode = normalizeCode(formData.course_code)
+    const departmentCode = normalizeCode(formData.department_id)
+
+    if (!studentName || !email || !courseCode || !departmentCode || (requirePassword && !password)) {
+      alert('Vui lòng nhập đủ Họ tên, Email, Mật khẩu, Mã ngành học và Mã viện/trường')
+      return null
+    }
+
+    if (!isValidEmail(email)) {
+      alert('Email không hợp lệ')
+      return null
+    }
+
+    if (requirePassword && password.length < 6) {
+      alert('Mật khẩu phải có ít nhất 6 ký tự')
+      return null
+    }
+
+    const course = findCourseByCode(courseCode, metadata.courses)
+    if (!course) {
+      alert(`Không tìm thấy mã ngành học "${courseCode}". Ví dụ hợp lệ: ITE6, IT1, IT2`)
+      return null
+    }
+
+    const department = findDepartmentByCode(departmentCode, metadata.departments)
+    if (!department) {
+      alert(`Không tìm thấy mã viện/trường "${departmentCode}". Ví dụ hợp lệ: SOICT`)
+      return null
+    }
+
+    return {
+      student_name: studentName,
+      email,
+      password,
+      course_id: course.id,
+      department_id: department.id,
+    }
+  }
+
   const handleCreateStudent = async () => {
+    const metadata = await ensureMetadataLoaded()
+    if (!metadata) return
+
+    const payload = getStudentPayload(true, metadata)
+    if (!payload) return
+
     try {
       const response = await fetch('/api/students/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
       
       if (response.ok) {
@@ -94,6 +252,18 @@ const StudentsManagement = () => {
 
   const handleUpdateStudent = async () => {
     if (!selectedStudent) return
+    const metadata = await ensureMetadataLoaded()
+    if (!metadata) return
+
+    const payload = getStudentPayload(false, metadata)
+    if (!payload) return
+
+    const updatePayload = {
+      student_name: payload.student_name,
+      email: payload.email,
+      course_id: payload.course_id,
+      department_id: payload.department_id,
+    }
     
     try {
       const response = await fetch(`/api/students/${selectedStudent.id}`, {
@@ -101,7 +271,7 @@ const StudentsManagement = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(updatePayload),
       })
       
       if (response.ok) {
@@ -143,8 +313,8 @@ const StudentsManagement = () => {
       student_name: '',
       email: '',
       password: '',
-      course_id: 1,
-      department_id: 1,
+      course_code: 'ITE6',
+      department_id: 'SOICT',
     })
   }
 
@@ -153,14 +323,20 @@ const StudentsManagement = () => {
     setShowCreateModal(true)
   }
 
+  const openUploadModal = async () => {
+    const metadata = await ensureMetadataLoaded()
+    if (!metadata) return
+    setShowUploadModal(true)
+  }
+
   const openEditModal = (student: Student) => {
     setSelectedStudent(student)
     setFormData({
       student_name: student.student_name,
       email: student.email,
       password: '', // Don't populate password for security
-      course_id: student.course_id,
-      department_id: student.department_id,
+      course_code: getCourseCodeById(student.course_id),
+      department_id: student.department_id || '',
     })
     setShowEditModal(true)
   }
@@ -192,7 +368,7 @@ const StudentsManagement = () => {
         <h1 className="text-3xl font-bold text-gray-900">Quản lý sinh viên</h1>
         <div className="flex space-x-2">
           <button 
-            onClick={() => setShowUploadModal(true)}
+            onClick={openUploadModal}
             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
           >
                Upload Excel
@@ -266,7 +442,7 @@ const StudentsManagement = () => {
                     {student.department_id || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {student.course_id || 'N/A'}
+                    {getCourseCodeById(student.course_id) || 'N/A'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {student.cpa ? student.cpa.toFixed(2) : 'N/A'}
@@ -331,19 +507,21 @@ const StudentsManagement = () => {
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
+              <p className="text-sm font-medium text-gray-700 -mb-3">Mã ngành học</p>
               <input
-                type="number"
-                placeholder="Mã khóa học (Course ID)"
+                type="text"
+                placeholder="Mã ngành học (ví dụ: ITE6)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.course_id}
-                onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}
+                value={formData.course_code}
+                onChange={(e) => setFormData({...formData, course_code: e.target.value})}
               />
+              <p className="text-sm font-medium text-gray-700 -mb-3">Mã viện/trường</p>
               <input
-                type="number"
-                placeholder="Mã Trường/Viện (Department ID)"
+                type="text"
+                placeholder="Mã viện/trường (ví dụ: SOICT)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.department_id}
-                onChange={(e) => setFormData({...formData, department_id: parseInt(e.target.value)})}
+                onChange={(e) => setFormData({...formData, department_id: e.target.value})}
               />
             </div>
             <div className="flex justify-end space-x-2 mt-6">
@@ -391,19 +569,21 @@ const StudentsManagement = () => {
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
               />
+              <p className="text-sm font-medium text-gray-700 -mb-3">Mã ngành học</p>
               <input
-                type="number"
-                placeholder="Mã khóa học (Course ID)"
+                type="text"
+                placeholder="Mã ngành học (ví dụ: ITE6)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                value={formData.course_id}
-                onChange={(e) => setFormData({...formData, course_id: parseInt(e.target.value)})}
+                value={formData.course_code}
+                onChange={(e) => setFormData({...formData, course_code: e.target.value})}
               />
+              <p className="text-sm font-medium text-gray-700 -mb-3">Mã viện/trường</p>
               <input
-                type="number"
-                placeholder="Mã Trường/Viện (Department ID)"
+                type="text"
+                placeholder="Mã viện/trường (ví dụ: SOICT)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 value={formData.department_id}
-                onChange={(e) => setFormData({...formData, department_id: parseInt(e.target.value)})}
+                onChange={(e) => setFormData({...formData, department_id: e.target.value})}
               />
             </div>
             <div className="flex justify-end space-x-2 mt-6">
@@ -456,6 +636,8 @@ const StudentsManagement = () => {
 
       {showUploadModal && (
         <StudentUploadModal 
+          courses={courses}
+          departments={departments}
           onClose={() => setShowUploadModal(false)} 
           onSuccess={() => {
             fetchStudents()
@@ -468,7 +650,17 @@ const StudentsManagement = () => {
 }
 
 // Component StudentUploadModal
-const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) => {
+const StudentUploadModal = ({
+  courses,
+  departments,
+  onClose,
+  onSuccess
+}: {
+  courses: Course[]
+  departments: Department[]
+  onClose: () => void
+  onSuccess: () => void
+}) => {
   const [file, setFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
@@ -500,20 +692,51 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
     }
   }
 
-  const processExcelFile = async (file: File): Promise<any[]> => {
+  const processExcelFile = async (file: File): Promise<StudentPayload[]> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onload = (e) => {
         try {
+          if (courses.length === 0 || departments.length === 0) {
+            throw new Error('Chưa tải được danh sách mã ngành học hoặc mã viện/trường. Vui lòng thử lại sau.')
+          }
+
           const data = new Uint8Array(e.target?.result as ArrayBuffer)
           const workbook = XLSX.read(data, { type: 'array' })
           const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+          if (!worksheet) {
+            throw new Error('File Excel không có sheet dữ liệu')
+          }
+
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as unknown[][]
+          const findColumnIndex = (headers: unknown[], matchers: string[]) => {
+            return headers.findIndex(header => {
+              const normalizedHeader = normalizeText(header)
+              return matchers.some(matcher => normalizedHeader.includes(matcher))
+            })
+          }
           
           // Tìm dòng header có chứa các cột cần thiết
           let headerRowIndex = -1
           for (let i = 0; i < jsonData.length; i++) {
-            const row = jsonData[i] as any[]
+            const row = jsonData[i] as unknown[]
+            const normalizedHeaderHit = row.some(cell => {
+              const normalizedCell = normalizeText(cell)
+              return (
+                normalizedCell.includes('ho ten') ||
+                normalizedCell.includes('ho va ten') ||
+                normalizedCell.includes('email') ||
+                normalizedCell.includes('mat khau') ||
+                normalizedCell.includes('ma nganh') ||
+                normalizedCell.includes('ma nganh hoc') ||
+                normalizedCell.includes('ma truong') ||
+                normalizedCell.includes('ma vien truong')
+              )
+            })
+            if (normalizedHeaderHit) {
+              headerRowIndex = i
+              break
+            }
             if (row.some(cell => 
               cell && (
                 String(cell).toLowerCase().includes('họ và tên') || 
@@ -532,53 +755,83 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
             throw new Error('Không tìm thấy header có các cột: Họ và tên, MSSV, Năm nhập học')
           }
 
-          const headers = jsonData[headerRowIndex] as any[]
-          const students: any[] = []
+          const headers = jsonData[headerRowIndex] as unknown[]
+          const students: StudentPayload[] = []
 
           // Tìm index của các cột cần thiết
-          const nameIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('họ và tên')
-          )
-          const emailIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('email')
-          )
-          const courseIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('ngành học')
-          )
-          const departmentIndex = headers.findIndex((h: any) => 
-            h && String(h).toLowerCase().includes('trường/viện')
-          )
+          const nameIndex = findColumnIndex(headers, ['ho ten', 'ho va ten'])
+          const emailIndex = findColumnIndex(headers, ['email'])
+          const passwordIndex = findColumnIndex(headers, ['mat khau', 'password'])
+          const courseIndex = findColumnIndex(headers, ['ma nganh hoc', 'ma nganh', 'nganh hoc', 'course'])
+          const departmentIndex = findColumnIndex(headers, ['ma vien truong', 'ma truong', 'vien truong', 'truong vien', 'department'])
 
-          if (nameIndex === -1 || emailIndex === -1) {
-            throw new Error('Không tìm thấy các cột bắt buộc: Họ và tên, Email')
+          const missingColumns: string[] = []
+          if (nameIndex === -1) missingColumns.push('Họ tên')
+          if (emailIndex === -1) missingColumns.push('Email')
+          if (passwordIndex === -1) missingColumns.push('Mật khẩu')
+          if (courseIndex === -1) missingColumns.push('Mã ngành học')
+          if (departmentIndex === -1) missingColumns.push('Mã viện/trường')
+
+          if (missingColumns.length > 0) {
+            throw new Error(`File thiếu cột bắt buộc: ${missingColumns.join(', ')}`)
           }
+
+          const rowErrors: string[] = []
 
           // Xử lý dữ liệu từ các dòng sau header
           for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
-            const row = jsonData[i] as any[]
+            const row = jsonData[i] as unknown[]
+            const hasAnyValue = row?.some(cell => String(cell ?? '').trim() !== '')
+            if (!hasAnyValue) continue
             
-            if (row && row.length > 0 && row[nameIndex] && row[emailIndex]) {
-              // Map course code to course_id
-              const courseCode = courseIndex !== -1 ? String(row[courseIndex] || '').trim() : 'IT-E6'
-              let courseId = 1 // Default to IT-E6 course
-              if (courseCode === 'IT-E6') {
-                courseId = 1
-              }
+            const excelRowNumber = i + 1
+            const studentName = String(row[nameIndex] ?? '').trim()
+            const email = String(row[emailIndex] ?? '').trim()
+            const password = String(row[passwordIndex] ?? '').trim()
+            const courseCode = normalizeCode(row[courseIndex])
+            const departmentCode = normalizeCode(row[departmentIndex])
+            const rowIssues: string[] = []
 
-              const departmentId = departmentIndex !== -1 ? parseInt(String(row[departmentIndex] || '1').trim()) : 1
+            if (!studentName) rowIssues.push('thiếu Họ tên')
+            if (!email) rowIssues.push('thiếu Email')
+            if (email && !isValidEmail(email)) rowIssues.push('Email không hợp lệ')
+            if (!password) rowIssues.push('thiếu Mật khẩu')
+            if (password && password.length < 6) rowIssues.push('Mật khẩu dưới 6 ký tự')
+            if (!courseCode) rowIssues.push('thiếu Mã ngành học')
+            if (!departmentCode) rowIssues.push('thiếu Mã viện/trường')
 
-              const student = {
-                student_name: String(row[nameIndex] || '').trim(),
-                email: String(row[emailIndex] || '').trim(),
-                password: 'default123', // Default password for bulk upload
-                course_id: courseId,
-                department_id: departmentId
-              }
+            const course = courseCode
+              ? courses.find(item => courseLookupKey(item.course_id) === courseLookupKey(courseCode))
+              : undefined
+            if (courseCode && !course) rowIssues.push(`Mã ngành học "${courseCode}" không tồn tại`)
 
-              if (student.student_name && student.email) {
-                students.push(student)
-              }
+            const department = departmentCode
+              ? departments.find(item => normalizeCode(item.id) === departmentCode)
+              : undefined
+            if (departmentCode && !department) rowIssues.push(`Mã viện/trường "${departmentCode}" không tồn tại`)
+
+            if (rowIssues.length > 0) {
+              rowErrors.push(`Dòng ${excelRowNumber}: ${rowIssues.join(', ')}`)
+              continue
             }
+
+            students.push({
+              student_name: studentName,
+              email,
+              password,
+              course_id: course!.id,
+              department_id: department!.id,
+            })
+          }
+
+          if (rowErrors.length > 0) {
+            const displayedErrors = rowErrors.slice(0, 8).join('\n')
+            const remainingCount = rowErrors.length - 8
+            throw new Error(displayedErrors + (remainingCount > 0 ? `\n...và ${remainingCount} dòng lỗi khác` : ''))
+          }
+
+          if (students.length === 0) {
+            throw new Error('Không tìm thấy dòng sinh viên hợp lệ trong file')
           }
 
           resolve(students)
@@ -613,6 +866,7 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
       // Gửi từng sinh viên lên server
       let successCount = 0
       let errorCount = 0
+      let duplicateCount = 0
       
       for (const student of students) {
         console.log('Sending student:', student)
@@ -630,7 +884,12 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
             console.log(`✓ Tạo thành công sinh viên ${student.student_name}`)
           } else {
             const errorText = await response.text()
-            if (errorText.includes('email đã tồn tại') || errorText.includes('duplicate key')) {
+            const normalizedError = normalizeText(errorText)
+            if (
+              normalizedError.includes('email') &&
+              (normalizedError.includes('ton tai') || normalizedError.includes('duplicate'))
+            ) {
+              duplicateCount++
               console.log(`⚠ Sinh viên ${student.student_name} (${student.email}) đã tồn tại, bỏ qua`)
             } else {
               errorCount++
@@ -643,7 +902,6 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
         }
       }
 
-      const duplicateCount = students.length - successCount - errorCount
       let message = `Hoàn thành! Tạo thành công ${successCount} sinh viên`
       if (duplicateCount > 0) {
         message += `, bỏ qua ${duplicateCount} sinh viên đã tồn tại`
@@ -712,15 +970,19 @@ const StudentUploadModal = ({ onClose, onSuccess }: { onClose: () => void, onSuc
           className="hidden"
         />
 
-        <div className="mt-4 text-sm text-gray-600">
-          <p className="font-semibold mb-1">Yêu cầu định dạng Excel:</p>
-          <ul className="text-xs">
-            <li>• Họ và tên (bắt buộc)</li>
-            <li>• Email (bắt buộc)</li>
-            <li>• Mã ngành/Course ID (tùy chọn, mặc định: 1)</li>
-            <li>• Mã Trường/Viện/Department ID (tùy chọn, mặc định: 1)</li>
-            <li>• Mật khẩu mặc định: default123</li>
-          </ul>
+        <div className="mt-4 rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-900">
+          <p className="font-semibold mb-2">Hướng dẫn upload:</p>
+          <ol className="text-xs space-y-1 list-decimal list-inside">
+            <li>Chuẩn bị file Excel .xlsx hoặc .xls</li>
+            <li>Sheet đầu tiên phải có hàng tiêu đề</li>
+            <li>Điền đủ 5 cột: Họ tên, Email, Mật khẩu, Mã ngành học, Mã viện/trường</li>
+            <li>Mã ngành ví dụ ITE6 hoặc IT-E6; mã viện/trường ví dụ SOICT</li>
+            <li>Chọn file và bấm Upload</li>
+          </ol>
+          <div className="mt-3 rounded bg-white p-2 text-xs text-blue-800">
+            <p className="font-semibold">Ví dụ một dòng:</p>
+            <p>Nguyễn Văn A | vana@example.com | 123456 | ITE6 | SOICT</p>
+          </div>
         </div>
 
         <div className="flex justify-end space-x-2 mt-6">
