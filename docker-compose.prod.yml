@@ -24,8 +24,11 @@ services:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DB}
       TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "127.0.0.1:3307:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./backend/scripts/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
     networks:
       - student-management-network
     command:

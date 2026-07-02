@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import os
 from sqlalchemy import text
 from app.db.database import engine
@@ -171,12 +172,13 @@ async def health_ready():
         "llm": llm_status,
     }
     ready = all(v.get("status") in {"ok", "skipped"} for v in checks.values())
-    return {
+    payload = {
         "status": "ready" if ready else "degraded",
         "agent_enabled": _is_agent_enabled(),
         "checks": checks,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+    return JSONResponse(status_code=200 if ready else 503, content=payload)
 
 
 @app.get("/internal/metrics/orchestration")

@@ -241,6 +241,24 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --force-recreate mysql redis backend frontend
             
             docker compose -f docker-compose.prod.yml ps
+
+            echo "Waiting for production backend readiness..."
+            for i in $(seq 1 24); do
+              if docker compose -f docker-compose.prod.yml exec -T backend curl -fsS http://localhost:8000/health/ready > /dev/null; then
+                echo "Production backend is ready after ${i} attempts."
+                break
+              fi
+
+              if [ "$i" -eq 24 ]; then
+                echo "Production backend did not become ready within 120 seconds."
+                docker compose -f docker-compose.prod.yml logs --tail=200 backend
+                docker compose -f docker-compose.prod.yml logs --tail=200 mysql
+                exit 1
+              fi
+
+              sleep 5
+            done
+
             docker image prune -a -f --filter "until=24h"
             #sleep 10
             #docker compose exec -T backend python scripts/db/populate_data.py
