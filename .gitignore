@@ -175,3 +175,6 @@ backup_*.sql
 
 # Log file build
 build_log.txt
+
+# E2E trace outputs
+backend/outputs/
