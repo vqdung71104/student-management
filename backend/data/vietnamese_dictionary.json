@@ -125,8 +125,8 @@
         "xuat": "xuất",
         "nhap": "nhập",
         "giao vien": "giáo viên",
-        "giao viên": "giáo viên", 
-        "sinh viên": "sinh viên" 
+        "giao viên": "giáo viên",
+        "sinh viên": "sinh viên"
     },
     "keyboard_patterns": {
         "thws": "thứ",
@@ -178,7 +178,16 @@
         "diem so": "điểm số",
         "ket qua hoc tap": "kết quả học tập",
         "thoi khoa bieu": "thời khóa biểu",
-        "thuong":"thường", 
-        "thuong binh":"thương binh" 
+        "thuong":"thường",
+        "đnăg":"đăng",
+        "tiensg":"tiếng",
+        "tieensgs":"tiếng",
+        "đangw":"đăng",
+        "ddangw":"đăng",
+        "kys":"ký",
+        "đăngg":"đăng",
+        "ddawng":"đăng",
+        "lichj":"lịch",
+        "thuong binh":"thương binh"
     }
 }

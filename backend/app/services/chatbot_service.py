@@ -1765,25 +1765,123 @@ class ChatbotService:
             'sunday': 'Sunday',
         }
 
+        def _normalize_day(value: Any) -> Optional[str]:
+            return day_map.get(str(value or '').strip().lower())
+
+        def _constraint_items(key: str) -> List[Dict[str, Any]]:
+            items = constraints_dict.get(key) or []
+            if not isinstance(items, list):
+                return []
+            normalized_items: List[Dict[str, Any]] = []
+            for item in items:
+                if isinstance(item, dict):
+                    normalized_items.append(item)
+                elif hasattr(item, "model_dump"):
+                    normalized_items.append(item.model_dump())
+                elif hasattr(item, "dict"):
+                    normalized_items.append(item.dict())
+            return normalized_items
+
+        excluded_days_from_constraints: List[str] = []
+        included_days_from_constraints: List[str] = []
+        excluded_sessions_from_constraints: List[str] = []
+        included_sessions_from_constraints: List[str] = []
+
+        for item in _constraint_items('exclude_day_session_constraints'):
+            for day in item.get('days') or []:
+                normalized = _normalize_day(day)
+                if normalized and normalized not in excluded_days_from_constraints:
+                    excluded_days_from_constraints.append(normalized)
+            session_value = str(item.get('session') or '').strip().lower()
+            if session_value in ('morning', 'afternoon') and session_value not in excluded_sessions_from_constraints:
+                excluded_sessions_from_constraints.append(session_value)
+
+        for item in _constraint_items('include_day_session_constraints'):
+            for day in item.get('days') or []:
+                normalized = _normalize_day(day)
+                if normalized and normalized not in included_days_from_constraints:
+                    included_days_from_constraints.append(normalized)
+            session_value = str(item.get('session') or '').strip().lower()
+            if session_value in ('morning', 'afternoon') and session_value not in included_sessions_from_constraints:
+                included_sessions_from_constraints.append(session_value)
+
+        day_changed = False
+        for day in excluded_days_from_constraints:
+            if day in preferences.day.prefer_days:
+                preferences.day.prefer_days.remove(day)
+                day_changed = True
+            if day not in preferences.day.avoid_days:
+                preferences.day.avoid_days.append(day)
+                day_changed = True
+
+        for day in included_days_from_constraints:
+            if day in preferences.day.avoid_days:
+                continue
+            if day not in preferences.day.prefer_days:
+                preferences.day.prefer_days.append(day)
+                day_changed = True
+
         days = constraints_dict.get('days') or []
         if isinstance(days, list):
-            day_changed = False
+            generic_days = []
             for day in days:
                 if not day:
                     continue
-                normalized = day_map.get(str(day).strip().lower())
-                if normalized and normalized not in preferences.day.prefer_days:
-                    preferences.day.prefer_days.append(normalized)
-                    day_changed = True
-            if day_changed:
-                preferences.day.has_answer = True
-                captured.append('day')
+                normalized = _normalize_day(day)
+                if normalized:
+                    generic_days.append(normalized)
+
+            # Plain "days" is neutral. If the same utterance produced negative
+            # day constraints, do not promote those neutral days to preferences.
+            if preferences.day.avoid_days and not included_days_from_constraints:
+                for day in generic_days:
+                    if day in preferences.day.prefer_days:
+                        preferences.day.prefer_days.remove(day)
+                        day_changed = True
+            else:
+                for normalized in generic_days:
+                    if (
+                        normalized
+                        and normalized not in preferences.day.avoid_days
+                        and normalized not in preferences.day.prefer_days
+                    ):
+                        preferences.day.prefer_days.append(normalized)
+                        day_changed = True
+
+        if day_changed:
+            preferences.day.has_answer = True
+            captured.append('day')
+
+        time_changed = False
+        for slot in excluded_sessions_from_constraints:
+            if preferences.time.time_period == slot:
+                preferences.time.time_period = None
+                time_changed = True
+            if slot not in preferences.time.avoid_time_periods:
+                preferences.time.avoid_time_periods.append(slot)
+                time_changed = True
+
+        for slot in included_sessions_from_constraints:
+            if slot not in preferences.time.avoid_time_periods and not preferences.time.time_period:
+                preferences.time.time_period = slot
+                time_changed = True
+
+        if time_changed:
+            preferences.time.has_answer = True
+            if 'time' not in captured:
+                captured.append('time')
 
         session = (constraints_dict.get('session') or '').strip().lower()
-        if session in ('morning', 'afternoon') and not preferences.time.time_period:
+        if (
+            session in ('morning', 'afternoon')
+            and session not in preferences.time.avoid_time_periods
+            and not preferences.time.time_period
+            and not excluded_sessions_from_constraints
+        ):
             preferences.time.time_period = session
             preferences.time.has_answer = True
-            captured.append('time')
+            if 'time' not in captured:
+                captured.append('time')
 
         forbidden_time_slots = [
             str(slot).strip().lower()
@@ -1793,9 +1891,13 @@ class ChatbotService:
         if forbidden_time_slots:
             time_changed = False
             for slot in forbidden_time_slots:
-                if slot in ('morning', 'afternoon') and slot not in preferences.time.avoid_time_periods:
-                    preferences.time.avoid_time_periods.append(slot)
-                    time_changed = True
+                if slot in ('morning', 'afternoon'):
+                    if preferences.time.time_period == slot:
+                        preferences.time.time_period = None
+                        time_changed = True
+                    if slot not in preferences.time.avoid_time_periods:
+                        preferences.time.avoid_time_periods.append(slot)
+                        time_changed = True
             if time_changed:
                 preferences.time.has_answer = True
                 if 'time' not in captured:

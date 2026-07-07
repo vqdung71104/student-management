@@ -336,7 +336,7 @@ class ConstraintExtractor:
     def _negative_clause_spans(self, text: str) -> List[Tuple[int, int]]:
         normalized = self._normalize_text(text)
         pattern = re.compile(
-            r"(?:khong\s+muon|khong\s+hoc|khong\s+dang\s*ky|khong\s+chon|"
+            r"(?:khong\s+muon|khong\s+thich|ko\s+thich|khong\s+hoc|khong\s+dang\s*ky|khong\s+chon|"
             r"khong\s+o|tranh|ngoai\s+tru|loai\s+bo|bo|exclude|without)"
             r"[^,.;]*",
             re.IGNORECASE,
@@ -948,7 +948,10 @@ class ConstraintExtractor:
 
         start_pats = [
             r'không\s+(?:học\s+)?(?:lớp\s+)?bắt\s+đầu\s+(?:lúc\s+)?(\d{1,2}[hg:]\d{0,2})',
+            r'(?:không|khong|ko)\s+thích\s+(?:học\s+)?(?:lúc\s+)?(\d{1,2}[hg:]\d{0,2})',
+            r'(?:không|khong|ko)\s+(?:muốn\s+)?học\s+(?:lúc\s+)?(\d{1,2}[hg:]\d{0,2})',
             r'tránh\s+(?:lớp\s+)?bắt\s+đầu\s+(?:lúc\s+)?(\d{1,2}[hg:]\d{0,2})',
+            r'tránh\s+(?:học\s+)?(?:lúc\s+)?(\d{1,2}[hg:]\d{0,2})',
             r'không\s+bắt\s+đầu\s+(?:lúc\s+)?(\d{1,2}[hg:]\d{0,2})',
         ]
         end_pats = [

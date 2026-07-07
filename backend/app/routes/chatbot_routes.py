@@ -127,6 +127,100 @@ def _fast_fallback_intent(text: str) -> str:
     return "unknown"
 
 
+def _env_flag(name: str, default: str = "false") -> bool:
+    return os.environ.get(name, default).strip().lower() == "true"
+
+
+def _agent_auto_route_reason(text: str) -> Optional[str]:
+    normalized = _normalize_text(text)
+    if not normalized:
+        return None
+
+    class_registration_markers = (
+        "dang ky lop",
+        "nen dang ky lop",
+        "goi y lop",
+        "lop nao phu hop",
+        "lop nao",
+        "nen hoc lop",
+        "sap xep lich",
+        "uu tien lich",
+    )
+    subject_registration_markers = (
+        "dang ky hoc phan",
+        "nen dang ky hoc phan",
+        "dang ky mon",
+        "nen hoc mon",
+        "hoc mon gi",
+        "goi y mon",
+        "tu van mon",
+    )
+    preference_markers = (
+        "khong thich",
+        "ko thich",
+        "khong muon",
+        "khong hoc",
+        "tranh",
+        "ngoai tru",
+        "thich",
+        "uu tien",
+        "buoi sang",
+        "hoc sang",
+        "sang thu",
+        "buoi chieu",
+        "hoc chieu",
+        "chieu thu",
+        "6h45",
+        "06:45",
+        "6:45",
+        "tieng nhat",
+    )
+    compound_markers = (
+        " va ",
+        ", va ",
+        " dong thoi ",
+        " sau do ",
+        " xem luon ",
+        " xem diem",
+        " diem may mon",
+        " mon truot",
+        " mon rot",
+    )
+
+    has_class_action = any(marker in normalized for marker in class_registration_markers)
+    has_subject_action = any(marker in normalized for marker in subject_registration_markers)
+    has_preference = any(marker in normalized for marker in preference_markers)
+    has_compound = any(marker in normalized for marker in compound_markers)
+
+    if has_class_action and has_preference:
+        return "class_registration_with_preferences"
+    if has_class_action and has_compound:
+        return "class_registration_compound"
+    if has_subject_action and has_preference and has_compound:
+        return "subject_registration_compound_with_preferences"
+
+    return None
+
+
+def _should_auto_route_to_agent(text: str) -> bool:
+    return _agent_auto_route_reason(text) is not None
+
+
+def _resolve_agent_routing(text: str) -> Tuple[bool, bool, Optional[str], bool, bool]:
+    agent_enabled = _env_flag("AGENT_ENABLED")
+    agent_auto_route_enabled = _env_flag("AGENT_AUTO_ROUTE")
+    auto_route_reason = _agent_auto_route_reason(text) if agent_auto_route_enabled else None
+    agent_auto_selected = bool(auto_route_reason and not agent_enabled)
+    use_agent = agent_enabled or agent_auto_selected
+    return (
+        agent_enabled,
+        agent_auto_route_enabled,
+        auto_route_reason,
+        agent_auto_selected,
+        use_agent,
+    )
+
+
 def _looks_like_learned_subject_status_query(normalized: str) -> bool:
     if any(token in normalized for token in (
         "diem mon",
@@ -1319,10 +1413,17 @@ async def chat(
         if normalized_message != message.message:
             print(f"✨ [NORMALIZED] {normalized_message}")
         preview_message = normalized_message if len(normalized_message) <= 120 else normalized_message[:120] + "..."
-        agent_enabled = os.environ.get("AGENT_ENABLED", "false").lower() == "true"
+        (
+            agent_enabled,
+            agent_auto_route_enabled,
+            auto_route_reason,
+            agent_auto_selected,
+            use_agent,
+        ) = _resolve_agent_routing(normalized_message)
         print(
             f"[EXEC][{request_trace_id}] start endpoint=/api/chatbot/chat "
-            f"agent_enabled={agent_enabled} conversation_id={effective_conversation_id} q={preview_message}"
+            f"agent_enabled={agent_enabled} agent_auto_route={agent_auto_route_enabled} "
+            f"agent_auto_selected={agent_auto_selected} conversation_id={effective_conversation_id} q={preview_message}"
         )
 
         # ── Active conversation shortcut (preference collection in progress) ──
@@ -1380,8 +1481,11 @@ async def chat(
             return response_payload
 
         # Optional agent orchestration path (feature-flagged)
-        if agent_enabled:
-            print(f"[CHAT][AGENT] enabled=true conversation_id={effective_conversation_id}")
+        if use_agent:
+            print(
+                f"[CHAT][AGENT] enabled={agent_enabled} auto_selected={agent_auto_selected} "
+                f"reason={auto_route_reason} conversation_id={effective_conversation_id}"
+            )
             print(f"[EXEC][{request_trace_id}] path=AGENT_ATTEMPT")
             try:
                 orchestrator = _get_agent_orchestrator()
@@ -1450,11 +1554,13 @@ async def chat(
                     trace_id=request_trace_id,
                     mode="agent",
                     route="agent_orchestrator",
-                    agent_enabled=True,
+                    agent_enabled=agent_enabled,
                     llm_called=True,
                     llm_paths=orchestration_result.get("debug", {}).get("llm_paths", []) if isinstance(orchestration_result.get("debug"), dict) else [],
                     tools_called=orchestration_result.get("debug", {}).get("tools_called", []) if isinstance(orchestration_result.get("debug"), dict) else [],
                     extra={
+                        "agent_auto_selected": agent_auto_selected,
+                        "auto_route_reason": auto_route_reason,
                         "node_trace": orchestration_result.get("debug", {}).get("node_trace") if isinstance(orchestration_result.get("debug"), dict) else None,
                         "intent": intent_label,
                     },
@@ -1518,11 +1624,34 @@ async def chat(
                     trace_id=request_trace_id,
                     mode="agent_failed_fallback",
                     route="agent_orchestrator",
-                    agent_enabled=True,
+                    agent_enabled=agent_enabled,
                     llm_called=False,
                     fallback_reason=error_reason,
+                    extra={
+                        "agent_auto_selected": agent_auto_selected,
+                        "auto_route_reason": auto_route_reason,
+                    },
                 )
                 response_payload.debug = execution_debug
+                if effective_student_id:
+                    try:
+                        conversation, _, assistant_message = history_service.save_chat_turn(
+                            student_pk=effective_student_id,
+                            user_content=message.message,
+                            assistant_payload=_build_assistant_payload_for_history(
+                                response_payload=response_payload,
+                                conversation_id=effective_conversation_id,
+                            ),
+                            conversation_id=effective_conversation_id,
+                        )
+                        response_payload.conversation_id = conversation.id
+                        response_payload.message_id = assistant_message.id
+                        response_payload.created_at = assistant_message.created_at
+                    except Exception as persist_err:
+                        print(f"âš ï¸ [CHAT_HISTORY] Persist failed: {persist_err}")
+                request_duration = (time.perf_counter() - request_started_at) * 1000
+                print(f"[EXEC][{request_trace_id}] done mode=AGENT_FAIL_FALLBACK duration_ms={request_duration:.1f}")
+                return response_payload
         else:
             print("[CHAT][AGENT] enabled=false using_legacy_path=true")
             print(f"[EXEC][{request_trace_id}] path=LEGACY_DIRECT reason=agent_disabled")
@@ -1782,6 +1911,14 @@ async def chat_stream(
             if normalized_message != message.message:
                 print(f"✨ [STREAM] {normalized_message}")
 
+            (
+                agent_enabled,
+                agent_auto_route_enabled,
+                auto_route_reason,
+                agent_auto_selected,
+                use_agent,
+            ) = _resolve_agent_routing(normalized_message)
+
             state = _hydrate_state_from_history_if_needed(
                 history_service=history_service,
                 student_id=effective_student_id,
@@ -1793,7 +1930,9 @@ async def chat_stream(
                 "trace_id": request_trace_id,
                 "mode": "unknown",
                 "route": "chat_stream",
-                "agent_enabled": os.environ.get("AGENT_ENABLED", "false").lower() == "true",
+                "agent_enabled": agent_enabled,
+                "agent_auto_selected": agent_auto_selected,
+                "auto_route_reason": auto_route_reason,
                 "llm_called": False,
                 "llm_paths": [],
                 "tools_called": [],
@@ -1825,7 +1964,7 @@ async def chat_stream(
                 sub_queries = query_splitter.split(normalized_message)
                 print(f"🔀 [STREAM][SPLITTER] {len(sub_queries)} part(s): {[sq.detected_intent for sq in sub_queries]}")
 
-                if len(sub_queries) > 1:
+                if len(sub_queries) > 1 and not use_agent:
                     yield _emit(StreamChunk(type="status", stage="query", message="Phát hiện câu hỏi nhiều phần, đang xử lý từng phần..."))
                     parts: List[ChatResponseWithData] = []
 
@@ -1875,8 +2014,11 @@ async def chat_stream(
                     stream_debug["route"] = "query_splitter"
                 else:
                     # If agent orchestration is enabled, use orchestrator for single-query path as well
-                    if os.environ.get("AGENT_ENABLED", "false").lower() == "true":
-                        print(f"[CHAT-STREAM][AGENT] enabled=true conversation_id={effective_conversation_id}")
+                    if use_agent:
+                        print(
+                            f"[CHAT-STREAM][AGENT] enabled={agent_enabled} auto_selected={agent_auto_selected} "
+                            f"reason={auto_route_reason} conversation_id={effective_conversation_id}"
+                        )
                         yield _emit(StreamChunk(type="status", stage="query", message="Chuyển sang agent orchestration..."))
                         try:
                             orchestrator = _get_agent_orchestrator()
@@ -1940,8 +2082,8 @@ async def chat_stream(
                             stream_debug["mode"] = "agent"
                             stream_debug["route"] = "agent_orchestrator"
                             stream_debug["llm_called"] = True
-                            stream_debug["llm_paths"] = ["openai_split", "openai_classify", "openai_generate"]
-                            stream_debug["tools_called"] = [item.get("intent", {}).get("intent") if isinstance(item.get("intent"), dict) else item.get("intent") for item in raw] if isinstance(raw, list) else []
+                            stream_debug["llm_paths"] = llm_debug.get("llm_paths", []) if isinstance(llm_debug, dict) else []
+                            stream_debug["tools_called"] = llm_debug.get("tools_called", []) if isinstance(llm_debug, dict) else []
                         except (asyncio.TimeoutError, Exception) as ag_err:
                             # ── RULE-BASE FALLBACK (streaming) ──────────────────────────
                             error_reason = (

@@ -372,6 +372,52 @@ def test_merge_constraints_into_preferences_marks_time_answered():
     assert "specific" in prefs.get_missing_preferences()
 
 
+def test_merge_constraints_keeps_negative_day_and_time_out_of_preferences():
+    service = ChatbotService.__new__(ChatbotService)
+    prefs = CompletePreference()
+    prefs.day.prefer_days = ["Tuesday"]
+    prefs.day.avoid_days = ["Monday"]
+    prefs.day.has_answer = True
+    prefs.time.avoid_time_periods = ["morning"]
+    prefs.time.has_answer = True
+
+    captured = service._merge_constraints_into_preferences(
+        preferences=prefs,
+        constraints_dict={
+            "days": ["Monday", "Tuesday"],
+            "session": "morning",
+            "exclude_day_session_constraints": [
+                {"days": ["Monday", "Tuesday"], "session": "morning"},
+            ],
+        },
+    )
+
+    assert "day" in captured
+    assert "time" in captured
+    assert prefs.day.prefer_days == []
+    assert prefs.day.avoid_days == ["Monday", "Tuesday"]
+    assert prefs.time.time_period is None
+    assert prefs.time.avoid_time_periods == ["morning"]
+
+
+def test_constraint_extractor_understands_disliked_days_and_exact_start_time():
+    extractor = get_constraint_extractor()
+
+    constraints = extractor.extract(
+        "toi ko thich hoc sang thu 2 va sang thu 3, toi khong thich hoc luc 6h45",
+        query_type="class_registration_suggestion",
+    )
+
+    excluded_pairs = {
+        (day, item.session)
+        for item in constraints.exclude_day_session_constraints
+        for day in item.days
+    }
+    assert ("Monday", "morning") in excluded_pairs
+    assert ("Tuesday", "morning") in excluded_pairs
+    assert "06:45" in constraints.avoid_start_times
+
+
 def _reasoning_subject(code, name, **extra):
     return {
         "id": extra.pop("id", len(code)),
