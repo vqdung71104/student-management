@@ -1,7 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.__init__ import Student, LearnedSubject, SemesterGPA, Course
+from app.models.associations import student_course_table
+from app.models.__init__ import (
+    ChatConversation,
+    ChatMessage,
+    ClassRegister,
+    LearnedSubject,
+    SemesterGPA,
+    Student,
+    SubjectRegister,
+)
 from app.schemas.student_schemas import StudentCreate, StudentUpdate, StudentAccountResponse
 from app.utils.jwt_utils import get_current_admin, get_current_student
 from app.utils.grade_calculator import letter_grade_to_score
@@ -109,8 +118,47 @@ def delete_student(
     if not db_student:
         raise HTTPException(status_code=404, detail="Không tìm thấy sinh viên")
 
-    db.delete(db_student)
-    db.commit()
+    target_student_id = db_student.id
+
+    try:
+        conversation_ids = [
+            row[0]
+            for row in db.query(ChatConversation.id)
+            .filter(ChatConversation.student_pk == target_student_id)
+            .all()
+        ]
+
+        if conversation_ids:
+            db.query(ChatMessage).filter(
+                ChatMessage.conversation_id.in_(conversation_ids)
+            ).delete(synchronize_session=False)
+
+        db.query(ChatConversation).filter(
+            ChatConversation.student_pk == target_student_id
+        ).delete(synchronize_session=False)
+        db.query(LearnedSubject).filter(
+            LearnedSubject.student_id == target_student_id
+        ).delete(synchronize_session=False)
+        db.query(SemesterGPA).filter(
+            SemesterGPA.student_id == target_student_id
+        ).delete(synchronize_session=False)
+        db.query(ClassRegister).filter(
+            ClassRegister.student_id == target_student_id
+        ).delete(synchronize_session=False)
+        db.query(SubjectRegister).filter(
+            SubjectRegister.student_id == target_student_id
+        ).delete(synchronize_session=False)
+        db.execute(
+            student_course_table.delete().where(
+                student_course_table.c.student_id == target_student_id
+            )
+        )
+
+        db.delete(db_student)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Không thể xóa sinh viên: {str(exc)}")
     return {"detail": "Xóa sinh viên thành công"}
 
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from app.db.database import get_db
+from app.models.__init__ import SubjectRegister
 from app.models.subject_model import Subject  # Sửa import
 from app.schemas.subject_schema import SubjectCreate, SubjectUpdate, SubjectResponse
 from typing import List, Optional
@@ -68,8 +69,15 @@ def delete_subject(subject_id: int, db: Session = Depends(get_db)):
     subject = db.query(Subject).filter(Subject.id == subject_id).first()
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
-    db.delete(subject)
-    db.commit()
+    try:
+        db.query(SubjectRegister).filter(
+            SubjectRegister.subject_id == subject.id
+        ).delete(synchronize_session=False)
+        db.delete(subject)
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete subject: {str(exc)}")
     return {"message": "Subject deleted successfully"}
 
 #    Get subject by subject_id (mã môn học)
