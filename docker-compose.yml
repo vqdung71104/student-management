@@ -93,6 +93,12 @@ services:
 
       # Google AI Configuration
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_SENDER: ${SMTP_SENDER}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:5173}
 
       # Chatbot Configuration
       USE_PHOBERT: ${USE_PHOBERT:-true}
