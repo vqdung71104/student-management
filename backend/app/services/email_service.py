@@ -14,6 +14,25 @@ from app.core.config import settings
 class EmailService:
     def __init__(self):
         pass
+
+    def _smtp_diagnostics(self) -> str:
+        missing = []
+        if not settings.SMTP_USERNAME:
+            missing.append("SMTP_USERNAME")
+        if not settings.SMTP_PASSWORD:
+            missing.append("SMTP_PASSWORD")
+        if not settings.SMTP_SENDER:
+            missing.append("SMTP_SENDER")
+
+        username_domain = settings.SMTP_USERNAME.split("@", 1)[1] if "@" in settings.SMTP_USERNAME else ""
+        sender_domain = settings.SMTP_SENDER.split("@", 1)[1] if "@" in settings.SMTP_SENDER else ""
+        return (
+            f"missing={missing or 'none'}, "
+            f"host={settings.SMTP_HOST}, port={settings.SMTP_PORT}, "
+            f"username_set={bool(settings.SMTP_USERNAME)}, username_domain={username_domain or 'n/a'}, "
+            f"password_len={len(settings.SMTP_PASSWORD)}, "
+            f"sender_set={bool(settings.SMTP_SENDER)}, sender_domain={sender_domain or 'n/a'}"
+        )
         
     def generate_otp(self) -> str:
         """Tạo mã OTP 6 chữ số"""
@@ -42,7 +61,7 @@ class EmailService:
         """Send reset-password link using Gmail SMTP."""
         try:
             if not settings.SMTP_USERNAME or not settings.SMTP_PASSWORD:
-                print("SMTP credentials are missing. Skipping email send.")
+                print(f"SMTP credentials are missing. Skipping email send. {self._smtp_diagnostics()}")
                 return False
 
             subject = "Reset mật khẩu - Student Management"
@@ -71,7 +90,10 @@ class EmailService:
 
             return True
         except Exception as e:
-            print(f"Lỗi gửi email reset password: {str(e)}")
+            print(
+                "Failed to send reset password email: "
+                f"{type(e).__name__}: {str(e)}. {self._smtp_diagnostics()}"
+            )
             return False
     
     def create_otp_record(self, db: Session, email: str, purpose: str = "password_reset") -> Optional[str]:
