@@ -64,6 +64,34 @@ def _normalize_text(text: str) -> str:
     return normalized.lower()
 
 
+def _looks_like_class_registration_advice(normalized: str) -> bool:
+    """Prefer class-suggestion intent when the user asks which class/timetable to take."""
+    if not normalized:
+        return False
+
+    class_markers = (
+        "lop",
+        "lop nao",
+        "dang ky lop",
+        "tkb",
+        "thoi khoa bieu",
+        "lich hoc",
+    )
+    action_markers = (
+        "nen hoc",
+        "nen hcoj",
+        "nen dang ky",
+        "dang ky",
+        "goi y",
+        "ky sau",
+        "ky nay",
+        "phu hop",
+    )
+    return any(marker in normalized for marker in class_markers) and any(
+        marker in normalized for marker in action_markers
+    )
+
+
 def _fast_fallback_intent(text: str) -> str:
     normalized = _normalize_text(text)
 
@@ -76,9 +104,13 @@ def _fast_fallback_intent(text: str) -> str:
     )):
         return "grade_view"
 
+    if _looks_like_class_registration_advice(normalized):
+        return "class_registration_suggestion"
+
     if any(token in normalized for token in (
         "dang ky lop",
         "nen dang ky lop",
+        "nen hoc lop",
         "goi y lop",
         "lop nao",
         "lop nao phu hop",
@@ -781,6 +813,9 @@ async def _process_single_query(
         intent_result = await intent_classifier.classify_intent(normalized_text)
         intent = intent_result["intent"]
         confidence = intent_result["confidence"]
+        if _fast_fallback_intent(normalized_text) == "class_registration_suggestion":
+            intent = "class_registration_suggestion"
+            confidence = "high"
 
     # ── INTENT GUARD: Return default greeting for non-Node3 intents ─────────
     # Only process intents that belong to Node 3a (NL2SQL), 3b, 3c, 3d.

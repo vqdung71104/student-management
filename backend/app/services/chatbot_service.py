@@ -2692,6 +2692,236 @@ class ChatbotService:
             return ordered
         return [k for k, _ in sorted(self._SUBJECT_PRIORITY_MAP.items(), key=lambda x: x[1])]
 
+    def _subject_code_key(self, subject: Dict[str, Any]) -> str:
+        return str(subject.get("subject_id") or "").strip().upper()
+
+    def _subject_category_map(self, subject_result: Dict[str, Any]) -> Dict[str, str]:
+        summary = subject_result.get("summary", {}) if isinstance(subject_result, dict) else {}
+        result: Dict[str, str] = {}
+        for category in self._ordered_subject_rule_categories(summary):
+            for subject in summary.get(category, []) or []:
+                code = self._subject_code_key(subject)
+                if code and code not in result:
+                    result[code] = category
+        return result
+
+    def _requested_subject_terms(
+        self,
+        preferences: Dict[str, Any],
+        nlq_constraints_dict: Optional[Dict[str, Any]] = None,
+    ) -> List[str]:
+        terms: List[str] = []
+        for item in preferences.get("specific_subjects", []) or []:
+            text = str(item).strip()
+            if text:
+                terms.append(text)
+        terms.extend(
+            self._constraint_text_values(
+                nlq_constraints_dict,
+                "include_subject_codes",
+                "include_subjects",
+                "preferred_subjects",
+            )
+        )
+        return list(dict.fromkeys(terms))
+
+    def _is_user_requested_subject(
+        self,
+        subject: Dict[str, Any],
+        requested_terms: List[str],
+    ) -> bool:
+        if subject.get("priority_reason") == "Theo học phần bạn yêu cầu cụ thể":
+            return True
+        return any(self._row_matches_subject_term(subject, term) for term in requested_terms)
+
+    def _subject_relaxation_sort_key(
+        self,
+        subject: Dict[str, Any],
+        subject_categories: Dict[str, str],
+        requested_terms: List[str],
+    ) -> Tuple[int, int, str]:
+        code = self._subject_code_key(subject)
+        requested_rank = 0 if self._is_user_requested_subject(subject, requested_terms) else 1
+        category = subject_categories.get(code)
+        priority_rank = self._SUBJECT_PRIORITY_MAP.get(category, 20)
+        return (requested_rank, priority_rank, code)
+
+    def _format_subject_label(self, subject: Dict[str, Any]) -> str:
+        code = str(subject.get("subject_id") or "N/A")
+        name = str(subject.get("subject_name") or "").strip()
+        return f"{code} - {name}" if name else code
+
+    def _diagnose_subject_conflict(
+        self,
+        subject_code: str,
+        subject_classes: List[Dict[str, Any]],
+        selected_classes_by_subject: Dict[str, List[Dict[str, Any]]],
+    ) -> str:
+        from app.services.schedule_combination_service import ScheduleCombinationGenerator
+
+        generator = ScheduleCombinationGenerator()
+        for cls in subject_classes or []:
+            for selected_subject, selected_classes in selected_classes_by_subject.items():
+                for selected_cls in selected_classes or []:
+                    if generator.has_time_conflicts([cls, selected_cls]):
+                        return (
+                            f"{subject_code}: bỏ vì các lớp khả dụng bị trùng lịch với "
+                            f"{selected_subject} (ví dụ {cls.get('class_id')} trùng {selected_cls.get('class_id')})"
+                        )
+        return f"{subject_code}: bỏ vì không ghép được vào thời khóa biểu không trùng lịch hiện tại"
+
+    def _build_relaxed_schedule_result(
+        self,
+        *,
+        classes_by_subject: Dict[str, List[Dict[str, Any]]],
+        suggested_subjects: List[Dict[str, Any]],
+        subject_result: Dict[str, Any],
+        preferences: Dict[str, Any],
+        nlq_constraints_dict: Optional[Dict[str, Any]] = None,
+        max_combinations: int = 40,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]], Dict[str, Any]]:
+        """Build a non-conflicting partial schedule by dropping lower-priority subjects."""
+        from app.services.schedule_combination_service import ScheduleCombinationGenerator
+
+        generator = ScheduleCombinationGenerator()
+        relaxed_preferences = dict(preferences or {})
+        relaxed_preferences.pop("specific_class_ids", None)
+        subject_categories = self._subject_category_map(subject_result or {})
+        requested_terms = self._requested_subject_terms(relaxed_preferences, nlq_constraints_dict)
+
+        no_class_subjects: List[Dict[str, Any]] = []
+        candidate_subjects: List[Dict[str, Any]] = []
+        for subject in suggested_subjects or []:
+            code = self._subject_code_key(subject)
+            if not code:
+                continue
+            if classes_by_subject.get(code):
+                candidate_subjects.append(subject)
+            else:
+                no_class_subjects.append(subject)
+
+        candidate_subjects.sort(
+            key=lambda subject: self._subject_relaxation_sort_key(
+                subject,
+                subject_categories,
+                requested_terms,
+            )
+        )
+
+        selected_classes_by_subject: Dict[str, List[Dict[str, Any]]] = {}
+        selected_subjects: List[Dict[str, Any]] = []
+        dropped_subjects: List[Dict[str, Any]] = []
+        diagnostics: List[str] = []
+        best_combinations: List[Dict[str, Any]] = []
+
+        for subject in candidate_subjects:
+            code = self._subject_code_key(subject)
+            trial_classes = {
+                **selected_classes_by_subject,
+                code: classes_by_subject.get(code, []),
+            }
+            trial_combinations = generator.generate_combinations(
+                classes_by_subject=trial_classes,
+                preferences=relaxed_preferences,
+                max_combinations=max_combinations,
+            )
+            if trial_combinations:
+                selected_classes_by_subject = trial_classes
+                selected_subjects.append(subject)
+                best_combinations = trial_combinations
+                continue
+
+            reason = self._diagnose_subject_conflict(
+                code,
+                classes_by_subject.get(code, []),
+                selected_classes_by_subject,
+            )
+            dropped_subjects.append({
+                "subject_id": code,
+                "subject_name": subject.get("subject_name", ""),
+                "reason": reason,
+                "priority_category": subject_categories.get(code),
+            })
+            diagnostics.append(reason)
+
+        if not best_combinations:
+            for subject in candidate_subjects:
+                code = self._subject_code_key(subject)
+                solo = generator.generate_combinations(
+                    classes_by_subject={code: classes_by_subject.get(code, [])},
+                    preferences=relaxed_preferences,
+                    max_combinations=max_combinations,
+                )
+                if solo:
+                    selected_subjects = [subject]
+                    selected_classes_by_subject = {code: classes_by_subject.get(code, [])}
+                    best_combinations = solo
+                    break
+
+        for subject in no_class_subjects:
+            code = self._subject_code_key(subject)
+            reason = f"{code}: không có lớp khả dụng sau khi áp dụng các loại trừ bắt buộc"
+            dropped_subjects.append({
+                "subject_id": code,
+                "subject_name": subject.get("subject_name", ""),
+                "reason": reason,
+                "priority_category": subject_categories.get(code),
+            })
+            diagnostics.append(reason)
+
+        kept_priority_subjects = [
+            {
+                "subject_id": self._subject_code_key(subject),
+                "subject_name": subject.get("subject_name", ""),
+                "priority_category": subject_categories.get(self._subject_code_key(subject)),
+                "user_requested": self._is_user_requested_subject(subject, requested_terms),
+            }
+            for subject in selected_subjects
+        ]
+
+        info = {
+            "relaxation_applied": bool(best_combinations),
+            "relaxation_level": "subject_subset" if best_combinations else "diagnostics_only",
+            "dropped_subjects": dropped_subjects,
+            "kept_priority_subjects": kept_priority_subjects,
+            "constraint_diagnostics": diagnostics,
+            "partial_schedule": bool(
+                best_combinations and (
+                    dropped_subjects
+                    or len(selected_subjects) < len(candidate_subjects)
+                    or no_class_subjects
+                )
+            ),
+            "relaxed_preferences": relaxed_preferences,
+        }
+        return best_combinations, selected_classes_by_subject, info
+
+    def _format_relaxation_notice(self, relaxation_info: Dict[str, Any]) -> str:
+        if not relaxation_info or not relaxation_info.get("relaxation_applied"):
+            return ""
+
+        lines = [
+            "",
+            "⚠️ Mình đã nới lỏng một số tiêu chí mềm để vẫn tạo được thời khóa biểu không trùng lịch.",
+        ]
+        if relaxation_info.get("partial_schedule"):
+            lines.append("Một vài học phần ít ưu tiên hơn không được đưa vào phương án cuối.")
+
+        dropped = relaxation_info.get("dropped_subjects") or []
+        if dropped:
+            lines.append("Các học phần/lớp bị bỏ và lý do:")
+            for item in dropped[:6]:
+                label = self._format_subject_label(item)
+                lines.append(f"• {label}: {item.get('reason', 'không phù hợp với phương án không trùng lịch')}")
+
+        diagnostics = relaxation_info.get("constraint_diagnostics") or []
+        if diagnostics and not dropped:
+            lines.append("Chẩn đoán ràng buộc:")
+            for reason in diagnostics[:6]:
+                lines.append(f"• {reason}")
+
+        return "\n".join(lines)
+
     def _to_credit_value(self, value: Any) -> float:
         try:
             return float(value)
@@ -4189,6 +4419,14 @@ class ChatbotService:
             # Generate schedule combinations
             from app.services.schedule_combination_service import ScheduleCombinationGenerator
             combo_generator = ScheduleCombinationGenerator()
+            relaxation_info: Dict[str, Any] = {
+                "relaxation_applied": False,
+                "relaxation_level": "none",
+                "dropped_subjects": [],
+                "kept_priority_subjects": [],
+                "constraint_diagnostics": [],
+                "partial_schedule": False,
+            }
             
             print(f"🔄 [COMBINATIONS] Generating schedule combinations...")
             combinations = combo_generator.generate_combinations(
@@ -4215,7 +4453,7 @@ class ChatbotService:
                     relaxed_candidates = self._apply_class_nlq_constraints(
                         relaxed_candidates,
                         nlq_constraints_dict,
-                        include_positive=True,
+                        include_positive=False,
                     )
                     relaxed_classes_by_subject[subj['subject_id']] = relaxed_candidates
 
@@ -4233,12 +4471,51 @@ class ChatbotService:
                     if len(relaxed_combinations) > len(combinations):
                         combinations = relaxed_combinations
                         classes_by_subject = relaxed_classes_by_subject
+                        relaxation_info = {
+                            **relaxation_info,
+                            "relaxation_applied": True,
+                            "relaxation_level": "soft_preferences",
+                            "constraint_diagnostics": [
+                                "Đã nới các preference mềm về ngày/giờ/lớp cụ thể nhưng vẫn giữ loại trừ bắt buộc và luật không trùng lịch."
+                            ],
+                            "relaxed_preferences": relaxed_preferences,
+                        }
+
+            if not combinations:
+                subset_source_classes = (
+                    relaxed_classes_by_subject
+                    if 'relaxed_classes_by_subject' in locals()
+                    else classes_by_subject
+                )
+                relaxed_combinations, relaxed_subset_classes, subset_relaxation_info = (
+                    self._build_relaxed_schedule_result(
+                        classes_by_subject=subset_source_classes,
+                        suggested_subjects=suggested_subjects,
+                        subject_result=subject_result,
+                        preferences=preferences_dict,
+                        nlq_constraints_dict=nlq_constraints_dict,
+                        max_combinations=40,
+                    )
+                )
+                if relaxed_combinations:
+                    combinations = relaxed_combinations
+                    classes_by_subject = relaxed_subset_classes
+                    relaxation_info = subset_relaxation_info
 
             if not combinations:
                 from app.services.conversation_state import get_conversation_state_manager, safe_delete_state
-                safe_delete_state(get_conversation_state_manager(), conversation_state.conversation_id or conversation_id)
+                state_conversation_id = getattr(conversation_state, 'conversation_id', None) or conversation_id
+                safe_delete_state(get_conversation_state_manager(), state_conversation_id)
+                diagnostics = relaxation_info.get("constraint_diagnostics") or [
+                    "Không tạo được tổ hợp nào không trùng lịch từ các lớp khả dụng hiện tại."
+                ]
+                diagnostic_text = "\n".join(f"  • {item}" for item in diagnostics[:8])
                 return {
-                    "text": "⚠️ Hiện chưa tìm được tổ hợp lớp phù hợp với điều kiện hiện tại. Bạn có thể nới lỏng một số tiêu chí để mình gợi ý tốt hơn.",
+                    "text": (
+                        "⚠️ Hiện chưa tìm được tổ hợp lớp không trùng lịch.\n"
+                        "Mình đã thử nới các tiêu chí mềm, nhưng vẫn bị nghẽn bởi các ràng buộc sau:\n"
+                        f"{diagnostic_text}"
+                    ),
                     "intent": "class_registration_suggestion",
                     "confidence": "high",
                     "data": [],
@@ -4246,6 +4523,12 @@ class ChatbotService:
                         "total_subjects": len(suggested_subjects),
                         "total_combinations": 0,
                         "preferences_applied": preferences_dict,
+                        "result": {
+                            "total_subjects": len(suggested_subjects),
+                            "total_combinations": 0,
+                            "preferences_applied": preferences_dict,
+                            **relaxation_info,
+                        },
                         "ui": {
                             "title": "Mình chưa tìm được tổ hợp phù hợp",
                             "subtitle": "Bạn có thể nới một vài tiêu chí để mình gợi ý dễ hơn.",
@@ -4333,10 +4616,14 @@ class ChatbotService:
                 subject_result,
                 preference_summary
             )
+            relaxation_notice = self._format_relaxation_notice(relaxation_info)
+            if relaxation_notice:
+                text_response = f"{text_response}\n{relaxation_notice}"
             
             # Clear conversation state after generating suggestions
             from app.services.conversation_state import get_conversation_state_manager, safe_delete_state
-            safe_delete_state(get_conversation_state_manager(), conversation_state.conversation_id or conversation_id)
+            state_conversation_id = getattr(conversation_state, 'conversation_id', None) or conversation_id
+            safe_delete_state(get_conversation_state_manager(), state_conversation_id)
             
             return {
                 "text": text_response,
@@ -4361,6 +4648,7 @@ class ChatbotService:
                         "student_cpa": subject_result['student_cpa'],
                         "current_semester": subject_result['current_semester'],
                         "preferences_applied": preferences_dict,
+                        **relaxation_info,
                     }
                 },
                 "rule_engine_used": True,

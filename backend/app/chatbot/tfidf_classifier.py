@@ -842,6 +842,33 @@ class TfidfIntentClassifier:
         # F1 harmonic mean
         f1_score = 2 * precision * recall / (precision + recall)
         return f1_score
+
+    def _rule_override_intent(self, message: str, predicted_intent: str) -> Optional[str]:
+        """Small deterministic guard for high-risk class-vs-subject wording."""
+        normalized = self._normalize_vietnamese(message)
+        class_markers = (
+            "lop",
+            "lop nao",
+            "dang ky lop",
+            "tkb",
+            "thoi khoa bieu",
+            "lich hoc",
+        )
+        action_markers = (
+            "nen hoc",
+            "nen hcoj",
+            "nen dang ky",
+            "dang ky",
+            "goi y",
+            "ky sau",
+            "ky nay",
+            "phu hop",
+        )
+        if any(marker in normalized for marker in class_markers) and any(
+            marker in normalized for marker in action_markers
+        ):
+            return "class_registration_suggestion"
+        return None
     
     def _calculate_pattern_score(self, message: str, intent_tag: str) -> float:
         """
@@ -997,6 +1024,11 @@ class TfidfIntentClassifier:
                 
                 best_intent = best_result["intent"]
                 best_score = best_result["score"]
+                override_intent = self._rule_override_intent(message, best_intent)
+                if override_intent:
+                    best_intent = override_intent
+                    best_score = max(best_score, self.thresholds["high_confidence"])
+                    best_result["score"] = best_score
                 
                 second_best_score = combined_scores[1]["score"] if len(combined_scores) > 1 else 0.0
                 margin = best_score - second_best_score

@@ -1,6 +1,8 @@
 from copy import deepcopy
 from datetime import time
+import asyncio
 
+from app.chatbot.tfidf_classifier import TfidfIntentClassifier
 from app.schemas.preference_schema import CompletePreference
 from app.services.preference_service import PreferenceCollectionService
 from app.services.schedule_combination_service import ScheduleCombinationGenerator
@@ -19,6 +21,37 @@ def test_day_parser_accepts_typo_and_compact_numbers():
     )
 
     assert set(updated.day.prefer_days) == {"Monday", "Tuesday", "Wednesday"}
+
+
+def test_classifier_prefers_class_registration_for_next_semester_typo_query():
+    classifier = TfidfIntentClassifier()
+
+    result = asyncio.run(classifier.classify_intent(
+        "tôi nên hcoj lớp nào kỳ sau, tôi không muốn học học phần thực tập công nghiệp, "
+        "tôi muốn học thứ 2,3,4,5,6, tôi muốn học môn tiếng nhật 6 và học liền tục"
+    ))
+
+    assert result["intent"] == "class_registration_suggestion"
+
+
+def test_initial_preferences_capture_requested_and_excluded_subjects():
+    pref_service = PreferenceCollectionService()
+    prefs = pref_service.extract_initial_preferences(
+        "tôi nên học lớp nào kỳ sau? tôi không muốn học thực tập công nghiệp, "
+        "muốn học tiếng nhật 6 và thích học vào thứ 2,3,4,5"
+    )
+    constraints = get_constraint_extractor().extract(
+        "tôi nên học lớp nào kỳ sau? tôi không muốn học thực tập công nghiệp, "
+        "muốn học tiếng nhật 6 và thích học vào thứ 2,3,4,5",
+        query_type="class_registration_suggestion",
+    )
+    service = ChatbotService.__new__(ChatbotService)
+    service._merge_constraints_into_preferences(prefs, constraints.model_dump())
+
+    assert set(prefs.day.prefer_days) >= {"Monday", "Tuesday", "Wednesday", "Thursday"}
+    assert any("tiếng nhật 6" in item.lower() or "tieng nhat 6" in item.lower() for item in prefs.specific.specific_subjects)
+    assert not any("thực tập" in item.lower() or "thuc tap" in item.lower() for item in prefs.specific.specific_subjects)
+    assert constraints.exclude_subjects or constraints.exclude_subject_codes
 
 
 def test_day_parser_accepts_mixed_format():
@@ -599,6 +632,50 @@ def test_schedule_generator_never_returns_time_conflict_as_fallback():
     result = generator.generate_combinations(classes_by_subject, preferences={}, max_combinations=10)
 
     assert result == []
+
+
+def test_relaxed_schedule_keeps_requested_subject_and_drops_conflicting_soft_subject():
+    service = ChatbotService.__new__(ChatbotService)
+    requested_subject = _reasoning_subject(
+        "JP2126",
+        "Tiếng Nhật 6",
+        priority_reason="Theo học phần bạn yêu cầu cụ thể",
+    )
+    soft_subject = _reasoning_subject("IT9999", "Môn mềm tự chọn")
+    classes_by_subject = {
+        "JP2126": [{
+            "id": 1, "class_id": "JP-A", "class_name": "A", "subject_id": "JP2126",
+            "subject_name": "Tiếng Nhật 6", "study_week": [1], "study_date": "Monday",
+            "study_time_start": time(8, 0), "study_time_end": time(10, 0), "credits": 3,
+        }],
+        "IT9999": [{
+            "id": 2, "class_id": "IT-A", "class_name": "A", "subject_id": "IT9999",
+            "subject_name": "Môn mềm tự chọn", "study_week": [1], "study_date": "Monday",
+            "study_time_start": time(9, 0), "study_time_end": time(11, 0), "credits": 3,
+        }],
+    }
+
+    combinations, relaxed_classes, info = service._build_relaxed_schedule_result(
+        classes_by_subject=classes_by_subject,
+        suggested_subjects=[requested_subject, soft_subject],
+        subject_result={
+            "summary": {
+                "semester_match": [requested_subject],
+                "remaining_course": [soft_subject],
+            }
+        },
+        preferences={"specific_subjects": ["Tiếng Nhật 6"], "prefer_days": ["Monday"]},
+        nlq_constraints_dict={"include_subjects": ["Tiếng Nhật 6"]},
+        max_combinations=10,
+    )
+
+    assert combinations
+    assert set(relaxed_classes) == {"JP2126"}
+    assert [cls["subject_id"] for cls in combinations[0]["classes"]] == ["JP2126"]
+    assert info["relaxation_applied"] is True
+    assert info["partial_schedule"] is True
+    assert info["kept_priority_subjects"][0]["subject_id"] == "JP2126"
+    assert any(item["subject_id"] == "IT9999" for item in info["dropped_subjects"])
 
 
 def test_schedule_generator_rejects_duplicate_subject_even_with_different_source_keys():
