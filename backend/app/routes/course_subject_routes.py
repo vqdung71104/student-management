@@ -1,10 +1,28 @@
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from app.db.database import get_db
 from app.models.__init__ import Course, CourseSubject, Subject
 from app.schemas.course_subject_schema import CourseSubjectCreate, CourseSubjectUpdate, CourseSubjectResponse
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/course-subjects", tags=["Course Subjects"])
+
+
+class CourseSubjectWithSubjectResponse(BaseModel):
+    id: int
+    subject_id: str
+    subject_name: str
+    duration: Optional[str] = None
+    credits: int
+    tuition_fee: Optional[int] = None
+    english_subject_name: Optional[str] = None
+    weight: Optional[float] = None
+    conditional_subjects: Optional[str] = None
+    semester: Optional[int] = None
+    course_subject_id: int
+    subject_db_id: int
 
 #    Create course + course_subjects từ request phức tạp
 @router.post("/", response_model=list[CourseSubjectResponse])
@@ -54,6 +72,35 @@ def create_course_with_subjects(request_data: dict, db: Session = Depends(get_db
 @router.get("/", response_model=list[CourseSubjectResponse])
 def get_course_subjects(db: Session = Depends(get_db)):
     return db.query(CourseSubject).all()
+
+
+@router.get("/course/{course_id}/subjects", response_model=list[CourseSubjectWithSubjectResponse])
+def get_subjects_by_course(course_id: int, db: Session = Depends(get_db)):
+    rows = (
+        db.query(CourseSubject)
+        .options(joinedload(CourseSubject.subject))
+        .filter(CourseSubject.course_id == course_id)
+        .all()
+    )
+
+    return [
+        {
+            "id": row.subject.id,
+            "subject_db_id": row.subject.id,
+            "subject_id": row.subject.subject_id,
+            "subject_name": row.subject.subject_name,
+            "duration": row.subject.duration,
+            "credits": row.subject.credits,
+            "tuition_fee": row.subject.tuition_fee,
+            "english_subject_name": row.subject.english_subject_name,
+            "weight": row.subject.weight,
+            "conditional_subjects": row.subject.conditional_subjects,
+            "semester": row.learning_semester,
+            "course_subject_id": row.id,
+        }
+        for row in rows
+        if row.subject is not None
+    ]
 
 
 #    Get course subject by ID

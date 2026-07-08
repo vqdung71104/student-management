@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.db.database import get_db
 from app.models.subject_model import Subject  # Sửa import
 from app.schemas.subject_schema import SubjectCreate, SubjectUpdate, SubjectResponse
@@ -26,12 +26,17 @@ def create_subject(subject_data: SubjectCreate, db: Session = Depends(get_db)):
 #    Get all subjects
 @router.get("/", response_model=List[SubjectResponse])
 def get_subjects(db: Session = Depends(get_db)):
-    return db.query(Subject).all()
+    return db.query(Subject).options(joinedload(Subject.department)).all()
 
 #    Get subject by ID
 @router.get("/{subject_id}", response_model=SubjectResponse)
 def get_subject(subject_id: int, db: Session = Depends(get_db)):
-    subject = db.query(Subject).filter(Subject.id == subject_id).first()
+    subject = (
+        db.query(Subject)
+        .options(joinedload(Subject.department))
+        .filter(Subject.id == subject_id)
+        .first()
+    )
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     return subject

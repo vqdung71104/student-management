@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.db.database import get_db
-from app.models.__init__ import Class, ClassRegister
+from app.models.__init__ import Class, ClassRegister, Subject
 from app.schemas.class_schema import ClassCreate, ClassUpdate, ClassResponse
 from pydantic import BaseModel
 from typing import List
@@ -135,7 +135,11 @@ def purge_all_classes(db: Session = Depends(get_db)):
 #    Get all classes
 @router.get("/", response_model=list[ClassResponse])
 def get_classes(db: Session = Depends(get_db)):
-    return db.query(Class).all()
+    return (
+        db.query(Class)
+        .options(joinedload(Class.subject).joinedload(Subject.department))
+        .all()
+    )
 
 #    Get class by ID
 @router.get("/{class_id:int}", response_model=ClassResponse)

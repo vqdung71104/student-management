@@ -102,20 +102,18 @@ const SubjectRegistration = () => {
         return
       }
 
-      // First, get all course_subjects and filter by course_id
-      const courseSubjectResponse = await fetch(`/api/course-subjects/`)
+      const courseSubjectResponse = await fetch(
+        `/api/course-subjects/course/${studentData.course_id}/subjects`,
+        getAuthRequestOptions()
+      )
       if (!courseSubjectResponse.ok) {
         setSubjects([])
         message.error('Không thể tải danh sách học phần cho khóa học')
         return
       }
 
-      const allCourseSubjects = await courseSubjectResponse.json()
-      console.log('All course subjects:', allCourseSubjects)
-
-      // Filter course_subjects by student's course_id
-      const courseSubjects = allCourseSubjects.filter((cs: any) => cs.course_id === studentData.course_id)
-      console.log('Filtered course subjects for course_id', studentData.course_id, ':', courseSubjects)
+      const courseSubjects = await courseSubjectResponse.json()
+      console.log('Course subjects for course_id', studentData.course_id, ':', courseSubjects)
 
       if (!courseSubjects || courseSubjects.length === 0) {
         setSubjects([])
@@ -123,40 +121,7 @@ const SubjectRegistration = () => {
         return
       }
 
-      // Get detailed subject information for each subject_id in course_subjects
-      const subjectDetails = await Promise.all(
-        courseSubjects.map(async (courseSubject: any) => {
-          try {
-            const response = await fetch(`/api/subjects/${courseSubject.subject_id}`)
-            if (response.ok) {
-              const subjectData = await response.json()
-              const semesterValue =
-                typeof courseSubject.learning_semester === 'number'
-                  ? courseSubject.learning_semester
-                  : (typeof subjectData.semester === 'number' ? subjectData.semester : null)
-
-              // Add course_subject info to subject data
-              return {
-                ...subjectData,
-                semester: semesterValue,
-                course_subject_id: courseSubject.id
-              }
-            }
-            return null
-          } catch (error) {
-            console.error(`Error fetching subject ${courseSubject.subject_id}:`, error)
-            return null
-          }
-        })
-      )
-
-      const validSubjects = subjectDetails.filter(subject => subject !== null)
-      console.log('Valid subjects:', validSubjects)
-      setSubjects(validSubjects)
-
-      if (validSubjects.length === 0) {
-        message.info('Không tìm thấy học phần hợp lệ cho khóa học của bạn')
-      }
+      setSubjects(courseSubjects)
     } catch (error) {
       console.error('Error fetching subjects:', error)
       message.error('Lỗi kết nối server')
@@ -170,33 +135,11 @@ const SubjectRegistration = () => {
     if (!userInfo?.id) return
 
     try {
-      const response = await fetch(`/api/subject-registers/student/${userInfo.id}`, getAuthRequestOptions())
+      const response = await fetch(`/api/subject-registers/student/${userInfo.id}/enriched`, getAuthRequestOptions())
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered subjects data:', registersData)
-
-        // Fetch subject information for each registered subject
-        const subjectsResponse = await fetch('/api/subjects/', getAuthRequestOptions())
-        if (subjectsResponse.ok) {
-          const allSubjects = await subjectsResponse.json()
-
-          // Join subject info with register data
-          const enrichedRegisters = registersData.map((register: any) => {
-            const subjectInfo = allSubjects.find((subject: any) => subject.id === register.subject_id)
-            return {
-              ...register,
-              subject_db_id: subjectInfo?.id || register.subject_id,
-              subject_id: subjectInfo?.subject_id || 'N/A', // Using subject.subject_id as subject code
-              subject_name: subjectInfo?.subject_name || register.subject_name || 'N/A',
-              credits: subjectInfo?.credits || register.credits || 0
-            }
-          })
-
-          console.log('Enriched registered subjects:', enrichedRegisters)
-          setRegisteredSubjects(enrichedRegisters)
-        } else {
-          setRegisteredSubjects(registersData)
-        }
+        setRegisteredSubjects(registersData)
       } else {
         console.error('Failed to fetch registered subjects, status:', response.status)
         message.error('Không thể tải danh sách học phần đã đăng ký')
@@ -217,7 +160,7 @@ const SubjectRegistration = () => {
     try {
       setLoading(true)
       console.log('Registering subject with student_id:', studentData.id, 'subject_id:', subjectId)
-      const response = await fetch('/api/subject-registers/', {
+      const response = await fetch('/api/subject-registers/', getAuthRequestOptions({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -226,7 +169,7 @@ const SubjectRegistration = () => {
           student_id: studentData.id,
           subject_id: subjectId
         }),
-      })
+      }))
 
       if (response.ok) {
         message.success('Đăng ký học phần thành công!')
@@ -252,9 +195,9 @@ const SubjectRegistration = () => {
     try {
       setLoading(true)
       console.log('Deleting subject register with ID:', registerId)
-      const response = await fetch(`/api/subject-registers/${registerId}`, {
+      const response = await fetch(`/api/subject-registers/${registerId}`, getAuthRequestOptions({
         method: 'DELETE'
-      })
+      }))
 
       console.log('Delete response status:', response.status)
       if (response.ok) {

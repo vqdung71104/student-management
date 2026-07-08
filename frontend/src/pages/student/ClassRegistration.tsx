@@ -90,29 +90,9 @@ const ClassRegistration = () => {
         const allClasses = await response.json()
         console.log('All classes fetched:', allClasses.length)
 
-        // Fetch registration counts for all classes
-        const registrationResponse = await fetch('/api/class-registers/', getAuthRequestOptions())
-        let registrationCounts: { [key: number]: number } = {}
-
-        if (registrationResponse.ok) {
-          const allRegistrations = await registrationResponse.json()
-          // Count registrations by class_id (which is the foreign key to class.id)
-          registrationCounts = allRegistrations.reduce((acc: { [key: number]: number }, reg: any) => {
-            acc[reg.class_id] = (acc[reg.class_id] || 0) + 1
-            return acc
-          }, {})
-          console.log('Registration counts:', registrationCounts)
-        }
-
-        // Add registration count to each class
-        const classesWithCounts = allClasses.map((classItem: any) => ({
-          ...classItem,
-          registered_count: registrationCounts[classItem.id] || 0
-        }))
-
         // Create a Set of all linked class IDs to filter out
         const linkedClassIds = new Set<number>()
-        classesWithCounts.forEach((classItem: any) => {
+        allClasses.forEach((classItem: any) => {
           if (classItem.linked_class_ids && Array.isArray(classItem.linked_class_ids)) {
             classItem.linked_class_ids.forEach((linkedId: number) => {
               if (linkedId !== classItem.class_id) { // Don't exclude self
@@ -125,7 +105,7 @@ const ClassRegistration = () => {
         console.log('Linked class IDs to exclude:', Array.from(linkedClassIds))
 
         // Filter classes: only exclude linked classes (no longer require subject registration)
-        const allowedClasses = classesWithCounts.filter((classItem: any) => {
+        const allowedClasses = allClasses.filter((classItem: any) => {
           const isNotLinkedClass = !linkedClassIds.has(classItem.class_id)
           return isNotLinkedClass
         })
@@ -149,35 +129,11 @@ const ClassRegistration = () => {
 
     try {
       // Use student ID endpoint
-      const response = await fetch(`/api/class-registers/student/${userInfo.id}`, getAuthRequestOptions())
+      const response = await fetch(`/api/class-registers/student/${userInfo.id}/enriched`, getAuthRequestOptions())
       if (response.ok) {
         const registersData = await response.json()
         console.log('Registered classes data:', registersData)
-
-        // Fetch class information for each registered class
-        const classesResponse = await fetch('/api/classes/', getAuthRequestOptions())
-        if (classesResponse.ok) {
-          const allClasses = await classesResponse.json()
-
-          // Join class info with register data
-          const enrichedRegisters = registersData.map((register: any) => {
-            const classInfo = allClasses.find((cls: any) => cls.id === register.class_id)
-            return {
-              ...register,
-              class_name: classInfo?.class_name || 'Unknown',
-              class_code: classInfo?.class_id || 'N/A',
-              subject_code: classInfo?.subject?.subject_id || 'N/A',
-              subject_db_id: classInfo?.subject?.id || classInfo?.subject_id,
-              classroom: classInfo?.classroom || 'N/A',
-              teacher_name: classInfo?.teacher_name || 'N/A'
-            }
-          })
-
-          console.log('Enriched registered classes:', enrichedRegisters)
-          setRegisteredClasses(enrichedRegisters)
-        } else {
-          setRegisteredClasses(registersData)
-        }
+        setRegisteredClasses(registersData)
       } else {
         console.error('Failed to fetch registered classes, status:', response.status)
       }
@@ -256,10 +212,7 @@ const ClassRegistration = () => {
         return
       }
 
-      const failedRows: string[] = []
-      let successCount = 0
-
-      for (const row of rowsToRegister) {
+      const registerResults = await Promise.all(rowsToRegister.map(async (row: any) => {
         const registerData = {
           student_id: userInfo.id,
           class_id: row.id,
@@ -268,7 +221,7 @@ const ClassRegistration = () => {
           register_status: 'Đăng ký thành công'
         }
 
-        const response = await fetch('/api/class-registers', getAuthRequestOptions({
+        const response = await fetch('/api/class-registers/', getAuthRequestOptions({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -276,12 +229,16 @@ const ClassRegistration = () => {
           body: JSON.stringify(registerData),
         }))
 
-        if (response.ok) {
-          successCount += 1
-        } else {
-          failedRows.push(`${row.class_name || row.class_id}`)
+        return {
+          row,
+          ok: response.ok,
         }
-      }
+      }))
+
+      const successCount = registerResults.filter(result => result.ok).length
+      const failedRows = registerResults
+        .filter(result => !result.ok)
+        .map(result => `${result.row.class_name || result.row.class_id}`)
 
       if (successCount === 0) {
         throw new Error('Đăng ký thất bại cho tất cả buổi học của lớp đã chọn')

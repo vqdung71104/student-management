@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.db.database import get_db
 from app.models.__init__ import SubjectRegister, Subject, Student
 from app.schemas.subject_register_schema import SubjectRegisterCreate, SubjectRegisterUpdate, SubjectRegisterResponse
@@ -61,6 +61,33 @@ def get_subject_registers_by_student(
 ):
     subject_registers = db.query(SubjectRegister).filter(SubjectRegister.student_id == student_id).all()
     return subject_registers
+
+
+@router.get("/student/{student_id}/enriched")
+def get_enriched_subject_registers_by_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    subject_registers = (
+        db.query(SubjectRegister)
+        .options(joinedload(SubjectRegister.subject))
+        .filter(SubjectRegister.student_id == student_id)
+        .all()
+    )
+
+    return [
+        {
+            "id": register.id,
+            "student_id": register.student_id,
+            "subject_db_id": register.subject_id,
+            "subject_id": register.subject.subject_id if register.subject else "N/A",
+            "subject_name": register.subject.subject_name if register.subject else register.subject_name,
+            "credits": register.subject.credits if register.subject else register.credits,
+            "register_date": register.register_date,
+        }
+        for register in subject_registers
+    ]
 
 #    Get subject registers by student MSSV
 @router.get("/student-mssv/{mssv}", response_model=list[SubjectRegisterResponse])

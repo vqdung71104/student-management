@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.db.database import get_db
-from app.models.__init__ import ClassRegister, Student
+from app.models.__init__ import Class, ClassRegister, Student
 from app.schemas.class_register_schema import ClassRegisterCreate, ClassRegisterUpdate, ClassRegisterResponse
 from app.utils.jwt_utils import get_current_student
 
@@ -51,6 +51,48 @@ def get_class_registers_by_student_db_id(
 ):
     registers = db.query(ClassRegister).filter(ClassRegister.student_id == student_id).all()
     return registers
+
+
+@router.get("/student/{student_id}/enriched")
+def get_enriched_class_registers_by_student(
+    student_id: int,
+    db: Session = Depends(get_db),
+    current_student: Student = Depends(get_current_student),
+):
+    registers = (
+        db.query(ClassRegister)
+        .options(joinedload(ClassRegister.class_info_rel).joinedload(Class.subject))
+        .filter(ClassRegister.student_id == student_id)
+        .all()
+    )
+
+    return [
+        {
+            "id": register.id,
+            "student_id": register.student_id,
+            "class_id": register.class_id,
+            "class_info": register.class_info,
+            "requirement": register.requirement,
+            "register_type": register.register_type,
+            "register_status": register.register_status,
+            "register_date": register.register_date,
+            "class_name": register.class_info_rel.class_name if register.class_info_rel else "Unknown",
+            "class_code": register.class_info_rel.class_id if register.class_info_rel else "N/A",
+            "subject_code": (
+                register.class_info_rel.subject.subject_id
+                if register.class_info_rel and register.class_info_rel.subject
+                else "N/A"
+            ),
+            "subject_db_id": (
+                register.class_info_rel.subject.id
+                if register.class_info_rel and register.class_info_rel.subject
+                else None
+            ),
+            "classroom": register.class_info_rel.classroom if register.class_info_rel else "N/A",
+            "teacher_name": register.class_info_rel.teacher_name if register.class_info_rel else "N/A",
+        }
+        for register in registers
+    ]
 
 #    Get class registers by student MSSV
 @router.get("/student-mssv/{student_id}", response_model=List[ClassRegisterResponse])
