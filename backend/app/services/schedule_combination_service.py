@@ -2,7 +2,7 @@
 Schedule Combination Generator
 Generate optimal schedule combinations from multiple subjects
 """
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Set
 from datetime import time, datetime
 import itertools
 from app.rules.class_suggestion_rules import ClassSuggestionRuleEngine
@@ -140,6 +140,118 @@ class ScheduleCombinationGenerator:
         print(f"  📊 Score range: {scored_combinations[-1]['score']:.1f} - {scored_combinations[0]['score']:.1f}")
         
         return scored_combinations
+
+    def select_diverse_combinations(
+        self,
+        combinations: List[Dict],
+        limit: int = 3,
+        preferred_min_class_differences: int = 2,
+        min_score_delta: float = 1.0,
+    ) -> List[Dict]:
+        """
+        Pick high-scoring combinations while avoiding near-duplicates.
+
+        The input is expected to already be sorted by score descending. Exact
+        duplicate class sets are never returned. The selector first tries to
+        keep alternatives a few class codes apart and with visibly different
+        scores, then relaxes those preferences only if the pool is too small.
+        """
+        if limit <= 0 or not combinations:
+            return []
+
+        unique_combinations = []
+        seen_signatures: Set[Tuple[Tuple[str, str], ...]] = set()
+        for combo in combinations:
+            signature = self._combination_class_signature(combo)
+            if signature in seen_signatures:
+                continue
+            seen_signatures.add(signature)
+            unique_combinations.append(combo)
+
+        if len(unique_combinations) == 1:
+            return unique_combinations[:limit]
+
+        selected = [unique_combinations[0]]
+        selected_signatures = {self._combination_class_signature(unique_combinations[0])}
+        class_count = len(unique_combinations[0].get('classes', []) or [])
+        preferred_differences = max(1, min(preferred_min_class_differences, class_count or 1))
+
+        def try_fill(min_class_differences: int, score_delta: float) -> None:
+            for candidate in unique_combinations[1:]:
+                if len(selected) >= limit:
+                    return
+                signature = self._combination_class_signature(candidate)
+                if signature in selected_signatures:
+                    continue
+                if not self._has_min_class_difference(candidate, selected, min_class_differences):
+                    continue
+                if score_delta > 0 and not self._has_min_score_delta(candidate, selected, score_delta):
+                    continue
+                selected.append(candidate)
+                selected_signatures.add(signature)
+
+        try_fill(preferred_differences, min_score_delta)
+        try_fill(preferred_differences, 0)
+        try_fill(1, min_score_delta)
+        try_fill(1, 0)
+
+        if len(selected) < limit:
+            for candidate in unique_combinations[1:]:
+                if len(selected) >= limit:
+                    break
+                signature = self._combination_class_signature(candidate)
+                if signature not in selected_signatures:
+                    selected.append(candidate)
+                    selected_signatures.add(signature)
+
+        return selected[:limit]
+
+    def _combination_class_signature(self, combination: Dict) -> Tuple[Tuple[str, str], ...]:
+        class_map = self._combination_class_map(combination)
+        return tuple(sorted(class_map.items()))
+
+    def _combination_class_map(self, combination: Dict) -> Dict[str, str]:
+        class_map = {}
+        for index, cls in enumerate(combination.get('classes', []) or []):
+            subject_key = str(
+                cls.get('subject_id')
+                or cls.get('subject_code')
+                or f"__subject_{index}"
+            ).strip().upper()
+            class_code = str(cls.get('class_id') or cls.get('id') or "").strip().upper()
+            if subject_key in class_map:
+                subject_key = f"{subject_key}#{index}"
+            class_map[subject_key] = class_code
+        return class_map
+
+    def _combination_class_difference(self, first: Dict, second: Dict) -> int:
+        first_map = self._combination_class_map(first)
+        second_map = self._combination_class_map(second)
+        all_subjects = set(first_map) | set(second_map)
+        return sum(1 for subject in all_subjects if first_map.get(subject) != second_map.get(subject))
+
+    def _has_min_class_difference(
+        self,
+        candidate: Dict,
+        selected: List[Dict],
+        min_class_differences: int,
+    ) -> bool:
+        return all(
+            self._combination_class_difference(candidate, existing) >= min_class_differences
+            for existing in selected
+        )
+
+    def _has_min_score_delta(
+        self,
+        candidate: Dict,
+        selected: List[Dict],
+        min_score_delta: float,
+    ) -> bool:
+        candidate_score = float(candidate.get('score') or 0)
+        return all(
+            abs(candidate_score - float(existing.get('score') or 0)) >= min_score_delta
+            for existing in selected
+        )
 
     def has_duplicate_subjects(self, classes: List[Dict]) -> bool:
         """ABSOLUTE RULE: one combination may contain at most one class per subject."""

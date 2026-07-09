@@ -4556,9 +4556,12 @@ class ChatbotService:
                     "conversation_state": "completed"
                 }
             
-            # Return top 3 combinations
-            top_combinations = combinations[:3]
-            print(f"✅ [COMBINATIONS] Returning top {len(top_combinations)} combinations")
+            # Return up to 3 high-scoring but meaningfully different combinations.
+            top_combinations = combo_generator.select_diverse_combinations(
+                combinations,
+                limit=3,
+            )
+            print(f"✅ [COMBINATIONS] Returning top {len(top_combinations)} diverse combinations")
             
             # Add priority reasons from subject suggestions
             subject_reasons = {subj['subject_id']: subj.get('priority_reason', '') 

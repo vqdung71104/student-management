@@ -698,6 +698,49 @@ def test_schedule_generator_rejects_duplicate_subject_even_with_different_source
     assert result == []
 
 
+def test_schedule_generator_selects_diverse_top_combinations():
+    generator = ScheduleCombinationGenerator()
+    combinations = [
+        {
+            "score": 130,
+            "classes": [
+                {"subject_id": "IT1000", "class_id": "IT-A"},
+                {"subject_id": "MI1000", "class_id": "MI-A"},
+            ],
+        },
+        {
+            "score": 129.5,
+            "classes": [
+                {"subject_id": "IT1000", "class_id": "IT-A"},
+                {"subject_id": "MI1000", "class_id": "MI-A"},
+            ],
+        },
+        {
+            "score": 129,
+            "classes": [
+                {"subject_id": "IT1000", "class_id": "IT-B"},
+                {"subject_id": "MI1000", "class_id": "MI-A"},
+            ],
+        },
+        {
+            "score": 128.5,
+            "classes": [
+                {"subject_id": "IT1000", "class_id": "IT-B"},
+                {"subject_id": "MI1000", "class_id": "MI-B"},
+            ],
+        },
+    ]
+
+    selected = generator.select_diverse_combinations(combinations, limit=3)
+    signatures = [generator._combination_class_signature(combo) for combo in selected]
+
+    assert len(selected) == 3
+    assert len(set(signatures)) == 3
+    assert signatures[0] == generator._combination_class_signature(combinations[0])
+    assert signatures[1] == generator._combination_class_signature(combinations[3])
+    assert generator._combination_class_difference(selected[0], selected[1]) == 2
+
+
 def test_schedule_generator_treats_missing_week_as_potential_overlap():
     generator = ScheduleCombinationGenerator()
     classes = [
