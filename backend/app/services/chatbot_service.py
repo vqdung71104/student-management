@@ -4432,7 +4432,7 @@ class ChatbotService:
             combinations = combo_generator.generate_combinations(
                 classes_by_subject=classes_by_subject,
                 preferences=preferences_dict,
-                max_combinations=40
+                max_combinations=4000
             )
 
             # Preferences are soft constraints. If they leave fewer than three
@@ -4466,7 +4466,7 @@ class ChatbotService:
                     relaxed_combinations = combo_generator.generate_combinations(
                         classes_by_subject=relaxed_classes_by_subject,
                         preferences=relaxed_preferences,
-                        max_combinations=40,
+                        max_combinations=4000,
                     )
                     if len(relaxed_combinations) > len(combinations):
                         combinations = relaxed_combinations
@@ -4494,7 +4494,7 @@ class ChatbotService:
                         subject_result=subject_result,
                         preferences=preferences_dict,
                         nlq_constraints_dict=nlq_constraints_dict,
-                        max_combinations=40,
+                        max_combinations=4000,
                     )
                 )
                 if relaxed_combinations:
