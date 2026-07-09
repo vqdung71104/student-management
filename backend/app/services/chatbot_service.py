@@ -2778,7 +2778,7 @@ class ChatbotService:
         subject_result: Dict[str, Any],
         preferences: Dict[str, Any],
         nlq_constraints_dict: Optional[Dict[str, Any]] = None,
-        max_combinations: int = 40,
+        max_combinations: int = 850000,
     ) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]], Dict[str, Any]]:
         """Build a non-conflicting partial schedule by dropping lower-priority subjects."""
         from app.services.schedule_combination_service import ScheduleCombinationGenerator
@@ -4432,7 +4432,7 @@ class ChatbotService:
             combinations = combo_generator.generate_combinations(
                 classes_by_subject=classes_by_subject,
                 preferences=preferences_dict,
-                max_combinations=4000
+                max_combinations=850000
             )
 
             # Preferences are soft constraints. If they leave fewer than three
@@ -4466,7 +4466,7 @@ class ChatbotService:
                     relaxed_combinations = combo_generator.generate_combinations(
                         classes_by_subject=relaxed_classes_by_subject,
                         preferences=relaxed_preferences,
-                        max_combinations=4000,
+                        max_combinations=850000,
                     )
                     if len(relaxed_combinations) > len(combinations):
                         combinations = relaxed_combinations
@@ -4494,7 +4494,7 @@ class ChatbotService:
                         subject_result=subject_result,
                         preferences=preferences_dict,
                         nlq_constraints_dict=nlq_constraints_dict,
-                        max_combinations=4000,
+                        max_combinations=850000,
                     )
                 )
                 if relaxed_combinations:
