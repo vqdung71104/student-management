@@ -277,3 +277,93 @@
     padding: 3px 7px;
     margin-bottom: 2px;
 }
+
+@media (max-width: 640px) {
+    .timetable-container {
+        min-width: 720px;
+    }
+
+    .timetable-header,
+    .timetable-grid {
+        grid-template-columns: 56px repeat(7, 95px);
+    }
+
+    .time-column-header,
+    .time-column {
+        position: sticky;
+        left: 0;
+        z-index: 6;
+    }
+
+    .time-column-header {
+        z-index: 8;
+    }
+
+    .time-column {
+        box-shadow: 2px 0 6px rgba(15, 23, 42, 0.08);
+    }
+
+    .day-header {
+        padding: 10px 4px;
+    }
+
+    .day-name {
+        font-size: 12px;
+        letter-spacing: 0;
+    }
+
+    .time-slot {
+        height: 64px;
+        padding: 6px 5px;
+        font-size: 10px;
+        justify-content: center;
+    }
+
+    .grid-cell {
+        height: 64px;
+    }
+
+    .class-block {
+        padding: 6px;
+        border-radius: 9px;
+        gap: 3px;
+    }
+
+    .class-block:hover {
+        transform: none;
+    }
+
+    .class-time-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 1px;
+    }
+
+    .class-time,
+    .class-room {
+        max-width: 100%;
+        white-space: normal;
+        text-align: left;
+        font-size: 9px;
+        line-height: 1.15;
+    }
+
+    .class-name {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 10px;
+        line-height: 1.18;
+    }
+
+    .class-week {
+        font-size: 9px;
+    }
+
+    .conflict-chip {
+        white-space: normal;
+        font-size: 9px;
+        padding: 3px 5px;
+    }
+}

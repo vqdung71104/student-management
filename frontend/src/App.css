@@ -553,3 +553,196 @@ input::-ms-clear {
     display: none;
 }
 
+/* Student mobile experience */
+@media (max-width: 640px) {
+    .student-layout header > div {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .student-layout header h1 {
+        font-size: 0.78rem;
+        line-height: 1.1;
+        max-width: 8.5rem;
+        white-space: normal;
+    }
+
+    .student-layout header button {
+        min-height: 2.25rem;
+    }
+
+    .student-main {
+        padding: 1rem 0.75rem 5rem !important;
+    }
+
+    .student-main > div {
+        min-width: 0;
+    }
+
+    .student-main .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 1rem !important;
+    }
+
+    .student-main h1,
+    .student-main .text-3xl {
+        font-size: 1.45rem !important;
+        line-height: 1.25 !important;
+    }
+
+    .student-main h2,
+    .student-main .text-2xl {
+        font-size: 1.1rem !important;
+        line-height: 1.35 !important;
+    }
+
+    .student-main .flex.items-center.justify-between {
+        align-items: stretch !important;
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+    }
+
+    .student-main .flex.items-center.space-x-4 {
+        align-items: stretch !important;
+        flex-direction: column !important;
+        gap: 0.5rem !important;
+    }
+
+    .student-main .flex.items-center.space-x-4 > :not([hidden]) ~ :not([hidden]) {
+        margin-left: 0 !important;
+    }
+
+    .student-main button,
+    .student-main select,
+    .student-main input,
+    .student-main textarea {
+        max-width: 100%;
+    }
+
+    .student-main button {
+        min-height: 2.5rem;
+    }
+
+    .student-main .rounded-lg {
+        border-radius: 0.75rem;
+    }
+
+    .student-main .p-6 {
+        padding: 1rem !important;
+    }
+
+    .student-main .px-6 {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    .student-main .py-4 {
+        padding-top: 0.75rem !important;
+        padding-bottom: 0.75rem !important;
+    }
+
+    .student-main .grid {
+        gap: 0.75rem !important;
+    }
+
+    .student-main .grid-cols-2 {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    .student-main .overflow-x-auto,
+    .student-main .ant-table-content {
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+    }
+
+    .student-main table {
+        min-width: 42rem;
+    }
+
+    .student-main .ant-card {
+        border-radius: 0.75rem;
+        overflow: hidden;
+    }
+
+    .student-main .ant-card-head {
+        padding: 0 1rem;
+    }
+
+    .student-main .ant-card-head-wrapper {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 0.85rem 0;
+    }
+
+    .student-main .ant-card-head-title {
+        padding: 0;
+        white-space: normal;
+        line-height: 1.35;
+    }
+
+    .student-main .ant-card-extra {
+        margin-left: 0;
+        padding: 0;
+        width: 100%;
+    }
+
+    .student-main .ant-space {
+        display: flex;
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 0.5rem !important;
+    }
+
+    .student-main .ant-space-item,
+    .student-main .ant-input-affix-wrapper,
+    .student-main .ant-select {
+        width: 100% !important;
+    }
+
+    .student-main .ant-table-wrapper {
+        overflow-x: auto;
+    }
+
+    .student-main .ant-table {
+        min-width: 42rem;
+    }
+
+    .student-main .ant-pagination {
+        justify-content: flex-start;
+        gap: 0.35rem;
+    }
+
+    .student-mobile-nav {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.4rem;
+        max-height: calc(100dvh - 4.5rem);
+        overflow-y: auto;
+    }
+
+    .student-mobile-nav-item {
+        width: 100%;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.75rem;
+        background: #ffffff;
+        color: #334155;
+        padding: 0.75rem 0.9rem;
+        text-align: left;
+        font-size: 0.92rem;
+        font-weight: 650;
+        line-height: 1.25;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    }
+
+    .student-mobile-nav-item.active {
+        border-color: #2563eb;
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    .student-mobile-nav-item:hover {
+        border-color: #bfdbfe;
+        background: #f8fafc;
+    }
+}
+

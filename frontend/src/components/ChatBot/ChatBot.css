@@ -1957,3 +1957,315 @@
     min-width: auto;
   }
 }
+
+@media (max-width: 640px) {
+  .student-chatbot-shell {
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    bottom: 4.75rem !important;
+    width: calc(100vw - 1rem) !important;
+    height: min(82dvh, calc(100dvh - 5.5rem)) !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    border-radius: 18px !important;
+  }
+
+  .student-chatbot-shell.inset-0 {
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+
+  .student-chatbot-shell > .absolute.top-0.left-0 {
+    display: none !important;
+  }
+
+  .student-chatbot-shell .chatbot-zoom-surface {
+    width: 100% !important;
+    height: 100% !important;
+    transform: none !important;
+  }
+
+  .student-chatbot-shell .chatbot-container {
+    height: 100% !important;
+    border-radius: inherit;
+  }
+
+  .student-chatbot-shell .chatbot-header {
+    min-height: auto;
+    padding: 0.75rem 0.85rem;
+  }
+
+  .student-chatbot-shell .header-content {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+
+  .student-chatbot-shell .bot-avatar {
+    width: 2rem;
+    height: 2rem;
+    font-size: 1rem;
+  }
+
+  .student-chatbot-shell .header-info {
+    min-width: 0;
+  }
+
+  .student-chatbot-shell .header-info h3 {
+    font-size: 0.95rem;
+    line-height: 1.2;
+  }
+
+  .student-chatbot-shell .status {
+    font-size: 0.72rem;
+  }
+
+  .student-chatbot-shell .conversation-controls {
+    order: 3;
+    width: 100%;
+    padding-right: 0;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+  }
+
+  .student-chatbot-shell .conversation-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 2rem;
+    padding: 0 0.45rem;
+    font-size: 0.75rem;
+  }
+
+  .student-chatbot-shell .conversation-panel {
+    padding: 0.65rem;
+  }
+
+  .student-chatbot-shell .conversation-panel-header {
+    gap: 0.35rem;
+    margin-bottom: 0.55rem;
+    font-size: 0.78rem;
+  }
+
+  .student-chatbot-shell .conversation-panel-hint {
+    display: none;
+  }
+
+  .student-chatbot-shell .conversation-list {
+    max-height: 28dvh;
+  }
+
+  .student-chatbot-shell .chatbot-messages {
+    padding: 0.85rem 0.65rem;
+  }
+
+  .student-chatbot-shell .message-content {
+    gap: 0.45rem;
+    width: 100%;
+  }
+
+  .student-chatbot-shell .message-avatar {
+    display: none;
+  }
+
+  .student-chatbot-shell .message-bubble {
+    max-width: 88%;
+    padding: 0.75rem 0.85rem;
+    border-radius: 16px;
+  }
+
+  .student-chatbot-shell .message-wrapper.bot .message-bubble {
+    max-width: 94%;
+  }
+
+  .student-chatbot-shell .message-wrapper.bot .message-bubble:has(.class-suggestion-metadata),
+  .student-chatbot-shell .message-wrapper.bot .message-bubble:has(.class-combinations),
+  .student-chatbot-shell .message-wrapper.bot .message-bubble:has(.data-table-container) {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .student-chatbot-shell .message-text {
+    font-size: 0.9rem;
+    line-height: 1.55;
+  }
+
+  .student-chatbot-shell .message-time {
+    font-size: 0.65rem;
+  }
+
+  .student-chatbot-shell .class-suggestion-metadata {
+    margin-top: 0.65rem;
+    padding: 0.65rem;
+    border-radius: 14px;
+  }
+
+  .student-chatbot-shell .metadata-banner-title {
+    font-size: 0.9rem;
+  }
+
+  .student-chatbot-shell .metadata-banner-subtitle,
+  .student-chatbot-shell .metadata-next-question,
+  .student-chatbot-shell .metadata-chip,
+  .student-chatbot-shell .metadata-empty {
+    font-size: 0.8rem;
+  }
+
+  .student-chatbot-shell .metadata-chip {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .student-chatbot-shell .metadata-option-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .student-chatbot-shell .metadata-option-btn,
+  .student-chatbot-shell .metadata-option-confirm-btn {
+    width: 100%;
+    min-height: 2.35rem;
+  }
+
+  .student-chatbot-shell .chatbot-input {
+    gap: 0.55rem;
+    min-height: auto;
+    padding: 0.65rem;
+  }
+
+  .student-chatbot-shell .chatbot-input textarea {
+    min-height: 2.4rem;
+    max-height: 6.5rem;
+    border-radius: 16px;
+    font-size: 1rem;
+  }
+
+  .student-chatbot-shell .send-button {
+    width: 2.65rem;
+    height: 2.65rem;
+  }
+
+  .student-chatbot-shell .cancel-button {
+    min-width: 3.7rem;
+    height: 2.5rem;
+    padding: 0 0.65rem;
+  }
+
+  .student-chatbot-shell .data-table-container,
+  .student-chatbot-shell .classes-table-container,
+  .student-chatbot-shell .combo-timetable-wrap {
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+    max-width: calc(100% + 0.5rem);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .student-chatbot-shell .data-table,
+  .student-chatbot-shell .classes-table {
+    min-width: 38rem;
+  }
+
+  .student-chatbot-shell .class-combinations {
+    gap: 0.8rem;
+  }
+
+  .student-chatbot-shell .combination-card {
+    border-radius: 12px;
+  }
+
+  .student-chatbot-shell .combination-header {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 0.75rem;
+  }
+
+  .student-chatbot-shell .combination-title {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .student-chatbot-shell .combination-score {
+    margin-left: 0;
+    width: fit-content;
+  }
+
+  .student-chatbot-shell .download-excel-btn {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.82rem;
+  }
+
+  .student-chatbot-shell .metrics-summary {
+    padding: 0.7rem;
+  }
+
+  .student-chatbot-shell .metric-item {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .student-chatbot-shell .combination-reasoning {
+    margin: 0.65rem;
+  }
+
+  .student-chatbot-shell .combo-timetable-wrap {
+    margin: 0.65rem 0 0.8rem;
+    border-radius: 10px;
+  }
+
+  .student-chatbot-shell .combo-timetable-header,
+  .student-chatbot-shell .combo-timetable-grid {
+    grid-template-columns: 40px repeat(7, 92px);
+    min-width: 684px;
+  }
+
+  .student-chatbot-shell .combo-time-slot,
+  .student-chatbot-shell .combo-grid-cell {
+    height: 46px;
+  }
+
+  .student-chatbot-shell .combo-day-head {
+    padding: 0.45rem 0.25rem;
+    font-size: 0.72rem;
+  }
+
+  .student-chatbot-shell .combo-class-block {
+    padding: 0.3rem 0.35rem;
+  }
+
+  .student-chatbot-shell .combo-class-name {
+    font-size: 0.68rem;
+  }
+
+  .student-chatbot-shell .combo-class-time,
+  .student-chatbot-shell .combo-class-room {
+    font-size: 0.62rem;
+  }
+
+  .student-chatbot-shell .combo-unscheduled-list {
+    grid-template-columns: 1fr;
+  }
+
+  .student-chatbot-shell .combo-unscheduled-card {
+    grid-template-columns: minmax(3.5rem, auto) minmax(0, 1fr);
+  }
+
+  .student-chatbot-shell .combo-unscheduled-note {
+    grid-column: 1 / -1;
+    width: fit-content;
+  }
+
+  .student-chatbot-shell .chatbot-modal-overlay {
+    padding: 0.85rem;
+  }
+
+  .student-chatbot-shell .chatbot-modal {
+    border-radius: 16px;
+    padding: 1rem;
+  }
+}

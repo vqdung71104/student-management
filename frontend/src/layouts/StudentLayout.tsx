@@ -211,7 +211,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   }, [])
 
   return (
-    <div className="min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
+    <div className="student-layout min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
       {/* Header */}
       <header className="bg-white shadow-sm border-b border-gray-200 w-full">
         <div className="w-full max-w-none px-6 lg:px-8 py-2">
@@ -518,21 +518,36 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="md:hidden bg-gray-100 border-t border-gray-300 w-full">
-            <div className="w-full px-4 py-2 space-y-1">
-              <button onClick={() => { navigateTo('/student/schedule'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.nav.study}
+            <div className="student-mobile-nav w-full px-4 py-3">
+              <button onClick={() => { navigateTo('/student'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${location.pathname === '/student' ? 'active' : ''}`}>
+                Trang chủ
               </button>
-              <button onClick={() => { navigateTo('/student/subject-registration'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.nav.registration}
+              <button onClick={() => { navigateTo('/student/schedule'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/schedule') ? 'active' : ''}`}>
+                {t.nav.schedule}
               </button>
-              <button onClick={() => { navigateTo('/student/forms'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.nav.forms}
+              <button onClick={() => { navigateTo('/student/grades'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/grades') ? 'active' : ''}`}>
+                {t.nav.grades}
               </button>
-              <button onClick={() => { navigateTo('/student/scholarships'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                🏆 {t.nav.scholarships}
+              <button onClick={() => { navigateTo('/student/curriculum'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/curriculum') ? 'active' : ''}`}>
+                {t.nav.curriculum}
               </button>
-              <button onClick={() => { navigateTo('/student/support/faq'); setMobileMenuOpen(false); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded">
-                   {t.nav.support}
+              <button onClick={() => { navigateTo('/student/subject-registration'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/subject-registration') ? 'active' : ''}`}>
+                {t.nav.subjectRegistration}
+              </button>
+              <button onClick={() => { navigateTo('/student/class-registration'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/class-registration') ? 'active' : ''}`}>
+                {t.nav.classRegistration}
+              </button>
+              <button onClick={() => { navigateTo('/student/change-password'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/change-password') ? 'active' : ''}`}>
+                Đổi mật khẩu
+              </button>
+              <button onClick={() => { navigateTo('/student/support/user-guide'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/support/user-guide') ? 'active' : ''}`}>
+                {t.nav.userGuide}
+              </button>
+              <button onClick={() => { navigateTo('/student/support/faq'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/support/faq') ? 'active' : ''}`}>
+                {t.nav.faq}
+              </button>
+              <button onClick={() => { navigateTo('/student/support/feedback'); setMobileMenuOpen(false); }} className={`student-mobile-nav-item ${isActive('/student/support/feedback') ? 'active' : ''}`}>
+                {t.nav.feedback}
               </button>
             </div>
           </div>
@@ -540,7 +555,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow w-full max-w-none px-6 lg:px-8 py-6 overflow-x-hidden">
+      <main className="student-main flex-grow w-full max-w-none px-6 lg:px-8 py-6 overflow-x-hidden">
         <div className="w-full max-w-none">
           {children}
         </div>
