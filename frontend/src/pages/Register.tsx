@@ -6,6 +6,7 @@ interface Course {
   id: number
   course_id: string
   course_name: string
+  department_id?: string | null
 }
 
 interface Department {
@@ -28,6 +29,29 @@ const Register = () => {
   const [error, setError] = useState('')
   const [courses, setCourses] = useState<Course[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
+
+  const normalizeCode = (value: string | null | undefined) =>
+    String(value || '').trim().toUpperCase()
+
+  const courseLookupKey = (value: string | null | undefined) =>
+    normalizeCode(value).replace(/-/g, '')
+
+  const inferCourseDepartmentId = (course: Course) => {
+    if (course.department_id) {
+      return normalizeCode(course.department_id)
+    }
+
+    const courseCode = courseLookupKey(course.course_id)
+    if (['ITE6', 'IT1', 'IT2'].includes(courseCode)) {
+      return 'SOICT'
+    }
+
+    return ''
+  }
+
+  const filteredCourses = registerForm.department_id
+    ? courses.filter(course => inferCourseDepartmentId(course) === normalizeCode(registerForm.department_id))
+    : []
 
   // Fetch courses and departments
   useEffect(() => {
@@ -96,6 +120,12 @@ const Register = () => {
       setError('Vui lòng chọn ngành học')
       return false
     }
+
+    const selectedCourse = courses.find(course => String(course.id) === registerForm.course_id)
+    if (!selectedCourse || inferCourseDepartmentId(selectedCourse) !== normalizeCode(registerForm.department_id)) {
+      setError('Ngành học không thuộc Khoa/Viện đã chọn')
+      return false
+    }
     
     return true
   }
@@ -135,18 +165,18 @@ const Register = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    
-    setRegisterForm({
-      ...registerForm,
-      [name]: value
-    })
-    
+
     // Reset course selection when department changes
     if (name === 'department_id') {
       setRegisterForm(prev => ({
         ...prev,
         department_id: value,
         course_id: '' // Reset course when department changes
+      }))
+    } else {
+      setRegisterForm(prev => ({
+        ...prev,
+        [name]: value
       }))
     }
     
@@ -266,14 +296,16 @@ const Register = () => {
               onChange={handleInputChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
               required
-              disabled={!registerForm.department_id}
+              disabled={!registerForm.department_id || filteredCourses.length === 0}
             >
               <option value="">
-                {registerForm.department_id 
-                  ? "-- Chọn ngành học --" 
-                  : "-- Vui lòng chọn Khoa/Viện trước --"}
+                {!registerForm.department_id
+                  ? "-- Vui lòng chọn Khoa/Viện trước --"
+                  : filteredCourses.length > 0
+                    ? "-- Chọn ngành học --"
+                    : "-- Khoa/Viện này chưa có ngành học --"}
               </option>
-              {registerForm.department_id && courses.map((course) => (
+              {filteredCourses.map((course) => (
                 <option key={course.id} value={course.id}>
                   {course.course_id} - {course.course_name}
                 </option>

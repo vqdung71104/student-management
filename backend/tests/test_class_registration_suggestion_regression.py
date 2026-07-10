@@ -698,47 +698,100 @@ def test_schedule_generator_rejects_duplicate_subject_even_with_different_source
     assert result == []
 
 
-def test_schedule_generator_selects_diverse_top_combinations():
+def test_schedule_generator_collapses_same_schedule_class_code_variants():
     generator = ScheduleCombinationGenerator()
     combinations = [
         {
             "score": 130,
             "classes": [
-                {"subject_id": "IT1000", "class_id": "IT-A"},
-                {"subject_id": "MI1000", "class_id": "MI-A"},
+                {
+                    "subject_id": "IT1000", "subject_name": "Intro IT", "class_id": "IT-A",
+                    "study_week": [1], "study_date": "Monday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
+                {
+                    "subject_id": "MI1000", "subject_name": "Math", "class_id": "MI-A",
+                    "study_week": [1], "study_date": "Tuesday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
             ],
         },
         {
             "score": 129.5,
             "classes": [
-                {"subject_id": "IT1000", "class_id": "IT-A"},
-                {"subject_id": "MI1000", "class_id": "MI-A"},
+                {
+                    "subject_id": "IT1000", "subject_name": "Intro IT", "class_id": "IT-B",
+                    "study_week": [1], "study_date": "Monday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
+                {
+                    "subject_id": "MI1000", "subject_name": "Math", "class_id": "MI-A",
+                    "study_week": [1], "study_date": "Tuesday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
             ],
         },
         {
             "score": 129,
             "classes": [
-                {"subject_id": "IT1000", "class_id": "IT-B"},
-                {"subject_id": "MI1000", "class_id": "MI-A"},
+                {
+                    "subject_id": "IT1000", "subject_name": "Intro IT", "class_id": "IT-C",
+                    "study_week": [1], "study_date": "Monday",
+                    "study_time_start": time(10, 0), "study_time_end": time(12, 0),
+                },
+                {
+                    "subject_id": "MI1000", "subject_name": "Math", "class_id": "MI-A",
+                    "study_week": [1], "study_date": "Tuesday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
             ],
         },
         {
             "score": 128.5,
             "classes": [
-                {"subject_id": "IT1000", "class_id": "IT-B"},
-                {"subject_id": "MI1000", "class_id": "MI-B"},
+                {
+                    "subject_id": "IT1000", "subject_name": "Intro IT", "class_id": "IT-A",
+                    "study_week": [1], "study_date": "Monday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
+                {
+                    "subject_id": "MI1000", "subject_name": "Math", "class_id": "MI-B",
+                    "study_week": [1], "study_date": "Tuesday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
+            ],
+        },
+        {
+            "score": 127,
+            "classes": [
+                {
+                    "subject_id": "IT1000", "subject_name": "Intro IT", "class_id": "IT-D",
+                    "study_week": [1], "study_date": "Wednesday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
+                {
+                    "subject_id": "MI1000", "subject_name": "Math", "class_id": "MI-A",
+                    "study_week": [1], "study_date": "Tuesday",
+                    "study_time_start": time(8, 0), "study_time_end": time(10, 0),
+                },
             ],
         },
     ]
 
     selected = generator.select_diverse_combinations(combinations, limit=3)
-    signatures = [generator._combination_class_signature(combo) for combo in selected]
+    signatures = [generator._combination_schedule_signature(combo) for combo in selected]
 
     assert len(selected) == 3
     assert len(set(signatures)) == 3
-    assert signatures[0] == generator._combination_class_signature(combinations[0])
-    assert signatures[1] == generator._combination_class_signature(combinations[3])
-    assert generator._combination_class_difference(selected[0], selected[1]) == 2
+    assert [combo["score"] for combo in selected] == [130, 129, 127]
+    assert selected[0]["classes"][0]["class_id"] == "IT-A"
+    assert selected[0]["equivalent_combination_count"] == 3
+    alternatives = {
+        item["class_id"]: [alt["class_id"] for alt in item["alternatives"]]
+        for item in selected[0]["equivalent_alternatives"]
+    }
+    assert alternatives["IT-A"] == ["IT-B"]
+    assert alternatives["MI-A"] == ["MI-B"]
 
 
 def test_schedule_generator_treats_missing_week_as_potential_overlap():

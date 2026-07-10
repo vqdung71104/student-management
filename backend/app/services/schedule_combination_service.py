@@ -2,7 +2,7 @@
 Schedule Combination Generator
 Generate optimal schedule combinations from multiple subjects
 """
-from typing import List, Dict, Tuple, Optional, Set
+from typing import Any, List, Dict, Tuple, Optional, Set
 from datetime import time, datetime
 import itertools
 from app.rules.class_suggestion_rules import ClassSuggestionRuleEngine
@@ -151,60 +151,138 @@ class ScheduleCombinationGenerator:
         """
         Pick high-scoring combinations while avoiding near-duplicates.
 
-        The input is expected to already be sorted by score descending. Exact
-        duplicate class sets are never returned. The selector first tries to
-        keep alternatives a few class codes apart and with visibly different
-        scores, then relaxes those preferences only if the pool is too small.
+        Combinations that only differ by class codes for the same subject with
+        the same schedule are collapsed into one representative option. The
+        representatives are then returned strictly by score descending.
         """
         if limit <= 0 or not combinations:
             return []
 
-        unique_combinations = []
-        seen_signatures: Set[Tuple[Tuple[str, str], ...]] = set()
-        for combo in combinations:
-            signature = self._combination_class_signature(combo)
-            if signature in seen_signatures:
-                continue
-            seen_signatures.add(signature)
-            unique_combinations.append(combo)
+        representatives = self.collapse_equivalent_schedule_combinations(combinations)
+        representatives.sort(key=lambda item: float(item.get('score') or 0), reverse=True)
+        return representatives[:limit]
 
-        if len(unique_combinations) == 1:
-            return unique_combinations[:limit]
+    def collapse_equivalent_schedule_combinations(self, combinations: List[Dict]) -> List[Dict]:
+        """Collapse class-code variants that keep every subject on the same schedule."""
+        grouped: Dict[Tuple[Tuple[str, Tuple[Any, ...]], ...], List[Tuple[int, Dict]]] = {}
+        for index, combo in enumerate(combinations or []):
+            signature = self._combination_schedule_signature(combo)
+            grouped.setdefault(signature, []).append((index, combo))
 
-        selected = [unique_combinations[0]]
-        selected_signatures = {self._combination_class_signature(unique_combinations[0])}
-        class_count = len(unique_combinations[0].get('classes', []) or [])
-        preferred_differences = max(1, min(preferred_min_class_differences, class_count or 1))
+        representatives: List[Dict] = []
+        for group in grouped.values():
+            representative_index, representative = sorted(
+                group,
+                key=lambda item: (-float(item[1].get('score') or 0), item[0]),
+            )[0]
+            representative_copy = dict(representative)
+            representative_copy['equivalent_alternatives'] = self._equivalent_class_alternatives(
+                representative_copy,
+                [combo for _, combo in group],
+            )
+            representative_copy['equivalent_combination_count'] = len(group)
+            representatives.append(representative_copy)
 
-        def try_fill(min_class_differences: int, score_delta: float) -> None:
-            for candidate in unique_combinations[1:]:
-                if len(selected) >= limit:
-                    return
-                signature = self._combination_class_signature(candidate)
-                if signature in selected_signatures:
+        return representatives
+
+    def _combination_schedule_signature(self, combination: Dict) -> Tuple[Tuple[str, Tuple[Any, ...]], ...]:
+        schedule_map: Dict[str, Tuple[Any, ...]] = {}
+        for index, cls in enumerate(combination.get('classes', []) or []):
+            subject_key = self._class_subject_key(cls, index)
+            if subject_key in schedule_map:
+                subject_key = f"{subject_key}#{index}"
+            schedule_map[subject_key] = self._class_schedule_signature(cls)
+        return tuple(sorted(schedule_map.items()))
+
+    def _class_subject_key(self, cls: Dict, index: int) -> str:
+        return str(
+            cls.get('subject_id')
+            or cls.get('subject_code')
+            or f"__subject_{index}"
+        ).strip().upper()
+
+    def _class_schedule_signature(self, cls: Dict) -> Tuple[Any, ...]:
+        slots = cls.get('slots')
+        if isinstance(slots, list) and slots:
+            normalized_slots = []
+            for slot in slots:
+                if not isinstance(slot, dict):
+                    normalized_slots.append(str(slot))
                     continue
-                if not self._has_min_class_difference(candidate, selected, min_class_differences):
+                normalized_slots.append((
+                    tuple(sorted(self._parse_study_days(str(slot.get('day') or slot.get('study_date') or "")))),
+                    self._format_time_key(slot.get('start') or slot.get('study_time_start')),
+                    self._format_time_key(slot.get('end') or slot.get('study_time_end')),
+                    self._format_week_key(slot.get('weeks') or slot.get('study_week')),
+                ))
+            return ('slots', tuple(sorted(normalized_slots)))
+
+        return (
+            'single',
+            tuple(sorted(self._parse_study_days(str(cls.get('study_date') or "")))),
+            self._format_time_key(cls.get('study_time_start')),
+            self._format_time_key(cls.get('study_time_end')),
+            self._format_week_key(cls.get('study_week')),
+        )
+
+    def _format_time_key(self, value: Any) -> str:
+        parsed = self._parse_time(value)
+        return parsed.strftime('%H:%M')
+
+    def _format_week_key(self, value: Any) -> Tuple[str, ...]:
+        if value is None:
+            return tuple()
+        if isinstance(value, (list, tuple, set)):
+            return tuple(sorted(str(item).strip() for item in value if str(item).strip()))
+        text = str(value).strip()
+        if not text:
+            return tuple()
+        return tuple(part.strip() for part in text.split(',') if part.strip())
+
+    def _equivalent_class_alternatives(self, representative: Dict, group: List[Dict]) -> List[Dict]:
+        representative_classes = representative.get('classes', []) or []
+        representative_by_key = {}
+        for index, cls in enumerate(representative_classes):
+            key = (self._class_subject_key(cls, index), self._class_schedule_signature(cls))
+            representative_by_key[key] = cls
+
+        alternatives_by_key: Dict[Tuple[str, Tuple[Any, ...]], Dict[str, Any]] = {}
+        for combo in group:
+            for index, cls in enumerate(combo.get('classes', []) or []):
+                key = (self._class_subject_key(cls, index), self._class_schedule_signature(cls))
+                representative_cls = representative_by_key.get(key)
+                if not representative_cls:
                     continue
-                if score_delta > 0 and not self._has_min_score_delta(candidate, selected, score_delta):
+                representative_class_id = str(representative_cls.get('class_id') or representative_cls.get('id') or "").strip()
+                alternative_class_id = str(cls.get('class_id') or cls.get('id') or "").strip()
+                if not alternative_class_id or alternative_class_id == representative_class_id:
                     continue
-                selected.append(candidate)
-                selected_signatures.add(signature)
 
-        try_fill(preferred_differences, min_score_delta)
-        try_fill(preferred_differences, 0)
-        try_fill(1, min_score_delta)
-        try_fill(1, 0)
+                entry = alternatives_by_key.setdefault(
+                    key,
+                    {
+                        'subject_id': representative_cls.get('subject_id') or representative_cls.get('subject_code') or "",
+                        'subject_name': representative_cls.get('subject_name') or representative_cls.get('class_name') or "",
+                        'class_id': representative_class_id,
+                        'alternatives': {},
+                    },
+                )
+                entry['alternatives'][alternative_class_id] = {
+                    'class_id': alternative_class_id,
+                    'class_name': cls.get('class_name') or "",
+                    'classroom': cls.get('classroom') or "",
+                    'teacher_name': cls.get('teacher_name') or "",
+                }
 
-        if len(selected) < limit:
-            for candidate in unique_combinations[1:]:
-                if len(selected) >= limit:
-                    break
-                signature = self._combination_class_signature(candidate)
-                if signature not in selected_signatures:
-                    selected.append(candidate)
-                    selected_signatures.add(signature)
-
-        return selected[:limit]
+        compacted = []
+        for entry in alternatives_by_key.values():
+            alternatives = sorted(entry['alternatives'].values(), key=lambda item: item.get('class_id') or "")
+            if alternatives:
+                compacted.append({
+                    **entry,
+                    'alternatives': alternatives,
+                })
+        return compacted
 
     def _combination_class_signature(self, combination: Dict) -> Tuple[Tuple[str, str], ...]:
         class_map = self._combination_class_map(combination)

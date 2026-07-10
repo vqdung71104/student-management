@@ -3205,6 +3205,36 @@ class ChatbotService:
             reasons.append("Phương án này sử dụng trực tiếp kết quả xếp hạng và các tiêu chí bạn đã cung cấp.")
         return self._compact_repeated_subject_reasoning(reasons)
 
+    def _build_equivalent_class_alternative_reasoning(
+        self,
+        equivalent_alternatives: List[Dict[str, Any]],
+    ) -> List[str]:
+        reasons: List[str] = []
+        for item in equivalent_alternatives or []:
+            class_id = str(item.get("class_id") or "").strip()
+            alternatives = [
+                str(alt.get("class_id") or "").strip()
+                for alt in item.get("alternatives", []) or []
+                if str(alt.get("class_id") or "").strip()
+            ]
+            if not class_id or not alternatives:
+                continue
+            subject_id = str(item.get("subject_id") or "").strip()
+            subject_name = str(item.get("subject_name") or "").strip()
+            subject_label = " - ".join(part for part in (subject_id, subject_name) if part)
+            alternative_text = self._format_vietnamese_join(alternatives)
+            if subject_label:
+                reasons.append(
+                    f"{subject_label}: có thể chọn lớp {alternative_text} thay cho lớp {class_id} "
+                    "vì cùng học phần và lịch học giống hệt nhau."
+                )
+            else:
+                reasons.append(
+                    f"Có thể chọn lớp {alternative_text} thay cho lớp {class_id} "
+                    "vì cùng học phần và lịch học giống hệt nhau."
+                )
+        return reasons
+
     def _format_day_session_constraint(self, item: Any) -> str:
         if hasattr(item, 'model_dump'):
             item = item.model_dump()
@@ -4601,6 +4631,11 @@ class ChatbotService:
                     classes_by_subject=classes_by_subject,
                     nlq_constraints_dict=nlq_constraints_dict,
                 )
+                combo_reasons.extend(
+                    self._build_equivalent_class_alternative_reasoning(
+                        combo.get('equivalent_alternatives', [])
+                    )
+                )
                 
                 formatted_combinations.append({
                     "combination_id": idx,
@@ -4609,6 +4644,7 @@ class ChatbotService:
                     "classes": formatted_classes,
                     "metrics": combo['metrics'],
                     "reasoning": combo_reasons,
+                    "equivalent_alternatives": combo.get('equivalent_alternatives', []),
                 })
             
             # Format response text with combinations

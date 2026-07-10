@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from sqlalchemy.orm import Session
 from app.db.database import get_db
-from app.models.__init__ import Student, Admin
+from app.models.__init__ import Student, Admin, Course
 from app.utils.jwt_utils import create_access_token, get_current_student, get_current_user
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime
@@ -40,6 +40,25 @@ class LoginResponse(BaseModel):
     message: str
     access_token: str
     token_type: str
+
+
+def _normalize_code(value) -> str:
+    return str(value or "").strip().upper()
+
+
+def _course_lookup_key(value) -> str:
+    return _normalize_code(value).replace("-", "")
+
+
+def _infer_course_department_id(course: Course) -> str:
+    explicit_department_id = getattr(course, "department_id", None)
+    if explicit_department_id:
+        return _normalize_code(explicit_department_id)
+
+    if _course_lookup_key(course.course_id) in {"ITE6", "IT1", "IT2"}:
+        return "SOICT"
+
+    return ""
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -181,6 +200,13 @@ def register(request: RegisterRequest, response: Response, db: Session = Depends
     if existing_student:
         raise HTTPException(status_code=400, detail="Email đã được sử dụng")
     
+    selected_course = db.query(Course).filter(Course.id == request.course_id).first()
+    if not selected_course:
+        raise HTTPException(status_code=400, detail="Ngành học không tồn tại")
+
+    if _infer_course_department_id(selected_course) != _normalize_code(request.department_id):
+        raise HTTPException(status_code=400, detail="Ngành học không thuộc Khoa/Viện đã chọn")
+
     # Hash password
     hashed_password = hash_password(request.password)
     
