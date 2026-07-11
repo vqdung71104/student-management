@@ -196,7 +196,7 @@ const Register = () => {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">ĐĂNG KÝ TÀI KHOẢN</h1>
-          <p className="text-gray-600 text-sm">Hệ thống quản lý học tập</p>
+          <p className="text-gray-600 text-sm">Hệ thống gợi ý đăng ký học tập</p>
         </div>
 
         <form onSubmit={handleRegister} className="space-y-4">

@@ -50,7 +50,7 @@ const Login = () => {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">STUDENT PORTAL</h1>
-          <p className="text-gray-600">Hệ thống quản lý học tập</p>
+          <p className="text-gray-600">Hệ thống gợi ý đăng ký học tập</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
