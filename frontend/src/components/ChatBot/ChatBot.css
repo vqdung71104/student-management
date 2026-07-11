@@ -1988,6 +1988,7 @@
   .student-chatbot-shell .chatbot-container {
     height: 100% !important;
     border-radius: inherit;
+    position: relative;
   }
 
   .student-chatbot-shell .chatbot-header {
@@ -2058,8 +2059,8 @@
   }
 
   .student-chatbot-shell .chatbot-messages {
-    padding: 0.85rem 0.65rem 1.25rem;
-    scroll-padding-bottom: 1.25rem;
+    padding: 0.85rem 0.65rem calc(8rem + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(8rem + env(safe-area-inset-bottom));
   }
 
   .student-chatbot-shell .message-content {
@@ -2132,9 +2133,15 @@
   }
 
   .student-chatbot-shell .chatbot-input {
+    position: fixed !important;
+    left: 0;
+    right: 0;
+    bottom: var(--chatbot-mobile-keyboard-inset, 0px);
+    z-index: 80;
     gap: 0.55rem;
     min-height: auto;
     padding: 0.75rem 0.65rem calc(1rem + env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 24px rgba(15, 23, 42, 0.12);
   }
 
   .student-chatbot-shell .chatbot-input textarea {

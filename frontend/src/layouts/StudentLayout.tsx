@@ -41,6 +41,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [mobileChatViewport, setMobileChatViewport] = useState({
     top: 0,
     height: 0,
+    keyboardInset: 0,
   })
   const chatbotResizeStartRef = useRef<{
     x: number
@@ -236,8 +237,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   useEffect(() => {
     if (!chatbotOpen || !isMobileViewport()) {
       document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
+      document.documentElement.style.overflow = ''
       return
     }
 
@@ -245,17 +245,18 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       const visualViewport = window.visualViewport
       const height = Math.floor(visualViewport?.height ?? window.innerHeight)
       const top = Math.max(0, Math.floor(visualViewport?.offsetTop ?? 0))
+      const keyboardInset = Math.max(0, Math.floor(window.innerHeight - height - top))
 
       setMobileChatViewport({
         top,
         height,
+        keyboardInset,
       })
     }
 
     syncMobileChatViewport()
     document.body.style.overflow = 'hidden'
-    document.body.style.position = 'fixed'
-    document.body.style.width = '100%'
+    document.documentElement.style.overflow = 'hidden'
 
     window.visualViewport?.addEventListener('resize', syncMobileChatViewport)
     window.visualViewport?.addEventListener('scroll', syncMobileChatViewport)
@@ -268,8 +269,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
       window.removeEventListener('resize', syncMobileChatViewport)
       window.removeEventListener('orientationchange', syncMobileChatViewport)
       document.body.style.overflow = ''
-      document.body.style.position = ''
-      document.body.style.width = ''
+      document.documentElement.style.overflow = ''
     }
   }, [chatbotOpen])
 
@@ -722,6 +722,7 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
                   bottom: 'auto',
                   width: '100vw',
                   height: mobileChatViewport.height ? `${mobileChatViewport.height}px` : '100dvh',
+                  '--chatbot-mobile-keyboard-inset': `${mobileChatViewport.keyboardInset}px`,
                 }
               : chatbotFullscreen
               ? {}
