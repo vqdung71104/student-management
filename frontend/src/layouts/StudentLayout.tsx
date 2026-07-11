@@ -38,6 +38,10 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   const [chatbotZoom, setChatbotZoom] = useState(1)
   const [chatbotFullscreen, setChatbotFullscreen] = useState(false)
   const [isResizingChatbot, setIsResizingChatbot] = useState(false)
+  const [mobileChatViewport, setMobileChatViewport] = useState({
+    top: 0,
+    height: 0,
+  })
   const chatbotResizeStartRef = useRef<{
     x: number
     y: number
@@ -228,6 +232,46 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     window.addEventListener('resize', syncWidthToViewport)
     return () => window.removeEventListener('resize', syncWidthToViewport)
   }, [])
+
+  useEffect(() => {
+    if (!chatbotOpen || !isMobileViewport()) {
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+      return
+    }
+
+    const syncMobileChatViewport = () => {
+      const visualViewport = window.visualViewport
+      const height = Math.floor(visualViewport?.height ?? window.innerHeight)
+      const top = Math.max(0, Math.floor(visualViewport?.offsetTop ?? 0))
+
+      setMobileChatViewport({
+        top,
+        height,
+      })
+    }
+
+    syncMobileChatViewport()
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.width = '100%'
+
+    window.visualViewport?.addEventListener('resize', syncMobileChatViewport)
+    window.visualViewport?.addEventListener('scroll', syncMobileChatViewport)
+    window.addEventListener('resize', syncMobileChatViewport)
+    window.addEventListener('orientationchange', syncMobileChatViewport)
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', syncMobileChatViewport)
+      window.visualViewport?.removeEventListener('scroll', syncMobileChatViewport)
+      window.removeEventListener('resize', syncMobileChatViewport)
+      window.removeEventListener('orientationchange', syncMobileChatViewport)
+      document.body.style.overflow = ''
+      document.body.style.position = ''
+      document.body.style.width = ''
+    }
+  }, [chatbotOpen])
 
   const mobileChatMode = isMobileViewport()
 
@@ -670,7 +714,16 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
               : 'right-6 rounded-lg',
           ].join(' ')}
           style={{
-            ...(chatbotFullscreen
+            ...(mobileChatMode
+              ? {
+                  top: `${mobileChatViewport.top}px`,
+                  left: 0,
+                  right: 0,
+                  bottom: 'auto',
+                  width: '100vw',
+                  height: mobileChatViewport.height ? `${mobileChatViewport.height}px` : '100dvh',
+                }
+              : chatbotFullscreen
               ? {}
               : {
                   width: `${chatbotWidth}px`,
@@ -682,12 +735,18 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
         >
           <div
             className="chatbot-zoom-surface"
-            style={{
-              width: `${100 / chatbotZoom}%`,
-              height: `${100 / chatbotZoom}%`,
-              transform: `scale(${chatbotZoom})`,
-              transformOrigin: 'top left',
-            }}
+            style={mobileChatMode
+              ? {
+                  width: '100%',
+                  height: '100%',
+                  transform: 'none',
+                }
+              : {
+                  width: `${100 / chatbotZoom}%`,
+                  height: `${100 / chatbotZoom}%`,
+                  transform: `scale(${chatbotZoom})`,
+                  transformOrigin: 'top left',
+                }}
           >
             <ChatBot />
           </div>
