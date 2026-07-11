@@ -1960,14 +1960,12 @@
 
 @media (max-width: 640px) {
   .student-chatbot-shell {
-    left: 0.5rem !important;
-    right: 0.5rem !important;
-    bottom: 4.75rem !important;
-    width: calc(100vw - 1rem) !important;
-    height: min(82dvh, calc(100dvh - 5.5rem)) !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
     min-width: 0 !important;
     max-width: none !important;
-    border-radius: 18px !important;
+    border-radius: 0 !important;
   }
 
   .student-chatbot-shell.inset-0 {
@@ -1994,19 +1992,20 @@
 
   .student-chatbot-shell .chatbot-header {
     min-height: auto;
-    padding: 0.75rem 0.85rem;
+    padding: 0.85rem;
   }
 
   .student-chatbot-shell .header-content {
-    align-items: flex-start;
+    align-items: center;
     flex-wrap: wrap;
     gap: 0.6rem;
+    padding-right: 3rem;
   }
 
   .student-chatbot-shell .bot-avatar {
-    width: 2rem;
-    height: 2rem;
-    font-size: 1rem;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
   }
 
   .student-chatbot-shell .header-info {
@@ -2014,17 +2013,18 @@
   }
 
   .student-chatbot-shell .header-info h3 {
-    font-size: 0.95rem;
-    line-height: 1.2;
+    font-size: 16px;
+    line-height: 1.25;
   }
 
   .student-chatbot-shell .status {
-    font-size: 0.72rem;
+    font-size: 12px;
   }
 
   .student-chatbot-shell .conversation-controls {
     order: 3;
     width: 100%;
+    margin-left: 0;
     padding-right: 0;
     flex-direction: row;
     flex-wrap: nowrap;
@@ -2134,6 +2134,7 @@
     gap: 0.55rem;
     min-height: auto;
     padding: 0.65rem;
+    padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
   }
 
   .student-chatbot-shell .chatbot-input textarea {

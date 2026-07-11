@@ -59,6 +59,10 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     setShowLogoutConfirm(false)
   }
 
+  const isMobileViewport = () => {
+    return typeof window !== 'undefined' && window.innerWidth <= 640
+  }
+
   const navigateTo = (path: string) => {
     navigate(path)
     setStudyMenuOpen(false)
@@ -70,8 +74,16 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     setChatbotOpen((prev) => {
       if (prev) {
         setChatbotFullscreen(false)
+        setChatbotZoom(1)
+        return false
       }
-      return !prev
+
+      if (isMobileViewport()) {
+        setChatbotFullscreen(true)
+        setChatbotZoom(1)
+      }
+
+      return true
     })
   }
 
@@ -120,11 +132,18 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
   }
 
   const handleChatbotFullscreenToggle = () => {
+    if (isMobileViewport()) {
+      setChatbotOpen(false)
+      setChatbotFullscreen(false)
+      setChatbotZoom(1)
+      return
+    }
+
     setChatbotFullscreen((prev) => !prev)
   }
 
   const handleChatbotWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (!event.ctrlKey) {
+    if (!event.ctrlKey || isMobileViewport()) {
       return
     }
 
@@ -209,6 +228,8 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
     window.addEventListener('resize', syncWidthToViewport)
     return () => window.removeEventListener('resize', syncWidthToViewport)
   }, [])
+
+  const mobileChatMode = isMobileViewport()
 
   return (
     <div className="student-layout min-h-screen w-screen flex flex-col bg-gray-50 overflow-x-hidden">
@@ -691,10 +712,14 @@ const StudentLayout = ({ children }: StudentLayoutProps) => {
           <button
             onClick={handleChatbotFullscreenToggle}
             className="absolute top-4 right-4 bg-white/90 hover:bg-white text-gray-700 hover:text-blue-700 rounded-full p-2 shadow-lg hover:shadow-xl transition-all duration-200 z-30"
-            aria-label={chatbotFullscreen ? 'Thu nhỏ chatbot' : 'Phóng to chatbot'}
-            title={chatbotFullscreen ? 'Thu nhỏ chatbot' : 'Phóng to chatbot'}
+            aria-label={mobileChatMode ? 'Đóng chatbot' : chatbotFullscreen ? 'Thu nhỏ chatbot' : 'Phóng to chatbot'}
+            title={mobileChatMode ? 'Đóng chatbot' : chatbotFullscreen ? 'Thu nhỏ chatbot' : 'Phóng to chatbot'}
           >
-            {chatbotFullscreen ? (
+            {mobileChatMode ? (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : chatbotFullscreen ? (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5" />
               </svg>
